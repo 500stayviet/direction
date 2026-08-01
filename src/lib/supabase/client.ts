@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+import { loadAppAuth } from "./appAuth";
 
 let browserClient: SupabaseClient | null = null;
 
@@ -22,8 +23,18 @@ export function createClient() {
           autoRefreshToken: true,
           detectSessionInUrl: true,
           storage: window.localStorage,
-          // password 로그인 세션 주입과 충돌하는 pkce 는 사용하지 않음
           flowType: "implicit",
+        },
+        global: {
+          // Supabase 내부 세션이 비어도, 앱이 저장한 토큰으로 API 호출
+          fetch: (input, init = {}) => {
+            const headers = new Headers(init.headers ?? {});
+            const appAuth = loadAppAuth();
+            if (appAuth?.access_token && !headers.has("Authorization")) {
+              headers.set("Authorization", `Bearer ${appAuth.access_token}`);
+            }
+            return fetch(input, { ...init, headers });
+          },
         },
       });
     }
@@ -36,4 +47,9 @@ export function createClient() {
       autoRefreshToken: false,
     },
   });
+}
+
+/** 로그인 직후 등 클라이언트 싱글톤 재생성 */
+export function resetBrowserClient(): void {
+  browserClient = null;
 }

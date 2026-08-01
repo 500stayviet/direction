@@ -1,8 +1,9 @@
 "use client";
 
 import type { User } from "./types";
-import { createClient } from "./supabase/client";
+import { createClient, resetBrowserClient } from "./supabase/client";
 import { normalizeUsername } from "./supabase/email";
+import { clearAppAuth, loadAppAuth, saveAppAuth } from "./supabase/appAuth";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
 const LEGACY_SHARED_KEYS = [
@@ -27,6 +28,7 @@ function canUseStorage(): boolean {
  */
 export function clearAuthRuntimeCache(): void {
   cachedUser = null;
+  clearAppAuth();
   if (typeof window === "undefined") return;
   try {
     sessionStorage.clear();
@@ -37,13 +39,20 @@ export function clearAuthRuntimeCache(): void {
   for (const k of LEGACY_SHARED_KEYS) {
     localStorage.removeItem(k);
   }
-  // 계정별 예전 로컬 데이터 키 정리
+  // 계정별 예전 로컬 데이터 키 + supabase auth 토큰 정리
   const toRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key?.startsWith("realty_u_")) toRemove.push(key);
+    if (
+      key?.startsWith("realty_u_") ||
+      key?.startsWith("sb-") ||
+      key?.includes("auth-token")
+    ) {
+      toRemove.push(key);
+    }
   }
   for (const key of toRemove) localStorage.removeItem(key);
+  resetBrowserClient();
 }
 
 /** 세션·화면 상태를 완전히 비우기 위해 홈으로 하드 이동 */
@@ -90,9 +99,21 @@ export function getCachedUser(): User | null {
 }
 
 export async function getSessionUserId(): Promise<string | null> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user?.id ?? null;
+  const fromApp = loadAppAuth()?.user.id ?? cachedUser?.id ?? null;
+  if (fromApp) return fromApp;
+  try {
+    const supabase = createClient();
+    const { data } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<{ data: { session: null } }>((resolve) =>
+        window.setTimeout(() => resolve({ data: { session: null } }), 2000)
+      ),
+    ]);
+    if (data.session?.user?.id) return data.session.user.id;
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 function userFromAuthSession(authUser: {
@@ -117,32 +138,58 @@ function userFromAuthSession(authUser: {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  // 하드 리로드 후에도 바로 로그인 유지 — supabase 세션보다 앱 백업을 우선
+  const appAuth = loadAppAuth();
+  if (appAuth?.user) {
+    cachedUser = appAuth.user;
+    try {
+      const supabase = createClient();
+      void supabase.auth
+        .setSession({
+          access_token: appAuth.access_token,
+          refresh_token: appAuth.refresh_token,
+        })
+        .then(() => undefined);
+    } catch {
+      /* anon 키 문제여도 화면 로그인 상태는 유지 */
+    }
+    return cachedUser;
+  }
+
   try {
     const supabase = createClient();
     const {
       data: { session },
-    } = await supabase.auth.getSession();
-    if (!session?.user) {
-      cachedUser = null;
-      return null;
-    }
+    } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<{ data: { session: null } }>((resolve) =>
+        window.setTimeout(() => resolve({ data: { session: null } }), 2000)
+      ),
+    ]);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, username, shop_name, display_name, phone, password_hint, created_at"
-      )
-      .eq("id", session.user.id)
-      .maybeSingle();
+    if (session?.user) {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "id, username, shop_name, display_name, phone, password_hint, created_at"
+          )
+          .eq("id", session.user.id)
+          .maybeSingle();
 
-    if (!error && data) {
-      cachedUser = rowToUser(data);
+        if (!error && data) {
+          cachedUser = rowToUser(data);
+          return cachedUser;
+        }
+      } catch {
+        /* 프로필 조회 실패 시 메타데이터로 표시 */
+      }
+      cachedUser = userFromAuthSession(session.user);
       return cachedUser;
     }
 
-    // profiles 권한/행 없을 때 Auth 메타데이터로 로그인 유지
-    cachedUser = userFromAuthSession(session.user);
-    return cachedUser;
+    cachedUser = null;
+    return null;
   } catch {
     cachedUser = null;
     return null;
@@ -235,63 +282,53 @@ export async function loginUser(
       };
     }
 
+    // 이전 계정 잔여 토큰만 지우고, 새 앱 세션을 먼저 저장
+    cachedUser = null;
+    if (canUseStorage()) {
+      for (const k of LEGACY_SHARED_KEYS) localStorage.removeItem(k);
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key?.startsWith("sb-") ||
+          key?.includes("auth-token")
+        ) {
+          toRemove.push(key);
+        }
+      }
+      for (const key of toRemove) localStorage.removeItem(key);
+    }
+    resetBrowserClient();
+
+    // 앱 세션 백업 — 홈 새로고침 후에도 로그인 유지의 핵심
+    saveAppAuth(body.session, body.user);
     cachedUser = body.user;
 
-    // 세션 저장은 최대 4초 — 멈춰 보이지 않게
-    const supabase = createClient();
     try {
+      const supabase = createClient();
       await Promise.race([
         supabase.auth.setSession({
           access_token: body.session.access_token,
           refresh_token: body.session.refresh_token,
         }),
         new Promise<never>((_, reject) =>
-          window.setTimeout(() => reject(new Error("session-timeout")), 4000)
+          window.setTimeout(() => reject(new Error("session-timeout")), 2500)
         ),
       ]);
+      void supabase
+        .from("profiles")
+        .upsert({
+          id: body.user.id,
+          username: body.user.username,
+          shop_name: body.user.shopName,
+          display_name: body.user.name,
+          phone: body.user.phone,
+          password_hint: body.user.passwordHint,
+        })
+        .then(() => undefined);
     } catch {
-      try {
-        const ref = new URL(
-          process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
-        ).hostname.split(".")[0];
-        const storageKey = `sb-${ref}-auth-token`;
-        window.localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            access_token: body.session.access_token,
-            refresh_token: body.session.refresh_token,
-            token_type: "bearer",
-            expires_in: 3600,
-            expires_at: Math.floor(Date.now() / 1000) + 3600,
-            user: {
-              id: body.user.id,
-              user_metadata: {
-                username: body.user.username,
-                shop_name: body.user.shopName,
-                display_name: body.user.name,
-                phone: body.user.phone,
-                password_hint: body.user.passwordHint,
-              },
-            },
-          })
-        );
-      } catch {
-        /* 캐시 유저만으로도 홈 진입 가능 */
-      }
+      /* appAuth 백업으로 충분 — 홈에서 로그인 상태로 표시됨 */
     }
-
-    // 프로필 동기화는 백그라운드 (로그인 대기 막지 않음)
-    void supabase
-      .from("profiles")
-      .upsert({
-        id: body.user.id,
-        username: body.user.username,
-        shop_name: body.user.shopName,
-        display_name: body.user.name,
-        phone: body.user.phone,
-        password_hint: body.user.passwordHint,
-      })
-      .then(() => undefined);
 
     return { ok: true, user: body.user };
   } catch (e) {

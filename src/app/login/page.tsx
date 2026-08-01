@@ -11,7 +11,6 @@ import {
   loginUser,
   resetPasswordWithHint,
 } from "@/lib/auth";
-import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
 
 export default function LoginPage() {
@@ -66,15 +65,10 @@ function LoginPageInner() {
         setError(result.message);
         return;
       }
-      try {
-        await seedDemoDataIfNeeded();
-      } catch {
-        /* 데모 시드 실패해도 로그인은 진행 */
-      }
+      // 세션 백업 저장 후 홈으로 (데모 시드는 홈에서 처리)
       hardRedirectHome();
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인 중 오류가 났습니다.");
-    } finally {
       setLoading(false);
     }
   };
