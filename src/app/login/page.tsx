@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { BrandIcon } from "@/components/BrandIcon";
@@ -14,11 +15,36 @@ import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-[calc(100dvh-5.5rem)] items-center justify-center text-sm text-gray-400">
+          불러오는 중...
+        </main>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const registered = searchParams.get("registered") === "1";
+    const preset = searchParams.get("username")?.trim() ?? "";
+    if (preset) setUsername(preset);
+    if (registered) {
+      setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
+    }
+  }, [searchParams]);
 
   const [findOpen, setFindOpen] = useState(false);
   const [findUsername, setFindUsername] = useState("");
@@ -32,6 +58,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
     try {
       const result = await loginUser(username, password);
@@ -153,6 +180,11 @@ export default function LoginPage() {
             </button>
           </div>
 
+          {success && (
+            <p className="rounded-xl bg-blue-50 px-3 py-2.5 text-[13px] font-semibold text-[#3182F6]">
+              {success}
+            </p>
+          )}
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2.5 text-[13px] font-semibold text-red-600">
               {error}

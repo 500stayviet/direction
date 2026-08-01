@@ -7,8 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BrandIcon } from "@/components/BrandIcon";
-import { hardRedirectHome, registerUser } from "@/lib/auth";
-import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
+import { hardRedirectLogin, registerUser } from "@/lib/auth";
 
 export default function SignupPage() {
   const [shopName, setShopName] = useState("");
@@ -45,8 +44,10 @@ export default function SignupPage() {
         setError(result.message);
         return;
       }
-      await seedDemoDataIfNeeded();
-      hardRedirectHome();
+      hardRedirectLogin({
+        registered: true,
+        username: result.user.username,
+      });
     } finally {
       setLoading(false);
     }
