@@ -14,7 +14,6 @@ export function createClient() {
     );
   }
 
-  // 브라우저에서는 싱글톤 + localStorage 세션 (모바일 PWA에 안정적)
   if (typeof window !== "undefined") {
     if (!browserClient) {
       browserClient = createSupabaseClient(url, anonKey, {
@@ -23,7 +22,8 @@ export function createClient() {
           autoRefreshToken: true,
           detectSessionInUrl: true,
           storage: window.localStorage,
-          flowType: "pkce",
+          // password 로그인 세션 주입과 충돌하는 pkce 는 사용하지 않음
+          flowType: "implicit",
         },
       });
     }

@@ -236,15 +236,43 @@ export async function loginUser(
     }
 
     const supabase = createClient();
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: body.session.access_token,
-      refresh_token: body.session.refresh_token,
-    });
-    if (sessionError) {
-      return {
-        ok: false,
-        message: `세션 저장 실패: ${sessionError.message}`,
-      };
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.setSession({
+        access_token: body.session.access_token,
+        refresh_token: body.session.refresh_token,
+      });
+
+    if (sessionError || !sessionData.session) {
+      // setSession 실패 시 storage에 직접 기록 (anon 키 불일치 등)
+      try {
+        const ref = new URL(
+          process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
+        ).hostname.split(".")[0];
+        const storageKey = `sb-${ref}-auth-token`;
+        const payload = {
+          access_token: body.session.access_token,
+          refresh_token: body.session.refresh_token,
+          token_type: "bearer",
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: {
+            id: body.user.id,
+            user_metadata: {
+              username: body.user.username,
+              shop_name: body.user.shopName,
+              display_name: body.user.name,
+              phone: body.user.phone,
+              password_hint: body.user.passwordHint,
+            },
+          },
+        };
+        window.localStorage.setItem(storageKey, JSON.stringify(payload));
+      } catch {
+        return {
+          ok: false,
+          message: `세션 저장 실패: ${sessionError?.message ?? "unknown"}`,
+        };
+      }
     }
 
     cachedUser = body.user;

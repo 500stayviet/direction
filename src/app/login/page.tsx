@@ -66,8 +66,14 @@ function LoginPageInner() {
         setError(result.message);
         return;
       }
-      await seedDemoDataIfNeeded();
+      try {
+        await seedDemoDataIfNeeded();
+      } catch {
+        /* 데모 시드 실패해도 로그인은 진행 */
+      }
       hardRedirectHome();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인 중 오류가 났습니다.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +94,9 @@ function LoginPageInner() {
     setFindError("");
     setFindSuccess(false);
 
-    if (newPassword !== newPasswordConfirm) {
+    const nextPassword = newPassword.normalize("NFKC").trim();
+    const nextConfirm = newPasswordConfirm.normalize("NFKC").trim();
+    if (nextPassword !== nextConfirm) {
       setFindError("새 비밀번호 확인이 일치하지 않습니다.");
       return;
     }
@@ -98,16 +106,31 @@ function LoginPageInner() {
       const result = await resetPasswordWithHint(
         findUsername,
         findHint,
-        newPassword
+        nextPassword
       );
       if (!result.ok) {
         setFindError(result.message);
         return;
       }
-      setFindSuccess(true);
       setUsername(findUsername.trim());
-      setPassword(newPassword);
+      setPassword(nextPassword);
       setShowPassword(true);
+
+      // 힌트로 비밀번호를 바꿨으면 바로 로그인까지 진행
+      const loggedIn = await loginUser(findUsername, nextPassword);
+      if (!loggedIn.ok) {
+        setFindSuccess(true);
+        setFindError(
+          `비밀번호는 변경되었습니다. 로그인 칸에서 다시 시도해 주세요. (${loggedIn.message})`
+        );
+        return;
+      }
+      try {
+        await seedDemoDataIfNeeded();
+      } catch {
+        /* ignore */
+      }
+      hardRedirectHome();
     } finally {
       setFindLoading(false);
     }
