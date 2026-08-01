@@ -71,32 +71,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1) profiles 테이블 (권한이 있을 때)
+    // profiles + Auth 메타데이터 둘 다 확인 (가입 시 힌트 불일치 방지)
     const { data: profile } = await admin
       .from("profiles")
       .select("id, password_hint")
       .eq("username", username)
       .maybeSingle();
 
-    let userId = profile?.id as string | undefined;
-    let passwordHint = profile?.password_hint as string | undefined;
-
-    // 2) 없으면 Auth 메타데이터에서 찾기
+    const authUser = await findAuthUserByUsername(admin, username);
+    const userId = (profile?.id as string | undefined) ?? authUser?.id;
     if (!userId) {
-      const authUser = await findAuthUserByUsername(admin, username);
-      if (!authUser) {
-        return NextResponse.json(
-          { ok: false, message: "아이디를 찾을 수 없습니다." },
-          { status: 404 }
-        );
-      }
-      userId = authUser.id;
-      passwordHint = String(authUser.user_metadata?.password_hint ?? "");
+      return NextResponse.json(
+        { ok: false, message: "아이디를 찾을 수 없습니다." },
+        { status: 404 }
+      );
     }
 
-    if (passwordHint !== hint) {
+    const hints = [
+      String(profile?.password_hint ?? "").trim(),
+      String(authUser?.user_metadata?.password_hint ?? "").trim(),
+    ].filter(Boolean);
+
+    const hintOk = hints.some((h) => h === hint);
+    if (!hintOk) {
       return NextResponse.json(
-        { ok: false, message: "비밀번호 힌트가 일치하지 않습니다." },
+        {
+          ok: false,
+          message:
+            "비밀번호 힌트가 일치하지 않습니다. 가입할 때 입력한 힌트 그대로 입력해 주세요. (비밀번호와 다를 수 있습니다)",
+        },
         { status: 403 }
       );
     }

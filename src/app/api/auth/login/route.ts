@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
 
 export async function POST(request: Request) {
@@ -19,20 +19,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anonKey) {
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch {
       return NextResponse.json(
-        { ok: false, message: "서버 Supabase 설정이 없습니다." },
+        {
+          ok: false,
+          message:
+            "서버 설정이 없습니다. Vercel에 SUPABASE_SERVICE_ROLE_KEY 를 확인해 주세요.",
+        },
         { status: 503 }
       );
     }
 
-    const supabase = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // service_role로 서버 인증 (Vercel anon 키 불일치 시에도 동작)
+    const { data, error } = await admin.auth.signInWithPassword({
       email: usernameToEmail(username),
       password,
     });
