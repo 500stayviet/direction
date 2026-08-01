@@ -116,7 +116,8 @@ export function buildPropertyShareText(
   }
   lines.push(agentName ? `담당 ${agentName}` : "담당");
   lines.push(agentPhone ? agentPhone : "전화번호");
-  lines.push("제공 앱 현장동선");
+  lines.push("-제공-");
+  lines.push("앱 현장동선");
 
   return lines.join("\n").trim();
 }
