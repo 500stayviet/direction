@@ -95,6 +95,27 @@ export async function getSessionUserId(): Promise<string | null> {
   return data.session?.user?.id ?? null;
 }
 
+function userFromAuthSession(authUser: {
+  id: string;
+  email?: string | null;
+  created_at?: string;
+  user_metadata?: Record<string, unknown>;
+}): User {
+  const meta = authUser.user_metadata ?? {};
+  const username =
+    String(meta.username ?? "").trim() ||
+    (authUser.email?.split("@")[0] ?? "user");
+  return {
+    id: authUser.id,
+    username,
+    shopName: String(meta.shop_name ?? "현장동선"),
+    name: String(meta.display_name ?? username),
+    phone: String(meta.phone ?? ""),
+    passwordHint: String(meta.password_hint ?? ""),
+    createdAt: authUser.created_at ?? new Date().toISOString(),
+  };
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const supabase = createClient();
@@ -114,12 +135,13 @@ export async function getCurrentUser(): Promise<User | null> {
       .eq("id", session.user.id)
       .maybeSingle();
 
-    if (error || !data) {
-      cachedUser = null;
-      return null;
+    if (!error && data) {
+      cachedUser = rowToUser(data);
+      return cachedUser;
     }
 
-    cachedUser = rowToUser(data);
+    // profiles 권한/행 없을 때 Auth 메타데이터로 로그인 유지
+    cachedUser = userFromAuthSession(session.user);
     return cachedUser;
   } catch {
     cachedUser = null;

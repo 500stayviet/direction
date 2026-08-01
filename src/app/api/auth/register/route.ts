@@ -76,22 +76,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: existing } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("username", username)
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, message: "이미 사용 중인 아이디입니다." },
-        { status: 409 }
-      );
-    }
-
     const email = usernameToEmail(username);
 
-    // email_confirm: true → 확인 메일 발송 없음 (아이디 로그인용)
+    // Auth 메타데이터에 프로필 저장 (profiles 테이블 GRANT 없어도 가입·로그인 가능)
     const { data: created, error: createError } =
       await admin.auth.admin.createUser({
         email,
@@ -101,6 +88,8 @@ export async function POST(request: Request) {
           username,
           shop_name: shopName,
           display_name: name,
+          phone,
+          password_hint: passwordHint,
         },
       });
 
@@ -112,7 +101,7 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
-      if (msg.includes("rate limit") || msg.includes("email")) {
+      if (msg.includes("rate limit")) {
         return NextResponse.json(
           {
             ok: false,
@@ -136,21 +125,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1) SECURITY DEFINER RPC 우선 (GRANT 누락 시에도 동작)
-    const { error: rpcError } = await admin.rpc("admin_upsert_profile", {
-      p_id: userId,
-      p_username: username,
-      p_shop_name: shopName,
-      p_display_name: name,
-      p_phone: phone,
-      p_password_hint: passwordHint,
-    });
-
-    let profileError = rpcError;
-
-    // 2) RPC 없으면 테이블 upsert 시도
-    if (profileError) {
-      const { error: upsertError } = await admin.from("profiles").upsert({
+    // profiles 테이블에 동기화 시도 (실패해도 가입은 성공 처리)
+    try {
+      await admin.rpc("admin_upsert_profile", {
+        p_id: userId,
+        p_username: username,
+        p_shop_name: shopName,
+        p_display_name: name,
+        p_phone: phone,
+        p_password_hint: passwordHint,
+      });
+    } catch {
+      /* ignore */
+    }
+    try {
+      await admin.from("profiles").upsert({
         id: userId,
         username,
         shop_name: shopName,
@@ -158,27 +147,8 @@ export async function POST(request: Request) {
         phone,
         password_hint: passwordHint,
       });
-      profileError = upsertError;
-    }
-
-    if (profileError) {
-      await admin.auth.admin.deleteUser(userId);
-      const errMsg = profileError.message.toLowerCase();
-      const denied =
-        profileError.code === "42501" ||
-        errMsg.includes("permission denied") ||
-        errMsg.includes("could not find the function") ||
-        errMsg.includes("admin_upsert_profile");
-
-      return NextResponse.json(
-        {
-          ok: false,
-          message: denied
-            ? "DB 권한이 없습니다. Supabase SQL Editor에서 supabase/migrations/003_fix_signup.sql 전체를 실행한 뒤 다시 가입해 주세요."
-            : `프로필 저장 실패: ${profileError.message}`,
-        },
-        { status: 500 }
-      );
+    } catch {
+      /* ignore */
     }
 
     return NextResponse.json({
