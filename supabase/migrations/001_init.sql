@@ -135,3 +135,10 @@ $$;
 
 revoke all on function public.verify_password_hint(text, text) from public;
 grant execute on function public.verify_password_hint(text, text) to anon, authenticated;
+
+-- API 역할에 테이블 권한 (없으면 permission denied)
+grant usage on schema public to postgres, anon, authenticated, service_role;
+grant all on table public.profiles to anon, authenticated, service_role;
+grant all on table public.customers to anon, authenticated, service_role;
+grant all on table public.listed_properties to anon, authenticated, service_role;
+grant all on table public.schedules to anon, authenticated, service_role;

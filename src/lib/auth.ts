@@ -1,7 +1,6 @@
 "use client";
 
 import type { User } from "./types";
-import { formatPhoneInput } from "./format";
 import { createClient } from "./supabase/client";
 import { normalizeUsername, usernameToEmail } from "./supabase/email";
 
@@ -51,6 +50,19 @@ export function clearAuthRuntimeCache(): void {
 export function hardRedirectHome(): void {
   if (typeof window === "undefined") return;
   window.location.replace("/");
+}
+
+/** 회원가입 완료 후 로그인 화면으로 이동 */
+export function hardRedirectLogin(opts?: {
+  registered?: boolean;
+  username?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams();
+  if (opts?.registered) params.set("registered", "1");
+  if (opts?.username) params.set("username", opts.username);
+  const qs = params.toString();
+  window.location.replace(qs ? `/login?${qs}` : "/login");
 }
 
 function rowToUser(row: {
@@ -134,121 +146,35 @@ export type AuthResult =
   | { ok: false; message: string };
 
 export async function registerUser(input: RegisterInput): Promise<AuthResult> {
-  const username = normalizeUsername(input.username);
-  const password = input.password;
-  const passwordHint = input.passwordHint.trim();
-  const shopName = (input.shopName ?? "").trim() || "현장동선";
-  const name = (input.name ?? "").trim() || username;
-  const phone = formatPhoneInput(input.phone ?? "");
-
-  if (!username) return { ok: false, message: "아이디를 입력해 주세요." };
-  if (username.length < 4) {
-    return { ok: false, message: "아이디는 4자 이상이어야 합니다." };
-  }
-  if (!/^[a-z0-9._-]+$/.test(username)) {
-    return {
-      ok: false,
-      message: "아이디는 영문 소문자, 숫자, . _ - 만 사용할 수 있습니다.",
-    };
-  }
-  if (!password || password.length < 6) {
-    return { ok: false, message: "비밀번호는 6자 이상이어야 합니다." };
-  }
-  if (password !== input.passwordConfirm) {
-    return { ok: false, message: "비밀번호 확인이 일치하지 않습니다." };
-  }
-  if (!passwordHint) {
-    return { ok: false, message: "비밀번호 힌트를 입력해 주세요." };
-  }
-
+  // 서버 API로 가입 (확인 메일·이메일 rate limit 회피)
   try {
-    const supabase = createClient();
-
-    const { data: taken, error: takenError } = await supabase.rpc(
-      "username_taken",
-      { p_username: username }
-    );
-    if (takenError) {
-      return {
-        ok: false,
-        message:
-          "서버 연결을 확인해 주세요. (.env.local · SQL 마이그레이션)",
-      };
-    }
-    if (taken) {
-      return { ok: false, message: "이미 사용 중인 아이디입니다." };
-    }
-
     clearAuthRuntimeCache();
-    await supabase.auth.signOut();
-
-    const email = usernameToEmail(username);
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-      {
-        email,
-        password,
-        options: {
-          data: {
-            username,
-            shop_name: shopName,
-            display_name: name,
-          },
-        },
-      }
-    );
-
-    if (signUpError) {
-      if (signUpError.message.toLowerCase().includes("already")) {
-        return { ok: false, message: "이미 사용 중인 아이디입니다." };
-      }
-      return { ok: false, message: signUpError.message };
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      /* env 없을 때는 무시 — API에서 처리 */
     }
 
-    const authUser = signUpData.user;
-    if (!authUser) {
-      return {
-        ok: false,
-        message:
-          "가입은 되었지만 세션이 없습니다. 이메일 확인을 끄고 다시 시도해 주세요.",
-      };
-    }
-
-    // 이메일 확인이 켜져 있으면 세션이 없을 수 있음 → 즉시 로그인 시도
-    if (!signUpData.session) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError) {
-        return {
-          ok: false,
-          message:
-            "가입되었습니다. Authentication → Confirm email 을 끈 뒤 로그인해 주세요.",
-        };
-      }
-    }
-
-    const { error: profileError } = await supabase.from("profiles").upsert({
-      id: authUser.id,
-      username,
-      shop_name: shopName,
-      display_name: name,
-      phone,
-      password_hint: passwordHint,
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
     });
+    const body = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      user?: User;
+    };
 
-    if (profileError) {
+    if (!res.ok || !body.ok || !body.user) {
       return {
         ok: false,
-        message: `프로필 저장 실패: ${profileError.message}`,
+        message: body.message ?? "회원가입에 실패했습니다.",
       };
     }
 
-    const user = await getCurrentUser();
-    if (!user) {
-      return { ok: false, message: "가입 후 프로필을 불러오지 못했습니다." };
-    }
-    return { ok: true, user };
+    return { ok: true, user: body.user };
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "회원가입 중 오류가 발생했습니다.";
