@@ -49,14 +49,21 @@ export default function CustomerDetailPage() {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    const found = getCustomerById(params.id);
-    if (!found) {
-      router.replace("/");
-      return;
-    }
-    setCustomer(found);
-    setSchedules(getSchedulesByCustomer(found.id));
-    touchRecentCustomer(found.id);
+    let cancelled = false;
+    void (async () => {
+      const found = await getCustomerById(params.id);
+      if (cancelled) return;
+      if (!found) {
+        router.replace("/");
+        return;
+      }
+      setCustomer(found);
+      setSchedules(await getSchedulesByCustomer(found.id));
+      void touchRecentCustomer(found.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params.id, router]);
 
   if (!customer) {
@@ -85,9 +92,10 @@ export default function CustomerDetailPage() {
           initial={customer}
           submitLabel="변경사항 저장"
           onSubmit={(next) => {
-            upsertCustomer(next);
-            setCustomer(next);
-            setEditing(false);
+            void upsertCustomer(next).then(() => {
+              setCustomer(next);
+              setEditing(false);
+            });
           }}
         />
       ) : (

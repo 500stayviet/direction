@@ -16,7 +16,6 @@ export interface User {
   shopName: string;
   name: string;
   username: string;
-  password: string;
   phone: string;
   passwordHint: string;
   createdAt: string;

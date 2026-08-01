@@ -87,12 +87,14 @@ function ScheduleCreateInner() {
   };
 
   useEffect(() => {
-    const list = getCustomers();
-    setCustomers(list);
-    if (presetCustomerId) {
-      const found = getCustomerById(presetCustomerId);
-      if (found) applyCustomerDealType(found);
-    }
+    void (async () => {
+      const list = await getCustomers();
+      setCustomers(list);
+      if (presetCustomerId) {
+        const found = await getCustomerById(presetCustomerId);
+        if (found) applyCustomerDealType(found);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetCustomerId]);
 
@@ -168,7 +170,7 @@ function ScheduleCreateInner() {
     setQuery("");
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (mode === "guest") {
@@ -216,8 +218,8 @@ function ScheduleCreateInner() {
       createdAt: now,
       updatedAt: now,
     };
-    upsertSchedule(schedule);
-    if (selected) touchRecentCustomer(selected.id);
+    await upsertSchedule(schedule);
+    if (selected) await touchRecentCustomer(selected.id);
     router.push(`/schedules/${schedule.id}`);
   };
 

@@ -8,59 +8,82 @@ import { BrandIcon } from "@/components/BrandIcon";
 import {
   hardRedirectHome,
   loginUser,
-  recoverPassword,
+  resetPasswordWithHint,
 } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
+import { InstallAppGuide } from "@/components/InstallAppGuide";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [findOpen, setFindOpen] = useState(false);
   const [findUsername, setFindUsername] = useState("");
   const [findHint, setFindHint] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [findError, setFindError] = useState("");
-  const [foundPassword, setFoundPassword] = useState("");
+  const [findSuccess, setFindSuccess] = useState(false);
+  const [findLoading, setFindLoading] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    const result = loginUser(username, password);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    setLoading(true);
+    try {
+      const result = await loginUser(username, password);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      await seedDemoDataIfNeeded();
+      hardRedirectHome();
+    } finally {
+      setLoading(false);
     }
-    seedDemoDataIfNeeded();
-    hardRedirectHome();
   };
 
   const openFind = () => {
     setFindUsername(username);
     setFindHint("");
+    setNewPassword("");
+    setNewPasswordConfirm("");
     setFindError("");
-    setFoundPassword("");
+    setFindSuccess(false);
     setFindOpen(true);
   };
 
-  const handleFind = (e: FormEvent) => {
+  const handleFind = async (e: FormEvent) => {
     e.preventDefault();
     setFindError("");
-    setFoundPassword("");
-    const result = recoverPassword(findUsername, findHint);
-    if (!result.ok) {
-      setFindError(result.message);
+    setFindSuccess(false);
+
+    if (newPassword !== newPasswordConfirm) {
+      setFindError("새 비밀번호 확인이 일치하지 않습니다.");
       return;
     }
-    setFoundPassword(result.password);
-  };
 
-  const applyFoundPassword = () => {
-    setUsername(findUsername.trim());
-    setPassword(foundPassword);
-    setShowPassword(true);
-    setFindOpen(false);
+    setFindLoading(true);
+    try {
+      const result = await resetPasswordWithHint(
+        findUsername,
+        findHint,
+        newPassword
+      );
+      if (!result.ok) {
+        setFindError(result.message);
+        return;
+      }
+      setFindSuccess(true);
+      setUsername(findUsername.trim());
+      setPassword(newPassword);
+      setShowPassword(true);
+    } finally {
+      setFindLoading(false);
+    }
   };
 
   return (
@@ -137,8 +160,8 @@ export default function LoginPage() {
           )}
         </div>
 
-        <Button type="submit" fullWidth size="lg">
-          로그인
+        <Button type="submit" fullWidth size="lg" disabled={loading}>
+          {loading ? "로그인 중..." : "로그인"}
         </Button>
 
         <div className="flex flex-wrap items-center justify-center gap-x-1.5 pt-1 text-[13px]">
@@ -160,6 +183,8 @@ export default function LoginPage() {
         </p>
       </form>
 
+      <InstallAppGuide className="relative mt-5" />
+
       <Modal
         open={findOpen}
         onClose={() => setFindOpen(false)}
@@ -169,31 +194,24 @@ export default function LoginPage() {
         title="비밀번호 찾기"
       >
         <p className="-mt-1 mb-3 text-[13px] leading-relaxed text-gray-500">
-          가입할 때 등록한 <span className="font-bold text-gray-700">아이디</span>
-          와{" "}
+          가입할 때 등록한{" "}
+          <span className="font-bold text-gray-700">아이디</span>와{" "}
           <span className="font-bold text-gray-700">비밀번호 힌트</span>를
-          입력해 주세요.
+          확인한 뒤, 새 비밀번호를 설정합니다.
         </p>
 
-        {foundPassword ? (
+        {findSuccess ? (
           <div className="space-y-3">
             <div className="rounded-2xl bg-blue-50 px-4 py-3 text-center">
-              <p className="text-[12px] font-semibold text-[#3182F6]">
-                비밀번호를 찾았어요
+              <p className="text-[13px] font-semibold text-[#3182F6]">
+                새 비밀번호가 설정되었습니다
               </p>
-              <p className="mt-1.5 break-all text-[22px] font-extrabold tracking-wide text-gray-900">
-                {foundPassword}
+              <p className="mt-1 text-[12px] text-gray-600">
+                로그인 칸에 새 비밀번호를 넣어 두었어요.
               </p>
             </div>
-            <Button fullWidth onClick={applyFoundPassword}>
-              로그인 칸에 넣기
-            </Button>
-            <Button
-              fullWidth
-              variant="secondary"
-              onClick={() => setFindOpen(false)}
-            >
-              닫기
+            <Button fullWidth onClick={() => setFindOpen(false)}>
+              로그인하기
             </Button>
           </div>
         ) : (
@@ -214,6 +232,24 @@ export default function LoginPage() {
               placeholder="가입 시 입력한 힌트"
               autoComplete="off"
             />
+            <AuthField
+              label="새 비밀번호"
+              required
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="6자 이상"
+              type="password"
+              autoComplete="new-password"
+            />
+            <AuthField
+              label="새 비밀번호 확인"
+              required
+              value={newPasswordConfirm}
+              onChange={setNewPasswordConfirm}
+              placeholder="다시 입력"
+              type="password"
+              autoComplete="new-password"
+            />
             {findError && (
               <p className="rounded-xl bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-600">
                 {findError}
@@ -227,7 +263,9 @@ export default function LoginPage() {
               >
                 취소
               </Button>
-              <Button type="submit">확인</Button>
+              <Button type="submit" disabled={findLoading}>
+                {findLoading ? "변경 중..." : "변경"}
+              </Button>
             </div>
           </form>
         )}

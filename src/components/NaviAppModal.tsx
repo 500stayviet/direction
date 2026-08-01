@@ -24,10 +24,11 @@ export function NaviAppModal({
   const [remember, setRemember] = useState(true);
 
   const handleOpen = () => {
-    setNaviPreference(selected, remember);
-    openNavi(selected, address);
-    onOpened?.(selected);
-    onClose();
+    void setNaviPreference(selected, remember).then(() => {
+      openNavi(selected, address);
+      onOpened?.(selected);
+      onClose();
+    });
   };
 
   return (

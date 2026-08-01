@@ -21,28 +21,35 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: FormEvent) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     if (!agreed) {
       setError("이용약관 및 면책 안내에 동의해 주세요.");
       return;
     }
-    const result = registerUser({
-      shopName,
-      name,
-      username,
-      password,
-      passwordConfirm,
-      phone,
-      passwordHint,
-    });
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    setLoading(true);
+    try {
+      const result = await registerUser({
+        shopName,
+        name,
+        username,
+        password,
+        passwordConfirm,
+        phone,
+        passwordHint,
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      await seedDemoDataIfNeeded();
+      hardRedirectHome();
+    } finally {
+      setLoading(false);
     }
-    seedDemoDataIfNeeded();
-    hardRedirectHome();
   };
 
   return (
@@ -57,6 +64,11 @@ export default function SignupPage() {
         </h1>
         <p className="mt-2 text-sm text-gray-500">
           아이디·비밀번호·확인·힌트만 필수예요. 나머지는 선택입니다.
+          가입 전{" "}
+          <Link href="/terms" className="font-semibold text-[#3182F6] underline-offset-2 hover:underline">
+            약관·광고 안내
+          </Link>
+          를 확인해 주세요.
         </p>
       </div>
 
@@ -79,7 +91,7 @@ export default function SignupPage() {
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="4자 이상"
+            placeholder="영문·숫자 4자 이상"
             autoComplete="username"
           />
           <Input
@@ -88,7 +100,7 @@ export default function SignupPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="4자 이상"
+            placeholder="6자 이상"
             autoComplete="new-password"
           />
           <Input
@@ -143,8 +155,8 @@ export default function SignupPage() {
           </span>
         </label>
 
-        <Button type="submit" fullWidth size="lg" disabled={!agreed}>
-          가입하고 시작하기
+        <Button type="submit" fullWidth size="lg" disabled={!agreed || loading}>
+          {loading ? "가입 중..." : "가입하고 시작하기"}
         </Button>
         <Link href="/login">
           <Button type="button" variant="secondary" fullWidth className="mt-2">

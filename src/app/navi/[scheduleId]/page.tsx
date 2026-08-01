@@ -30,19 +30,29 @@ export default function FieldLeadPage() {
   const { launch, pendingAddress, modalOpen, closeModal } = useNaviLaunch();
 
   useEffect(() => {
-    const found = getScheduleById(params.scheduleId);
-    if (!found || found.properties.length === 0) {
-      router.replace("/navi");
-      return;
-    }
-    setSchedule(found);
-    setCustomer(
-      found.customerId ? getCustomerById(found.customerId) ?? null : null
-    );
-    const pref = getNaviPreference();
-    if (pref?.remember) {
-      setPrefLabel(NAVI_APPS.find((a) => a.id === pref.app)?.label ?? null);
-    }
+    let cancelled = false;
+    void (async () => {
+      const found = await getScheduleById(params.scheduleId);
+      if (cancelled) return;
+      if (!found || found.properties.length === 0) {
+        router.replace("/navi");
+        return;
+      }
+      setSchedule(found);
+      if (found.customerId) {
+        setCustomer((await getCustomerById(found.customerId)) ?? null);
+      } else {
+        setCustomer(null);
+      }
+      const pref = await getNaviPreference();
+      if (cancelled) return;
+      if (pref?.remember) {
+        setPrefLabel(NAVI_APPS.find((a) => a.id === pref.app)?.label ?? null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params.scheduleId, router]);
 
   const property = schedule?.properties[step];
@@ -80,9 +90,10 @@ export default function FieldLeadPage() {
             <button
               type="button"
               onClick={() => {
-                clearNaviPreference();
-                setPrefLabel(null);
-                alert("내비 앱 선택이 초기화되었습니다.");
+                void clearNaviPreference().then(() => {
+                  setPrefLabel(null);
+                  alert("내비 앱 선택이 초기화되었습니다.");
+                });
               }}
               className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm active:scale-95 transition-all duration-150"
             >

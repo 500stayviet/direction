@@ -49,18 +49,27 @@ function ScheduleDetailInner() {
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const found = getScheduleById(params.id);
-    if (!found) {
-      router.replace("/");
-      return;
-    }
-    setSchedule(found);
-    setVisitDate(found.visitDate ?? "");
-    setVisitTime(found.visitTime ?? "");
-    setProperties(found.properties);
-    setCustomer(
-      found.customerId ? getCustomerById(found.customerId) ?? null : null
-    );
+    let cancelled = false;
+    void (async () => {
+      const found = await getScheduleById(params.id);
+      if (cancelled) return;
+      if (!found) {
+        router.replace("/");
+        return;
+      }
+      setSchedule(found);
+      setVisitDate(found.visitDate ?? "");
+      setVisitTime(found.visitTime ?? "");
+      setProperties(found.properties);
+      if (found.customerId) {
+        setCustomer((await getCustomerById(found.customerId)) ?? null);
+      } else {
+        setCustomer(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params.id, router]);
 
   const routeSummary = useMemo(
@@ -78,7 +87,7 @@ function ScheduleDetailInner() {
     );
   }
 
-  const handleSave = (e: FormEvent) => {
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     const propertyIssue = findPropertiesValidationIssue(properties);
     if (propertyIssue) {
@@ -101,7 +110,7 @@ function ScheduleDetailInner() {
       routeSummary: buildRouteSummary(properties),
       updatedAt: new Date().toISOString(),
     };
-    upsertSchedule(next);
+    await upsertSchedule(next);
     setSchedule(next);
     setEditing(false);
   };

@@ -29,7 +29,7 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
 
   useEffect(() => {
     if (open) {
-      setAll(getListedProperties());
+      void getListedProperties().then(setAll);
       setQuery("");
     }
   }, [open]);

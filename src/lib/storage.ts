@@ -7,136 +7,388 @@ import type {
   NaviPreference,
   Schedule,
 } from "./types";
+import { createClient } from "./supabase/client";
 import { getSessionUserId } from "./auth";
 
-function canUseStorage(): boolean {
-  return typeof window !== "undefined" && !!window.localStorage;
+async function requireUserId(): Promise<string | null> {
+  return getSessionUserId();
 }
 
-function userPrefix(): string | null {
-  const id = getSessionUserId();
-  return id ? `realty_u_${id}` : null;
+export async function getCustomers(): Promise<Customer[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("payload")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((row) => row.payload as Customer);
 }
 
-/** 현재 로그인 계정 전용 키. 비로그인·세션 없으면 null (읽기 빈값 / 쓰기 무시) */
-function key(suffix: string): string | null {
-  const prefix = userPrefix();
-  if (!prefix) return null;
-  return `${prefix}_${suffix}`;
-}
+export async function saveCustomers(customers: Customer[]): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
 
-function read<T>(storageKey: string | null, fallback: T): T {
-  if (!canUseStorage() || !storageKey) return fallback;
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
+  const supabase = createClient();
+  const { data: existing } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("user_id", userId);
+  const nextIds = new Set(customers.map((c) => c.id));
+  const toDelete = (existing ?? [])
+    .map((r) => r.id as string)
+    .filter((id) => !nextIds.has(id));
+
+  if (toDelete.length > 0) {
+    await supabase
+      .from("customers")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", toDelete);
   }
+
+  if (customers.length === 0) return;
+
+  const rows = customers.map((c) => ({
+    id: c.id,
+    user_id: userId,
+    payload: c,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
+  }));
+
+  await supabase.from("customers").upsert(rows, { onConflict: "user_id,id" });
 }
 
-function write<T>(storageKey: string | null, value: T): void {
-  // 세션 없으면 절대 쓰지 않음 — 계정 간 섞임 방지
-  if (!canUseStorage() || !storageKey || !getSessionUserId()) return;
-  localStorage.setItem(storageKey, JSON.stringify(value));
+export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  await supabase.from("customers").upsert(
+    {
+      id: customer.id,
+      user_id: userId,
+      payload: customer,
+      created_at: customer.createdAt,
+      updated_at: customer.updatedAt,
+    },
+    { onConflict: "user_id,id" }
+  );
+  return getCustomers();
 }
 
-function remove(storageKey: string | null): void {
-  if (!canUseStorage() || !storageKey || !getSessionUserId()) return;
-  localStorage.removeItem(storageKey);
+export async function getCustomerById(
+  id: string
+): Promise<Customer | undefined> {
+  const userId = await requireUserId();
+  if (!userId) return undefined;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select("payload")
+    .eq("user_id", userId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return undefined;
+  return data.payload as Customer;
 }
 
-export function getCustomers(): Customer[] {
-  return read<Customer[]>(key("customers"), []);
+export async function getListedProperties(): Promise<ListedProperty[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("listed_properties")
+    .select("payload")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((row) => row.payload as ListedProperty);
 }
 
-export function saveCustomers(customers: Customer[]): void {
-  write(key("customers"), customers);
+export async function saveListedProperties(
+  properties: ListedProperty[]
+): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+
+  const supabase = createClient();
+  const { data: existing } = await supabase
+    .from("listed_properties")
+    .select("id")
+    .eq("user_id", userId);
+  const nextIds = new Set(properties.map((p) => p.id));
+  const toDelete = (existing ?? [])
+    .map((r) => r.id as string)
+    .filter((id) => !nextIds.has(id));
+
+  if (toDelete.length > 0) {
+    await supabase
+      .from("listed_properties")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", toDelete);
+  }
+
+  if (properties.length === 0) return;
+
+  const rows = properties.map((p) => ({
+    id: p.id,
+    user_id: userId,
+    payload: p,
+    created_at: p.createdAt,
+    updated_at: p.updatedAt,
+  }));
+
+  await supabase
+    .from("listed_properties")
+    .upsert(rows, { onConflict: "user_id,id" });
 }
 
-export function upsertCustomer(customer: Customer): Customer[] {
-  const list = getCustomers();
-  const idx = list.findIndex((c) => c.id === customer.id);
-  if (idx >= 0) list[idx] = customer;
-  else list.unshift(customer);
-  saveCustomers(list);
-  return list;
+export async function upsertListedProperty(
+  property: ListedProperty
+): Promise<ListedProperty[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  await supabase.from("listed_properties").upsert(
+    {
+      id: property.id,
+      user_id: userId,
+      payload: property,
+      created_at: property.createdAt,
+      updated_at: property.updatedAt,
+    },
+    { onConflict: "user_id,id" }
+  );
+  return getListedProperties();
 }
 
-export function getCustomerById(id: string): Customer | undefined {
-  return getCustomers().find((c) => c.id === id);
+export async function getListedPropertyById(
+  id: string
+): Promise<ListedProperty | undefined> {
+  const userId = await requireUserId();
+  if (!userId) return undefined;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("listed_properties")
+    .select("payload")
+    .eq("user_id", userId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return undefined;
+  return data.payload as ListedProperty;
 }
 
-export function getListedProperties(): ListedProperty[] {
-  return read<ListedProperty[]>(key("properties"), []);
+export async function getSchedules(): Promise<Schedule[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("schedules")
+    .select("payload")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((row) => row.payload as Schedule);
 }
 
-export function saveListedProperties(properties: ListedProperty[]): void {
-  write(key("properties"), properties);
+export async function saveSchedules(schedules: Schedule[]): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+
+  const supabase = createClient();
+  const { data: existing } = await supabase
+    .from("schedules")
+    .select("id")
+    .eq("user_id", userId);
+  const nextIds = new Set(schedules.map((s) => s.id));
+  const toDelete = (existing ?? [])
+    .map((r) => r.id as string)
+    .filter((id) => !nextIds.has(id));
+
+  if (toDelete.length > 0) {
+    await supabase
+      .from("schedules")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", toDelete);
+  }
+
+  if (schedules.length === 0) return;
+
+  const rows = schedules.map((s) => ({
+    id: s.id,
+    user_id: userId,
+    payload: s,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt,
+  }));
+
+  await supabase.from("schedules").upsert(rows, { onConflict: "user_id,id" });
 }
 
-export function upsertListedProperty(property: ListedProperty): ListedProperty[] {
-  const list = getListedProperties();
-  const idx = list.findIndex((p) => p.id === property.id);
-  if (idx >= 0) list[idx] = property;
-  else list.unshift(property);
-  saveListedProperties(list);
-  return list;
+export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  await supabase.from("schedules").upsert(
+    {
+      id: schedule.id,
+      user_id: userId,
+      payload: schedule,
+      created_at: schedule.createdAt,
+      updated_at: schedule.updatedAt,
+    },
+    { onConflict: "user_id,id" }
+  );
+  return getSchedules();
 }
 
-export function getListedPropertyById(id: string): ListedProperty | undefined {
-  return getListedProperties().find((p) => p.id === id);
+export async function getScheduleById(
+  id: string
+): Promise<Schedule | undefined> {
+  const userId = await requireUserId();
+  if (!userId) return undefined;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("schedules")
+    .select("payload")
+    .eq("user_id", userId)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) return undefined;
+  return data.payload as Schedule;
 }
 
-export function getSchedules(): Schedule[] {
-  return read<Schedule[]>(key("schedules"), []);
+export async function getSchedulesByCustomer(
+  customerId: string
+): Promise<Schedule[]> {
+  const all = await getSchedules();
+  return all.filter((s) => s.customerId === customerId);
 }
 
-export function saveSchedules(schedules: Schedule[]): void {
-  write(key("schedules"), schedules);
+export async function getNaviPreference(): Promise<NaviPreference | null> {
+  const userId = await requireUserId();
+  if (!userId) return null;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("navi_preference")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data?.navi_preference) return null;
+  return data.navi_preference as NaviPreference;
 }
 
-export function upsertSchedule(schedule: Schedule): Schedule[] {
-  const list = getSchedules();
-  const idx = list.findIndex((s) => s.id === schedule.id);
-  if (idx >= 0) list[idx] = schedule;
-  else list.unshift(schedule);
-  saveSchedules(list);
-  return list;
+export async function setNaviPreference(
+  app: NaviApp,
+  remember: boolean
+): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+
+  const supabase = createClient();
+  await supabase
+    .from("profiles")
+    .update({
+      navi_preference: remember ? { app, remember: true } : null,
+    })
+    .eq("id", userId);
 }
 
-export function getScheduleById(id: string): Schedule | undefined {
-  return getSchedules().find((s) => s.id === id);
+export async function clearNaviPreference(): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+
+  const supabase = createClient();
+  await supabase
+    .from("profiles")
+    .update({ navi_preference: null })
+    .eq("id", userId);
 }
 
-export function getSchedulesByCustomer(customerId: string): Schedule[] {
-  return getSchedules().filter((s) => s.customerId === customerId);
-}
+export async function touchRecentCustomer(customerId: string): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
 
-export function getNaviPreference(): NaviPreference | null {
-  return read<NaviPreference | null>(key("navi"), null);
-}
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("recent_customer_ids")
+    .eq("id", userId)
+    .maybeSingle();
 
-export function setNaviPreference(app: NaviApp, remember: boolean): void {
-  if (remember) write(key("navi"), { app, remember: true });
-  else remove(key("navi"));
-}
-
-export function clearNaviPreference(): void {
-  remove(key("navi"));
-}
-
-export function touchRecentCustomer(customerId: string): void {
-  const ids = read<string[]>(key("recent"), []).filter((id) => id !== customerId);
+  const ids = (
+    (data?.recent_customer_ids as string[] | null) ?? []
+  ).filter((id) => id !== customerId);
   ids.unshift(customerId);
-  write(key("recent"), ids.slice(0, 20));
+
+  await supabase
+    .from("profiles")
+    .update({ recent_customer_ids: ids.slice(0, 20) })
+    .eq("id", userId);
 }
 
-export function getRecentCustomers(): Customer[] {
-  const ids = read<string[]>(key("recent"), []);
-  const map = new Map(getCustomers().map((c) => [c.id, c]));
+export async function getRecentCustomers(): Promise<Customer[]> {
+  const userId = await requireUserId();
+  if (!userId) return [];
+
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("recent_customer_ids")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const ids = (data?.recent_customer_ids as string[] | null) ?? [];
+  const customers = await getCustomers();
+  const map = new Map(customers.map((c) => [c.id, c]));
   const recent = ids.map((id) => map.get(id)).filter(Boolean) as Customer[];
   if (recent.length > 0) return recent;
-  return getCustomers().slice(0, 10);
+  return customers.slice(0, 10);
+}
+
+export async function getDemoSeedVersion(): Promise<string | null> {
+  const userId = await requireUserId();
+  if (!userId) return null;
+
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("demo_seed_version")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return data?.demo_seed_version ?? null;
+}
+
+export async function setDemoSeedVersion(version: string): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+
+  const supabase = createClient();
+  await supabase
+    .from("profiles")
+    .update({ demo_seed_version: version })
+    .eq("id", userId);
 }

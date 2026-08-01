@@ -15,7 +15,7 @@ export default function NewPropertyPage() {
   const router = useRouter();
   const [property, setProperty] = useState<Property>(() => createEmptyProperty());
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const error = getPropertyValidationError(property);
     if (error) {
@@ -29,7 +29,7 @@ export default function NewPropertyPage() {
       createdAt: now,
       updatedAt: now,
     };
-    upsertListedProperty(saved);
+    await upsertListedProperty(saved);
     router.push(`/properties/${saved.id}`);
   };
 

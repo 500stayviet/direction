@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
+import { createClient } from "@/lib/supabase/client";
 
 /** 로그인 없이 볼 수 있는 경로 */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms", "/about"];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,30 +16,66 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [sessionKey, setSessionKey] = useState("guest");
 
   useEffect(() => {
-    const publicPage = PUBLIC_PATHS.some(
-      (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))
-    );
-    const user = getCurrentUser();
-    const sid = getSessionUserId() ?? "guest";
-    setSessionKey(sid);
+    let cancelled = false;
 
-    if (!user && !publicPage) {
-      router.replace("/");
-      setReady(false);
-      return;
+    const run = async () => {
+      const publicPage = PUBLIC_PATHS.some(
+        (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))
+      );
+
+      try {
+        const user = await getCurrentUser();
+        const sid = (await getSessionUserId()) ?? "guest";
+        if (cancelled) return;
+        setSessionKey(sid);
+
+        if (!user && !publicPage) {
+          router.replace("/");
+          setReady(false);
+          return;
+        }
+
+        if (user && (pathname === "/login" || pathname === "/signup")) {
+          await seedDemoDataIfNeeded();
+          if (cancelled) return;
+          router.replace("/");
+          setReady(false);
+          return;
+        }
+
+        if (user) {
+          await seedDemoDataIfNeeded();
+        }
+        if (cancelled) return;
+        setReady(true);
+      } catch {
+        if (cancelled) return;
+        if (!publicPage) {
+          router.replace("/");
+          setReady(false);
+          return;
+        }
+        setReady(true);
+      }
+    };
+
+    void run();
+
+    let unsubscribe = () => {};
+    try {
+      const supabase = createClient();
+      const { data } = supabase.auth.onAuthStateChange(() => {
+        void run();
+      });
+      unsubscribe = () => data.subscription.unsubscribe();
+    } catch {
+      /* env 미설정 시 공개 페이지만 */
     }
 
-    if (user && (pathname === "/login" || pathname === "/signup")) {
-      seedDemoDataIfNeeded();
-      router.replace("/");
-      setReady(false);
-      return;
-    }
-
-    if (user) {
-      seedDemoDataIfNeeded();
-    }
-    setReady(true);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [pathname, router]);
 
   if (!ready) {

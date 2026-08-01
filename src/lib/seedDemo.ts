@@ -1,11 +1,13 @@
 import { buildRouteSummary } from "@/lib/distance";
 import {
   getCustomers,
+  getDemoSeedVersion,
   getListedProperties,
   getSchedules,
   saveCustomers,
   saveListedProperties,
   saveSchedules,
+  setDemoSeedVersion,
   touchRecentCustomer,
 } from "@/lib/storage";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
@@ -95,18 +97,12 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
   };
 }
 
-function demoVersionKey(): string | null {
-  const userId = localStorage.getItem("realty_session");
-  if (!userId) return null;
-  return `realty_u_${userId}_demo_seed_version`;
-}
-
 /** 로그인 계정에 테스트용 손님·매물·방문일정 시드 (버전 바뀌면 갱신) */
-export function seedDemoDataIfNeeded(): void {
+export async function seedDemoDataIfNeeded(): Promise<void> {
   if (typeof window === "undefined") return;
 
-  const versionKey = demoVersionKey();
-  if (versionKey && localStorage.getItem(versionKey) === DEMO_SEED_VERSION) {
+  const currentVersion = await getDemoSeedVersion();
+  if (currentVersion === DEMO_SEED_VERSION) {
     return;
   }
 
@@ -423,23 +419,23 @@ export function seedDemoDataIfNeeded(): void {
     },
   ];
 
-  const otherCustomers = getCustomers().filter(
+  const otherCustomers = (await getCustomers()).filter(
     (c) => !c.id.startsWith("demo_cust_")
   );
-  const otherProperties = getListedProperties().filter(
+  const otherProperties = (await getListedProperties()).filter(
     (p) => !p.id.startsWith("demo_prop_")
   );
-  const otherSchedules = getSchedules().filter(
+  const otherSchedules = (await getSchedules()).filter(
     (s) => !s.id.startsWith("demo_sch_")
   );
 
-  saveCustomers([...demoCustomers, ...otherCustomers]);
-  saveListedProperties([...demoProperties, ...otherProperties]);
-  saveSchedules([...demoSchedules, ...otherSchedules]);
+  await saveCustomers([...demoCustomers, ...otherCustomers]);
+  await saveListedProperties([...demoProperties, ...otherProperties]);
+  await saveSchedules([...demoSchedules, ...otherSchedules]);
 
-  touchRecentCustomer("demo_cust_1");
-  touchRecentCustomer("demo_cust_2");
-  touchRecentCustomer("demo_cust_3");
+  await touchRecentCustomer("demo_cust_1");
+  await touchRecentCustomer("demo_cust_2");
+  await touchRecentCustomer("demo_cust_3");
 
-  if (versionKey) localStorage.setItem(versionKey, DEMO_SEED_VERSION);
+  await setDemoSeedVersion(DEMO_SEED_VERSION);
 }

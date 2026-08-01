@@ -16,7 +16,7 @@ export default function PropertyListPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    setProperties(getListedProperties());
+    void getListedProperties().then(setProperties);
   }, []);
 
   const filtered = useMemo(() => {

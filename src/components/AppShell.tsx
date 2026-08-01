@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/AuthGate";
 import { BottomTabBar } from "@/components/BottomTabBar";
+import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 
 const AUTH_PATHS = ["/login", "/signup"];
 
@@ -42,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </div>
           {!hideTab && <BottomTabBar />}
+          {!hideTab && <AdConsentNotice />}
         </AuthGate>
       </div>
     </div>

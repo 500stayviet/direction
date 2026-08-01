@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
-import { getCurrentUser } from "@/lib/auth";
+import { getCachedUser } from "@/lib/auth";
 
 const tabs = [
   { href: "/", label: "홈", icon: "🏠", match: (p: string) => p === "/", public: true },
@@ -42,7 +42,7 @@ export function BottomTabBar() {
   }
 
   const handleTab = (href: string, isPublic: boolean) => {
-    if (isPublic || getCurrentUser()) {
+    if (isPublic || getCachedUser()) {
       router.push(href);
       return;
     }

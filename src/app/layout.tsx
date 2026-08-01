@@ -1,13 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/AppShell";
+import { AdSenseScript } from "@/components/ads/AdSenseScript";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "현장동선",
+  title: {
+    default: "현장동선",
+    template: "%s · 현장동선",
+  },
   description:
-    "부동산 중개인을 위한 모바일 현장 고객·동선·매물 브리핑 앱. 원클릭 전화·내비 연동.",
+    "부동산 중개인을 위한 모바일 현장 고객·동선·매물 브리핑 앱. 원클릭 전화·내비 연동. 손님·매물·방문 일정을 계정별로 정리합니다.",
   applicationName: "현장동선",
   manifest: "/manifest.webmanifest",
+  keywords: [
+    "부동산",
+    "중개",
+    "현장동선",
+    "매물",
+    "손님관리",
+    "임장",
+    "내비",
+  ],
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -58,6 +71,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="antialiased">
+        <AdSenseScript />
         <AppShell>{children}</AppShell>
       </body>
     </html>

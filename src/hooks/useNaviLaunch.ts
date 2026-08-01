@@ -10,12 +10,13 @@ export function useNaviLaunch() {
   const launch = useCallback((address: string) => {
     const query = toNaviAddress(address);
     if (!query) return;
-    const pref = getNaviPreference();
-    if (pref?.remember) {
-      openNavi(pref.app, query);
-      return;
-    }
-    setPendingAddress(query);
+    void getNaviPreference().then((pref) => {
+      if (pref?.remember) {
+        openNavi(pref.app, query);
+        return;
+      }
+      setPendingAddress(query);
+    });
   }, []);
 
   const closeModal = useCallback(() => setPendingAddress(null), []);

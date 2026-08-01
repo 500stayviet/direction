@@ -13,11 +13,14 @@ import type { Schedule } from "@/lib/types";
 
 type SortMode = "created" | "visit";
 
-function scheduleTitle(schedule: Schedule): string {
+function scheduleTitle(
+  schedule: Schedule,
+  customerNames: Record<string, string>
+): string {
   if (schedule.guestName?.trim()) return schedule.guestName.trim();
   if (schedule.customerId) {
-    const customer = getCustomerById(schedule.customerId);
-    if (customer?.name) return customer.name;
+    const name = customerNames[schedule.customerId];
+    if (name) return name;
   }
   return "손님 미지정";
 }
@@ -71,10 +74,25 @@ function sortSchedules(list: Schedule[], mode: SortMode): Schedule[] {
 
 export default function NaviEntryPage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>(
+    {}
+  );
   const [sortMode, setSortMode] = useState<SortMode>("visit");
 
   useEffect(() => {
-    setSchedules(getSchedules());
+    void (async () => {
+      const list = await getSchedules();
+      setSchedules(list);
+      const names: Record<string, string> = {};
+      await Promise.all(
+        list.map(async (s) => {
+          if (!s.customerId || names[s.customerId]) return;
+          const c = await getCustomerById(s.customerId);
+          if (c?.name) names[s.customerId] = c.name;
+        })
+      );
+      setCustomerNames(names);
+    })();
   }, []);
 
   const sorted = useMemo(
@@ -152,7 +170,7 @@ export default function NaviEntryPage() {
                   </div>
 
                   <p className="mt-2 text-[15px] font-bold text-gray-900">
-                    {scheduleTitle(s)}
+                    {scheduleTitle(s, customerNames)}
                     <span className="mx-1.5 font-medium text-gray-300">·</span>
                     <span className="font-semibold text-gray-700">
                       매물 {s.properties.length}곳

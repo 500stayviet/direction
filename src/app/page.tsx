@@ -15,6 +15,7 @@ import {
 } from "@/lib/deadline";
 import { getCustomers } from "@/lib/storage";
 import type { Customer, User } from "@/lib/types";
+import { AdBanner } from "@/components/ads/AdBanner";
 
 const menus = [
   {
@@ -59,27 +60,38 @@ export default function HomePage() {
   const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
 
   useEffect(() => {
-    const u = getCurrentUser();
-    setUser(u);
-    if (!u) return;
+    let cancelled = false;
+    let timer: number | undefined;
 
-    const list = getCustomers();
-    setCustomers(list);
+    void (async () => {
+      const u = await getCurrentUser();
+      if (cancelled) return;
+      setUser(u);
+      if (!u) return;
 
-    const due = list.filter((c) => isContractDeadlineActive(c));
-    if (due.length === 0) return;
+      const list = await getCustomers();
+      if (cancelled) return;
+      setCustomers(list);
 
-    const key = deadlineModalKey(u.id);
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {
-      // sessionStorage 불가 시에도 모달은 표시
-    }
+      const due = list.filter((c) => isContractDeadlineActive(c));
+      if (due.length === 0) return;
 
-    setDeadlineModalOpen(true);
-    const timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
-    return () => window.clearTimeout(timer);
+      const key = deadlineModalKey(u.id);
+      try {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      } catch {
+        // sessionStorage 불가 시에도 모달은 표시
+      }
+
+      setDeadlineModalOpen(true);
+      timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
   }, []);
 
   const deadlineCustomers = useMemo(
@@ -146,8 +158,7 @@ export default function HomePage() {
               type="button"
               variant="outline"
               onClick={() => {
-                logoutUser();
-                hardRedirectHome();
+                void logoutUser().then(() => hardRedirectHome());
               }}
             >
               로그아웃
@@ -189,6 +200,26 @@ export default function HomePage() {
           </button>
         ))}
       </div>
+
+      <AdBanner slot="home" className="mt-3" />
+
+      <footer className="mt-5 space-y-2 px-1 pb-2 text-center text-[12px] text-gray-400">
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Link
+            href="/about"
+            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
+          >
+            서비스 소개
+          </Link>
+          <Link
+            href="/terms"
+            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
+          >
+            약관·개인정보·광고
+          </Link>
+        </div>
+        <p>무료 편의 도구 · 필요한 분만 이용</p>
+      </footer>
 
       <RequireAuthModal
         open={authModalOpen}

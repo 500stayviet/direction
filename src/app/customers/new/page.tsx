@@ -9,9 +9,9 @@ import type { Customer } from "@/lib/types";
 export default function NewCustomerPage() {
   const router = useRouter();
 
-  const handleSubmit = (customer: Customer) => {
-    upsertCustomer(customer);
-    touchRecentCustomer(customer.id);
+  const handleSubmit = async (customer: Customer) => {
+    await upsertCustomer(customer);
+    await touchRecentCustomer(customer.id);
     router.push(`/customers/${customer.id}`);
   };
 

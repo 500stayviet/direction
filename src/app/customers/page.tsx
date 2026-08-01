@@ -25,7 +25,7 @@ export default function CustomerListPage() {
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setCustomers(getCustomers());
+    void getCustomers().then(setCustomers);
   }, []);
 
   const filtered = useMemo(() => {
@@ -47,9 +47,9 @@ export default function CustomerListPage() {
     : undefined;
   const pendingDone = Boolean(pendingCustomer?.contractCompleted);
 
-  const confirmToggleComplete = () => {
+  const confirmToggleComplete = async () => {
     if (!pendingCustomer) return;
-    const next = upsertCustomer({
+    const next = await upsertCustomer({
       ...pendingCustomer,
       contractCompleted: !pendingDone,
       updatedAt: new Date().toISOString(),

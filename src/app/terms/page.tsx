@@ -4,11 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 
-type Tab = "service" | "privacy" | "disclaimer";
+type Tab = "service" | "privacy" | "ads" | "disclaimer";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "service", label: "이용약관" },
   { id: "privacy", label: "개인정보" },
+  { id: "ads", label: "광고" },
   { id: "disclaimer", label: "면책" },
 ];
 
@@ -19,14 +20,14 @@ export default function TermsPage() {
     <main className="pb-4">
       <PageHeader title="약관 및 안내" backHref="/" />
 
-      <div className="mb-4 grid grid-cols-3 gap-1 rounded-2xl bg-gray-100 p-1">
+      <div className="mb-4 grid grid-cols-4 gap-1 rounded-2xl bg-gray-100 p-1">
         {TABS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
             className={[
-              "min-h-[40px] rounded-xl text-[13px] font-bold transition-all duration-150 active:scale-95",
+              "min-h-[40px] rounded-xl text-[12px] font-bold transition-all duration-150 active:scale-95",
               tab === item.id
                 ? "bg-white text-[#3182F6] shadow-sm"
                 : "text-gray-500",
@@ -40,6 +41,7 @@ export default function TermsPage() {
       <article className="space-y-4 rounded-[24px] border border-gray-100 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
         {tab === "service" && <ServiceTerms />}
         {tab === "privacy" && <PrivacyTerms />}
+        {tab === "ads" && <AdsTerms />}
         {tab === "disclaimer" && <DisclaimerTerms />}
       </article>
 
@@ -47,6 +49,15 @@ export default function TermsPage() {
         본 문서는 서비스 이용 조건을 안내하기 위한 것이며,
         <br />
         법률 자문을 대체하지 않습니다.
+      </p>
+
+      <p className="mt-3 text-center text-[12px]">
+        <Link
+          href="/about"
+          className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
+        >
+          서비스 소개 보기
+        </Link>
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -87,22 +98,25 @@ function Section({
 function ServiceTerms() {
   return (
     <>
-      <p className="text-[12px] font-semibold text-gray-400">시행일 2026. 8. 1.</p>
+      <p className="text-[12px] font-semibold text-gray-400">
+        시행일 2026. 8. 1. · 개정 2026. 8. 1.
+      </p>
       <Section title="1. 서비스 성격">
         <p>
           현장동선(이하 “본 서비스”)은 부동산 중개 현장 업무를 돕는{" "}
-          <strong className="font-bold text-gray-800">무료·비상업적 편의 도구</strong>
+          <strong className="font-bold text-gray-800">무료 편의 도구</strong>
           입니다. 누구나 의무적으로 써야 하는 서비스가 아니며,{" "}
           <strong className="font-bold text-gray-800">
             필요로 하는 분이 자발적으로 선택해 사용
           </strong>
-          하는 것을 전제로 합니다.
+          하는 것을 전제로 합니다. 서비스 운영을 위해 광고가 표시될 수 있습니다.
         </p>
       </Section>
       <Section title="2. 이용 자격 및 동의">
         <p>
-          회원가입 또는 서비스 이용을 시작하면 본 약관·개인정보 안내·면책 내용에
-          동의한 것으로 봅니다. 동의하지 않으면 이용을 중단해 주세요.
+          회원가입 또는 서비스 이용을 시작하면 본 약관·개인정보 안내·광고
+          안내·면책 내용에 동의한 것으로 봅니다. 동의하지 않으면 이용을 중단해
+          주세요.
         </p>
       </Section>
       <Section title="3. 이용자 책임">
@@ -115,7 +129,8 @@ function ServiceTerms() {
       <Section title="4. 금지 행위">
         <p>
           타인의 정보를 무단으로 수집·이용하거나, 본 서비스를 불법·부정한 목적에
-          사용하는 행위를 금합니다. 위반이 확인되면 이용을 제한할 수 있습니다.
+          사용하는 행위, 광고를 부정 클릭·유도하는 행위를 금합니다. 위반이
+          확인되면 이용을 제한할 수 있습니다.
         </p>
       </Section>
       <Section title="5. 서비스 변경·중단">
@@ -132,42 +147,131 @@ function ServiceTerms() {
 function PrivacyTerms() {
   return (
     <>
-      <p className="text-[12px] font-semibold text-gray-400">시행일 2026. 8. 1.</p>
-      <Section title="1. 저장 방식">
+      <p className="text-[12px] font-semibold text-gray-400">
+        시행일 2026. 8. 1. · 개정 2026. 8. 1.
+      </p>
+      <Section title="1. 저장·처리 방식">
         <p>
-          본 서비스는 별도의 중앙 서버에 이용자 업무 데이터를 업로드하지 않는 것을
-          원칙으로 하며, 손님·매물·일정 등은{" "}
+          계정 인증 및 손님·매물·일정 등 업무 데이터는{" "}
           <strong className="font-bold text-gray-800">
-            이용자 기기(브라우저 저장소)에 계정별로 저장
+            클라우드 데이터베이스(Supabase)
           </strong>
-          됩니다.
+          에 이용자 계정별로 저장됩니다. 로그인 세션은 브라우저에 보관될 수
+          있습니다. 계정 간 데이터는 분리되며, 다른 이용자의 업무 데이터는 조회할
+          수 없습니다.
         </p>
       </Section>
       <Section title="2. 수집·이용 항목">
         <p>
           회원가입 시 아이디, 비밀번호, 비밀번호 힌트(필수)와 업장명·이름·전화번호
-          (선택) 등을 기기에 저장할 수 있습니다. 업무 과정에서 이용자가 직접 입력한
-          손님·매물 연락처·주소 등도 동일하게 기기에 보관됩니다.
+          (선택) 등을 저장할 수 있습니다. 업무 과정에서 이용자가 직접 입력한
+          손님·매물 연락처·주소·일정 등도 동일하게 계정에 보관됩니다.
         </p>
       </Section>
       <Section title="3. 보관 및 관리 책임">
         <p>
-          기기 분실, 초기화, 브라우저 데이터 삭제, 타인과의 기기 공유로 인한 유출·
-          삭제에 대해 운영자는 책임지지 않습니다. 필요한 경우 이용자가 스스로
-          백업·관리해야 합니다.
+          비밀번호 관리, 기기 분실·공유, 계정 유출로 인한 피해에 대해 운영자는
+          책임지지 않습니다. 필요한 경우 이용자가 스스로 백업·관리해야 합니다.
+          계정 삭제·데이터 삭제는 운영 채널을 통해 요청할 수 있습니다.
         </p>
       </Section>
-      <Section title="4. 제3자 제공">
+      <Section title="4. 제3자 제공·처리">
         <p>
-          운영자가 이용자 업무 데이터를 판매·제공하지 않습니다. 다만 전화·지도·내비
-          등 이용자가 선택한 외부 앱으로 연결될 때는 해당 앱의 정책이 적용됩니다.
+          운영자가 이용자 업무 데이터를 판매하지 않습니다. 다만 아래와 같이 서비스
+          제공에 필요한 범위에서 제3자가 관여할 수 있습니다.
+        </p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>
+            <strong className="font-bold text-gray-800">Supabase</strong> —
+            인증·데이터베이스 호스팅
+          </li>
+          <li>
+            <strong className="font-bold text-gray-800">Google AdSense</strong> —
+            광고 게재 시 광고·측정(쿠키·기기 식별자 등 포함 가능). 상세는 「광고」
+            탭
+          </li>
+          <li>
+            전화·지도·내비 등 이용자가 선택한 외부 앱 — 해당 앱의 정책 적용
+          </li>
+        </ul>
+      </Section>
+      <Section title="5. 쿠키·유사 기술">
+        <p>
+          로그인 유지, 서비스 설정 저장, (광고 사용 시) 광고·트래픽 측정 목적으로
+          쿠키 또는 로컬 저장소가 사용될 수 있습니다. 브라우저 설정으로 쿠키를
+          제한할 수 있으나 일부 기능이 제한될 수 있습니다.
         </p>
       </Section>
-      <Section title="5. 문의">
+      <Section title="6. 문의">
         <p>
-          계정·데이터 관련 문의는 서비스 내 안내 또는 운영 채널을 통해 요청할 수
-          있습니다. 기기 내 데이터 삭제는 로그아웃·브라우저 저장소 삭제로 처리할 수
-          있습니다.
+          계정·데이터·개인정보 관련 문의는 서비스 내 안내 또는 운영 채널을 통해
+          요청할 수 있습니다.
+        </p>
+      </Section>
+    </>
+  );
+}
+
+function AdsTerms() {
+  return (
+    <>
+      <p className="text-[12px] font-semibold text-gray-400">
+        시행일 2026. 8. 1.
+      </p>
+      <Section title="1. 광고 사용 목적">
+        <p>
+          본 서비스는 무료로 제공되며, 서버·운영 비용을 충당하기 위해{" "}
+          <strong className="font-bold text-gray-800">Google AdSense</strong> 등
+          제3자 광고를 게재할 수 있습니다. 광고 승인을 받기 전에는 광고가
+          표시되지 않을 수 있습니다.
+        </p>
+      </Section>
+      <Section title="2. 광고 위치">
+        <p>
+          광고는 주로 홈·소개 등 일반 화면의 여유 공간에 배치합니다.{" "}
+          <strong className="font-bold text-gray-800">
+            현장 리드(네비 진행) 화면에는 광고를 넣지 않는 것을 원칙
+          </strong>
+          으로 합니다. 광고를 클릭하도록 유도하거나 보상하지 않습니다.
+        </p>
+      </Section>
+      <Section title="3. Google 및 파트너">
+        <p>
+          Google을 포함한 제3자 광고 사업자는 쿠키·광고 ID 등을 사용해 관심사에
+          맞는 광고를 제공하거나 광고 성과를 측정할 수 있습니다. Google의 광고
+          설정은{" "}
+          <a
+            href="https://adssettings.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
+          >
+            Google 광고 설정
+          </a>
+          에서 확인·조정할 수 있습니다. 관련 정책:{" "}
+          <a
+            href="https://policies.google.com/technologies/ads"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
+          >
+            Google 광고 기술
+          </a>
+          .
+        </p>
+      </Section>
+      <Section title="4. 이용자 선택">
+        <p>
+          광고·쿠키를 원하지 않으면 브라우저 쿠키 차단, 추적 방지 설정, 또는 서비스
+          이용 중단이 가능합니다. 광고를 부정하게 클릭·요청하는 행위는 금지되며,
+          Google 및 본 서비스 정책 위반이 될 수 있습니다.
+        </p>
+      </Section>
+      <Section title="5. ads.txt">
+        <p>
+          광고 판매자 투명성을 위해 사이트 루트에{" "}
+          <code className="rounded bg-gray-100 px-1 text-[12px]">/ads.txt</code>
+          를 게시합니다. AdSense 승인 및 게시자 ID 설정 후 자동으로 채워집니다.
         </p>
       </Section>
     </>
@@ -177,7 +281,9 @@ function PrivacyTerms() {
 function DisclaimerTerms() {
   return (
     <>
-      <p className="text-[12px] font-semibold text-gray-400">시행일 2026. 8. 1.</p>
+      <p className="text-[12px] font-semibold text-gray-400">
+        시행일 2026. 8. 1. · 개정 2026. 8. 1.
+      </p>
       <Section title="1. 무보증 제공">
         <p>
           본 서비스는{" "}
@@ -192,15 +298,16 @@ function DisclaimerTerms() {
         <p>
           법령이 허용하는 최대 범위 내에서, 운영자는 본 서비스 이용과 관련하여
           발생한 직접·간접·특별·결과적 손해(영업 손실, 계약 불이행, 길 안내 오류,
-          연락 실패, 데이터 손실·유출, 기대 이익 상실 등)에 대해{" "}
+          연락 실패, 데이터 손실·유출, 기대 이익 상실, 광고 표시·클릭 관련 분쟁
+          등)에 대해{" "}
           <strong className="font-bold text-gray-800">책임을 지지 않습니다.</strong>
         </p>
       </Section>
       <Section title="3. 외부 연동">
         <p>
-          원클릭 전화, 내비게이션, 지도 등 외부 앱·서비스의 동작·요금·정확도는
-          해당 제공자 책임 영역입니다. 현장 이동·계약·안내에 앞서 이용자가 반드시
-          재확인해야 합니다.
+          원클릭 전화, 내비게이션, 지도, 클라우드 호스팅, 광고 네트워크 등 외부
+          앱·서비스의 동작·요금·정확도는 해당 제공자 책임 영역입니다. 현장
+          이동·계약·안내에 앞서 이용자가 반드시 재확인해야 합니다.
         </p>
       </Section>
       <Section title="4. 자발적 이용">

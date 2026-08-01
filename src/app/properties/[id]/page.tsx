@@ -21,12 +21,19 @@ export default function PropertyDetailPage() {
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    const found = getListedPropertyById(params.id);
-    if (!found) {
-      router.replace("/properties");
-      return;
-    }
-    setProperty(found);
+    let cancelled = false;
+    void (async () => {
+      const found = await getListedPropertyById(params.id);
+      if (cancelled) return;
+      if (!found) {
+        router.replace("/properties");
+        return;
+      }
+      setProperty(found);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params.id, router]);
 
   if (!property) {
@@ -35,7 +42,7 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const handleSave = (e: FormEvent) => {
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     const error = getPropertyValidationError(property);
     if (error) {
@@ -47,7 +54,7 @@ export default function PropertyDetailPage() {
       address: property.address.trim(),
       updatedAt: new Date().toISOString(),
     };
-    upsertListedProperty(next);
+    await upsertListedProperty(next);
     setProperty(next);
     setEditing(false);
   };
@@ -62,8 +69,9 @@ export default function PropertyDetailPage() {
             variant={editing ? "secondary" : "outline"}
             onClick={() => {
               if (editing) {
-                const found = getListedPropertyById(params.id);
-                if (found) setProperty(found);
+                void getListedPropertyById(params.id).then((found) => {
+                  if (found) setProperty(found);
+                });
               }
               setEditing((v) => !v);
             }}

@@ -26,12 +26,13 @@ export function AddressLink({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    const pref = getNaviPreference();
-    if (pref?.remember) {
-      openNavi(pref.app, naviAddress);
-      return;
-    }
-    setModalOpen(true);
+    void getNaviPreference().then((pref) => {
+      if (pref?.remember) {
+        openNavi(pref.app, naviAddress);
+        return;
+      }
+      setModalOpen(true);
+    });
   };
 
   return (
