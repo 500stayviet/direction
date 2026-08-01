@@ -58,7 +58,8 @@ export function clearAuthRuntimeCache(): void {
 /** 세션·화면 상태를 완전히 비우기 위해 홈으로 하드 이동 */
 export function hardRedirectHome(): void {
   if (typeof window === "undefined") return;
-  window.location.replace("/");
+  // 캐시된 홈 HTML(304) 때문에 옛 번들이 섞이지 않게 쿼리 부여
+  window.location.assign(`/?_=${Date.now()}`);
 }
 
 /** 회원가입 완료 후 로그인 화면으로 이동 */
@@ -142,16 +143,18 @@ export async function getCurrentUser(): Promise<User | null> {
   const appAuth = loadAppAuth();
   if (appAuth?.user) {
     cachedUser = appAuth.user;
-    try {
-      const supabase = createClient();
-      void supabase.auth
-        .setSession({
-          access_token: appAuth.access_token,
-          refresh_token: appAuth.refresh_token,
-        })
-        .then(() => undefined);
-    } catch {
-      /* anon 키 문제여도 화면 로그인 상태는 유지 */
+    if (appAuth.access_token && appAuth.refresh_token) {
+      try {
+        const supabase = createClient();
+        void supabase.auth
+          .setSession({
+            access_token: appAuth.access_token,
+            refresh_token: appAuth.refresh_token,
+          })
+          .then(() => undefined);
+      } catch {
+        /* anon 키 문제여도 화면 로그인 상태는 유지 */
+      }
     }
     return cachedUser;
   }

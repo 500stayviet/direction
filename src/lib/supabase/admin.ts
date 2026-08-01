@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { sanitizeSupabaseKey } from "./keys";
 
 /** 서버 전용. service_role 키 — 클라이언트/NEXT_PUBLIC에 절대 노출하지 말 것 */
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = sanitizeSupabaseKey(
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
   if (!url || !serviceRoleKey) {
     throw new Error(

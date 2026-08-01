@@ -62,22 +62,35 @@ export async function POST(request: Request) {
     }
 
     const meta = data.user.user_metadata ?? {};
-    return NextResponse.json({
+    const user = {
+      id: data.user.id,
+      username: String(meta.username ?? username),
+      shopName: String(meta.shop_name ?? "현장동선"),
+      name: String(meta.display_name ?? meta.username ?? username),
+      phone: String(meta.phone ?? ""),
+      passwordHint: String(meta.password_hint ?? ""),
+      createdAt: data.user.created_at ?? new Date().toISOString(),
+    };
+
+    const res = NextResponse.json({
       ok: true,
       session: {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       },
-      user: {
-        id: data.user.id,
-        username: String(meta.username ?? username),
-        shopName: String(meta.shop_name ?? "현장동선"),
-        name: String(meta.display_name ?? meta.username ?? username),
-        phone: String(meta.phone ?? ""),
-        passwordHint: String(meta.password_hint ?? ""),
-        createdAt: data.user.created_at ?? new Date().toISOString(),
-      },
+      user,
     });
+
+    // 화면 로그인 상태용 쿠키 (토큰은 클라이언트가 localStorage에 저장)
+    res.cookies.set("realty_app_user_v1", JSON.stringify(user), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite: "lax",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    return res;
   } catch {
     return NextResponse.json(
       { ok: false, message: "로그인 요청을 처리하지 못했습니다." },
