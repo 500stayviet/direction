@@ -159,11 +159,6 @@ export default function SignupPage() {
         <Button type="submit" fullWidth size="lg" disabled={!agreed || loading}>
           {loading ? "가입 중..." : "가입하고 시작하기"}
         </Button>
-        <Link href="/login">
-          <Button type="button" variant="secondary" fullWidth className="mt-2">
-            이미 계정이 있어요
-          </Button>
-        </Link>
       </form>
     </main>
   );
