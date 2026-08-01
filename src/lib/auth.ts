@@ -2,7 +2,7 @@
 
 import type { User } from "./types";
 import { createClient } from "./supabase/client";
-import { normalizeUsername, usernameToEmail } from "./supabase/email";
+import { normalizeUsername } from "./supabase/email";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
 const LEGACY_SHARED_KEYS = [
