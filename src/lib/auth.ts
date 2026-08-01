@@ -215,45 +215,52 @@ export async function loginUser(
   }
 
   try {
-    const supabase = createClient();
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(normalized),
-      password: pwd,
+    // 서버에서 인증 후 브라우저 세션에 주입 (모바일/PWA에서 더 안정적)
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: normalized, password: pwd }),
     });
+    const body = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      session?: { access_token: string; refresh_token: string };
+      user?: User;
+    };
 
-    if (error || !data.user) {
-      const msg = (error?.message ?? "").toLowerCase();
-      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
-        return {
-          ok: false,
-          message:
-            "이메일 확인이 켜져 있습니다. Supabase Authentication → Providers → Email 에서 Confirm email 을 OFF 로 해 주세요.",
-        };
-      }
+    if (!res.ok || !body.ok || !body.session || !body.user) {
       return {
         ok: false,
-        message:
-          "아이디 또는 비밀번호가 올바르지 않습니다. 아래 「비밀번호 찾기」로 새 비밀번호를 설정해 보세요.",
+        message: body.message ?? "아이디 또는 비밀번호가 올바르지 않습니다.",
       };
     }
 
-    // 방금 받은 세션 유저로 즉시 구성 + profiles 동기화
-    const fromMeta = userFromAuthSession(data.user);
-    cachedUser = fromMeta;
+    const supabase = createClient();
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: body.session.access_token,
+      refresh_token: body.session.refresh_token,
+    });
+    if (sessionError) {
+      return {
+        ok: false,
+        message: `세션 저장 실패: ${sessionError.message}`,
+      };
+    }
+
+    cachedUser = body.user;
     try {
       await supabase.from("profiles").upsert({
-        id: fromMeta.id,
-        username: fromMeta.username,
-        shop_name: fromMeta.shopName,
-        display_name: fromMeta.name,
-        phone: fromMeta.phone,
-        password_hint: fromMeta.passwordHint,
+        id: body.user.id,
+        username: body.user.username,
+        shop_name: body.user.shopName,
+        display_name: body.user.name,
+        phone: body.user.phone,
+        password_hint: body.user.passwordHint,
       });
       const fromDb = await getCurrentUser();
       if (fromDb) cachedUser = fromDb;
     } catch {
-      cachedUser = fromMeta;
+      cachedUser = body.user;
     }
     return { ok: true, user: cachedUser };
   } catch (e) {

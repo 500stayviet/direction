@@ -1,6 +1,8 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let browserClient: SupabaseClient | null = null;
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,5 +14,26 @@ export function createClient() {
     );
   }
 
-  return createBrowserClient(url, anonKey);
+  // 브라우저에서는 싱글톤 + localStorage 세션 (모바일 PWA에 안정적)
+  if (typeof window !== "undefined") {
+    if (!browserClient) {
+      browserClient = createSupabaseClient(url, anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: window.localStorage,
+          flowType: "pkce",
+        },
+      });
+    }
+    return browserClient;
+  }
+
+  return createSupabaseClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }

@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as {
+      username?: string;
+      password?: string;
+    };
+
+    const username = normalizeUsername(body.username ?? "");
+    const password = (body.password ?? "").normalize("NFKC").trim();
+
+    if (!username || !password) {
+      return NextResponse.json(
+        { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." },
+        { status: 400 }
+      );
+    }
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) {
+      return NextResponse.json(
+        { ok: false, message: "서버 Supabase 설정이 없습니다." },
+        { status: 503 }
+      );
+    }
+
+    const supabase = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password,
+    });
+
+    if (error || !data.session || !data.user) {
+      const msg = (error?.message ?? "").toLowerCase();
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "이메일 확인이 켜져 있습니다. Supabase에서 Confirm email 을 OFF 로 해 주세요.",
+          },
+          { status: 401 }
+        );
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "아이디 또는 비밀번호가 올바르지 않습니다. 「비밀번호 찾기」로 새 비밀번호를 설정해 보세요.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const meta = data.user.user_metadata ?? {};
+    return NextResponse.json({
+      ok: true,
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      },
+      user: {
+        id: data.user.id,
+        username: String(meta.username ?? username),
+        shopName: String(meta.shop_name ?? "현장동선"),
+        name: String(meta.display_name ?? meta.username ?? username),
+        phone: String(meta.phone ?? ""),
+        passwordHint: String(meta.password_hint ?? ""),
+        createdAt: data.user.created_at ?? new Date().toISOString(),
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      { ok: false, message: "로그인 요청을 처리하지 못했습니다." },
+      { status: 500 }
+    );
+  }
+}
