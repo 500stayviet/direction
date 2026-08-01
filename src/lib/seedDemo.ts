@@ -13,7 +13,7 @@ import {
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 
-const DEMO_SEED_VERSION = "demo_v3";
+const DEMO_SEED_VERSION = "demo_v4";
 
 function nowISO() {
   return new Date().toISOString();
@@ -160,6 +160,23 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
       petAllowed: "무",
       notes: "테스트 손님 · 매매 쓰리룸",
       createdAt: iso(1000 * 60 * 60),
+    }),
+    makeCustomer({
+      id: "demo_cust_4",
+      name: "홍길동",
+      phone: "01022223333",
+      dealType: "전세",
+      roomType: "원룸",
+      deposit: 8000,
+      monthlyRent: undefined,
+      moveInFrom: daysFromToday(10),
+      moveInTo: daysFromToday(10),
+      moveInSingle: true,
+      loanType: "해당없음",
+      parkingType: "무",
+      petAllowed: "무",
+      notes: "테스트 손님 · 길동 원룸 전세",
+      createdAt: iso(1000 * 60 * 30),
     }),
   ];
 
@@ -382,7 +399,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     },
     {
       id: "demo_sch_3",
-      guestName: "홍길동(게스트)",
+      customerId: "demo_cust_4",
       visitDate: daysFromToday(0),
       visitTime: "16:00",
       properties: [
@@ -406,7 +423,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
           elevator: false,
           options: ["에어컨", "냉장고"],
           insuranceType: "유",
-          notes: "북향 · 저층 · 고객없음 일정 테스트",
+          notes: "북향 · 저층 · 홍길동 방문 일정",
           moveInFrom: daysFromToday(10),
           moveInTo: daysFromToday(10),
           moveInSingle: true,
@@ -436,6 +453,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
   await touchRecentCustomer("demo_cust_1");
   await touchRecentCustomer("demo_cust_2");
   await touchRecentCustomer("demo_cust_3");
+  await touchRecentCustomer("demo_cust_4");
 
   await setDemoSeedVersion(DEMO_SEED_VERSION);
 }
