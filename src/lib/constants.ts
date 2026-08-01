@@ -1,0 +1,98 @@
+import type { DealType, Property, RoomType } from "./types";
+import { createId } from "./id";
+
+export const DEAL_TYPES: DealType[] = ["매매", "전세", "월세"];
+
+export const ROOM_TYPES: RoomType[] = [
+  "원룸",
+  "투룸",
+  "쓰리룸",
+  "쓰리룸+",
+  "상가",
+  "오피스",
+];
+
+export const LOAN_TYPES = [
+  "해당없음",
+  "LH",
+  "SH",
+  "중기청",
+  "버팀목",
+  "디딤돌",
+  "기타",
+];
+
+export const MAINTENANCE_OPTIONS = [
+  "인터넷",
+  "TV",
+  "수도",
+  "가스",
+  "전기",
+  "청소",
+  "주차",
+];
+
+export const PROPERTY_OPTIONS = [
+  "에어컨",
+  "냉장고",
+  "세탁기",
+  "인덕션",
+  "가스레인지",
+];
+
+export const INSURANCE_TYPES = ["유", "무"] as const;
+
+export const DONG_SUGGESTIONS = [
+  "성내동",
+  "천호동",
+  "길동",
+  "둔촌동",
+  "암사동",
+  "고덕동",
+  "상일동",
+  "명일동",
+  "강일동",
+  "잠실동",
+  "석촌동",
+  "송파동",
+  "방이동",
+  "문정동",
+  "장지동",
+];
+
+export function createEmptyProperty(): Property {
+  return {
+    id: createId("prop"),
+    address: "",
+    roomNo: "",
+    floorPassword: "",
+    roomPassword: "",
+    arriveTime: "",
+    tenantPhone: "",
+    landlordPhone: "",
+    hasPartnerAgency: false,
+    partnerAgency: {
+      name: "",
+      phone: "",
+      dong: "",
+    },
+    dealType: "전세",
+    roomType: "원룸",
+    deposit: 0,
+    monthlyRent: undefined,
+    maintenanceFee: 0,
+    maintenanceIncludes: [],
+    parkingType: "무",
+    parkingFeeType: "별도",
+    parkingFee: undefined,
+    petAllowed: "무",
+    elevator: false,
+    options: [],
+    moveInFrom: "",
+    moveInTo: "",
+    moveInSingle: false,
+    moveInDate: "",
+    insuranceType: "무",
+    notes: "",
+  };
+}

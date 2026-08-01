@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f9fafb;
+  --foreground: #191f28;
+  --toss-blue: #3182f6;
+  --app-max: 430px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  /* iOS 바운스·당겨서 새로고침 완화 */
+  overscroll-behavior: none;
+}
+
+html,
+body {
+  background: #e5e8eb;
+  color: var(--foreground);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  min-height: 100dvh;
+  font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  letter-spacing: -0.02em;
+  /* 모바일 텍스트 자동 확대 방지 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* 입력은 선택·복사 가능 */
+input,
+textarea,
+select {
+  user-select: text;
+  font: inherit;
+  /* iOS 포커스 시 자동 줌 방지 */
+  font-size: 16px !important;
+}
+
+button,
+a {
+  /* font: inherit 금지 — Tailwind text-* 크기를 덮어써 휠/피커 글자가 작아짐 */
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+/* 스크롤은 본문만 */
+main {
+  -webkit-overflow-scrolling: touch;
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: slide-up 0.22s ease-out;
+}
+
+/* 하단 고정 CTA용 */
+.safe-bottom {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 }

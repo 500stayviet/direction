@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="현장동선">
+  <rect width="512" height="512" rx="112" fill="#3182F6"/>
+  <!-- house -->
+  <path d="M256 96L150 210h212L256 96z" fill="#fff"/>
+  <rect x="176" y="200" width="160" height="120" rx="8" fill="#fff"/>
+  <rect x="228" y="248" width="56" height="72" rx="6" fill="#3182F6"/>
+  <rect x="286" y="230" width="28" height="28" rx="4" fill="#3182F6"/>
+  <!-- road -->
+  <path d="M214 318 L298 318 L360 452 L152 452 Z" fill="#fff"/>
+  <path d="M250 340 L262 340 L262 358 L250 358 Z" fill="#3182F6"/>
+  <path d="M248 372 L264 372 L264 392 L248 392 Z" fill="#3182F6"/>
+  <path d="M246 406 L266 406 L266 428 L246 428 Z" fill="#3182F6"/>
+</svg>

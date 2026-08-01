@@ -1,36 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 현장동선 — 부동산 현장 고객 & 동선 맞춤 매물 관리
 
-## Getting Started
+토스 스타일 UI의 모바일 웹앱. 중개인이 손님 등록, 방문 일정 구성, 현장 브리핑·내비 연동을 한 흐름으로 처리합니다.
 
-First, run the development server:
+## 실행
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+브라우저에서 [http://localhost:3000](http://localhost:3000) 을 엽니다.  
+스마트폰에서 전화/내비 원클릭을 쓰려면 같은 Wi-Fi의 기기 IP로 접속하거나 배포 URL을 사용하세요.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 핵심 기능
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **원클릭 전화** (`tel:`) — 고객·협력 부동산 번호
+- **원클릭 내비** — 카카오내비 / Tmap / 네이버 지도 선택, LocalStorage 기억
+- **손님 / 일정 / 매물 수정** — 상세 화면 우측 상단 [수정]
+- **가변형 매물 루트** — 추가·삭제, 구간 이동거리·시간 요약, 스마트 루트 알림
+- **현장 리드 모드** — 1번 → 2번 → 3번 버튼 스텝 네비
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+데이터는 브라우저 LocalStorage에 저장됩니다.
