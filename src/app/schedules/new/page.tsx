@@ -218,9 +218,13 @@ function ScheduleCreateInner() {
       createdAt: now,
       updatedAt: now,
     };
-    await upsertSchedule(schedule);
-    if (selected) await touchRecentCustomer(selected.id);
-    router.push(`/schedules/${schedule.id}`);
+    try {
+      await upsertSchedule(schedule);
+      if (selected) await touchRecentCustomer(selected.id);
+      router.push(`/schedules/${schedule.id}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "일정 저장에 실패했습니다.");
+    }
   };
 
   return (

@@ -234,11 +234,20 @@ export async function loginUser(
       return { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." };
     }
 
-    // 방금 받은 세션 유저로 즉시 구성 (profiles 권한 없어도 로그인 가능)
+    // 방금 받은 세션 유저로 즉시 구성 + profiles 동기화
     const fromMeta = userFromAuthSession(data.user);
+    cachedUser = fromMeta;
     try {
+      await supabase.from("profiles").upsert({
+        id: fromMeta.id,
+        username: fromMeta.username,
+        shop_name: fromMeta.shopName,
+        display_name: fromMeta.name,
+        phone: fromMeta.phone,
+        password_hint: fromMeta.passwordHint,
+      });
       const fromDb = await getCurrentUser();
-      cachedUser = fromDb ?? fromMeta;
+      if (fromDb) cachedUser = fromDb;
     } catch {
       cachedUser = fromMeta;
     }
@@ -251,11 +260,17 @@ export async function loginUser(
 }
 
 export async function logoutUser(): Promise<void> {
+  clearAuthRuntimeCache();
   try {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "global" });
   } catch {
-    /* ignore */
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
   }
   clearAuthRuntimeCache();
 }

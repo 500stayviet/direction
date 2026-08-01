@@ -10,9 +10,13 @@ export default function NewCustomerPage() {
   const router = useRouter();
 
   const handleSubmit = async (customer: Customer) => {
-    await upsertCustomer(customer);
-    await touchRecentCustomer(customer.id);
-    router.push(`/customers/${customer.id}`);
+    try {
+      await upsertCustomer(customer);
+      await touchRecentCustomer(customer.id);
+      router.push(`/customers/${customer.id}`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "손님 저장에 실패했습니다.");
+    }
   };
 
   return (

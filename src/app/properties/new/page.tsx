@@ -29,8 +29,12 @@ export default function NewPropertyPage() {
       createdAt: now,
       updatedAt: now,
     };
-    await upsertListedProperty(saved);
-    router.push(`/properties/${saved.id}`);
+    try {
+      await upsertListedProperty(saved);
+      router.push(`/properties/${saved.id}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "매물 저장에 실패했습니다.");
+    }
   };
 
   return (

@@ -125,8 +125,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // profiles 테이블에 동기화 시도 (실패해도 가입은 성공 처리)
-    try {
+    // profiles 동기화 (실패해도 Auth 계정은 유지 — 로그인 시 재동기화)
+    const { error: profileError } = await admin.from("profiles").upsert({
+      id: userId,
+      username,
+      shop_name: shopName,
+      display_name: name,
+      phone,
+      password_hint: passwordHint,
+    });
+    if (profileError) {
       await admin.rpc("admin_upsert_profile", {
         p_id: userId,
         p_username: username,
@@ -135,20 +143,6 @@ export async function POST(request: Request) {
         p_phone: phone,
         p_password_hint: passwordHint,
       });
-    } catch {
-      /* ignore */
-    }
-    try {
-      await admin.from("profiles").upsert({
-        id: userId,
-        username,
-        shop_name: shopName,
-        display_name: name,
-        phone,
-        password_hint: passwordHint,
-      });
-    } catch {
-      /* ignore */
     }
 
     return NextResponse.json({

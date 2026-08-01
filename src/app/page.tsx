@@ -154,21 +154,36 @@ export default function HomePage() {
             </p>
           </div>
           {user ? (
-            <Button
+            <button
               type="button"
-              variant="outline"
               onClick={() => {
-                void logoutUser().then(() => hardRedirectHome());
+                void (async () => {
+                  await logoutUser();
+                  hardRedirectHome();
+                })();
               }}
+              className="shrink-0 pt-1 text-[13px] font-semibold text-gray-500 active:scale-95 transition-all duration-150"
             >
               로그아웃
-            </Button>
+            </button>
           ) : (
-            <Link href="/login">
-              <Button type="button" variant="outline">
+            <div className="flex shrink-0 items-center gap-2.5 pt-1">
+              <Link
+                href="/login"
+                className="text-[13px] font-semibold text-gray-500 active:scale-95 transition-all duration-150"
+              >
                 로그인
-              </Button>
-            </Link>
+              </Link>
+              <span className="text-[12px] text-gray-300" aria-hidden>
+                |
+              </span>
+              <Link
+                href="/signup"
+                className="text-[13px] font-semibold text-[#3182F6] active:scale-95 transition-all duration-150"
+              >
+                회원가입
+              </Link>
+            </div>
           )}
         </div>
       </div>
