@@ -136,20 +136,47 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: profileError } = await admin.from("profiles").upsert({
-      id: userId,
-      username,
-      shop_name: shopName,
-      display_name: name,
-      phone,
-      password_hint: passwordHint,
+    // 1) SECURITY DEFINER RPC 우선 (GRANT 누락 시에도 동작)
+    const { error: rpcError } = await admin.rpc("admin_upsert_profile", {
+      p_id: userId,
+      p_username: username,
+      p_shop_name: shopName,
+      p_display_name: name,
+      p_phone: phone,
+      p_password_hint: passwordHint,
     });
 
+    let profileError = rpcError;
+
+    // 2) RPC 없으면 테이블 upsert 시도
     if (profileError) {
-      // 프로필 실패 시 고아 auth 유저 정리 시도
+      const { error: upsertError } = await admin.from("profiles").upsert({
+        id: userId,
+        username,
+        shop_name: shopName,
+        display_name: name,
+        phone,
+        password_hint: passwordHint,
+      });
+      profileError = upsertError;
+    }
+
+    if (profileError) {
       await admin.auth.admin.deleteUser(userId);
+      const errMsg = profileError.message.toLowerCase();
+      const denied =
+        profileError.code === "42501" ||
+        errMsg.includes("permission denied") ||
+        errMsg.includes("could not find the function") ||
+        errMsg.includes("admin_upsert_profile");
+
       return NextResponse.json(
-        { ok: false, message: `프로필 저장 실패: ${profileError.message}` },
+        {
+          ok: false,
+          message: denied
+            ? "DB 권한이 없습니다. Supabase SQL Editor에서 supabase/migrations/003_fix_signup.sql 전체를 실행한 뒤 다시 가입해 주세요."
+            : `프로필 저장 실패: ${profileError.message}`,
+        },
         { status: 500 }
       );
     }
