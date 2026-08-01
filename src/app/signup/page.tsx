@@ -75,6 +75,10 @@ export default function SignupPage() {
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <Card className="space-y-2.5">
+          <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
+            업장명·이름·전화번호는 매물 공유 시 손님에게 안내되는 연락 정보예요.
+            필요할 때 쓰이니 가능하면 적어 주세요. (선택)
+          </p>
           <Input
             label="업장명"
             value={shopName}
@@ -86,6 +90,12 @@ export default function SignupPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="홍길동 (선택)"
+          />
+          <PhoneInput
+            label="전화번호"
+            value={phone}
+            onChange={setPhone}
+            hint="선택 입력 · 매물 공유 시 사용"
           />
           <Input
             label="아이디"
@@ -113,19 +123,13 @@ export default function SignupPage() {
             placeholder="비밀번호 다시 입력"
             autoComplete="new-password"
           />
-          <PhoneInput
-            label="전화번호"
-            value={phone}
-            onChange={setPhone}
-            hint="선택 입력"
-          />
           <Input
             label="비밀번호 힌트"
             required
             value={passwordHint}
             onChange={(e) => setPasswordHint(e.target.value)}
             placeholder="본인만 알아볼 수 있는 힌트"
-            hint="비밀번호 찾을 때 쓰는 힌트예요. 잊지 마세요."
+            hint="비밀번호 찾을 때 쓰는 힌트예요. 잊지 말고 공유하지 마세요."
           />
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">

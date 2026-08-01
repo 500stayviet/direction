@@ -13,6 +13,8 @@ import {
 } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
 
+const REMEMBER_USERNAME_KEY = "realty_remember_username";
+
 export default function LoginPage() {
   return (
     <Suspense
@@ -31,6 +33,7 @@ function LoginPageInner() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberId, setRememberId] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -39,9 +42,23 @@ function LoginPageInner() {
   useEffect(() => {
     const registered = searchParams.get("registered") === "1";
     const preset = searchParams.get("username")?.trim() ?? "";
-    if (preset) setUsername(preset);
     if (registered) {
       setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
+    }
+
+    let remembered = "";
+    try {
+      remembered = localStorage.getItem(REMEMBER_USERNAME_KEY)?.trim() ?? "";
+    } catch {
+      remembered = "";
+    }
+
+    if (preset) {
+      setUsername(preset);
+      setRememberId(Boolean(remembered));
+    } else if (remembered) {
+      setUsername(remembered);
+      setRememberId(true);
     }
   }, [searchParams]);
 
@@ -63,8 +80,21 @@ function LoginPageInner() {
       const result = await loginUser(username, password);
       if (!result.ok) {
         setError(result.message);
+        setLoading(false);
         return;
       }
+
+      const normalized = username.trim().toLowerCase();
+      try {
+        if (rememberId && normalized) {
+          localStorage.setItem(REMEMBER_USERNAME_KEY, normalized);
+        } else {
+          localStorage.removeItem(REMEMBER_USERNAME_KEY);
+        }
+      } catch {
+        /* ignore */
+      }
+
       // 세션 백업 저장 후 홈으로 (데모 시드는 홈에서 처리)
       hardRedirectHome();
     } catch (err) {
@@ -177,7 +207,18 @@ function LoginPageInner() {
             }
           />
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 active:scale-[0.99] transition-all duration-150">
+              <input
+                type="checkbox"
+                checked={rememberId}
+                onChange={(e) => setRememberId(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
+              />
+              <span className="text-[13px] font-semibold text-gray-600">
+                아이디 기억하기
+              </span>
+            </label>
             <button
               type="button"
               onClick={openFind}

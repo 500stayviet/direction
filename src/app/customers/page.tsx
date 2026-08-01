@@ -173,7 +173,7 @@ export default function CustomerListPage() {
                           : "bg-emerald-500 text-white",
                       ].join(" ")}
                     >
-                      계약완료
+                      {done ? "완료됨" : "완료처리"}
                     </button>
                   </div>
                 </Card>
@@ -196,17 +196,17 @@ export default function CustomerListPage() {
         onClose={() => setPendingId(null)}
         title={
           pendingDone
-            ? "계약완료를 해지할까요?"
-            : "계약완료로 변경할까요?"
+            ? "완료처리를 취소할까요?"
+            : "완료처리 할까요?"
         }
         description={
           pendingCustomer
             ? pendingDone
-              ? `${pendingCustomer.name} 손님을 계약완료 이전 상태로 되돌립니다.`
-              : `${pendingCustomer.name} 손님을 계약완료 상태로 표시합니다.`
+              ? `${pendingCustomer.name} 손님을 진행 중 상태로 되돌립니다.`
+              : `${pendingCustomer.name} 손님을 완료처리 상태로 표시합니다.`
             : pendingDone
-              ? "계약완료 이전 상태로 되돌립니다."
-              : "해당 손님을 계약완료 상태로 표시합니다."
+              ? "진행 중 상태로 되돌립니다."
+              : "해당 손님을 완료처리 상태로 표시합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

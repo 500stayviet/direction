@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { BrandIcon } from "@/components/BrandIcon";
 import { getCurrentUser, hardRedirectHome, logoutUser } from "@/lib/auth";
+import { getDailyGreeting } from "@/lib/dailyGreeting";
 import { todayISO } from "@/lib/date";
 import {
   getContractDeadlineLabel,
@@ -98,6 +99,7 @@ export default function HomePage() {
     () => customers.filter((c) => isContractDeadlineActive(c)),
     [customers]
   );
+  const dailyGreeting = useMemo(() => getDailyGreeting(), []);
 
   const requireAuth = (href: string) => {
     if (user) {
@@ -127,7 +129,7 @@ export default function HomePage() {
                 <>
                   {user.name || user.username}님,
                   <br />
-                  오늘도 현장 화이팅
+                  {dailyGreeting}
                 </>
               ) : (
                 <>
@@ -142,7 +144,7 @@ export default function HomePage() {
                 <>
                   전화·내비는 원클릭으로.
                   <br />
-                  이 계정에 저장된 손님·매물만 보여요.
+                  부동산 업무를 더 빠르고 가볍게.
                 </>
               ) : (
                 <>
@@ -235,6 +237,16 @@ export default function HomePage() {
           </Link>
         </div>
         <p>무료 편의 도구 · 필요한 분만 이용</p>
+        <p>제공자 미스터k</p>
+        <p>
+          문의{" "}
+          <a
+            href="mailto:bek94900@gmail.com"
+            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
+          >
+            bek94900@gmail.com
+          </a>
+        </p>
       </footer>
 
       <RequireAuthModal

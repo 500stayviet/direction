@@ -19,9 +19,13 @@ async function requireUserId(): Promise<string> {
 }
 
 function throwIfError(error: { message: string } | null, label: string): void {
-  if (error) {
-    throw new Error(`${label}: ${error.message}`);
+  if (!error) return;
+  const msg = error.message || "unknown";
+  // 네트워크 단절 등은 원인 메시지를 짧게
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    throw new Error(`${label}: 네트워크 연결을 확인해 주세요.`);
   }
+  throw new Error(`${label}: ${msg}`);
 }
 
 export async function getCustomers(): Promise<Customer[]> {

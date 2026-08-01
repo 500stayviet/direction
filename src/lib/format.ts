@@ -155,7 +155,7 @@ export function formatMoveInRange(
   return fallback || "-";
 }
 
-function formatKoreanAmPmTime(time: string): string {
+export function formatKoreanAmPmTime(time: string): string {
   const [hs, ms] = time.split(":").map(Number);
   if (!Number.isFinite(hs)) return time;
   const period = hs < 12 ? "오전" : "오후";

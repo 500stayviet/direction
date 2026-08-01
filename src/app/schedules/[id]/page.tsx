@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -14,20 +13,46 @@ import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { Modal } from "@/components/ui/Modal";
+import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { createEmptyProperty } from "@/lib/constants";
 import { addMinutesToHHmm, cascadeArriveTimes } from "@/lib/arriveTime";
+import { getCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import {
   getCustomerById,
   getScheduleById,
   upsertSchedule,
 } from "@/lib/storage";
-import { formatVisitDateTime, getCustomerBudgetLabel } from "@/lib/format";
+import {
+  formatVisitDateTime,
+  getCustomerBudgetLabel,
+  getCustomerMoveInLabel,
+} from "@/lib/format";
 import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import type { Customer, Property, Schedule } from "@/lib/types";
+import { buildPropertyShareText } from "@/lib/shareProperty";
+import type { Customer, Property, Schedule, User } from "@/lib/types";
+
+function CustomerMeta({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold leading-none text-gray-400">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-[13px] font-bold leading-snug text-gray-900">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 function ScheduleDetailInner() {
   const params = useParams<{ id: string }>();
@@ -46,18 +71,29 @@ function ScheduleDetailInner() {
     message: string;
   } | null>(null);
   const [warnOpen, setWarnOpen] = useState(false);
+  const [customerDetailOpen, setCustomerDetailOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [agent, setAgent] = useState<User | null>(null);
+  /** -1: 시작 전, 0..n-1: 현재 포커스 매물(시간순) */
+  const [navStep, setNavStep] = useState(-1);
+  const propertyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const found = await getScheduleById(params.id);
+      const [found, me] = await Promise.all([
+        getScheduleById(params.id),
+        getCurrentUser(),
+      ]);
       if (cancelled) return;
       if (!found) {
         router.replace("/");
         return;
       }
+      setAgent(me);
       setSchedule(found);
+      setNavStep(-1);
       setVisitDate(found.visitDate ?? "");
       setVisitTime(found.visitTime ?? "");
       setProperties(found.properties);
@@ -80,6 +116,24 @@ function ScheduleDetailInner() {
     () => findSmarterRouteHint(properties, routeSummary),
     [properties, routeSummary]
   );
+  const shareText = useMemo(() => {
+    if (!agent) return "";
+    const list =
+      editing || !schedule ? properties : schedule.properties;
+    return buildPropertyShareText(list, agent);
+  }, [agent, editing, properties, schedule]);
+
+  /** 방문 약속 시간 순 매물 인덱스 */
+  const navOrder = useMemo(() => {
+    const list = schedule?.properties ?? [];
+    return list
+      .map((p, i) => ({
+        i,
+        t: p.arriveTime?.trim() || "99:99",
+      }))
+      .sort((a, b) => a.t.localeCompare(b.t))
+      .map((x) => x.i);
+  }, [schedule?.properties]);
 
   if (!schedule) {
     return (
@@ -127,19 +181,31 @@ function ScheduleDetailInner() {
               : "/schedules/new"
         }
         right={
-          <Button
-            variant={editing ? "secondary" : "outline"}
-            onClick={() => {
-              if (editing) {
-                setVisitDate(schedule.visitDate ?? "");
-                setVisitTime(schedule.visitTime ?? "");
-                setProperties(schedule.properties);
-              }
-              setEditing((v) => !v);
-            }}
-          >
-            {editing ? "취소" : "수정"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {!editing ? (
+              <Button
+                variant="outline"
+                onClick={() => setShareOpen(true)}
+                className="!px-2.5 !text-[13px]"
+              >
+                공유하기
+              </Button>
+            ) : null}
+            <Button
+              variant={editing ? "secondary" : "outline"}
+              onClick={() => {
+                if (editing) {
+                  setVisitDate(schedule.visitDate ?? "");
+                  setVisitTime(schedule.visitTime ?? "");
+                  setProperties(schedule.properties);
+                }
+                setEditing((v) => !v);
+              }}
+              className="!px-2.5 !text-[13px]"
+            >
+              {editing ? "취소" : "수정"}
+            </Button>
+          </div>
         }
       />
 
@@ -250,31 +316,84 @@ function ScheduleDetailInner() {
         </>
       ) : (
         <div className="space-y-3">
-          <Card className="!overflow-hidden !p-0">
-            <div className="bg-[#3182F6] px-4 py-3.5 text-white">
-              <p className="text-[11px] font-semibold tracking-wide text-white/75">
-                방문 시간
-              </p>
-              <p className="mt-0.5 text-[22px] font-extrabold tracking-tight">
-                {formatVisitDateTime(schedule.visitDate, schedule.visitTime)}
-              </p>
+          <div className="relative pt-3">
+            <div className="absolute inset-x-4 top-3 z-10 -translate-y-1/2">
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1.5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
+                <span className="shrink-0 text-white/80">방문 시간</span>
+                <span className="truncate tracking-tight">
+                  {formatVisitDateTime(schedule.visitDate, schedule.visitTime)}
+                </span>
+              </span>
             </div>
-            <div className="space-y-2 px-4 py-3.5">
+            <Card className="!overflow-visible space-y-2.5 pt-5">
               {customer ? (
                 <>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="min-w-0 truncate text-[20px] font-extrabold tracking-tight text-gray-900">
-                      {customer.name}
-                    </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[20px] font-extrabold tracking-tight text-gray-900">
+                        {customer.name}
+                      </p>
+                      <p className="mt-1 text-[12px] font-semibold text-gray-500">
+                        {customer.roomType ?? "-"} · {customer.dealType}
+                        {customer.nonOccupancy ? " · 비입주" : ""} ·{" "}
+                        {getCustomerBudgetLabel(customer)}
+                      </p>
+                    </div>
                     <PhoneLink
                       phone={customer.phone}
-                      className="!shrink-0 !rounded-xl !bg-[#E8F8F1] !px-3 !py-2 !text-[16px] !font-extrabold !text-[#03B26C]"
+                      className="!shrink-0 !rounded-xl !bg-[#E8F8F1] !px-2.5 !py-1.5 !text-[14px] !font-extrabold !text-[#03B26C]"
                     />
                   </div>
-                  <p className="text-[13px] font-semibold text-gray-500">
-                    {customer.roomType ?? "-"} · {customer.dealType} ·{" "}
-                    {getCustomerBudgetLabel(customer)}
-                  </p>
+                  <div className="rounded-xl bg-[#F9FAFB]">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerDetailOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:scale-[0.99] transition-all duration-150"
+                      aria-expanded={customerDetailOpen}
+                    >
+                      <span className="text-[13px] font-bold text-gray-600">
+                        입주·대출·주차 등 상세
+                      </span>
+                      <span className="text-[12px] font-bold text-[#3182F6]">
+                        {customerDetailOpen ? "접기" : "펼치기"}
+                      </span>
+                    </button>
+                    {customerDetailOpen ? (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-gray-100 px-3 py-2.5">
+                        <CustomerMeta
+                          label="입주"
+                          value={getCustomerMoveInLabel(customer)}
+                        />
+                        <CustomerMeta
+                          label="대출"
+                          value={
+                            customer.loanType &&
+                            customer.loanType !== "해당없음"
+                              ? customer.loanType
+                              : "-"
+                          }
+                        />
+                        <CustomerMeta
+                          label="주차"
+                          value={customer.parkingType ?? "-"}
+                        />
+                        <CustomerMeta
+                          label="애완동물"
+                          value={customer.petAllowed ?? "-"}
+                        />
+                        {customer.notes?.trim() ? (
+                          <div className="col-span-2 min-w-0">
+                            <p className="text-[11px] font-semibold leading-none text-gray-400">
+                              메모
+                            </p>
+                            <p className="mt-1 line-clamp-3 text-[13px] font-medium leading-snug text-gray-800">
+                              {customer.notes}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               ) : (
                 <>
@@ -286,11 +405,17 @@ function ScheduleDetailInner() {
                   </p>
                 </>
               )}
-            </div>
-          </Card>
+            </Card>
+          </div>
 
           {schedule.properties.map((property, index) => (
-            <div key={property.id} className="space-y-3">
+            <div
+              key={property.id}
+              ref={(el) => {
+                propertyRefs.current[index] = el;
+              }}
+              className="space-y-3 scroll-mt-20"
+            >
               <PropertyBrief index={index} property={property} />
               {schedule.routeSummary[index] && (
                 <RouteSummaryCard summary={schedule.routeSummary[index]} />
@@ -298,16 +423,42 @@ function ScheduleDetailInner() {
             </div>
           ))}
 
-          <div className="space-y-2 pt-1">
-            <Link href={`/navi/${schedule.id}`}>
-              <Button fullWidth size="lg">
-                원터치 네비게이션 시작
-              </Button>
-            </Link>
-            <p className="px-1 text-center text-[12px] text-gray-500">
-              매물 카드의 📞 전화 · 📍 주소로 바로 연결됩니다
-            </p>
-          </div>
+          <StickyActionBar>
+            {(() => {
+              const total = schedule.properties.length;
+              const finished =
+                total <= 1 || navStep >= navOrder.length - 1;
+              const label = finished
+                ? "오늘도 수고많으셨습니다"
+                : "네비게이션 시작";
+              return (
+                <Button
+                  fullWidth
+                  size="lg"
+                  disabled={finished}
+                  className={
+                    finished
+                      ? "!bg-gray-300 !text-gray-600 hover:!bg-gray-300"
+                      : ""
+                  }
+                  onClick={() => {
+                    if (total <= 1) return;
+                    const next = navStep + 1;
+                    if (next >= navOrder.length) return;
+                    setNavStep(next);
+                    const targetIndex = navOrder[next];
+                    const el = propertyRefs.current[targetIndex];
+                    el?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  }}
+                >
+                  {label}
+                </Button>
+              );
+            })()}
+          </StickyActionBar>
         </div>
       )}
 
@@ -335,6 +486,12 @@ function ScheduleDetailInner() {
           확인
         </Button>
       </Modal>
+
+      <SharePropertyModal
+        open={shareOpen}
+        text={shareText}
+        onClose={() => setShareOpen(false)}
+      />
     </main>
   );
 }

@@ -1,4 +1,6 @@
 import { buildRouteSummary } from "@/lib/distance";
+import { loadAppAuth } from "@/lib/supabase/appAuth";
+import { createClient } from "@/lib/supabase/client";
 import {
   getCustomers,
   getDemoSeedVersion,
@@ -13,7 +15,8 @@ import {
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 
-const DEMO_SEED_VERSION = "demo_v4";
+const DEMO_SEED_VERSION = "demo_v5";
+const SEED_SKIP_KEY = `realty_seed_skip_${DEMO_SEED_VERSION}`;
 
 function nowISO() {
   return new Date().toISOString();
@@ -101,11 +104,50 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
 export async function seedDemoDataIfNeeded(): Promise<void> {
   if (typeof window === "undefined") return;
 
-  const currentVersion = await getDemoSeedVersion();
-  if (currentVersion === DEMO_SEED_VERSION) {
-    return;
+  try {
+    if (sessionStorage.getItem(SEED_SKIP_KEY)) return;
+  } catch {
+    /* ignore */
   }
 
+  try {
+    const currentVersion = await getDemoSeedVersion();
+    if (currentVersion === DEMO_SEED_VERSION) {
+      return;
+    }
+
+    // DB 저장에 쓸 수 있는 토큰이 없으면 시드 스킵 (화면은 유지)
+    const appAuth = loadAppAuth();
+    const supabase = createClient();
+    if (appAuth?.access_token && appAuth.refresh_token) {
+      try {
+        await Promise.race([
+          supabase.auth.setSession({
+            access_token: appAuth.access_token,
+            refresh_token: appAuth.refresh_token,
+          }),
+          new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+        ]);
+      } catch {
+        /* continue — Authorization 헤더 주입으로 시도 */
+      }
+    } else {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) return;
+    }
+
+    await runDemoSeed();
+  } catch (e) {
+    console.warn("[seedDemo] skipped:", e);
+    try {
+      sessionStorage.setItem(SEED_SKIP_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function runDemoSeed(): Promise<void> {
   const t0 = Date.now();
   const iso = (offsetMs: number) => new Date(t0 - offsetMs).toISOString();
 
@@ -305,9 +347,9 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
       insuranceType: "유",
       notes: "남향 · 3층 · 즉시입주",
       moveInFrom: daysFromToday(14),
-      moveInTo: daysFromToday(14),
-      moveInSingle: true,
-      moveInDate: formatMoveInRange(daysFromToday(14), daysFromToday(14)),
+      moveInTo: daysFromToday(45),
+      moveInSingle: false,
+      moveInDate: formatMoveInRange(daysFromToday(14), daysFromToday(45)),
     }),
     makeProperty({
       id: "demo_sch_prop_1b",
@@ -446,14 +488,47 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     (s) => !s.id.startsWith("demo_sch_")
   );
 
-  await saveCustomers([...demoCustomers, ...otherCustomers]);
-  await saveListedProperties([...demoProperties, ...otherProperties]);
-  await saveSchedules([...demoSchedules, ...otherSchedules]);
+  // throw 하지 않음 — Next 오버레이/런타임 에러 방지
+  const soft = async (label: string, fn: () => Promise<void>) => {
+    try {
+      await fn();
+      return true;
+    } catch (e) {
+      console.warn(`[seedDemo] ${label} failed:`, e);
+      return false;
+    }
+  };
 
-  await touchRecentCustomer("demo_cust_1");
-  await touchRecentCustomer("demo_cust_2");
-  await touchRecentCustomer("demo_cust_3");
-  await touchRecentCustomer("demo_cust_4");
+  const okCustomers = await soft("customers", () =>
+    saveCustomers([...demoCustomers, ...otherCustomers])
+  );
+  const okProperties = await soft("properties", () =>
+    saveListedProperties([...demoProperties, ...otherProperties])
+  );
+  const okSchedules = await soft("schedules", () =>
+    saveSchedules([...demoSchedules, ...otherSchedules])
+  );
+
+  if (!okCustomers || !okProperties || !okSchedules) {
+    try {
+      sessionStorage.setItem(SEED_SKIP_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
+  await soft("recent", async () => {
+    await touchRecentCustomer("demo_cust_1");
+    await touchRecentCustomer("demo_cust_2");
+    await touchRecentCustomer("demo_cust_3");
+    await touchRecentCustomer("demo_cust_4");
+  });
 
   await setDemoSeedVersion(DEMO_SEED_VERSION);
+  try {
+    sessionStorage.removeItem(SEED_SKIP_KEY);
+  } catch {
+    /* ignore */
+  }
 }

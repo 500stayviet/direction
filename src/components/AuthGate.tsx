@@ -36,16 +36,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         }
 
         if (user && (pathname === "/login" || pathname === "/signup")) {
-          void seedDemoDataIfNeeded();
+          void seedDemoDataIfNeeded().catch(() => undefined);
           if (cancelled) return;
           router.replace("/");
           setReady(false);
           return;
         }
 
-        // 시드는 백그라운드 — 로그인 화면 진입을 막지 않음
+        // 시드는 백그라운드 — 실패해도 화면은 유지
         if (user) {
-          void seedDemoDataIfNeeded();
+          void seedDemoDataIfNeeded().catch(() => undefined);
         }
         if (cancelled) return;
         setReady(true);

@@ -57,24 +57,24 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
     property.partnerAgency.name?.trim() || "협력부동산";
 
   return (
-    <Card className="space-y-0 overflow-hidden !p-0">
-      {/* 헤더: 방문 시간 + 매물 번호 */}
-      <div className="flex items-stretch">
-        {property.arriveTime ? (
-          <div className="flex min-w-[7.5rem] flex-col justify-center bg-[#3182F6] px-4 py-4 text-white">
-            <p className="text-[11px] font-semibold tracking-wide text-white/80">
-              방문 약속
-            </p>
-            <p className="mt-0.5 text-[28px] font-extrabold tabular-nums leading-none tracking-tight">
+    <div className="relative pt-3">
+      {property.arriveTime ? (
+        <div className="absolute left-4 top-3 z-10 -translate-y-1/2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1.5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
+            <span className="text-white/80">방문 약속</span>
+            <span className="tabular-nums tracking-tight">
               {formatDisplayTime(property.arriveTime)}
-            </p>
-          </div>
-        ) : null}
-        <div className="flex flex-1 flex-col justify-center gap-2 px-4 py-4">
-          <p className="text-[18px] font-extrabold tracking-tight text-gray-900">
+            </span>
+          </span>
+        </div>
+      ) : null}
+
+      <Card className="space-y-0 !overflow-visible !p-0">
+        <div className="flex items-center justify-between gap-3 px-4 pt-5">
+          <p className="min-w-0 text-[22px] font-extrabold tracking-tight text-gray-900">
             {index + 1}번 매물
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             {property.roomType ? (
               <span className="rounded-lg bg-[#F2F4F6] px-2.5 py-1 text-[13px] font-bold text-gray-700">
                 {property.roomType}
@@ -85,41 +85,42 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             </span>
           </div>
         </div>
-      </div>
 
-      <div className="space-y-3 px-4 pb-4">
+        <div className="space-y-3 px-4 pb-4 pt-3">
         {/* 원터치 네비 — 블루 포인트 (탭 = 지번까지만 네비 전달) */}
         <div className="rounded-2xl bg-[#E8F3FF] px-3.5 py-3.5 ring-1 ring-inset ring-[#3182F6]/25">
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#3182F6] text-[12px] text-white">
-              ▶
-            </span>
-            <p className="text-[13px] font-extrabold text-[#3182F6]">
-              원터치 네비게이션
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#3182F6] text-[12px] text-white">
+                ▶
+              </span>
+              <p className="text-[13px] font-extrabold text-[#3182F6]">
+                원터치 네비게이션
+              </p>
+            </div>
+            <p className="shrink-0 text-right text-[10px] font-medium leading-none text-[#3182F6]/70">
+              탭하면 주소·지번만 내비로 전달됩니다
             </p>
           </div>
           <AddressLink
             address={property.address}
             className="items-center rounded-xl bg-white px-3 py-3.5 text-[16px] font-extrabold leading-snug text-[#1B64DA] shadow-sm"
           >
-            <span className="block">
+            <span className="break-words text-[16px] font-extrabold leading-snug">
               {property.address || "주소 없음"}
               {property.roomNo?.trim() ? (
-                <span className="mt-0.5 block text-[13px] font-semibold text-gray-500">
+                <span className="ml-2.5 text-[16px] font-extrabold text-gray-700">
                   {property.roomNo.trim()}
                 </span>
               ) : null}
             </span>
           </AddressLink>
-          <p className="mt-1.5 text-[11px] font-medium text-[#3182F6]/70">
-            탭하면 주소·지번만 내비로 전달됩니다
-          </p>
         </div>
 
         {/* 원터치 전화 — 민트 포인트 */}
         {(property.tenantPhone ||
           property.landlordPhone ||
-          (property.hasPartnerAgency && property.partnerAgency.phone)) && (
+          property.hasPartnerAgency) && (
           <div className="rounded-2xl bg-[#E8F8F1] px-3.5 py-3.5 ring-1 ring-inset ring-[#03B26C]/25">
             <div className="mb-2.5 flex items-center gap-1.5">
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#03B26C] text-[12px] text-white">
@@ -130,18 +131,33 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               </p>
             </div>
             <div className="space-y-2">
-              {property.hasPartnerAgency && property.partnerAgency.phone && (
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                  <span className="shrink-0 text-[14px] font-bold text-gray-700">
-                    {partnerLabel}
-                  </span>
-                  <PhoneLink
-                    phone={property.partnerAgency.phone}
-                    className="!text-[16px] !font-extrabold !text-[#03B26C]"
-                  />
+              {property.hasPartnerAgency ? (
+                <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-bold text-gray-700">
+                        {partnerLabel}
+                      </p>
+                      {property.partnerAgency.dong?.trim() ? (
+                        <p className="mt-0.5 text-[12px] font-semibold text-gray-400">
+                          {property.partnerAgency.dong.trim()}
+                        </p>
+                      ) : null}
+                    </div>
+                    {property.partnerAgency.phone ? (
+                      <PhoneLink
+                        phone={property.partnerAgency.phone}
+                        className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
+                      />
+                    ) : (
+                      <span className="shrink-0 text-[12px] font-semibold text-gray-400">
+                        번호 없음
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-              {property.tenantPhone && (
+              ) : null}
+              {property.tenantPhone ? (
                 <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
                   <span className="shrink-0 text-[14px] font-bold text-gray-700">
                     임차인
@@ -151,8 +167,8 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                     className="!text-[16px] !font-extrabold !text-[#03B26C]"
                   />
                 </div>
-              )}
-              {property.landlordPhone && (
+              ) : null}
+              {property.landlordPhone ? (
                 <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
                   <span className="shrink-0 text-[14px] font-bold text-gray-700">
                     집주인
@@ -162,12 +178,12 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                     className="!text-[16px] !font-extrabold !text-[#03B26C]"
                   />
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         )}
 
-        {/* 금액 · 관리비 (한 행, 낮은 높이) */}
+        {/* 금액 · 관리비 · 입주 */}
         <div className="grid grid-cols-2 gap-2">
           <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
             <p className="text-[11px] font-bold leading-none text-gray-400">
@@ -192,6 +208,14 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                   ({property.maintenanceIncludes.join(", ")})
                 </span>
               ) : null}
+            </p>
+          </div>
+          <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <p className="text-[11px] font-bold leading-none text-gray-400">
+              입주 가능
+            </p>
+            <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+              {moveInLabel || "-"}
             </p>
           </div>
         </div>
@@ -223,19 +247,29 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           />
           <StatusChip
             label="보증보험"
-            value={insuranceOn ? "유" : "무"}
+            value={
+              insuranceOn
+                ? property.insuranceType &&
+                  property.insuranceType !== "유"
+                  ? property.insuranceType
+                  : "유"
+                : "무"
+            }
             active={insuranceOn}
           />
-          {moveInLabel ? (
-            <StatusChip label="입주" value={moveInLabel} active />
-          ) : null}
           <StatusChip
             label="주차"
             value={
               property.parkingType === "유"
-                ? property.parkingFee != null && property.parkingFee > 0
-                  ? `유 · ${formatMoney(property.parkingFee)}`
-                  : "유"
+                ? [
+                    "유",
+                    property.parkingFeeType === "포함" ? "포함" : "별도",
+                    property.parkingFee != null && property.parkingFee > 0
+                      ? formatMoney(property.parkingFee)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
                 : "무"
             }
             active={property.parkingType === "유"}
@@ -252,15 +286,14 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           ))}
         </div>
 
-        {property.notes?.trim() ? (
-          <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-            <p className="text-[12px] font-bold text-gray-400">추가내용</p>
-            <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
-              {property.notes}
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </Card>
+        <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
+          <p className="text-[12px] font-bold text-gray-400">추가내용</p>
+          <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
+            {property.notes?.trim() || "-"}
+          </p>
+        </div>
+        </div>
+      </Card>
+    </div>
   );
 }
