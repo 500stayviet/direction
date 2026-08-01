@@ -209,32 +209,40 @@ export async function loginUser(
   password: string
 ): Promise<AuthResult> {
   const normalized = normalizeUsername(username);
-  if (!normalized || !password) {
+  const pwd = password.normalize("NFKC");
+  if (!normalized || !pwd) {
     return { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." };
   }
 
   try {
     const supabase = createClient();
-    clearAuthRuntimeCache();
-    await supabase.auth.signOut();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: usernameToEmail(normalized),
-      password,
+      password: pwd,
     });
 
-    if (error) {
+    if (error || !data.user) {
+      const msg = (error?.message ?? "").toLowerCase();
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        return {
+          ok: false,
+          message:
+            "이메일 확인이 켜져 있습니다. Supabase Authentication → Providers → Email 에서 Confirm email 을 OFF 로 해 주세요.",
+        };
+      }
       return { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." };
     }
 
-    const user = await getCurrentUser();
-    if (!user) {
-      return {
-        ok: false,
-        message: "로그인됐지만 프로필이 없습니다. 다시 가입해 주세요.",
-      };
+    // 방금 받은 세션 유저로 즉시 구성 (profiles 권한 없어도 로그인 가능)
+    const fromMeta = userFromAuthSession(data.user);
+    try {
+      const fromDb = await getCurrentUser();
+      cachedUser = fromDb ?? fromMeta;
+    } catch {
+      cachedUser = fromMeta;
     }
-    return { ok: true, user };
+    return { ok: true, user: cachedUser };
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "로그인 중 오류가 발생했습니다.";
