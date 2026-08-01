@@ -235,62 +235,65 @@ export async function loginUser(
       };
     }
 
-    const supabase = createClient();
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.setSession({
-        access_token: body.session.access_token,
-        refresh_token: body.session.refresh_token,
-      });
+    cachedUser = body.user;
 
-    if (sessionError || !sessionData.session) {
-      // setSession 실패 시 storage에 직접 기록 (anon 키 불일치 등)
+    // 세션 저장은 최대 4초 — 멈춰 보이지 않게
+    const supabase = createClient();
+    try {
+      await Promise.race([
+        supabase.auth.setSession({
+          access_token: body.session.access_token,
+          refresh_token: body.session.refresh_token,
+        }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error("session-timeout")), 4000)
+        ),
+      ]);
+    } catch {
       try {
         const ref = new URL(
           process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
         ).hostname.split(".")[0];
         const storageKey = `sb-${ref}-auth-token`;
-        const payload = {
-          access_token: body.session.access_token,
-          refresh_token: body.session.refresh_token,
-          token_type: "bearer",
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
-          user: {
-            id: body.user.id,
-            user_metadata: {
-              username: body.user.username,
-              shop_name: body.user.shopName,
-              display_name: body.user.name,
-              phone: body.user.phone,
-              password_hint: body.user.passwordHint,
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: body.session.access_token,
+            refresh_token: body.session.refresh_token,
+            token_type: "bearer",
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            user: {
+              id: body.user.id,
+              user_metadata: {
+                username: body.user.username,
+                shop_name: body.user.shopName,
+                display_name: body.user.name,
+                phone: body.user.phone,
+                password_hint: body.user.passwordHint,
+              },
             },
-          },
-        };
-        window.localStorage.setItem(storageKey, JSON.stringify(payload));
+          })
+        );
       } catch {
-        return {
-          ok: false,
-          message: `세션 저장 실패: ${sessionError?.message ?? "unknown"}`,
-        };
+        /* 캐시 유저만으로도 홈 진입 가능 */
       }
     }
 
-    cachedUser = body.user;
-    try {
-      await supabase.from("profiles").upsert({
+    // 프로필 동기화는 백그라운드 (로그인 대기 막지 않음)
+    void supabase
+      .from("profiles")
+      .upsert({
         id: body.user.id,
         username: body.user.username,
         shop_name: body.user.shopName,
         display_name: body.user.name,
         phone: body.user.phone,
         password_hint: body.user.passwordHint,
-      });
-      const fromDb = await getCurrentUser();
-      if (fromDb) cachedUser = fromDb;
-    } catch {
-      cachedUser = body.user;
-    }
-    return { ok: true, user: cachedUser };
+      })
+      .then(() => undefined);
+
+    return { ok: true, user: body.user };
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "로그인 중 오류가 발생했습니다.";

@@ -112,25 +112,15 @@ function LoginPageInner() {
         setFindError(result.message);
         return;
       }
-      setUsername(findUsername.trim());
+      // 자동 로그인 하지 않음 — 변경만 하고 로그인 칸에 넣어 둠 (멈춤 방지)
+      setFindSuccess(true);
+      setUsername(findUsername.trim().toLowerCase());
       setPassword(nextPassword);
       setShowPassword(true);
-
-      // 힌트로 비밀번호를 바꿨으면 바로 로그인까지 진행
-      const loggedIn = await loginUser(findUsername, nextPassword);
-      if (!loggedIn.ok) {
-        setFindSuccess(true);
-        setFindError(
-          `비밀번호는 변경되었습니다. 로그인 칸에서 다시 시도해 주세요. (${loggedIn.message})`
-        );
-        return;
-      }
-      try {
-        await seedDemoDataIfNeeded();
-      } catch {
-        /* ignore */
-      }
-      hardRedirectHome();
+    } catch (err) {
+      setFindError(
+        err instanceof Error ? err.message : "비밀번호 변경에 실패했습니다."
+      );
     } finally {
       setFindLoading(false);
     }
