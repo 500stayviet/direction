@@ -342,18 +342,30 @@ export async function loginUser(
 }
 
 export async function logoutUser(): Promise<void> {
+  // 1) 로컬/쿠키 먼저 삭제 — 화면 로그인 상태의 핵심
   clearAuthRuntimeCache();
+
+  // 2) 서버 쿠키도 만료 (Secure 쿠키 대응)
+  try {
+    await Promise.race([
+      fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 800)),
+    ]);
+  } catch {
+    /* ignore */
+  }
+
+  // 3) supabase 세션은 짧게만 대기 (느리면 스킵하고 리다이렉트)
   try {
     const supabase = createClient();
-    await supabase.auth.signOut({ scope: "global" });
+    await Promise.race([
+      supabase.auth.signOut({ scope: "local" }),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 800)),
+    ]);
   } catch {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore */
-    }
+    /* ignore */
   }
+
   clearAuthRuntimeCache();
 }
 

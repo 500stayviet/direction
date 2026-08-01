@@ -10,12 +10,17 @@ export type AppAuth = {
   savedAt: number;
 };
 
+function cookieSecureSuffix(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.protocol === "https:" ? "; Secure" : "";
+}
+
 function writeUserCookie(user: User): void {
   if (typeof document === "undefined") return;
   try {
     const value = encodeURIComponent(JSON.stringify(user));
     // 화면 로그인 상태용 (토큰은 localStorage). 7일
-    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${cookieSecureSuffix()}`;
   } catch {
     /* ignore */
   }
@@ -37,6 +42,9 @@ function readUserCookie(): User | null {
 
 function clearUserCookie(): void {
   if (typeof document === "undefined") return;
+  // Secure로 심은 쿠키는 Secure 포함해서 지워야 함 (HTTPS 배포)
+  document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${cookieSecureSuffix()}`;
+  // 예전 non-Secure 쿠키도 함께 제거
   document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 

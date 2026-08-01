@@ -158,6 +158,7 @@ export default function HomePage() {
               type="button"
               onClick={() => {
                 void (async () => {
+                  setUser(null);
                   await logoutUser();
                   hardRedirectHome();
                 })();
