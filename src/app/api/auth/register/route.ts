@@ -16,7 +16,10 @@ export async function POST(request: Request) {
     };
 
     const username = normalizeUsername(body.username ?? "");
-    const password = body.password ?? "";
+    const password = (body.password ?? "").normalize("NFKC").trim();
+    const passwordConfirm = (body.passwordConfirm ?? "")
+      .normalize("NFKC")
+      .trim();
     const passwordHint = (body.passwordHint ?? "").trim();
     const shopName = (body.shopName ?? "").trim() || "현장동선";
     const name = (body.name ?? "").trim() || username;
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (password !== (body.passwordConfirm ?? "")) {
+    if (password !== passwordConfirm) {
       return NextResponse.json(
         { ok: false, message: "비밀번호 확인이 일치하지 않습니다." },
         { status: 400 }

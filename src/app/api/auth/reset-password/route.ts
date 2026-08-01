@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const username = normalizeUsername(body.username ?? "");
     const hint = (body.hint ?? "").trim();
-    const newPassword = body.newPassword ?? "";
+    const newPassword = (body.newPassword ?? "").normalize("NFKC").trim();
 
     if (!username) {
       return NextResponse.json(

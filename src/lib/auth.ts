@@ -209,7 +209,7 @@ export async function loginUser(
   password: string
 ): Promise<AuthResult> {
   const normalized = normalizeUsername(username);
-  const pwd = password.normalize("NFKC");
+  const pwd = password.normalize("NFKC").trim();
   if (!normalized || !pwd) {
     return { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." };
   }
@@ -231,7 +231,11 @@ export async function loginUser(
             "이메일 확인이 켜져 있습니다. Supabase Authentication → Providers → Email 에서 Confirm email 을 OFF 로 해 주세요.",
         };
       }
-      return { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." };
+      return {
+        ok: false,
+        message:
+          "아이디 또는 비밀번호가 올바르지 않습니다. 아래 「비밀번호 찾기」로 새 비밀번호를 설정해 보세요.",
+      };
     }
 
     // 방금 받은 세션 유저로 즉시 구성 + profiles 동기화
@@ -288,7 +292,8 @@ export async function resetPasswordWithHint(
   if (!hint.trim()) {
     return { ok: false, message: "비밀번호 힌트를 입력해 주세요." };
   }
-  if (!newPassword || newPassword.length < 6) {
+  const nextPassword = newPassword.normalize("NFKC").trim();
+  if (!nextPassword || nextPassword.length < 6) {
     return { ok: false, message: "새 비밀번호는 6자 이상이어야 합니다." };
   }
 
@@ -299,7 +304,7 @@ export async function resetPasswordWithHint(
       body: JSON.stringify({
         username: normalized,
         hint: hint.trim(),
-        newPassword,
+        newPassword: nextPassword,
       }),
     });
     const body = (await res.json()) as { ok?: boolean; message?: string };
