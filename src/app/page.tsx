@@ -141,15 +141,28 @@ export default function HomePage() {
       <div className="mb-6 px-1">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="mb-2 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl shadow-sm">
                 <BrandIcon size={32} />
               </span>
               <p className="text-[13px] font-bold tracking-tight text-[#3182F6]">
-                {user?.shopName || "현장동선"}
+                현장동선
               </p>
             </div>
-            <h1 className="mt-2 text-[30px] font-bold leading-[1.25] tracking-tight text-gray-900">
+            {user?.shopName?.trim() &&
+            user.shopName.trim() !== "현장동선" ? (
+              <p className="mt-3 text-[14px] font-extrabold tracking-tight text-[#3182F6]">
+                {user.shopName.trim()}
+              </p>
+            ) : null}
+            <h1
+              className={`${
+                user?.shopName?.trim() &&
+                user.shopName.trim() !== "현장동선"
+                  ? "mt-0.5"
+                  : "mt-2"
+              } text-[30px] font-bold leading-[1.25] tracking-tight text-gray-900`}
+            >
               {user ? (
                 <>
                   {user.name || user.username}님,

@@ -81,6 +81,32 @@ export async function POST(request: Request) {
 
     const email = usernameToEmail(username);
 
+    // 삭제된 아이디·활성 아이디 모두 재가입 차단
+    const [{ data: deletedRow }, { data: activeProfile }] = await Promise.all([
+      admin
+        .from("deleted_accounts")
+        .select("username")
+        .eq("username", username)
+        .maybeSingle(),
+      admin
+        .from("profiles")
+        .select("username")
+        .eq("username", username)
+        .maybeSingle(),
+    ]);
+    if (deletedRow) {
+      return NextResponse.json(
+        { ok: false, message: "삭제된 아이디는 다시 가입할 수 없습니다." },
+        { status: 409 }
+      );
+    }
+    if (activeProfile) {
+      return NextResponse.json(
+        { ok: false, message: "이미 사용 중인 아이디입니다." },
+        { status: 409 }
+      );
+    }
+
     // Auth 메타데이터에 프로필 저장 (profiles 테이블 GRANT 없어도 가입·로그인 가능)
     const { data: created, error: createError } =
       await admin.auth.admin.createUser({
