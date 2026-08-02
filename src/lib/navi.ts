@@ -4,15 +4,12 @@ export const NAVI_APPS: {
   id: NaviApp;
   label: string;
   description: string;
+  /** true면 선택·실행 불가 */
+  disabled?: boolean;
 }[] = [
   {
     id: "tmap",
     label: "Tmap (추천)",
-    description: "",
-  },
-  {
-    id: "kakaonavi",
-    label: "카카오내비",
     description: "",
   },
   {
@@ -25,7 +22,17 @@ export const NAVI_APPS: {
     label: "카카오맵",
     description: "",
   },
+  {
+    id: "kakaonavi",
+    label: "카카오내비 (수리중)",
+    description: "",
+    disabled: true,
+  },
 ];
+
+export function isNaviAppDisabled(app: NaviApp): boolean {
+  return Boolean(NAVI_APPS.find((item) => item.id === app)?.disabled);
+}
 
 type NaviCoords = {
   lat: number;
@@ -126,11 +133,12 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
+  if (isNaviAppDisabled(app)) return;
+
   // Tmap: 주소 검색만 (좌표 조회 없음)
   // 카카오맵·네이버지도: 좌표 있으면 길찾기
-  // 카카오내비: 어제와 같이 도착 좌표 조회 후 앱 스킴으로 열기
   let destCoords: NaviCoords | null = null;
-  if (app === "navermap" || app === "kakaomap" || app === "kakaonavi") {
+  if (app === "navermap" || app === "kakaomap") {
     destCoords = await geocodeDestination(query);
   }
 

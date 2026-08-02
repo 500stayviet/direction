@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { getNaviPreference } from "@/lib/storage";
-import { openNavi, toNaviAddress } from "@/lib/navi";
+import { isNaviAppDisabled, openNavi, toNaviAddress } from "@/lib/navi";
 
 export function useNaviLaunch() {
   const [pendingAddress, setPendingAddress] = useState<string | null>(null);
@@ -11,7 +11,7 @@ export function useNaviLaunch() {
     const query = toNaviAddress(address);
     if (!query) return;
     void getNaviPreference().then((pref) => {
-      if (pref?.remember && pref.app) {
+      if (pref?.remember && pref.app && !isNaviAppDisabled(pref.app)) {
         void openNavi(pref.app, query);
         return;
       }

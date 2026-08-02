@@ -449,7 +449,9 @@ function ScheduleDetailInner() {
                         입주·대출·주차 등 상세
                       </span>
                       <span className="text-[12px] font-bold text-[#3182F6]">
-                        {customerDetailOpen ? "접기" : "펼치기"}
+                        {customerDetailOpen
+                          ? "상세정보 접기"
+                          : "상세정보 펼치기"}
                       </span>
                     </button>
                     {customerDetailOpen ? (

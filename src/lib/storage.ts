@@ -399,6 +399,8 @@ export function isActiveNaviPreference(
   if (!pref?.remember || !pref.app) return false;
   // 예전 system 등 폐지된 값은 다시 선택
   if (!VALID_NAVI_APPS.has(pref.app)) return false;
+  // 수리중(비활성) 앱은 기억해도 다시 선택
+  if (pref.app === "kakaonavi") return false;
   // savedAt 없는 예전 설정은 만료로 보고 다시 선택
   if (!pref.savedAt) return false;
   const saved = Date.parse(pref.savedAt);
