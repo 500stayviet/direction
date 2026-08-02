@@ -8,8 +8,8 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-const DEMO_SEED_VERSION = "demo_v8";
-const DEMO_GANGDONG_OFFICE_ADDRESS = "서울 강동구 성내동 546-3";
+const DEMO_SEED_VERSION = "demo_v9";
+const DEMO_GANGDONG_OFFICE_ADDRESS = "서울특별시 강동구 성내동 540";
 const DEMO_TEST_PHONE = "111-1111-1111";
 const CONTRACT_DEADLINE_DAYS = 31;
 
@@ -196,7 +196,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
     moveInDate: propMoveInDate,
     insuranceType: "유",
     notes:
-      "강동구청 주소 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
+      "성내동 540 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
   };
 
   const properties = [

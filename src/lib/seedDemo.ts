@@ -18,11 +18,11 @@ import {
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v8";
+export const DEMO_SEED_VERSION = "demo_v9";
 const SEED_SKIP_KEY = `realty_seed_skip_${DEMO_SEED_VERSION}`;
 
-/** 강동구청 지번 — 원터치 네비 체험용 */
-export const DEMO_GANGDONG_OFFICE_ADDRESS = "서울 강동구 성내동 546-3";
+/** 성내동 체험 지번 — 원터치 네비 체험용 */
+export const DEMO_GANGDONG_OFFICE_ADDRESS = "서울특별시 강동구 성내동 540";
 export const DEMO_TEST_PHONE = "111-1111-1111";
 
 function startOfLocalDay(date: Date): Date {
@@ -270,7 +270,7 @@ export function buildDemoSeedData(baseDate: Date = startOfLocalDay(new Date())):
     moveInDate: propMoveInDate,
     insuranceType: "유",
     notes:
-      "강동구청 주소 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
+      "성내동 540 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
   };
 
   const properties: ListedProperty[] = [

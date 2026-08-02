@@ -101,7 +101,11 @@ export default function CustomerDetailPage() {
             <Button
               variant={editing ? "secondary" : "outline"}
               onClick={() => setEditing((v) => !v)}
-              className="!px-2.5 !text-[13px]"
+              className={
+                editing
+                  ? "!px-2.5 !text-[13px]"
+                  : "!border-2 !border-emerald-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-emerald-600 hover:!bg-emerald-50"
+              }
             >
               {editing ? "취소" : "수정"}
             </Button>

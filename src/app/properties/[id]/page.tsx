@@ -89,9 +89,8 @@ export default function PropertyDetailPage() {
           <div className="flex items-center gap-1.5">
             {!editing ? (
               <Button
-                variant="outline"
                 onClick={() => setShareOpen(true)}
-                className="!px-2.5 !text-[13px]"
+                className="!border-2 !border-sky-400 !bg-white !px-2.5 !text-[13px] !font-bold !text-sky-600 hover:!bg-sky-50"
               >
                 공유하기
               </Button>
@@ -106,7 +105,11 @@ export default function PropertyDetailPage() {
                 }
                 setEditing((v) => !v);
               }}
-              className="!px-2.5 !text-[13px]"
+              className={
+                editing
+                  ? "!px-2.5 !text-[13px]"
+                  : "!border-2 !border-emerald-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-emerald-600 hover:!bg-emerald-50"
+              }
             >
               {editing ? "취소" : "수정"}
             </Button>
