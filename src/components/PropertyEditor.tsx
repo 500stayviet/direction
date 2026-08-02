@@ -209,6 +209,11 @@ export function PropertyEditor({
       patch.roomNo = "";
       patch.parkingType = "무";
       patch.parkingFee = undefined;
+    } else if (
+      roomType !== "건물" &&
+      (isBuildingType(property.roomType) || isLandType(property.roomType))
+    ) {
+      patch.dealType = "월세";
     }
     update(patch);
   };

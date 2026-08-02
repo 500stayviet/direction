@@ -145,7 +145,7 @@ export function createEmptyProperty(): Property {
       phone: "",
       dong: "",
     },
-    dealType: "전세",
+    dealType: "월세",
     roomType: "원룸",
     deposit: 0,
     monthlyRent: undefined,

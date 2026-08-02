@@ -6,14 +6,14 @@ export const NAVI_APPS: {
   description: string;
 }[] = [
   {
-    id: "kakaonavi",
-    label: "카카오내비",
-    description: "작성 주소로 목적지 안내",
+    id: "tmap",
+    label: "Tmap (추천)",
+    description: "작성 주소를 검색창에 넣어 엽니다",
   },
   {
-    id: "tmap",
-    label: "Tmap",
-    description: "작성 주소로 검색",
+    id: "kakaomap",
+    label: "카카오맵",
+    description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
   {
     id: "navermap",
@@ -21,9 +21,9 @@ export const NAVI_APPS: {
     description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
   {
-    id: "kakaomap",
-    label: "카카오맵",
-    description: "도착=작성 주소 · 출발은 앱이 잡음",
+    id: "kakaonavi",
+    label: "카카오내비",
+    description: "주소만 전달이 막혀 있어 사용할 수 없습니다",
   },
 ];
 
@@ -99,10 +99,8 @@ export function buildNaviUrl(
 
   switch (app) {
     case "kakaonavi":
-      // name만 보내면 "파라미터가 존재하지 않습니다" — x/y(경도/위도) 필수
-      if (hasCoords) {
-        return `kakaonavi://navigate?name=${encodedName}&x=${lng}&y=${lat}&coord_type=wgs84`;
-      }
+      // 카카오내비는 주소만 넣는 URL을 공식 지원하지 않음
+      // (비공식 스킴 → 파라미터/인증 오류). API 키 없이는 불가.
       return "";
     case "tmap":
       // route+goalname만이면 목적지가 비고 현재위치가 잡힘 → 검색으로 주소 입력
@@ -126,19 +124,18 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  // 네이버지도·카카오맵: 기존 방식 유지
-  // 카카오내비: 좌표 필수(앱 스펙) — 도착 좌표만 조회해 name+x+y 전달
-  // Tmap: 검색창에 주소만 넣어 열기 (route 스킴 사용 안 함)
-  let destCoords: NaviCoords | null = null;
-  if (app === "navermap" || app === "kakaomap" || app === "kakaonavi") {
-    destCoords = await geocodeDestination(query);
-  }
-
-  if (app === "kakaonavi" && !destCoords) {
+  if (app === "kakaonavi") {
     window.alert(
-      "주소를 좌표로 찾지 못해 카카오내비를 열 수 없습니다. 주소를 확인하거나 카카오맵·네이버지도를 이용해 주세요."
+      "카카오내비는 앱 정책상 주소만 자동으로 넣을 수 없습니다.\nTmap(추천)·카카오맵·네이버지도를 이용해 주세요."
     );
     return;
+  }
+
+  // 네이버지도·카카오맵: 좌표 있으면 길찾기, 없으면 주소 검색
+  // Tmap: API 없이 검색창에 주소만 넣어 열기
+  let destCoords: NaviCoords | null = null;
+  if (app === "navermap" || app === "kakaomap") {
+    destCoords = await geocodeDestination(query);
   }
 
   const deepLink = buildNaviUrl(app, query, destCoords);

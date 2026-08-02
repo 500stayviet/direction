@@ -38,7 +38,7 @@ export function CustomerForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(formatPhoneInput(initial?.phone ?? ""));
   const [dealType, setDealType] = useState<DealType>(
-    initial?.dealType ?? "전세"
+    initial?.dealType ?? "월세"
   );
   const [roomType, setRoomType] = useState<RoomType>(
     initial?.roomType ?? "원룸"
@@ -164,6 +164,8 @@ export function CustomerForm({
             if (next === "토지" || next === "건물") {
               setDealType("매매");
               setMonthlyRent(0);
+            } else if (roomType === "토지" || roomType === "건물") {
+              setDealType("월세");
             }
             if (next === "토지") {
               setParkingType("무");

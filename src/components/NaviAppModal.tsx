@@ -20,13 +20,13 @@ export function NaviAppModal({
   onClose,
   onOpened,
 }: NaviAppModalProps) {
-  const [selected, setSelected] = useState<NaviApp>("kakaonavi");
+  const [selected, setSelected] = useState<NaviApp>("tmap");
   /** 기본: 매번 선택. 체크 시 기억 */
   const [remember, setRemember] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setSelected("kakaonavi");
+    setSelected("tmap");
     setRemember(false);
   }, [open]);
 
