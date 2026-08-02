@@ -99,7 +99,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               </p>
             </div>
             <p className="shrink-0 text-right text-[10px] font-medium leading-none text-[#3182F6]/70">
-              탭하면 폰 기본 지도 앱으로 · 길게 누르면 앱 선택
+              탭하면 지도·내비 앱을 선택합니다
             </p>
           </div>
           <AddressLink

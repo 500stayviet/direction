@@ -6,17 +6,25 @@ export const NAVI_APPS: {
   description: string;
 }[] = [
   {
-    id: "system",
-    label: "기본 지도 앱",
-    description: "전화처럼 폰에 설정된 지도 앱·선택 화면으로 엽니다",
+    id: "kakaonavi",
+    label: "카카오내비",
+    description: "목적지까지 길안내 (내비)",
   },
   {
-    id: "kakaonavi",
-    label: "카카오맵",
-    description: "카카오맵 길안내 (현재 위치 → 도착지)",
+    id: "tmap",
+    label: "Tmap",
+    description: "목적지까지 길안내 (내비)",
   },
-  { id: "tmap", label: "Tmap", description: "티맵으로 길안내" },
-  { id: "navermap", label: "네이버 지도", description: "네이버 지도로 길안내" },
+  {
+    id: "navermap",
+    label: "네이버 지도",
+    description: "현재 위치 → 목적지 길찾기",
+  },
+  {
+    id: "kakaomap",
+    label: "카카오맵",
+    description: "현재 위치 → 목적지 길찾기",
+  },
 ];
 
 export type NaviCoords = {
@@ -71,30 +79,12 @@ async function geocodeDestination(
 }
 
 /**
- * 폰 설정·설치 앱에 맡기는 geo: 링크 (tel: 과 같은 방식).
- * 안드로이드: 기본 지도 앱 또는 선택 화면
- * iOS: 보통 Apple 지도
- */
-export function buildSystemNaviUrl(
-  address: string,
-  coords?: NaviCoords | null
-): string {
-  const name = (coords?.name || toNaviAddress(address) || address).trim();
-  const q = encodeURIComponent(name);
-  if (
-    coords &&
-    Number.isFinite(coords.lat) &&
-    Number.isFinite(coords.lng)
-  ) {
-    return `geo:${coords.lat},${coords.lng}?q=${q}`;
-  }
-  return `geo:0,0?q=${q}`;
-}
-
-/**
- * 출발지=현재위치, 도착지=매물 주소 로 열리도록 URL 구성.
+ * 앱별 URL
+ * - 카카오내비·티맵: 목적지 중심 (내비)
+ * - 네이버지도·카카오맵: 현재위치 → 목적지 길찾기
  *
- * 주의: `kakaonavi://navigate` 는 웹에서 인증 실패함 → 카카오맵 스킴 사용.
+ * 참고: 웹에서 `kakaonavi://` 는 앱키 인증이 없어 실패하는 경우가 많아,
+ * 카카오내비는 목적지 링크(map.kakao.com/link/to)로 엽니다.
  */
 export function buildNaviUrl(
   app: NaviApp,
@@ -112,29 +102,36 @@ export function buildNaviUrl(
     Number.isFinite(lng);
 
   switch (app) {
-    case "system":
-      return buildSystemNaviUrl(address, coords);
     case "kakaonavi":
+      // 목적지 지정 (웹에서 내비 앱키 없이 동작하는 방식)
       if (hasCoords) {
-        return `kakaomap://route?ep=${lat},${lng}&en=${encodedName}&by=car`;
+        return `https://map.kakao.com/link/to/${encodedName},${lat},${lng}`;
       }
       return `https://map.kakao.com/?q=${encodedName}`;
     case "tmap":
+      // 목적지(goal). 출발 미지정 = 현재 위치에서 내비
       if (hasCoords) {
         return `tmap://route?goalname=${encodedName}&goalx=${lng}&goaly=${lat}`;
       }
       return `tmap://route?goalname=${encodedName}`;
     case "navermap":
+      // 길찾기: 출발=현재위치(기본), 도착=매물
       if (hasCoords) {
         return `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=direction-field`;
       }
       return `nmap://search?query=${encodedName}&appname=direction-field`;
+    case "kakaomap":
+      // 길찾기: 출발=현재위치(기본), 도착=매물
+      if (hasCoords) {
+        return `kakaomap://route?ep=${lat},${lng}&en=${encodedName}&by=car`;
+      }
+      return `https://map.kakao.com/?q=${encodedName}`;
     default:
       return buildWebMapFallback(name, coords);
   }
 }
 
-/** 웹 폴백: 도착지 길찾기 */
+/** 웹 폴백 */
 export function buildWebMapFallback(
   address: string,
   coords?: NaviCoords | null
@@ -151,9 +148,22 @@ export function buildWebMapFallback(
   return `https://map.kakao.com/?q=${encodedName}`;
 }
 
-function launchHref(href: string, fallback: string): void {
+export async function openNavi(app: NaviApp, address: string): Promise<void> {
+  const query = toNaviAddress(address) || address;
+  if (!query.trim()) return;
+
+  const coords = await geocodeDestination(query);
+  const deepLink = buildNaviUrl(app, query, coords);
+  const fallback = buildWebMapFallback(query, coords);
+
+  // 이미 https 웹 링크면 폴백 타이머 불필요
+  if (deepLink.startsWith("http://") || deepLink.startsWith("https://")) {
+    window.location.href = deepLink;
+    return;
+  }
+
   const openedAt = Date.now();
-  window.location.href = href;
+  window.location.href = deepLink;
 
   window.setTimeout(() => {
     if (Date.now() - openedAt > 2500) return;
@@ -165,19 +175,4 @@ function launchHref(href: string, fallback: string): void {
     }
     window.location.href = fallback;
   }, 1400);
-}
-
-export async function openNavi(app: NaviApp, address: string): Promise<void> {
-  const query = toNaviAddress(address) || address;
-  if (!query.trim()) return;
-
-  const coords = await geocodeDestination(query);
-  const deepLink = buildNaviUrl(app, query, coords);
-  const fallback = buildWebMapFallback(query, coords);
-  launchHref(deepLink, fallback);
-}
-
-/** 전화(tel:)처럼 폰 기본·선택 UI로 바로 열기 */
-export async function openSystemNavi(address: string): Promise<void> {
-  return openNavi("system", address);
 }

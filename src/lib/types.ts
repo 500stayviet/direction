@@ -9,8 +9,7 @@ export type RoomType =
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
 export type PetAllowed = "유" | "무";
-/** system = 폰 기본/선택 UI(geo:), 나머지 = 특정 앱 딥링크 */
-export type NaviApp = "system" | "kakaonavi" | "tmap" | "navermap";
+export type NaviApp = "kakaonavi" | "tmap" | "navermap" | "kakaomap";
 
 export interface User {
   id: string;
