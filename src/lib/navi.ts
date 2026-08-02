@@ -8,12 +8,12 @@ export const NAVI_APPS: {
   {
     id: "kakaonavi",
     label: "카카오내비",
-    description: "도착=작성 주소 · 출발은 앱이 잡음",
+    description: "작성 주소를 그대로 전달",
   },
   {
     id: "tmap",
     label: "Tmap",
-    description: "도착=작성 주소 · 출발은 앱이 잡음",
+    description: "작성 주소를 그대로 전달",
   },
   {
     id: "navermap",
@@ -99,15 +99,10 @@ export function buildNaviUrl(
 
   switch (app) {
     case "kakaonavi":
-      // 웹(map.kakao.com)은 앱실행/다운로드 UI가 나와서 쓰지 않음
-      if (hasCoords) {
-        return `kakaonavi://navigate?name=${encodedName}&x=${lng}&y=${lat}&coord_type=wgs84`;
-      }
+      // 주소 문자열만 전달 (좌표 변환 없음)
       return `kakaonavi://navigate?name=${encodedName}`;
     case "tmap":
-      if (hasCoords) {
-        return `tmap://route?goalname=${encodedName}&goalx=${lng}&goaly=${lat}`;
-      }
+      // 주소 문자열만 전달 (좌표 변환 없음)
       return `tmap://route?goalname=${encodedName}`;
     case "navermap":
       if (hasCoords) {
@@ -128,8 +123,9 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  // 도착 좌표만 (카카오내비·티맵·지도 모두 목적지를 안정적으로 잡기 위해)
-  const destCoords = await geocodeDestination(query);
+  // 네이버지도·카카오맵만 좌표 조회 / 카카오내비·Tmap은 주소 문자열만
+  const needsGeocode = app === "navermap" || app === "kakaomap";
+  const destCoords = needsGeocode ? await geocodeDestination(query) : null;
   const deepLink = buildNaviUrl(app, query, destCoords);
 
   // 웹/스토어로 폴백하지 않음 — 앱만 시도하고, 실패 시 현장동선에 그대로 둠

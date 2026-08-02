@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { NAVI_APPS, openNavi } from "@/lib/navi";
-import { NAVI_REMEMBER_DAYS, setNaviPreference } from "@/lib/storage";
+import { setNaviPreference } from "@/lib/storage";
 import type { NaviApp } from "@/lib/types";
 
 interface NaviAppModalProps {
@@ -21,7 +21,7 @@ export function NaviAppModal({
   onOpened,
 }: NaviAppModalProps) {
   const [selected, setSelected] = useState<NaviApp>("kakaonavi");
-  /** 기본: 매번 선택. 체크해야만 약 15일 기억 */
+  /** 기본: 매번 선택. 체크 시 기억 */
   const [remember, setRemember] = useState(false);
 
   useEffect(() => {
@@ -70,19 +70,14 @@ export function NaviAppModal({
         설치한 뒤 다시 눌러 주세요. (웹·다운로드 안내로는 보내지 않습니다)
       </p>
 
-      <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+      <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
-          className="mt-0.5 h-4 w-4 shrink-0 accent-[#3182F6]"
+          className="h-4 w-4 shrink-0 accent-[#3182F6]"
         />
-        <span>
-          항상 이 앱으로 열기
-          <span className="mt-0.5 block text-[12px] font-medium text-gray-400">
-            약 {NAVI_REMEMBER_DAYS}일간만 기억 · 이후 다시 선택
-          </span>
-        </span>
+        <span>항상 이 앱으로 열기</span>
       </label>
 
       <div className="mt-5 grid grid-cols-2 gap-2">

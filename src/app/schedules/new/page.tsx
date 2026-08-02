@@ -235,7 +235,7 @@ function ScheduleCreateInner() {
       <PageHeader
         title="방문 일정 만들기"
         backHref="/"
-        subtitle="고객 선택 후 매물 루트를 구성하세요"
+        subtitle="고객 선택 후 매물 동선을 구성하세요"
       />
 
       <form

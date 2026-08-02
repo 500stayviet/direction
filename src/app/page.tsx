@@ -36,14 +36,14 @@ const menus = [
   {
     href: "/schedules/new",
     title: "방문 일정 만들기",
-    description: "매물 루트 구성",
+    description: "매물 동선 구성",
     icon: "🗓️",
     accent: "bg-emerald-50 text-emerald-600",
   },
   {
     href: "/navi",
     title: "네비 시작하기",
-    description: "현장 리드 · 길안내",
+    description: "원터치 네비 · 원터치 전화",
     icon: "🧭",
     accent: "bg-orange-50 text-orange-600",
   },
