@@ -136,7 +136,7 @@ export default function NaviEntryPage() {
               : "text-gray-500",
           ].join(" ")}
         >
-          만든 날짜순
+          생성 날짜순
         </button>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getCurrentUser, getSessionUserId } from "@/lib/auth";
+import { getCurrentUser, getSessionUserId, BOOT_SPLASH_DONE_KEY } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,11 +11,10 @@ const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms", "/about"];
 
 /** 앱 실행 시 브랜드 스플래시 최소 노출 (너무 빨리 사라지지 않게) */
 const BOOT_SPLASH_MIN_MS = 1400;
-const SPLASH_DONE_KEY = "realty_boot_splash_done";
 
 function wasSplashDoneThisSession(): boolean {
   try {
-    return sessionStorage.getItem(SPLASH_DONE_KEY) === "1";
+    return sessionStorage.getItem(BOOT_SPLASH_DONE_KEY) === "1";
   } catch {
     return false;
   }
@@ -23,7 +22,7 @@ function wasSplashDoneThisSession(): boolean {
 
 function markSplashDone() {
   try {
-    sessionStorage.setItem(SPLASH_DONE_KEY, "1");
+    sessionStorage.setItem(BOOT_SPLASH_DONE_KEY, "1");
   } catch {
     /* ignore */
   }

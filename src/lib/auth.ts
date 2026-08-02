@@ -15,6 +15,9 @@ const LEGACY_SHARED_KEYS = [
   "realty_recent_customers",
 ] as const;
 
+/** 탭 접속 1회 스플래시 — 로그아웃 시에도 유지 */
+export const BOOT_SPLASH_DONE_KEY = "realty_boot_splash_done";
+
 let cachedUser: User | null = null;
 
 function canUseStorage(): boolean {
@@ -23,7 +26,7 @@ function canUseStorage(): boolean {
 
 /**
  * 계정 전환 시 남는 런타임 캐시 제거.
- * - sessionStorage 전체
+ * - sessionStorage (스플래시 완료 플래그는 유지 — 로그아웃 후 재표시 방지)
  * - 예전 localStorage 키
  */
 export function clearAuthRuntimeCache(): void {
@@ -31,7 +34,11 @@ export function clearAuthRuntimeCache(): void {
   clearAppAuth();
   if (typeof window === "undefined") return;
   try {
+    const splashDone = sessionStorage.getItem(BOOT_SPLASH_DONE_KEY);
     sessionStorage.clear();
+    if (splashDone) {
+      sessionStorage.setItem(BOOT_SPLASH_DONE_KEY, splashDone);
+    }
   } catch {
     /* ignore */
   }

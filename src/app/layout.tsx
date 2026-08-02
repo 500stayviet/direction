@@ -125,11 +125,16 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        {/* 네이티브 스플래시 — 클라이언트 스크립트가 class를 붙일 수 있어 hydration 경고 억제 */}
-        <div id="boot-splash" aria-hidden="true" suppressHydrationWarning />
+        {/* 기본 숨김 — 탭 첫 접속일 때만 인라인 스크립트가 표시 (로그아웃 재표시 방지) */}
+        <div
+          id="boot-splash"
+          className="boot-splash-done"
+          aria-hidden="true"
+          suppressHydrationWarning
+        />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(sessionStorage.getItem("realty_boot_splash_done")==="1"){var e=document.getElementById("boot-splash");if(e){e.classList.add("boot-splash-done");e.setAttribute("aria-hidden","true");}}}catch(t){}`,
+            __html: `try{if(sessionStorage.getItem("realty_boot_splash_done")!=="1"){var e=document.getElementById("boot-splash");if(e){e.classList.remove("boot-splash-done");e.setAttribute("aria-hidden","false");}}}catch(t){}`,
           }}
         />
         <AdSenseScript />
