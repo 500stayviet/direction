@@ -8,22 +8,22 @@ export const NAVI_APPS: {
   {
     id: "kakaonavi",
     label: "카카오내비",
-    description: "목적지까지 길안내 (네비)",
+    description: "목적지(작성 주소) 검색",
   },
   {
     id: "tmap",
     label: "Tmap",
-    description: "목적지까지 길안내 (네비)",
+    description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
   {
     id: "navermap",
     label: "네이버 지도",
-    description: "현재 위치 → 목적지 길찾기",
+    description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
   {
     id: "kakaomap",
     label: "카카오맵",
-    description: "현재 위치 → 목적지 길찾기",
+    description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
 ];
 
@@ -50,7 +50,7 @@ export function toNaviAddress(address: string): string {
   return text;
 }
 
-/** 길찾기용 좌표만 조회. 도착지 표시 문구로는 쓰지 않음. */
+/** 도착지 좌표만 조회. 출발(현재위치) 좌표는 절대 보내지 않음. */
 async function geocodeDestination(
   address: string
 ): Promise<NaviCoords | null> {
@@ -78,9 +78,8 @@ async function geocodeDestination(
 }
 
 /**
- * - 티맵·네이버·카카오맵: 도착 좌표가 있어야 목적지가 잡힘 (표시명은 작성 주소)
- *   좌표 없이 goalname만내면 티맵이 현위치/안전운행만 여는 경우가 많음
- * - 카카오내비: 웹 검색(주소 문자열)
+ * 우리가 보내는 것 = 도착(작성 주소)만.
+ * 출발 좌표·현재위치는 보내지 않음 → 앱 길찾기 화면의 출발란이 GPS로 채워짐.
  */
 export function buildNaviUrl(
   app: NaviApp,
@@ -101,19 +100,20 @@ export function buildNaviUrl(
     case "kakaonavi":
       return `https://map.kakao.com/?q=${encodedName}`;
     case "tmap":
-      // goalx/goaly 없으면 목적지 미적용 → 현위치만 보이는 경우가 많음
+      // 도착만: goal* / 출발(start*) 파라미터 없음
       if (hasCoords) {
         return `tmap://route?goalname=${encodedName}&goalx=${lng}&goaly=${lat}`;
       }
-      return `tmap://route?goalname=${encodedName}`;
+      // 좌표 없으면 검색으로 도착 주소라도 보이게
+      return `tmap://search?name=${encodedName}`;
     case "navermap":
-      // dlat/dlng 필수. 이름만내면 목적지가 빠지고 현위치만 열림.
+      // 도착만: dlat/dlng/dname — slat/slng/sname(출발) 넣지 않음
       if (hasCoords) {
         return `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=direction-field`;
       }
       return `nmap://search?query=${encodedName}&appname=direction-field`;
     case "kakaomap":
-      // ep(도착 좌표) 필요. 없으면 주소 검색으로 목적지라도 보이게.
+      // 도착만: ep/en — sp(출발) 넣지 않음
       if (hasCoords) {
         return `kakaomap://route?ep=${lat},${lng}&en=${encodedName}&by=car`;
       }
@@ -123,7 +123,7 @@ export function buildNaviUrl(
   }
 }
 
-/** 웹 폴백 — 앱별 검색 */
+/** 웹 폴백 — 도착 주소 검색 */
 export function buildWebMapFallback(
   address: string,
   app?: NaviApp
@@ -133,6 +133,9 @@ export function buildWebMapFallback(
   if (app === "navermap") {
     return `https://map.naver.com/p/search/${encodedName}`;
   }
+  if (app === "tmap") {
+    return `https://www.tmap.co.kr/tmap2/mobile/tmap.jsp?name=${encodedName}`;
+  }
   return `https://map.kakao.com/?q=${encodedName}`;
 }
 
@@ -140,12 +143,14 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  // 티맵·네이버·카카오맵: 도착 좌표 (표시 문구는 항상 query)
-  const needsCoords =
+  // 도착지 좌표만 (출발/현재위치 좌표는 조회·전송하지 않음)
+  const needsDestCoords =
     app === "tmap" || app === "navermap" || app === "kakaomap";
-  const coords = needsCoords ? await geocodeDestination(query) : null;
+  const destCoords = needsDestCoords
+    ? await geocodeDestination(query)
+    : null;
 
-  const deepLink = buildNaviUrl(app, query, coords);
+  const deepLink = buildNaviUrl(app, query, destCoords);
   const fallback = buildWebMapFallback(query, app);
 
   if (deepLink.startsWith("http://") || deepLink.startsWith("https://")) {

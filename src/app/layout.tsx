@@ -71,6 +71,21 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="antialiased">
+        {/* 앱 첫 로딩용 — React가 관리. AuthGate는 숨기기만 하고 DOM에서 제거하지 않음 */}
+        <div id="boot-splash" aria-hidden="true">
+          <div className="boot-splash-inner">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon-192.png"
+              alt=""
+              width={128}
+              height={128}
+              className="boot-splash-icon"
+            />
+            <p className="boot-splash-title">현장동선</p>
+          </div>
+          <p className="boot-splash-credit">제공 미스터k</p>
+        </div>
         <AdSenseScript />
         <AppShell>{children}</AppShell>
       </body>
