@@ -5,11 +5,12 @@ import {
   formatMoveInRange,
   formatPhone,
 } from "@/lib/format";
+import { skipsResidentialExtras } from "@/lib/constants";
 import type { Property, User } from "@/lib/types";
 
 /**
- * 손님 공유용 매물 텍스트.
- * 기본 제외: 호실·실사용면적(옵션으로 포함 가능), 손님정보, 상대부동산·임차인·임대인·손님 전화
+ * 고객 공유용 매물 텍스트.
+ * 기본 제외: 호실(옵션으로 포함 가능), 고객정보, 상대부동산·임차인·임대인·고객 전화
  * 포함: 가입자(업장명·이름·전화), 주소·매물 조건, 앱 현장동선
  */
 export function buildPropertyShareText(
@@ -18,12 +19,10 @@ export function buildPropertyShareText(
   options?: {
     excludeNotes?: boolean;
     excludeRoomNo?: boolean;
-    excludeUsableArea?: boolean;
   }
 ): string {
   const excludeNotes = Boolean(options?.excludeNotes);
   const excludeRoomNo = options?.excludeRoomNo !== false;
-  const excludeUsableArea = options?.excludeUsableArea !== false;
   const lines: string[] = [];
   lines.push("매물 안내");
   lines.push("");
@@ -43,7 +42,9 @@ export function buildPropertyShareText(
       property.roomType === "건물" && property.buildingKind
         ? `건물 · ${property.buildingKind}`
         : property.roomType,
-      property.dealType,
+      property.roomType === "건물" || property.roomType === "토지"
+        ? "매매"
+        : property.dealType,
     ].filter(Boolean);
     if (typeParts.length) {
       lines.push(`유형: ${typeParts.join(" · ")}`);
@@ -51,7 +52,7 @@ export function buildPropertyShareText(
 
     if (property.roomType === "토지") {
       if (property.landArea != null) {
-        lines.push(`대지면적: ${property.landArea}㎡`);
+        lines.push(`대지면적: ${property.landArea}평`);
       }
       if (property.landUse?.trim()) {
         lines.push(`용도: ${property.landUse.trim()}`);
@@ -61,14 +62,14 @@ export function buildPropertyShareText(
     if (property.roomType === "건물") {
       const floorBits = [
         property.floorsBasement != null
-          ? `지하 ${property.floorsBasement}`
+          ? `지하 -${property.floorsBasement}`
           : null,
         property.floorsAbove != null ? `지상 ${property.floorsAbove}` : null,
       ].filter(Boolean);
       if (floorBits.length) lines.push(`층수: ${floorBits.join(" · ")}`);
-      if (property.landArea != null) lines.push(`토지면적: ${property.landArea}㎡`);
+      if (property.landArea != null) lines.push(`토지면적: ${property.landArea}평`);
       if (property.buildingArea != null) {
-        lines.push(`건축면적: ${property.buildingArea}㎡`);
+        lines.push(`건축면적: ${property.buildingArea}평`);
       }
       if (property.unitCounts) {
         const units = (
@@ -82,78 +83,90 @@ export function buildPropertyShareText(
         )
           .filter(([, n]) => n > 0)
           .map(([label, n]) => `${label} ${n}`);
-        if (units.length) lines.push(`호수: ${units.join(" · ")}`);
+        if (units.length) lines.push(`방·상가수: ${units.join(" · ")}`);
       }
       if (property.parkingSpaces != null) {
-        lines.push(`주차: ${property.parkingSpaces}대`);
+        lines.push(`주차가능: ${property.parkingSpaces}대`);
       }
-    }
-
-    if (
-      !excludeUsableArea &&
-      property.usableArea != null &&
-      property.usableArea > 0
-    ) {
-      lines.push(`실사용면적: ${property.usableArea}㎡`);
     }
 
     lines.push(
       `금액: ${formatDepositRent(
-        property.dealType,
+        property.roomType === "건물" || property.roomType === "토지"
+          ? "매매"
+          : property.dealType,
         property.deposit,
         property.monthlyRent
       )}`
     );
 
-    const maint = formatMoney(property.maintenanceFee);
-    const includes =
-      property.maintenanceIncludes?.length > 0
-        ? ` (${property.maintenanceIncludes.join(", ")})`
-        : "";
-    lines.push(`관리비: ${maint}${includes}`);
+    if (property.roomType !== "토지" && property.roomType !== "건물") {
+      const maint = formatMoney(property.maintenanceFee);
+      const includes =
+        !skipsResidentialExtras(property.roomType) &&
+        property.maintenanceIncludes?.length > 0
+          ? ` (${property.maintenanceIncludes.join(", ")})`
+          : "";
+      lines.push(`관리비: ${maint}${includes}`);
 
-    const moveIn = formatMoveInRange(
-      property.moveInFrom,
-      property.moveInTo,
-      property.moveInDate
-    );
-    lines.push(`입주 가능: ${moveIn || "-"}`);
-
+      const moveIn = formatMoveInRange(
+        property.moveInFrom,
+        property.moveInTo,
+        property.moveInDate
+      );
+      lines.push(`입주 가능: ${moveIn || "-"}`);
+    } else if (property.roomType === "건물") {
+      lines.push(`관리비: ${formatMoney(property.maintenanceFee)}`);
+    }
     lines.push(`엘리베이터: ${property.elevator ? "유" : "무"}`);
 
-    const insuranceOn =
-      property.insuranceType === "유" ||
-      Boolean(
-        property.insuranceType &&
-          property.insuranceType !== "무" &&
-          property.insuranceType !== "미가입"
+    if (
+      property.roomType !== "토지" &&
+      property.roomType !== "건물" &&
+      !skipsResidentialExtras(property.roomType)
+    ) {
+      const insuranceOn =
+        property.insuranceType === "유" ||
+        Boolean(
+          property.insuranceType &&
+            property.insuranceType !== "무" &&
+            property.insuranceType !== "미가입"
+        );
+      lines.push(
+        `보증보험: ${
+          insuranceOn
+            ? property.insuranceType && property.insuranceType !== "유"
+              ? property.insuranceType
+              : "유"
+            : "무"
+        }`
       );
-    lines.push(
-      `보증보험: ${
-        insuranceOn
-          ? property.insuranceType && property.insuranceType !== "유"
-            ? property.insuranceType
-            : "유"
-          : "무"
-      }`
-    );
-
-    if (property.parkingType === "유") {
-      const parkingBits = ["유"];
-      if (property.parkingFeeType === "포함") parkingBits.push("포함");
-      else if (property.parkingFeeType === "별도") parkingBits.push("별도");
-      if (property.parkingFee != null && property.parkingFee > 0) {
-        parkingBits.push(formatMoney(property.parkingFee));
-      }
-      lines.push(`주차: ${parkingBits.join(" · ")}`);
-    } else {
-      lines.push("주차: 무");
     }
 
-    lines.push(`애완동물: ${property.petAllowed ?? "무"}`);
+    if (property.roomType !== "토지" && property.roomType !== "건물") {
+      if (property.parkingType === "유") {
+        const parkingBits = ["유"];
+        if (property.parkingFeeType === "포함") parkingBits.push("포함");
+        else if (property.parkingFeeType === "별도") parkingBits.push("별도");
+        if (property.parkingFee != null && property.parkingFee > 0) {
+          parkingBits.push(formatMoney(property.parkingFee));
+        }
+        lines.push(`주차: ${parkingBits.join(" · ")}`);
+      } else {
+        lines.push("주차: 무");
+      }
+    }
 
-    if (property.options?.length) {
-      lines.push(`옵션: ${property.options.join(", ")}`);
+    if (
+      property.roomType !== "토지" &&
+      property.roomType !== "건물" &&
+      !skipsResidentialExtras(property.roomType)
+    ) {
+      lines.push(`애완동물: ${property.petAllowed ?? "무"}`);
+
+      if (property.options?.length) {
+        lines.push(`옵션: ${property.options.join(", ")}`);
+      }
     }
 
     if (!excludeNotes && property.notes?.trim()) {

@@ -10,7 +10,7 @@ const tabs = [
   { href: "/", label: "홈", icon: "🏠", match: (p: string) => p === "/", public: true },
   {
     href: "/customers",
-    label: "손님리스트",
+    label: "고객리스트",
     icon: "👤",
     match: (p: string) => p.startsWith("/customers"),
     public: false,
@@ -46,7 +46,12 @@ export function BottomTabBar() {
       router.push(href);
       return;
     }
-    setAuthModalOpen(true);
+    // 가입 안내는 홈에서만 — 다른 공개 페이지에서는 홈으로 이동
+    if (pathname === "/") {
+      setAuthModalOpen(true);
+      return;
+    }
+    router.push("/");
   };
 
   return (
@@ -91,7 +96,7 @@ export function BottomTabBar() {
       </div>
 
       <RequireAuthModal
-        open={authModalOpen}
+        open={authModalOpen && pathname === "/"}
         onClose={() => setAuthModalOpen(false)}
       />
     </>

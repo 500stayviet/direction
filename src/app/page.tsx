@@ -21,8 +21,8 @@ import { AdBanner } from "@/components/ads/AdBanner";
 const menus = [
   {
     href: "/customers/new",
-    title: "손님 추가",
-    description: "문의 손님 바로 등록",
+    title: "고객 추가",
+    description: "문의 고객 바로 등록",
     icon: "👤",
     accent: "bg-blue-50 text-[#3182F6]",
   },
@@ -64,15 +64,6 @@ export default function HomePage() {
   const [freeNoticeOpen, setFreeNoticeOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(FREE_NOTICE_HIDE_KEY) === "1") return;
-    } catch {
-      /* ignore */
-    }
-    setFreeNoticeOpen(true);
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     let timer: number | undefined;
 
@@ -80,7 +71,18 @@ export default function HomePage() {
       const u = await getCurrentUser();
       if (cancelled) return;
       setUser(u);
-      if (!u) return;
+
+      // 가입 안내는 홈 + 비로그인일 때만
+      if (!u) {
+        try {
+          if (localStorage.getItem(FREE_NOTICE_HIDE_KEY) !== "1") {
+            setFreeNoticeOpen(true);
+          }
+        } catch {
+          setFreeNoticeOpen(true);
+        }
+        return;
+      }
 
       const list = await getCustomers();
       if (cancelled) return;
@@ -156,7 +158,7 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  손님 브리핑부터
+                  고객 브리핑부터
                   <br />
                   동선 관리까지
                 </>
@@ -260,7 +262,6 @@ export default function HomePage() {
           </Link>
         </div>
         <p>무료 편의 도구 · 필요한 분만 이용</p>
-        <p>제공자 미스터k</p>
         <p>
           문의{" "}
           <a
@@ -278,7 +279,7 @@ export default function HomePage() {
       />
 
       <Modal
-        open={freeNoticeOpen}
+        open={freeNoticeOpen && !user}
         onClose={closeFreeNotice}
         position="center"
         dense
@@ -317,7 +318,7 @@ export default function HomePage() {
         onClose={closeDeadlineModal}
         position="center"
         title="마지막 계약 데드라인"
-        description="희망 입주 시작일까지 31일 남은 손님만 표시해요"
+        description="희망 입주 시작일까지 31일 남은 고객만 표시해요"
       >
         <div className="max-h-52 space-y-1.5 overflow-y-auto">
           {deadlineCustomers.map((c) => (

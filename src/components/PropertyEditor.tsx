@@ -7,7 +7,7 @@ import {
   MAINTENANCE_OPTIONS,
   PROPERTY_OPTIONS,
 } from "@/lib/constants";
-import { Input, Select, TextArea } from "@/components/ui/Input";
+import { Input, TextArea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
@@ -19,7 +19,6 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { RoomTypeSelect } from "@/components/RoomTypeSelect";
 import {
   BuildingLandFields,
-  UsableAreaField,
 } from "@/components/BuildingLandFields";
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
@@ -32,11 +31,10 @@ import {
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
 import {
-  EMPTY_BATHROOM_COUNTS,
   EMPTY_UNIT_COUNTS,
   isBuildingType,
   isLandType,
-  isUnitRoomType,
+  skipsResidentialExtras,
 } from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
 
@@ -107,15 +105,17 @@ export function PropertyEditor({
         onlyDigits(property.landlordPhone ?? "")
     );
   });
-  const [showPasswords, setShowPasswords] = useState(() =>
-    Boolean(
-      (property.floorPassword ?? "").trim() ||
-        (property.roomPassword ?? property.password ?? "").trim()
-    )
-  );
 
-  const update = (patch: Partial<Property>) =>
-    onChange({ ...property, ...patch });
+  const update = (patch: Partial<Property>) => {
+    const next: Property = { ...property, ...patch };
+    if (isBuildingType(next.roomType) || isLandType(next.roomType)) {
+      next.dealType = "매매";
+      next.monthlyRent = 0;
+    } else if (next.dealType === "전세" || next.dealType === "매매") {
+      next.monthlyRent = 0;
+    }
+    onChange(next);
+  };
 
   const updateAgency = (patch: Partial<Property["partnerAgency"]>) =>
     onChange({
@@ -182,21 +182,33 @@ export function PropertyEditor({
 
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
-  const isUnit = isUnitRoomType(property.roomType);
-  const hideUnitExtras = isLand || isBuilding;
-  const rentDetailMode = isBuilding && property.rentInputMode === "상세";
+  const hideResidentialExtras = skipsResidentialExtras(property.roomType);
 
   const handleRoomTypeChange = (roomType: RoomType) => {
     const patch: Partial<Property> = { roomType };
     if (roomType === "건물") {
       patch.unitCounts = property.unitCounts ?? { ...EMPTY_UNIT_COUNTS };
-      patch.bathroomCounts =
-        property.bathroomCounts ?? { ...EMPTY_BATHROOM_COUNTS };
-      patch.rentInputMode = property.rentInputMode ?? "합계";
-      if (!property.buildingKind) patch.buildingKind = undefined;
+      patch.rentInputMode = "합계";
+      patch.dealType = "매매";
+      patch.monthlyRent = 0;
+      patch.roomNo = "";
+      patch.moveInFrom = "";
+      patch.moveInTo = "";
+      patch.moveInSingle = false;
+      patch.moveInDate = "";
+      patch.maintenanceIncludes = [];
+    }
+    if (skipsResidentialExtras(roomType)) {
+      patch.maintenanceIncludes = [];
+      patch.options = [];
+      patch.petAllowed = "무";
+      patch.insuranceType = "무";
     }
     if (roomType === "토지") {
       patch.dealType = "매매";
+      patch.roomNo = "";
+      patch.parkingType = "무";
+      patch.parkingFee = undefined;
     }
     update(patch);
   };
@@ -414,195 +426,69 @@ export function PropertyEditor({
             invalid={isInvalid("roomType")}
             value={property.roomType ?? "원룸"}
             onChange={handleRoomTypeChange}
-            hint="손님 유형이 자동으로 불러와져요 · 다시 눌러 변경 가능"
           />
         </div>
-        <div ref={setFieldRef("buildingKind")}>
-          <BuildingLandFields
-            property={property}
-            onChange={update}
-            invalidBuildingKind={isInvalid("buildingKind")}
-          />
-        </div>
-        {isUnit && (
-          <UsableAreaField property={property} onChange={update} />
-        )}
       </div>
 
-      <div className="space-y-2 border-t border-gray-100 pt-3">
-        <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
-        <div ref={setFieldRef("address")}>
-          <SeoulAddressField
-            required
-            requireDong={requireDong}
-            invalid={isInvalid("address")}
-            value={property.address}
-            onChange={(address) => update({ address })}
-            onDongChange={(dong) => {
-              updateAgency({
-                dong: property.partnerAgency.dong || dong,
-                name:
-                  property.partnerAgency.name || (dong ? `${dong} ` : ""),
-              });
-            }}
-          />
-        </div>
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
-          구·동·지번 본번이 정확하지 않으면 원터치 네비 기능이 정상적으로
-          지원되지 않을 수 있습니다.
-        </p>
-        <Input
-          label="동·호실"
-          value={property.roomNo}
-          onChange={(e) => update({ roomNo: e.target.value })}
-          placeholder={isLand ? "지번 상세 (선택)" : "101동 1203호"}
-        />
-        {!isLand && (
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={() => setShowPasswords((v) => !v)}
-              className={[
-                "flex h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5",
-                "active:scale-[0.99] transition-all duration-150",
-                showPasswords
-                  ? "border-[#3182F6]/30 bg-blue-50/50"
-                  : "border-dashed border-gray-200 bg-gray-50",
-              ].join(" ")}
-            >
-              <span className="text-[13px] font-semibold text-gray-700">
-                비밀번호
-                <span className="ml-1.5 text-[11px] font-medium text-gray-400">
-                  {showPasswords ? "접기" : "선택"}
-                </span>
-              </span>
-              <span className="text-[11px] font-bold text-gray-400">
-                {showPasswords ? "▴" : "▾"}
-              </span>
-            </button>
-            {showPasswords && (
-              <div className="grid grid-cols-2 gap-1.5">
-                <label className="block space-y-0.5">
-                  <span className="text-[12px] font-semibold text-gray-500">
-                    1층
-                  </span>
-                  <input
-                    value={property.floorPassword ?? ""}
-                    onChange={(e) => update({ floorPassword: e.target.value })}
-                    placeholder="1234*"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-[14px] text-gray-900 outline-none focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
-                  />
-                </label>
-                <label className="block space-y-0.5">
-                  <span className="text-[12px] font-semibold text-gray-500">
-                    호실
-                  </span>
-                  <input
-                    value={property.roomPassword ?? property.password ?? ""}
-                    onChange={(e) => update({ roomPassword: e.target.value })}
-                    placeholder="5678*"
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-[14px] text-gray-900 outline-none focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2 border-t border-gray-100 pt-3">
+      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>
         <div ref={setFieldRef("dealType")}>
           <DealTypeToggle
             label="거래 형태"
             required
             invalid={isInvalid("dealType")}
-            value={property.dealType}
+            value={
+              isBuilding || isLand ? "매매" : property.dealType
+            }
             onChange={(dealType) => update({ dealType })}
+            types={
+              isBuilding || isLand ? (["매매"] as const) : undefined
+            }
           />
         </div>
-        {!rentDetailMode && (
-          <div className="grid grid-cols-2 gap-2">
-            <div ref={setFieldRef("deposit")}>
-              <Input
-                label={
-                  property.dealType === "매매"
-                    ? "매가 (만원)"
-                    : isBuilding
-                      ? "보증금 합 (만원)"
-                      : "보증금 (만원)"
-                }
-                required
-                invalid={isInvalid("deposit")}
-                hint={isInvalid("deposit") ? "미입력" : undefined}
-                type="number"
-                value={property.deposit || ""}
-                onChange={(e) =>
-                  update({ deposit: Number(e.target.value) || 0 })
-                }
-                placeholder="10000"
-              />
-            </div>
-            {property.dealType !== "매매" && (
-              <Input
-                label={
-                  property.dealType === "전세"
-                    ? isBuilding
-                      ? "월세 합 (만원)"
-                      : "월세 (만원/반전세)"
-                    : isBuilding
-                      ? "월세 합 (만원)"
-                      : "월세 (만원)"
-                }
-                type="number"
-                value={property.monthlyRent || ""}
-                onChange={(e) =>
-                  update({ monthlyRent: Number(e.target.value) || 0 })
-                }
-                placeholder="50"
-                hint={
-                  property.dealType === "전세" && !isBuilding
-                    ? "반전세 등이면 입력 · 없으면 0"
-                    : undefined
-                }
-              />
-            )}
-            {!isLand && (
-              <Input
-                label="관리비 (만원)"
-                type="number"
-                value={property.maintenanceFee || ""}
-                onChange={(e) =>
-                  update({ maintenanceFee: Number(e.target.value) || 0 })
-                }
-                placeholder="10"
-              />
-            )}
-          </div>
-        )}
-        {rentDetailMode && property.dealType === "매매" && (
+        <div className="grid grid-cols-2 gap-2">
           <div ref={setFieldRef("deposit")}>
             <Input
-              label="매가 (만원)"
+              label={
+                property.dealType === "매매" || isBuilding || isLand
+                  ? "매가 (만원)"
+                  : "보증금 (만원)"
+              }
               required
               invalid={isInvalid("deposit")}
               hint={isInvalid("deposit") ? "미입력" : undefined}
               type="number"
               value={property.deposit || ""}
-              onChange={(e) => update({ deposit: Number(e.target.value) || 0 })}
-              placeholder="50000"
+              onChange={(e) =>
+                update({ deposit: Number(e.target.value) || 0 })
+              }
+              placeholder="10000"
             />
           </div>
-        )}
-        {rentDetailMode && property.dealType !== "매매" && (
-          <p className="rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-semibold text-[#1B64DA]">
-            보증·월세 합계{" "}
-            {property.deposit?.toLocaleString("ko-KR") ?? 0}만 / 월{" "}
-            {property.monthlyRent?.toLocaleString("ko-KR") ?? 0}만 (상세에서
-            자동 합산)
-          </p>
-        )}
-        {!isLand && (
+          {property.dealType === "월세" && !isBuilding && !isLand && (
+            <Input
+              label="월세 (만원)"
+              type="number"
+              value={property.monthlyRent || ""}
+              onChange={(e) =>
+                update({ monthlyRent: Number(e.target.value) || 0 })
+              }
+              placeholder="50"
+            />
+          )}
+          {!isLand && (
+            <Input
+              label="관리비 (만원)"
+              type="number"
+              value={property.maintenanceFee || ""}
+              onChange={(e) =>
+                update({ maintenanceFee: Number(e.target.value) || 0 })
+              }
+              placeholder="10"
+            />
+          )}
+        </div>
+        {!isLand && !isBuilding && !hideResidentialExtras && (
           <div>
             <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
               관리비 포함 항목
@@ -619,60 +505,7 @@ export function PropertyEditor({
             </div>
           </div>
         )}
-      </div>
-
-      {!isBuilding && (
-        <div className="space-y-2 border-t border-gray-100 pt-3">
-          <p className="text-sm font-bold text-gray-800">주차 정보</p>
-          <div ref={setFieldRef("parking")}>
-            <OptionToggle
-              label="주차 유무"
-              required
-              invalid={isInvalid("parking")}
-              columns={2}
-              value={property.parkingType === "유" ? "유" : "무"}
-              options={["유", "무"] as const}
-              onChange={(parkingType) =>
-                update({
-                  parkingType,
-                  parkingFeeType: "별도",
-                  parkingFee:
-                    parkingType === "유" ? property.parkingFee : undefined,
-                })
-              }
-            />
-          </div>
-          {property.parkingType === "유" && (
-            <Input
-              label="주차비 (만원/월)"
-              type="number"
-              inputMode="numeric"
-              value={property.parkingFee ?? ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                update({
-                  parkingFeeType: "별도",
-                  parkingFee: raw === "" ? undefined : Number(raw) || 0,
-                });
-              }}
-              placeholder="5"
-            />
-          )}
-          {!isLand && (
-            <OptionToggle
-              label="애완동물 유무"
-              columns={2}
-              value={property.petAllowed ?? "무"}
-              options={["유", "무"] as const}
-              onChange={(petAllowed) => update({ petAllowed })}
-            />
-          )}
-        </div>
-      )}
-
-      <div className="space-y-2 border-t border-gray-100 pt-3">
-        <p className="text-sm font-bold text-gray-800">기타</p>
-        {!isLand && (
+        {!isLand && !isBuilding && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[13px] font-semibold text-gray-600">
@@ -730,16 +563,166 @@ export function PropertyEditor({
             )}
           </div>
         )}
-        {!hideUnitExtras && (
-          <>
-            <Select
-              label="엘리베이터"
-              value={property.elevator ? "yes" : "no"}
-              onChange={(e) => update({ elevator: e.target.value === "yes" })}
-            >
-              <option value="yes">있음</option>
-              <option value="no">없음</option>
-            </Select>
+      </div>
+
+      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+        <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
+        <div ref={setFieldRef("address")}>
+          <SeoulAddressField
+            required
+            requireDong={requireDong}
+            invalid={isInvalid("address")}
+            value={property.address}
+            onChange={(address) => update({ address })}
+            onDongChange={(dong) => {
+              updateAgency({
+                dong: property.partnerAgency.dong || dong,
+                name:
+                  property.partnerAgency.name || (dong ? `${dong} ` : ""),
+              });
+            }}
+          />
+        </div>
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
+          구·동·지번 본번이 정확하지 않으면 원터치 네비 기능이 정상적으로
+          지원되지 않을 수 있습니다.
+        </p>
+        {!isLand && !isBuilding && (
+          <Input
+            label="동·호실"
+            value={property.roomNo}
+            onChange={(e) => update({ roomNo: e.target.value })}
+            placeholder="101동 1203호"
+          />
+        )}
+        {!isLand && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1">
+              <span className="text-[13px] font-semibold text-gray-600">
+                1층 비밀번호
+              </span>
+              <input
+                value={property.floorPassword ?? ""}
+                onChange={(e) => update({ floorPassword: e.target.value })}
+                placeholder="1234*"
+                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-[15px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[13px] font-semibold text-gray-600">
+                호실 비밀번호
+              </span>
+              <input
+                value={property.roomPassword ?? property.password ?? ""}
+                onChange={(e) => update({ roomPassword: e.target.value })}
+                placeholder="5678*"
+                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-[15px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
+      {isBuilding && (
+        <div
+          ref={setFieldRef("buildingKind")}
+          className="mt-2 space-y-1.5 border-t border-gray-200 pt-4"
+        >
+          <BuildingLandFields
+            property={property}
+            onChange={update}
+            invalidBuildingKind={isInvalid("buildingKind")}
+          />
+          <div className="mt-3 space-y-1.5">
+            <OptionToggle
+              label="엘리베이터 유무"
+              columns={2}
+              value={property.elevator ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(v) => update({ elevator: v === "유" })}
+            />
+            <TextArea
+              label="추가내용"
+              value={property.notes ?? ""}
+              onChange={(e) => update({ notes: e.target.value })}
+              placeholder="위반건축물, 건물현황, 향, 특이사항 등"
+            />
+          </div>
+        </div>
+      )}
+
+      {isLand && (
+        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+          <BuildingLandFields
+            property={property}
+            onChange={update}
+            invalidBuildingKind={isInvalid("buildingKind")}
+          />
+          <div className="mt-3 space-y-1.5">
+            <TextArea
+              label="추가내용"
+              value={property.notes ?? ""}
+              onChange={(e) => update({ notes: e.target.value })}
+              placeholder="위반건축물, 건물현황, 향, 특이사항 등"
+            />
+          </div>
+        </div>
+      )}
+
+      {!isLand && !isBuilding && (
+        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+          <p className="text-sm font-bold text-gray-800">기타</p>
+          <div ref={setFieldRef("parking")}>
+            <OptionToggle
+              label="주차 유무"
+              required
+              invalid={isInvalid("parking")}
+              columns={2}
+              value={property.parkingType === "유" ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(parkingType) =>
+                update({
+                  parkingType,
+                  parkingFeeType: "별도",
+                  parkingFee:
+                    parkingType === "유" ? property.parkingFee : undefined,
+                })
+              }
+            />
+          </div>
+          {property.parkingType === "유" && (
+            <Input
+              label="주차비 (만원/월)"
+              type="number"
+              inputMode="numeric"
+              value={property.parkingFee ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                update({
+                  parkingFeeType: "별도",
+                  parkingFee: raw === "" ? undefined : Number(raw) || 0,
+                });
+              }}
+              placeholder="5"
+            />
+          )}
+          {!hideResidentialExtras && (
+            <OptionToggle
+              label="애완동물 유무"
+              columns={2}
+              value={property.petAllowed ?? "무"}
+              options={["유", "무"] as const}
+              onChange={(petAllowed) => update({ petAllowed })}
+            />
+          )}
+          <OptionToggle
+            label="엘리베이터 유무"
+            columns={2}
+            value={property.elevator ? "유" : "무"}
+            options={["유", "무"] as const}
+            onChange={(v) => update({ elevator: v === "유" })}
+          />
+          {!hideResidentialExtras && (
             <OptionToggle
               label="전세보증보험 가입 가능 여부"
               columns={2}
@@ -747,6 +730,8 @@ export function PropertyEditor({
               options={INSURANCE_TYPES}
               onChange={(insuranceType) => update({ insuranceType })}
             />
+          )}
+          {!hideResidentialExtras && (
             <div>
               <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
                 옵션
@@ -762,29 +747,21 @@ export function PropertyEditor({
                 ))}
               </div>
             </div>
-          </>
-        )}
-        {isBuilding && (
-          <Select
-            label="엘리베이터"
-            value={property.elevator ? "yes" : "no"}
-            onChange={(e) => update({ elevator: e.target.value === "yes" })}
-          >
-            <option value="yes">있음</option>
-            <option value="no">없음</option>
-          </Select>
-        )}
-        <TextArea
-          label="추가내용"
-          value={property.notes ?? ""}
-          onChange={(e) => update({ notes: e.target.value })}
-          placeholder={
-            isLand || isBuilding
-              ? "건폐율, 용적률, 현황, 향, 특이사항 등"
-              : "특이사항, 방향, 층, 입주조건 등"
-          }
-        />
-      </div>
+          )}
+          <TextArea
+            label="추가내용"
+            value={property.notes ?? ""}
+            onChange={(e) => update({ notes: e.target.value })}
+            placeholder={
+              property.roomType === "상가"
+                ? "권리금, 건물현황, 향, 특이사항 등"
+                : property.roomType === "사무실"
+                  ? "층, 건물현황, 향, 특이사항 등"
+                  : "위반건축물, 건물현황, 향, 특이사항 등"
+            }
+          />
+        </div>
+      )}
     </Card>
   );
 }

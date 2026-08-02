@@ -22,7 +22,7 @@ function scheduleTitle(
     const name = customerNames[schedule.customerId];
     if (name) return name;
   }
-  return "손님 미지정";
+  return "고객 미지정";
 }
 
 /** 매물 주소에서 선택한 동만 모음. 방문 약속 시간 순 · 쉼표 구분 */

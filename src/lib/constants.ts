@@ -69,6 +69,13 @@ export function isBuildingType(roomType?: string | null): boolean {
   return roomType === "건물";
 }
 
+/** 상가·사무실 — 애완/보증보험/옵션/관리비포함 불필요 */
+export function skipsResidentialExtras(roomType?: string | null): boolean {
+  return (
+    roomType === "상가" || roomType === "사무실" || roomType === "오피스"
+  );
+}
+
 /** 단일 호실·상가 유형 (실사용면적 1칸) */
 export function isUnitRoomType(roomType?: string | null): boolean {
   return Boolean(roomType) && !isLandType(roomType) && !isBuildingType(roomType);

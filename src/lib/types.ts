@@ -36,7 +36,7 @@ export interface BuildingBathroomCounts {
   "쓰리룸+": number;
 }
 
-/** 주거 유형별 실사용면적(㎡) */
+/** 주거 유형별 실사용면적(평) */
 export interface BuildingRoomAreas {
   원룸?: number;
   투룸?: number;
@@ -88,9 +88,9 @@ export interface Customer {
   /** 매매 시 비입주(투자 등) 여부 */
   nonOccupancy?: boolean;
   loanType?: string;
-  /** 손님 희망 주차 조건 */
+  /** 고객 희망 주차 조건 */
   parkingType: ParkingType;
-  /** 손님 애완동물 유무 */
+  /** 고객 애완동물 유무 */
   petAllowed: PetAllowed;
   notes?: string;
   /** 계약 완료 여부 */
@@ -125,7 +125,7 @@ export interface Property {
   hasPartnerAgency: boolean;
   partnerAgency: PartnerAgency;
   dealType: DealType;
-  /** 방/매물 유형 (손님 유형을 기본으로 불러옴) */
+  /** 방/매물 유형 (고객 유형을 기본으로 불러옴) */
   roomType?: RoomType;
   deposit: number;
   monthlyRent?: number;
@@ -149,9 +149,9 @@ export interface Property {
   insuranceType?: string;
   /** 추가 메모·특이사항 (건폐율·용적률·현황·향 등) */
   notes?: string;
-  /** 실사용면적 ㎡ (원룸·상가 등 단일 유형) */
+  /** 실사용면적 평 (원룸·상가 등 단일 유형) */
   usableArea?: number;
-  /** 토지 대지면적 ㎡ / 건물 토지면적 ㎡ */
+  /** 토지 대지면적 평 / 건물 토지면적 평 */
   landArea?: number;
   /** 토지 용도 */
   landUse?: string;
@@ -161,7 +161,7 @@ export interface Property {
   floorsBasement?: number;
   /** 지상 층수 */
   floorsAbove?: number;
-  /** 건축면적 ㎡ */
+  /** 건축면적 평 */
   buildingArea?: number;
   /** 주차 대수 */
   parkingSpaces?: number;
@@ -169,9 +169,9 @@ export interface Property {
   unitCounts?: BuildingUnitCounts;
   /** 주거 유형별 화장실 수(호실당) */
   bathroomCounts?: BuildingBathroomCounts;
-  /** 주거 유형별 실사용면적 ㎡ */
+  /** 주거 유형별 실사용면적 평 */
   roomAreas?: BuildingRoomAreas;
-  /** 상가별 실사용면적 ㎡ (길이 = 상가 호수) */
+  /** 상가별 실사용면적 평 (길이 = 상가 호수) */
   commercialAreas?: number[];
   /** 건물 임대료: 합계 | 유형별 상세 */
   rentInputMode?: RentInputMode;
@@ -196,7 +196,7 @@ export interface RouteSummary {
 
 export interface Schedule {
   id: string;
-  /** 등록 손님 ID. 고객없음(게스트)일 때는 비움 */
+  /** 등록 고객 ID. 고객없음(게스트)일 때는 비움 */
   customerId?: string;
   /** 고객없음일 때 입력한 성함 */
   guestName?: string;

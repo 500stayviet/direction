@@ -159,7 +159,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
       parkingType: "유",
       petAllowed: "무",
       notes:
-        "체험용 테스트 손님입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
+        "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdAt: iso(1000 * 60 * 60),
     }),
   ];
@@ -218,7 +218,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
-      title: "테스트 손님 방문",
+      title: "테스트 고객 방문",
       visitDate,
       visitTime: "10:00",
       properties: scheduleProps,

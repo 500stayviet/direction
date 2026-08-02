@@ -1,7 +1,7 @@
 "use client";
 
 import type { Property } from "@/lib/types";
-import { displayRoomType } from "@/lib/constants";
+import { displayRoomType, skipsResidentialExtras } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
@@ -82,7 +82,9 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               </span>
             ) : null}
             <span className="rounded-lg bg-[#3182F6]/12 px-2.5 py-1 text-[13px] font-bold text-[#3182F6]">
-              {property.dealType}
+              {property.roomType === "건물" || property.roomType === "토지"
+                ? "매매"
+                : property.dealType}
             </span>
           </div>
         </div>
@@ -190,7 +192,9 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             </p>
             <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
               {formatDepositRent(
-                property.dealType,
+                property.roomType === "건물" || property.roomType === "토지"
+                  ? "매매"
+                  : property.dealType,
                 property.deposit,
                 property.monthlyRent
               )}
@@ -202,7 +206,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                 대지면적
               </p>
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {property.landArea != null ? `${property.landArea}㎡` : "-"}
+                {property.landArea != null ? `${property.landArea}평` : "-"}
                 {property.landUse?.trim() ? (
                   <span className="ml-1 text-[12px] font-semibold text-gray-500">
                     · {property.landUse.trim()}
@@ -218,7 +222,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {[
                   property.floorsBasement
-                    ? `지하 ${property.floorsBasement}`
+                    ? `지하 -${property.floorsBasement}`
                     : null,
                   property.floorsAbove ? `지상 ${property.floorsAbove}` : null,
                   property.parkingSpaces != null
@@ -236,7 +240,8 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               </p>
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {formatMoney(property.maintenanceFee)}
-                {property.maintenanceIncludes.length > 0 ? (
+                {!skipsResidentialExtras(property.roomType) &&
+                property.maintenanceIncludes.length > 0 ? (
                   <span className="ml-1 text-[12px] font-semibold text-gray-500">
                     ({property.maintenanceIncludes.join(", ")})
                   </span>
@@ -247,7 +252,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           {property.roomType === "건물" && property.unitCounts ? (
             <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
               <p className="text-[11px] font-bold leading-none text-gray-400">
-                방 · 상가
+                방 · 상가수
               </p>
               <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {(
@@ -265,17 +270,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               </p>
             </div>
           ) : null}
-          {property.usableArea != null && property.usableArea > 0 ? (
-            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
-              <p className="text-[11px] font-bold leading-none text-gray-400">
-                실사용면적
-              </p>
-              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {property.usableArea}㎡
-              </p>
-            </div>
-          ) : null}
-          {property.roomType !== "토지" ? (
+          {property.roomType !== "토지" && property.roomType !== "건물" ? (
             <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 입주 가능
@@ -316,7 +311,9 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             active={property.elevator}
           />
           )}
-          {property.roomType !== "토지" && property.roomType !== "건물" && (
+          {property.roomType !== "토지" &&
+            property.roomType !== "건물" &&
+            !skipsResidentialExtras(property.roomType) && (
           <StatusChip
             label="보증보험"
             value={
@@ -330,6 +327,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             active={insuranceOn}
           />
           )}
+          {property.roomType !== "토지" && (
           <StatusChip
             label="주차"
             value={
@@ -353,7 +351,9 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                 : property.parkingType === "유"
             }
           />
-          {property.roomType !== "토지" && property.roomType !== "건물" && (
+          )}          {property.roomType !== "토지" &&
+            property.roomType !== "건물" &&
+            !skipsResidentialExtras(property.roomType) && (
           <StatusChip
             label="애완동물"
             value={property.petAllowed ?? "무"}
@@ -362,6 +362,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           )}
           {property.roomType !== "토지" &&
             property.roomType !== "건물" &&
+            !skipsResidentialExtras(property.roomType) &&
             property.options.map((opt) => (
             <span key={opt} className={chipOption}>
               {opt}

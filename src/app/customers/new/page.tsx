@@ -15,18 +15,18 @@ export default function NewCustomerPage() {
       await touchRecentCustomer(customer.id);
       router.push(`/customers/${customer.id}`);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "손님 저장에 실패했습니다.");
+      alert(e instanceof Error ? e.message : "고객 저장에 실패했습니다.");
     }
   };
 
   return (
     <main>
       <PageHeader
-        title="손님 추가"
+        title="고객 추가"
         backHref="/customers"
         subtitle="고객 DB에 바로 등록"
       />
-      <CustomerForm onSubmit={handleSubmit} submitLabel="손님 저장하기" />
+      <CustomerForm onSubmit={handleSubmit} submitLabel="고객 저장하기" />
     </main>
   );
 }

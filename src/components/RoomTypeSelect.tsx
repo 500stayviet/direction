@@ -103,7 +103,11 @@ export function RoomTypeSelect({
               <button
                 key={type}
                 type="button"
-                onClick={() => setDraft(type)}
+                onClick={() => {
+                  setDraft(type);
+                  onChange(type);
+                  setOpen(false);
+                }}
                 className={[
                   "min-h-[48px] rounded-xl text-[15px] font-bold",
                   "active:scale-95 transition-all duration-150",

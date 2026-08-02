@@ -145,7 +145,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
 }
 
 /**
- * 로그인 계정에 테스트용 손님·매물·방문일정 시드
+ * 로그인 계정에 테스트용 고객·매물·방문일정 시드
  * - 최초: 가입일 기준으로 날짜 생성
  * - 이후: 매일 오늘 기준으로 날짜 갱신 (일정·계약마감 체험 유지)
  */
@@ -195,7 +195,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
 }
 
 /**
- * 체험용 1손님 · 1매물 · 1네비(일정)
+ * 체험용 1고객 · 1매물 · 1네비(일정)
  * baseDate(가입일/오늘) 기준:
  * - 방문일 = 당일 → 네비·일정 바로 사용
  * - 희망 입주 = 당일+31일 → 계약 마감 알림 체험
@@ -233,7 +233,7 @@ export function buildDemoSeedData(baseDate: Date = startOfLocalDay(new Date())):
       parkingType: "유",
       petAllowed: "무",
       notes:
-        "체험용 테스트 손님입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
+        "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdAt: iso(1000 * 60 * 60),
     }),
   ];
@@ -293,7 +293,7 @@ export function buildDemoSeedData(baseDate: Date = startOfLocalDay(new Date())):
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
-      title: "테스트 손님 방문",
+      title: "테스트 고객 방문",
       visitDate,
       visitTime: "10:00",
       properties: scheduleProps,

@@ -64,7 +64,7 @@ export default function CustomerListPage() {
   return (
     <main>
       <PageHeader
-        title="손님 리스트"
+        title="고객리스트"
         backHref="/"
         subtitle={`등록 ${customers.length}명`}
       />
@@ -82,7 +82,7 @@ export default function CustomerListPage() {
           <Card>
             <p className="text-sm text-gray-500">
               {customers.length === 0
-                ? "등록된 손님이 없습니다. 아래 버튼으로 추가해 주세요."
+                ? "등록된 고객이 없습니다. 아래 버튼으로 추가해 주세요."
                 : "검색 결과가 없습니다."}
             </p>
           </Card>
@@ -189,7 +189,7 @@ export default function CustomerListPage() {
       <StickyActionBar>
         <Link href="/customers/new">
           <Button fullWidth size="lg">
-            손님 추가하기
+            고객 추가하기
           </Button>
         </Link>
       </StickyActionBar>
@@ -205,11 +205,11 @@ export default function CustomerListPage() {
         description={
           pendingCustomer
             ? pendingDone
-              ? `${pendingCustomer.name} 손님을 진행 중 상태로 되돌립니다.`
-              : `${pendingCustomer.name} 손님을 완료처리 상태로 표시합니다.`
+              ? `${pendingCustomer.name} 고객을 진행 중 상태로 되돌립니다.`
+              : `${pendingCustomer.name} 고객을 완료처리 상태로 표시합니다.`
             : pendingDone
               ? "진행 중 상태로 되돌립니다."
-              : "해당 손님을 완료처리 상태로 표시합니다."
+              : "해당 고객을 완료처리 상태로 표시합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

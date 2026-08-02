@@ -120,12 +120,7 @@ export function formatDepositRent(
   monthlyRent?: number
 ): string {
   if (dealType === "매매") return `매가 ${formatMoney(deposit)}`;
-  if (dealType === "전세") {
-    if (monthlyRent && monthlyRent > 0) {
-      return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent)}`;
-    }
-    return `보증 ${formatMoney(deposit)}`;
-  }
+  if (dealType === "전세") return `보증 ${formatMoney(deposit)}`;
   return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent ?? 0)}`;
 }
 
@@ -143,7 +138,7 @@ export function getCustomerBudgetLines(customer: {
     return [`매매가 ${formatMoneyWon(customer.deposit)}`];
   }
   const lines = [`보증금 ${formatMoneyWon(customer.deposit)}`];
-  if (customer.dealType === "월세" || (customer.monthlyRent ?? 0) > 0) {
+  if (customer.dealType === "월세") {
     lines.push(`월세 ${formatMoneyWon(customer.monthlyRent ?? 0)}`);
   }
   return lines;

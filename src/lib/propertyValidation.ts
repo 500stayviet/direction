@@ -89,8 +89,8 @@ export function getMissingRequiredFields(
 
   if (!property.deposit || property.deposit <= 0) missing.push("deposit");
 
-  if (property.roomType === "건물") {
-    // 주차대수로 유/무를 맞추므로, 미입력이면 무로 간주
+  if (property.roomType === "건물" || property.roomType === "토지") {
+    // 건물: 주차대수 / 토지: 주차 없음
   } else if (property.parkingType !== "유" && property.parkingType !== "무") {
     missing.push("parking");
   }

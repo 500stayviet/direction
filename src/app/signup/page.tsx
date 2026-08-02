@@ -76,7 +76,7 @@ export default function SignupPage() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <Card className="space-y-2.5">
           <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
-            업장명·이름·전화번호는 매물 공유 시 손님에게 안내되는 연락 정보예요.
+            업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
             필요할 때 쓰이니 가능하면 적어 주세요. (선택)
           </p>
           <Input

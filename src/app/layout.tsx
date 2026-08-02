@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s · 현장동선",
   },
   description:
-    "부동산 중개인을 위한 모바일 현장 고객·동선·매물 브리핑 앱. 원클릭 전화·네비 연동. 손님·매물·방문 일정을 계정별로 정리합니다.",
+    "부동산 중개인을 위한 모바일 현장 고객·동선·매물 브리핑 앱. 원클릭 전화·네비 연동. 고객·매물·방문 일정을 계정별로 정리합니다.",
   applicationName: "현장동선",
   manifest: "/manifest.webmanifest",
   keywords: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "중개",
     "현장동선",
     "매물",
-    "손님관리",
+    "고객관리",
     "임장",
     "네비",
   ],
@@ -125,8 +125,13 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        {/* 네이티브 스플래시와 동일한 이미지 — 로고만 잠깐 보이는 단계 없이 바로 브랜드 화면 */}
-        <div id="boot-splash" aria-hidden="true" />
+        {/* 네이티브 스플래시 — 클라이언트 스크립트가 class를 붙일 수 있어 hydration 경고 억제 */}
+        <div id="boot-splash" aria-hidden="true" suppressHydrationWarning />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem("realty_boot_splash_done")==="1"){var e=document.getElementById("boot-splash");if(e){e.classList.add("boot-splash-done");e.setAttribute("aria-hidden","true");}}}catch(t){}`,
+          }}
+        />
         <AdSenseScript />
         <AppShell>{children}</AppShell>
       </body>

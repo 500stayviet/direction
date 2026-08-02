@@ -9,6 +9,8 @@ interface DealTypeToggleProps {
   value: DealType;
   onChange: (value: DealType) => void;
   invalid?: boolean;
+  /** 표시할 거래 유형. 기본 매매·전세·월세 */
+  types?: readonly DealType[];
 }
 
 export function DealTypeToggle({
@@ -17,7 +19,10 @@ export function DealTypeToggle({
   value,
   onChange,
   invalid,
+  types = DEAL_TYPES,
 }: DealTypeToggleProps) {
+  const allowed = new Set(types);
+
   return (
     <div
       className={[
@@ -42,7 +47,7 @@ export function DealTypeToggle({
         <p className="text-xs font-semibold text-red-500">미입력</p>
       )}
       <div className="grid grid-cols-3 gap-1.5">
-        {DEAL_TYPES.map((type) => {
+        {DEAL_TYPES.filter((type) => allowed.has(type)).map((type) => {
           const active = value === type;
           return (
             <button

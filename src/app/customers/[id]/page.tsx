@@ -77,7 +77,7 @@ export default function CustomerDetailPage() {
   const handleDelete = () => {
     if (
       !window.confirm(
-        "이 손님을 삭제할까요?\n관련된 방문 일정도 함께 삭제됩니다."
+        "이 고객을 삭제할까요?\n관련된 방문 일정도 함께 삭제됩니다."
       )
     ) {
       return;
@@ -94,7 +94,7 @@ export default function CustomerDetailPage() {
   return (
     <main>
       <PageHeader
-        title={editing ? "손님 정보 수정" : "손님 정보"}
+        title={editing ? "고객 정보 수정" : "고객 정보"}
         backHref="/customers"
         right={
           <div className="flex items-center gap-1.5">
@@ -137,7 +137,7 @@ export default function CustomerDetailPage() {
               <InfoRow label="전화">
                 <PhoneLink phone={customer.phone} />
               </InfoRow>
-              <InfoRow label="방 유형">
+              <InfoRow label="거래유형">
                 {customer.roomType ?? "-"}
               </InfoRow>
               <InfoRow label="거래">
@@ -153,8 +153,13 @@ export default function CustomerDetailPage() {
               {customer.loanType && customer.loanType !== "해당없음" && (
                 <InfoRow label="대출">{customer.loanType}</InfoRow>
               )}
-              <InfoRow label="주차">{customer.parkingType ?? "-"}</InfoRow>
-              <InfoRow label="애완동물">{customer.petAllowed ?? "-"}</InfoRow>
+              {customer.roomType !== "토지" && (
+                <InfoRow label="주차">{customer.parkingType ?? "-"}</InfoRow>
+              )}
+              {customer.roomType !== "토지" &&
+                customer.roomType !== "건물" && (
+                  <InfoRow label="애완동물">{customer.petAllowed ?? "-"}</InfoRow>
+                )}
               {customer.notes && (
                 <InfoRow label="메모">
                   <span className="whitespace-pre-wrap font-medium text-gray-800">
@@ -193,7 +198,7 @@ export default function CustomerDetailPage() {
           <StickyActionBar>
             <Link href={`/schedules/new?customerId=${customer.id}`}>
               <Button fullWidth size="lg">
-                이 손님으로 방문 일정 만들기
+                이 고객으로 방문 일정 만들기
               </Button>
             </Link>
           </StickyActionBar>

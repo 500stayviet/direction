@@ -70,14 +70,19 @@ export function CustomerForm({
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
 
+  const isLandOrBuilding = roomType === "토지" || roomType === "건물";
+  const effectiveDealType: DealType = isLandOrBuilding ? "매매" : dealType;
+
   const handleDealTypeChange = (next: DealType) => {
     setDealType(next);
     if (next !== "매매") setNonOccupancy(false);
+    if (next !== "월세") setMonthlyRent(0);
   };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const isNonOccupancy = dealType === "매매" && nonOccupancy;
+    const savedDealType: DealType = isLandOrBuilding ? "매매" : dealType;
+    const isNonOccupancy = savedDealType === "매매" && nonOccupancy;
     const toDate = moveInSingle ? moveInFrom : moveInTo;
     if (!isNonOccupancy) {
       if (!moveInFrom || (!moveInSingle && !moveInTo)) {
@@ -90,16 +95,17 @@ export function CustomerForm({
       }
     }
     const now = new Date().toISOString();
-    const rent = dealType === "매매" ? undefined : monthlyRent || undefined;
+    const rent =
+      savedDealType === "월세" ? monthlyRent || undefined : undefined;
     onSubmit({
       id: initial?.id ?? createId("cus"),
       name: name.trim(),
       phone: formatPhoneInput(phone),
-      dealType,
+      dealType: savedDealType,
       roomType,
       deposit,
       monthlyRent: rent,
-      budget: formatDepositRent(dealType, deposit, rent),
+      budget: formatDepositRent(savedDealType, deposit, rent),
       moveInFrom: isNonOccupancy ? "" : moveInFrom,
       moveInTo: isNonOccupancy ? "" : toDate,
       moveInSingle: isNonOccupancy ? undefined : moveInSingle,
@@ -107,7 +113,12 @@ export function CustomerForm({
         ? "비입주"
         : formatMoveInRange(moveInFrom, toDate),
       nonOccupancy: isNonOccupancy,
-      loanType,
+      loanType:
+        roomType === "상가" ||
+        roomType === "사무실" ||
+        isLandOrBuilding
+          ? "해당없음"
+          : loanType,
       parkingType,
       petAllowed,
       notes: notes.trim(),
@@ -136,21 +147,39 @@ export function CustomerForm({
           hint="숫자만 입력해도 - 가 자동으로 붙어요 · 저장 후 원클릭 전화"
         />
         <OptionToggle
-          label="방 유형"
+          label="거래유형"
           required
           value={roomType}
           options={ROOM_TYPES}
-          onChange={setRoomType}
+          onChange={(next) => {
+            setRoomType(next);
+            if (
+              next === "상가" ||
+              next === "사무실" ||
+              next === "토지" ||
+              next === "건물"
+            ) {
+              setLoanType("해당없음");
+            }
+            if (next === "토지" || next === "건물") {
+              setDealType("매매");
+              setMonthlyRent(0);
+            }
+            if (next === "토지") {
+              setParkingType("무");
+            }
+          }}
           columns={4}
         />
         <DealTypeToggle
           label="희망 거래 유형"
           required
-          value={dealType}
+          value={effectiveDealType}
           onChange={handleDealTypeChange}
+          types={isLandOrBuilding ? (["매매"] as const) : undefined}
         />
 
-        {dealType === "매매" ? (
+        {effectiveDealType === "매매" ? (
           <>
             <Input
               label="매가 (만원)"
@@ -180,7 +209,11 @@ export function CustomerForm({
             </label>
           </>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className={
+              effectiveDealType === "월세" ? "grid grid-cols-2 gap-2" : "space-y-2"
+            }
+          >
             <Input
               label="보증금 (만원)"
               required
@@ -189,24 +222,23 @@ export function CustomerForm({
               value={deposit || ""}
               onChange={(e) => setDeposit(Number(e.target.value) || 0)}
               placeholder="10000"
-              hint={dealType === "전세" ? "예: 1억 → 10000" : undefined}
+              hint={effectiveDealType === "전세" ? "예: 1억 → 10000" : undefined}
             />
-            <Input
-              label="월세 (만원)"
-              required={dealType === "월세"}
-              type="number"
-              inputMode="numeric"
-              value={monthlyRent || ""}
-              onChange={(e) => setMonthlyRent(Number(e.target.value) || 0)}
-              placeholder="50"
-              hint={
-                dealType === "전세" ? "반전세 등이면 입력 · 없으면 비워두기" : undefined
-              }
-            />
+            {effectiveDealType === "월세" && (
+              <Input
+                label="월세 (만원)"
+                required
+                type="number"
+                inputMode="numeric"
+                value={monthlyRent || ""}
+                onChange={(e) => setMonthlyRent(Number(e.target.value) || 0)}
+                placeholder="50"
+              />
+            )}
           </div>
         )}
 
-        {!(dealType === "매매" && nonOccupancy) && (
+        {!(effectiveDealType === "매매" && nonOccupancy) && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[13px] font-semibold text-gray-600">
@@ -256,17 +288,24 @@ export function CustomerForm({
             )}
           </div>
         )}
-        <Select
-          label="대출 종류"
-          value={loanType}
-          onChange={(e) => setLoanType(e.target.value)}
-        >
-          {LOAN_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </Select>
+        {!(
+          roomType === "상가" ||
+          roomType === "사무실" ||
+          roomType === "토지" ||
+          roomType === "건물"
+        ) && (
+          <Select
+            label="대출 종류"
+            value={loanType}
+            onChange={(e) => setLoanType(e.target.value)}
+          >
+            {LOAN_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </Select>
+        )}
         {!(roomType === "토지" || roomType === "건물") && (
           <>
             <OptionToggle
@@ -285,7 +324,7 @@ export function CustomerForm({
             />
           </>
         )}
-        {(roomType === "토지" || roomType === "건물") && (
+        {roomType === "건물" && (
           <OptionToggle
             label="주차 유무"
             columns={2}
@@ -301,7 +340,7 @@ export function CustomerForm({
           placeholder={
             roomType === "토지" || roomType === "건물"
               ? "건폐율, 용적률, 현황, 향, 희망조건 등"
-              : "나이, 선호층, 직장위치 등"
+              : "현황, 향, 희망조건, 희망층수, 애완동물 등"
           }
         />
       </Card>

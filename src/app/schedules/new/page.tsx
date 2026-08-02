@@ -182,7 +182,7 @@ function ScheduleCreateInner() {
         return;
       }
     } else if (!selected) {
-      alert("손님을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.");
+      alert("고객을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.");
       return;
     }
 
@@ -235,7 +235,7 @@ function ScheduleCreateInner() {
       <PageHeader
         title="방문 일정 만들기"
         backHref="/"
-        subtitle="손님 선택 후 매물 루트를 구성하세요"
+        subtitle="고객 선택 후 매물 루트를 구성하세요"
       />
 
       <form

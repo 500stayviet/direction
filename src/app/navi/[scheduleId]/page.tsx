@@ -86,7 +86,7 @@ export default function FieldLeadPage() {
       <PageHeader
         title={`${step + 1}번 매물`}
         backHref="/navi"
-        subtitle={`${customer?.name || schedule.guestName || "손님"} · ${step + 1}/${schedule.properties.length}`}
+        subtitle={`${customer?.name || schedule.guestName || "고객"} · ${step + 1}/${schedule.properties.length}`}
         right={
           prefLabel ? (
             <button
@@ -124,7 +124,7 @@ export default function FieldLeadPage() {
         <Card className="mb-3 py-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-gray-500">현장 손님</p>
+              <p className="text-sm text-gray-500">현장 고객</p>
               <p className="font-bold">
                 {customer?.name || schedule.guestName}
               </p>

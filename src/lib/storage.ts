@@ -52,7 +52,7 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
     .from("customers")
     .select("id")
     .eq("user_id", userId);
-  throwIfError(readError, "손님 목록 조회 실패");
+  throwIfError(readError, "고객 목록 조회 실패");
 
   const nextIds = new Set(customers.map((c) => c.id));
   const toDelete = (existing ?? [])
@@ -65,7 +65,7 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
       .delete()
       .eq("user_id", userId)
       .in("id", toDelete);
-    throwIfError(error, "손님 삭제 실패");
+    throwIfError(error, "고객 삭제 실패");
   }
 
   if (customers.length === 0) return;
@@ -81,7 +81,7 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
   const { error } = await supabase
     .from("customers")
     .upsert(rows, { onConflict: "user_id,id" });
-  throwIfError(error, "손님 저장 실패");
+  throwIfError(error, "고객 저장 실패");
 }
 
 export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
@@ -97,7 +97,7 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
     },
     { onConflict: "user_id,id" }
   );
-  throwIfError(error, "손님 저장 실패");
+  throwIfError(error, "고객 저장 실패");
   return getCustomers();
 }
 
@@ -115,7 +115,7 @@ export async function deleteCustomer(id: string): Promise<void> {
         "id",
         related.map((s) => s.id)
       );
-    throwIfError(scheduleError, "손님 관련 일정 삭제 실패");
+    throwIfError(scheduleError, "고객 관련 일정 삭제 실패");
   }
 
   const { error } = await supabase
@@ -123,7 +123,7 @@ export async function deleteCustomer(id: string): Promise<void> {
     .delete()
     .eq("user_id", userId)
     .eq("id", id);
-  throwIfError(error, "손님 삭제 실패");
+  throwIfError(error, "고객 삭제 실패");
 
   try {
     const { data } = await supabase

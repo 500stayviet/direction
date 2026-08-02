@@ -39,7 +39,7 @@ export function RequireAuthModal({ open, onClose }: RequireAuthModalProps) {
           이용할 수 있어요
         </h2>
         <p className="relative mt-2 text-[14px] leading-relaxed text-gray-500">
-          손님 · 일정 · 네비 기능은
+          고객 · 일정 · 네비 기능은
           <br />
           가입 후 바로 사용할 수 있습니다.
         </p>
@@ -85,7 +85,7 @@ export function RequireAuthModal({ open, onClose }: RequireAuthModalProps) {
 }
 
 const FEATURES = [
-  { label: "손님", icon: <PersonIcon /> },
+  { label: "고객", icon: <PersonIcon /> },
   { label: "일정", icon: <CalendarIcon /> },
   { label: "네비", icon: <NaviIcon /> },
 ] as const;
