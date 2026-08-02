@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { AppSplash } from "@/components/AppSplash";
 import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { createClient } from "@/lib/supabase/client";
@@ -80,11 +81,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   if (!ready) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#F9FAFB] text-sm text-gray-400">
-        불러오는 중...
-      </div>
-    );
+    return <AppSplash />;
   }
 
   // 계정(세션)이 바뀌면 트리 전체를 리마운트해 화면 캐시 차단
