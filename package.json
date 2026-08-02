@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-splash.ps1"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

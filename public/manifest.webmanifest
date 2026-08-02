@@ -1,12 +1,12 @@
 {
   "name": "현장동선",
   "short_name": "현장동선",
-  "description": "부동산 현장 고객·동선·매물 관리",
+  "description": "부동산 현장 고객·동선·매물 관리 · 제공 - 미스터k",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F9FAFB",
-  "theme_color": "#3182F6",
+  "theme_color": "#F9FAFB",
   "lang": "ko-KR",
   "icons": [
     {
