@@ -37,6 +37,10 @@ function hideBootSplash() {
   markSplashDone();
 }
 
+function isAuthPath(pathname: string): boolean {
+  return pathname === "/login" || pathname === "/signup";
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -46,14 +50,31 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [sessionKey, setSessionKey] = useState("guest");
   const splashShownAt = useRef(Date.now());
   const skipSplash = useRef(false);
+  const initialPath = useRef(pathname);
+  /** 이 문서 로드 시점에 이미 스플래시를 본 탭인지 (시각 대기 생략용) */
+  const alreadyDoneOnLoad = useRef(wasSplashDoneThisSession());
 
   useEffect(() => {
-    if (wasSplashDoneThisSession()) {
+    if (alreadyDoneOnLoad.current || isAuthPath(initialPath.current)) {
+      skipSplash.current = true;
+      hideBootSplash();
+      setBooted(true);
+      return;
+    }
+    // 이번 탭 첫 실행: 바로 '완료'로 표시해 로그인/새로고침 때 재표시 방지
+    // (화면 스플래시는 아래 타이머로 최소 시간 유지)
+    markSplashDone();
+  }, []);
+
+  // 스플래시 중에 로그인 등으로 이동하면 즉시 종료
+  useEffect(() => {
+    if (booted) return;
+    if (pathname !== initialPath.current || isAuthPath(pathname)) {
       skipSplash.current = true;
       hideBootSplash();
       setBooted(true);
     }
-  }, []);
+  }, [pathname, booted]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,7 +139,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || booted) return;
 
-    if (skipSplash.current || wasSplashDoneThisSession()) {
+    if (skipSplash.current || alreadyDoneOnLoad.current || isAuthPath(pathname)) {
       hideBootSplash();
       setBooted(true);
       return;
@@ -132,7 +153,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }, wait);
 
     return () => window.clearTimeout(timer);
-  }, [ready, booted]);
+  }, [ready, booted, pathname]);
 
   // 최초 부팅 중: children은 마운트하되 보이지 않게 (null 반환 시 트리 깨짐 방지)
   if (!ready && !booted) {

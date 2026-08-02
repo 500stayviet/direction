@@ -2,15 +2,11 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { BrandIcon } from "@/components/BrandIcon";
-import {
-  hardRedirectHome,
-  loginUser,
-  resetPasswordWithHint,
-} from "@/lib/auth";
+import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
 
 const REMEMBER_USERNAME_KEY = "realty_remember_username";
@@ -30,6 +26,7 @@ export default function LoginPage() {
 }
 
 function LoginPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -95,8 +92,8 @@ function LoginPageInner() {
         /* ignore */
       }
 
-      // 세션 백업 저장 후 홈으로 (데모 시드는 홈에서 처리)
-      hardRedirectHome();
+      // 세션 백업 저장 후 홈으로 (하드 새로고침 없이 → 스플래시 재표시 방지)
+      router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인 중 오류가 났습니다.");
       setLoading(false);
