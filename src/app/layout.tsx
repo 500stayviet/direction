@@ -69,7 +69,20 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        {/* 홈 화면 앱 실행 시 네이티브 스플래시(로고+현장동선+제공 - 미스터k) */}
+        {/* 스플래시 이미지 미리 받아 로고만 뜨는 빈 구간을 줄임 */}
+        <link
+          rel="preload"
+          href="/splash/android-1080x1920.png"
+          as="image"
+        />
+        {/*
+          홈 화면 앱 실행 스플래시.
+          media 없는 항목 = 기기 매칭 실패 시 아이콘만 보이던 기본 스플래시 대신 사용.
+        */}
+        <link
+          rel="apple-touch-startup-image"
+          href="/splash/apple-1170x2532.png"
+        />
         <link
           rel="apple-touch-startup-image"
           href="/splash/apple-1290x2796.png"
@@ -112,21 +125,8 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        {/* 앱 첫 로딩용 — React가 관리. AuthGate는 숨기기만 하고 DOM에서 제거하지 않음 */}
-        <div id="boot-splash" aria-hidden="true">
-          <div className="boot-splash-inner">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icon-192.png"
-              alt=""
-              width={128}
-              height={128}
-              className="boot-splash-icon"
-            />
-            <p className="boot-splash-title">현장동선</p>
-          </div>
-          <p className="boot-splash-credit">제공 - 미스터k</p>
-        </div>
+        {/* 네이티브 스플래시와 동일한 이미지 — 로고만 잠깐 보이는 단계 없이 바로 브랜드 화면 */}
+        <div id="boot-splash" aria-hidden="true" />
         <AdSenseScript />
         <AppShell>{children}</AppShell>
       </body>

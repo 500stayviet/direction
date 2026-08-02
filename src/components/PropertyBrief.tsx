@@ -134,16 +134,12 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               {property.hasPartnerAgency ? (
                 <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-[14px] font-bold text-gray-700">
-                        {partnerLabel}
-                      </p>
-                      {property.partnerAgency.dong?.trim() ? (
-                        <p className="mt-0.5 text-[12px] font-semibold text-gray-400">
-                          {property.partnerAgency.dong.trim()}
-                        </p>
-                      ) : null}
-                    </div>
+                    <p className="min-w-0 truncate text-[14px] font-bold text-gray-700">
+                      {partnerLabel}
+                      {property.partnerAgency.dong?.trim()
+                        ? ` ${property.partnerAgency.dong.trim()}`
+                        : ""}
+                    </p>
                     {property.partnerAgency.phone ? (
                       <PhoneLink
                         phone={property.partnerAgency.phone}

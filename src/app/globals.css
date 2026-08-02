@@ -25,7 +25,8 @@ html {
 
 html,
 body {
-  background: #e5e8eb;
+  /* 스플래시와 동일 — 앱 실행 시 회색/흰 깜빡임·로고만 보이는 틈 완화 */
+  background: #f9fafb;
   color: var(--foreground);
 }
 
@@ -84,55 +85,21 @@ main {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 }
 
-/* 앱 콜드 스타트 스플래시 (layout HTML → AuthGate에서 숨김, DOM 제거 금지) */
+/* 앱 콜드 스타트 — 네이티브와 같은 스플래시 PNG (로고만 보이는 단계 방지) */
 #boot-splash {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f9fafb;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  background-color: #f9fafb;
+  background-image: url("/splash/android-1080x1920.png");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
   pointer-events: none;
 }
 
 #boot-splash.boot-splash-done {
   opacity: 0;
   visibility: hidden;
-}
-
-#boot-splash .boot-splash-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-#boot-splash .boot-splash-icon {
-  width: 128px;
-  height: 128px;
-  border-radius: 36px;
-  box-shadow: 0 16px 40px rgba(49, 130, 246, 0.28);
-}
-
-#boot-splash .boot-splash-title {
-  margin: 1.5rem 0 0;
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #191f28;
-}
-
-#boot-splash .boot-splash-credit {
-  position: absolute;
-  bottom: max(1.75rem, env(safe-area-inset-bottom));
-  left: 0;
-  right: 0;
-  margin: 0;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #6b7280;
 }

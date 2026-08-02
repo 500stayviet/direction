@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       /^\/schedules\/[^/]+$/.test(pathname));
 
   return (
-    <div className="min-h-dvh bg-[#E5E8EB] text-gray-900">
+    <div className="min-h-dvh bg-[#F9FAFB] text-gray-900">
       <div className="relative mx-auto min-h-dvh w-full max-w-[430px] bg-[#F9FAFB] shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
         <AuthGate>
           <div
