@@ -46,8 +46,11 @@ export function NaviAppModal({
       open={open}
       onClose={onClose}
       title="어떤 앱으로 연결할까요?"
-      description="선택한 앱으로 주소를 전달합니다. 체크하지 않으면 매번 고릅니다."
     >
+      <p className="-mt-2 mb-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-amber-800">
+        (추천) 아래 앱이 없으시면 플레이스토어나 앱스토어에서 설치한 뒤 사용해주세요
+      </p>
+
       <div className="space-y-2">
         {NAVI_APPS.map((app) => {
           const disabled = Boolean(app.disabled);
@@ -88,12 +91,7 @@ export function NaviAppModal({
         })}
       </div>
 
-      <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-amber-800">
-        위 앱이 없으면 플레이스토어나 앱스토어에서 설치한 뒤 사용해주세요
-        (추천)
-      </p>
-
-      <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+      <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
           checked={remember}
