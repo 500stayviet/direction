@@ -191,7 +191,7 @@ function drawIcon(size) {
     255
   );
 
-  // —— 도로 (하단, 내비 원근감) ——
+  // —— 도로 (하단, 네비 원근감) ——
   const roadTopY = s * 0.6;
   const roadBotY = s * 0.9;
   const roadTopW = s * 0.12;

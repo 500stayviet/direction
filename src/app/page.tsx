@@ -142,13 +142,13 @@ export default function HomePage() {
             <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
               {user ? (
                 <>
-                  전화·내비는 원클릭으로.
+                  전화·네비는 원클릭으로.
                   <br />
                   부동산 업무를 더 빠르고 가볍게.
                 </>
               ) : (
                 <>
-                  전화·내비는 원클릭으로.
+                  전화·네비는 원클릭으로.
                   <br />
                   회원가입 후 바로 시작해 보세요.
                 </>

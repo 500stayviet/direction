@@ -34,6 +34,13 @@ import {
 } from "@/lib/propertyValidation";
 import type { Customer, Property, Schedule, User } from "@/lib/types";
 
+/** 매물 1개 일정: 네비게이션 시작 후 이 시간이 지나면 완료 문구로 전환 */
+const SINGLE_NAV_DONE_MS = 30 * 60 * 1000;
+
+function singleNavStartedKey(scheduleId: string) {
+  return `schedule_nav_started:${scheduleId}`;
+}
+
 function CustomerMeta({
   label,
   value,
@@ -75,12 +82,15 @@ function ScheduleDetailInner() {
   const [agent, setAgent] = useState<User | null>(null);
   /** -1: 시작 전, 0..n-1: 현재 포커스 매물(시간순) */
   const [navStep, setNavStep] = useState(-1);
+  /** 매물 1개: 시작 시각 기준 30분 경과 여부 */
+  const [singleNavDone, setSingleNavDone] = useState(false);
   const [navModalOpen, setNavModalOpen] = useState(false);
   /** 모달에 표시 중인 단계(시간순 인덱스) */
   const [navAnnounceStep, setNavAnnounceStep] = useState<number | null>(null);
   const propertyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navModalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const singleNavDoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const closeNavModal = () => {
     if (navModalTimer.current) {
@@ -116,10 +126,41 @@ function ScheduleDetailInner() {
       }
       setAgent(me);
       setSchedule(found);
-      setNavStep(-1);
       setVisitDate(found.visitDate ?? "");
       setVisitTime(found.visitTime ?? "");
       setProperties(found.properties);
+
+      // 매물 1개: 이전에 네비게이션 시작한 시각이 있으면 복원 (30분 후 완료)
+      if (singleNavDoneTimer.current) {
+        clearTimeout(singleNavDoneTimer.current);
+        singleNavDoneTimer.current = null;
+      }
+      const isSingle = found.properties.length === 1;
+      let startedAt: number | null = null;
+      try {
+        const raw = localStorage.getItem(singleNavStartedKey(found.id));
+        const n = raw ? Number(raw) : NaN;
+        if (Number.isFinite(n) && n > 0) startedAt = n;
+      } catch {
+        /* ignore */
+      }
+      if (isSingle && startedAt != null) {
+        const elapsed = Date.now() - startedAt;
+        setNavStep(0);
+        if (elapsed >= SINGLE_NAV_DONE_MS) {
+          setSingleNavDone(true);
+        } else {
+          setSingleNavDone(false);
+          singleNavDoneTimer.current = setTimeout(() => {
+            setSingleNavDone(true);
+            singleNavDoneTimer.current = null;
+          }, SINGLE_NAV_DONE_MS - elapsed);
+        }
+      } else {
+        setNavStep(-1);
+        setSingleNavDone(false);
+      }
+
       if (found.customerId) {
         setCustomer((await getCustomerById(found.customerId)) ?? null);
       } else {
@@ -129,6 +170,7 @@ function ScheduleDetailInner() {
     return () => {
       cancelled = true;
       if (navModalTimer.current) clearTimeout(navModalTimer.current);
+      if (singleNavDoneTimer.current) clearTimeout(singleNavDoneTimer.current);
     };
   }, [params.id, router]);
 
@@ -447,13 +489,28 @@ function ScheduleDetailInner() {
           <StickyActionBar>
             {(() => {
               const total = schedule.properties.length;
-              const finished =
-                total <= 1 || navStep >= navOrder.length - 1;
+              const isSingle = total === 1;
+              const finished = isSingle
+                ? singleNavDone
+                : total === 0 || navStep >= navOrder.length - 1;
               const label = finished
-                ? "오늘도 수고많으셨습니다"
+                ? "오늘도 수고하셨습니다"
                 : navStep < 0
                   ? "네비게이션 시작"
-                  : "다음 일정 시작하기";
+                  : isSingle
+                    ? "주소로 이동하세요"
+                    : "다음 일정 시작하기";
+
+              const goToNavStep = (next: number) => {
+                setNavStep(next);
+                const targetIndex = navOrder[next];
+                propertyRefs.current[targetIndex]?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+                openNavAnnounce(next);
+              };
+
               return (
                 <Button
                   fullWidth
@@ -465,16 +522,35 @@ function ScheduleDetailInner() {
                       : ""
                   }
                   onClick={() => {
-                    if (total <= 1) return;
+                    if (finished || total === 0) return;
+
+                    if (isSingle) {
+                      // 최초 시작 시각 기록 → 약 30분 후 완료 문구
+                      if (!singleNavDone && navStep < 0) {
+                        const startedAt = Date.now();
+                        try {
+                          localStorage.setItem(
+                            singleNavStartedKey(schedule.id),
+                            String(startedAt)
+                          );
+                        } catch {
+                          /* ignore */
+                        }
+                        if (singleNavDoneTimer.current) {
+                          clearTimeout(singleNavDoneTimer.current);
+                        }
+                        singleNavDoneTimer.current = setTimeout(() => {
+                          setSingleNavDone(true);
+                          singleNavDoneTimer.current = null;
+                        }, SINGLE_NAV_DONE_MS);
+                      }
+                      goToNavStep(0);
+                      return;
+                    }
+
                     const next = navStep + 1;
                     if (next >= navOrder.length) return;
-                    setNavStep(next);
-                    const targetIndex = navOrder[next];
-                    propertyRefs.current[targetIndex]?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                    openNavAnnounce(next);
+                    goToNavStep(next);
                   }}
                 >
                   {label}
@@ -490,15 +566,28 @@ function ScheduleDetailInner() {
         onClose={closeNavModal}
         position="center"
         dense
-        title={
-          navAnnounceStep != null
-            ? `${navAnnounceStep + 1}번 매물입니다.`
-            : "매물 안내"
-        }
+        className="!bg-[#E8F3FF] ring-1 ring-inset ring-[#3182F6]/25"
       >
-        <Button fullWidth variant="secondary" onClick={closeNavModal}>
-          닫기
-        </Button>
+        <div className="flex flex-col items-center gap-3 py-1 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3182F6] text-[16px] text-white">
+            ▶
+          </span>
+          <p className="text-[20px] font-extrabold tracking-tight text-[#1B64DA]">
+            {navAnnounceStep != null
+              ? `${navAnnounceStep + 1}번 매물입니다.`
+              : "매물 안내"}
+          </p>
+          <p className="text-[12px] font-medium text-[#3182F6]/75">
+            원터치 네비게이션으로 이동하세요
+          </p>
+          <button
+            type="button"
+            onClick={closeNavModal}
+            className="mt-1 w-full rounded-xl bg-white px-4 py-3 text-[15px] font-bold text-[#1B64DA] shadow-sm ring-1 ring-inset ring-[#3182F6]/20"
+          >
+            닫기
+          </button>
+        </div>
       </Modal>
 
       <Modal

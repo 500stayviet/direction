@@ -318,7 +318,7 @@ export async function getSchedulesByCustomer(
   return all.filter((s) => s.customerId === customerId);
 }
 
-/** 내비 앱 '항상 사용' 유지 기간 */
+/** 네비 앱 '항상 사용' 유지 기간 */
 export const NAVI_REMEMBER_DAYS = 15;
 
 /** 체크한 '항상 이 앱'이 아직 유효한지 (약 15일) */
@@ -387,7 +387,7 @@ export async function setNaviPreference(
         : null,
     })
     .eq("id", userId);
-  throwIfError(error, "내비 설정 저장 실패");
+  throwIfError(error, "네비 설정 저장 실패");
 }
 
 export async function clearNaviPreference(): Promise<void> {
@@ -397,7 +397,7 @@ export async function clearNaviPreference(): Promise<void> {
     .from("profiles")
     .update({ navi_preference: null })
     .eq("id", userId);
-  throwIfError(error, "내비 설정 초기화 실패");
+  throwIfError(error, "네비 설정 초기화 실패");
 }
 
 export async function touchRecentCustomer(customerId: string): Promise<void> {

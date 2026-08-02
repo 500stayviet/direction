@@ -1,4 +1,4 @@
-/** 현장동선 브랜드 — 집 + 도로 (내비 앱 스타일) */
+/** 현장동선 브랜드 — 집 + 도로 (네비 앱 스타일) */
 
 interface BrandIconProps {
   size?: number;

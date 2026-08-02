@@ -94,7 +94,7 @@ export default function FieldLeadPage() {
               onClick={() => {
                 void clearNaviPreference().then(() => {
                   setPrefLabel(null);
-                  alert("내비 앱 선택이 초기화되었습니다.");
+                  alert("네비 앱 선택이 초기화되었습니다.");
                 });
               }}
               className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm active:scale-95 transition-all duration-150"

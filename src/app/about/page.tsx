@@ -35,7 +35,7 @@ export default function AboutPage() {
           <p className="mt-2">
             현장동선은 부동산 중개 현장에서 반복되는 일을 줄이기 위한{" "}
             <strong className="font-bold text-gray-800">무료 모바일 웹 앱</strong>
-            입니다. 손님 정보, 매물 메모, 방문 일정, 원클릭 전화·내비 연결을
+            입니다. 손님 정보, 매물 메모, 방문 일정, 원클릭 전화·네비 연결을
             계정별로 정리할 수 있습니다.
           </p>
         </section>
