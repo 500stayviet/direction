@@ -136,9 +136,11 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-[14px] font-bold text-gray-700">
                       {partnerLabel}
-                      {property.partnerAgency.dong?.trim()
-                        ? ` ${property.partnerAgency.dong.trim()}`
-                        : ""}
+                      {property.partnerAgency.dong?.trim() ? (
+                        <span className="ml-1.5 text-[12px] font-semibold text-gray-400">
+                          {property.partnerAgency.dong.trim()}
+                        </span>
+                      ) : null}
                     </p>
                     {property.partnerAgency.phone ? (
                       <PhoneLink

@@ -1,5 +1,41 @@
 Add-Type -AssemblyName System.Drawing
 
+# 글자 간격을 조금 좁혀 한 줄로 그림
+function Draw-TightString {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [string]$Text,
+    [System.Drawing.Font]$Font,
+    [System.Drawing.Brush]$Brush,
+    [single]$CenterX,
+    [single]$TopY,
+    [single]$Tracking = 0.94
+  )
+
+  $format = [System.Drawing.StringFormat]::GenericTypographic.Clone()
+  $format.FormatFlags = $format.FormatFlags -bor [System.Drawing.StringFormatFlags]::NoClip
+  $format.Alignment = [System.Drawing.StringAlignment]::Near
+  $format.LineAlignment = [System.Drawing.StringAlignment]::Near
+
+  $widths = @()
+  $total = 0.0
+  foreach ($ch in $Text.ToCharArray()) {
+    $sz = $Graphics.MeasureString([string]$ch, $Font, [System.Drawing.PointF]::Empty, $format)
+    $w = [Math]::Max(1.0, $sz.Width * $Tracking)
+    $widths += $w
+    $total += $w
+  }
+
+  $x = $CenterX - ($total / 2.0)
+  $i = 0
+  foreach ($ch in $Text.ToCharArray()) {
+    $Graphics.DrawString([string]$ch, $Font, $Brush, $x, $TopY, $format)
+    $x += $widths[$i]
+    $i += 1
+  }
+  $format.Dispose()
+}
+
 function New-Splash {
   param(
     [int]$Width,
@@ -35,7 +71,7 @@ function New-Splash {
   $icon.Dispose()
   $path.Dispose()
 
-  # 파일 인코딩과 무관하게 한글 유지 (현장동선 / 제공 - 미스터k)
+  # 현장동선 / 제공 - 미스터k
   $title = -join @(
     [char]0xD604, [char]0xC7A5, [char]0xB3D9, [char]0xC120
   )
@@ -44,29 +80,29 @@ function New-Splash {
     [char]0xBBF8, [char]0xC2A4, [char]0xD130, "k"
   )
 
-  $titleSize = [Math]::Max(36, [int]($Width * 0.075))
-  $titleFont = New-Object System.Drawing.Font "Malgun Gothic", $titleSize, ([System.Drawing.FontStyle]::Bold)
+  # 평범한 고딕 — 타이틀은 아이콘 아래, 크레딧은 화면 맨 하단
+  $titleSize = [Math]::Max(28, [int]($Width * 0.058))
+  $titleFont = New-Object System.Drawing.Font "Malgun Gothic", $titleSize, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
   $titleBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 25, 31, 40))
-  $titleSz = $g.MeasureString($title, $titleFont)
-  $g.DrawString(
-    $title,
-    $titleFont,
-    $titleBrush,
-    ($Width - $titleSz.Width) / 2,
-    $iconY + $iconSize + ($Height * 0.035)
-  )
+  $titleTop = $iconY + $iconSize + ($Height * 0.028)
+  Draw-TightString -Graphics $g -Text $title -Font $titleFont -Brush $titleBrush -CenterX ($Width / 2.0) -TopY $titleTop -Tracking 0.92
 
-  $creditSize = [Math]::Max(14, [int]($Width * 0.032))
-  $creditFont = New-Object System.Drawing.Font "Malgun Gothic", $creditSize, ([System.Drawing.FontStyle]::Regular)
+  $creditSize = [Math]::Max(14, [int]($Width * 0.03))
+  $creditFont = New-Object System.Drawing.Font "Malgun Gothic", $creditSize, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
   $creditBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 107, 114, 128))
-  $creditSz = $g.MeasureString($credit, $creditFont)
+  $creditFormat = [System.Drawing.StringFormat]::GenericTypographic.Clone()
+  $creditSz = $g.MeasureString($credit, $creditFont, [System.Drawing.PointF]::Empty, $creditFormat)
+  # 하단 여유를 넉넉히 — cover/잘림에도 보이도록
+  $creditY = $Height - ($Height * 0.055) - $creditSz.Height
   $g.DrawString(
     $credit,
     $creditFont,
     $creditBrush,
     ($Width - $creditSz.Width) / 2,
-    $Height - ($Height * 0.08) - $creditSz.Height
+    $creditY,
+    $creditFormat
   )
+  $creditFormat.Dispose()
 
   $dir = Split-Path $OutPath -Parent
   if (-not (Test-Path $dir)) {

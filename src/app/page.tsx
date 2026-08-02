@@ -53,12 +53,24 @@ function deadlineModalKey(userId: string) {
   return `realty_deadline_modal_${userId}_${todayISO()}`;
 }
 
+const FREE_NOTICE_HIDE_KEY = "realty_home_free_notice_hide";
+
 export default function HomePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
+  const [freeNoticeOpen, setFreeNoticeOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FREE_NOTICE_HIDE_KEY) === "1") return;
+    } catch {
+      /* ignore */
+    }
+    setFreeNoticeOpen(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +106,17 @@ export default function HomePage() {
       if (timer) window.clearTimeout(timer);
     };
   }, []);
+
+  const closeFreeNotice = () => setFreeNoticeOpen(false);
+
+  const hideFreeNoticeForever = () => {
+    try {
+      localStorage.setItem(FREE_NOTICE_HIDE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setFreeNoticeOpen(false);
+  };
 
   const deadlineCustomers = useMemo(
     () => customers.filter((c) => isContractDeadlineActive(c)),
@@ -253,6 +276,41 @@ export default function HomePage() {
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />
+
+      <Modal
+        open={freeNoticeOpen}
+        onClose={closeFreeNotice}
+        position="center"
+        dense
+        className="!max-w-[300px] !bg-[#E8F3FF] !p-4 ring-1 ring-inset ring-[#3182F6]/25"
+      >
+        <div className="flex flex-col items-center gap-3 text-center">
+          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl shadow-sm">
+            <BrandIcon size={40} />
+          </span>
+          <p className="text-[13px] font-extrabold text-[#3182F6]">현장동선</p>
+          <p className="text-[16px] font-bold leading-snug tracking-tight text-[#1B64DA]">
+            회원가입 후 무료로
+            <br />
+            서비스 이용 가능합니다.
+          </p>
+          <div className="mt-1 flex w-full gap-2">
+            <Button
+              variant="secondary"
+              className="min-w-0 flex-1 !bg-white !px-2 !text-[13px] !text-gray-600 ring-1 ring-inset ring-[#3182F6]/15"
+              onClick={hideFreeNoticeForever}
+            >
+              다시 보이지 않기
+            </Button>
+            <Button
+              className="min-w-0 flex-1 !text-[15px]"
+              onClick={closeFreeNotice}
+            >
+              확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={deadlineModalOpen && deadlineCustomers.length > 0}

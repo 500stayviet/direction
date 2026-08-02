@@ -92,8 +92,9 @@ main {
   z-index: 9999;
   background-color: #f9fafb;
   background-image: url("/splash/android-1080x1920.png");
-  background-position: center;
-  background-size: cover;
+  background-position: center center;
+  /* contain: 하단 '제공 - 미스터k'가 cover 잘림으로 안 사라지게 */
+  background-size: contain;
   background-repeat: no-repeat;
   transition: opacity 0.18s ease, visibility 0.18s ease;
   pointer-events: none;
