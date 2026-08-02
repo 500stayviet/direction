@@ -11,8 +11,8 @@ export const NAVI_APPS: {
     description: "",
   },
   {
-    id: "kakaomap",
-    label: "카카오맵",
+    id: "kakaonavi",
+    label: "카카오내비",
     description: "",
   },
   {
@@ -21,8 +21,8 @@ export const NAVI_APPS: {
     description: "",
   },
   {
-    id: "kakaonavi",
-    label: "카카오내비",
+    id: "kakaomap",
+    label: "카카오맵",
     description: "",
   },
 ];
