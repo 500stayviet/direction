@@ -20,12 +20,13 @@ export function NaviAppModal({
   onClose,
   onOpened,
 }: NaviAppModalProps) {
-  const [selected, setSelected] = useState<NaviApp>("kakaonavi");
+  const [selected, setSelected] = useState<NaviApp>("system");
   /** 기본: 매번 선택. 체크해야만 약 15일 기억 */
   const [remember, setRemember] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setSelected("system");
     setRemember(false);
   }, [open]);
 
@@ -43,7 +44,7 @@ export function NaviAppModal({
       open={open}
       onClose={onClose}
       title="어떤 앱으로 연결할까요?"
-      description="선택한 내비 앱으로 주소를 바로 전달합니다. 체크하지 않으면 매번 고릅니다."
+      description="기본은 전화처럼 폰 설정·선택 화면입니다. 특정 앱을 고를 수도 있습니다."
     >
       <div className="space-y-2">
         {NAVI_APPS.map((app) => (
