@@ -8,12 +8,12 @@ export const NAVI_APPS: {
   {
     id: "kakaonavi",
     label: "카카오내비",
-    description: "작성 주소를 그대로 전달",
+    description: "작성 주소로 목적지 안내",
   },
   {
     id: "tmap",
     label: "Tmap",
-    description: "작성 주소를 그대로 전달",
+    description: "작성 주소로 검색",
   },
   {
     id: "navermap",
@@ -99,11 +99,14 @@ export function buildNaviUrl(
 
   switch (app) {
     case "kakaonavi":
-      // 주소 문자열만 전달 (좌표 변환 없음)
-      return `kakaonavi://navigate?name=${encodedName}`;
+      // name만 보내면 "파라미터가 존재하지 않습니다" — x/y(경도/위도) 필수
+      if (hasCoords) {
+        return `kakaonavi://navigate?name=${encodedName}&x=${lng}&y=${lat}&coord_type=wgs84`;
+      }
+      return "";
     case "tmap":
-      // 주소 문자열만 전달 (좌표 변환 없음)
-      return `tmap://route?goalname=${encodedName}`;
+      // route+goalname만이면 목적지가 비고 현재위치가 잡힘 → 검색으로 주소 입력
+      return `tmap://search?name=${encodedName}`;
     case "navermap":
       if (hasCoords) {
         return `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=direction-field`;
@@ -115,7 +118,7 @@ export function buildNaviUrl(
       }
       return `kakaomap://search?q=${encodedName}`;
     default:
-      return `tmap://route?goalname=${encodedName}`;
+      return `tmap://search?name=${encodedName}`;
   }
 }
 
@@ -123,10 +126,23 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  // 네이버지도·카카오맵만 좌표 조회 / 카카오내비·Tmap은 주소 문자열만
-  const needsGeocode = app === "navermap" || app === "kakaomap";
-  const destCoords = needsGeocode ? await geocodeDestination(query) : null;
+  // 네이버지도·카카오맵: 기존 방식 유지
+  // 카카오내비: 좌표 필수(앱 스펙) — 도착 좌표만 조회해 name+x+y 전달
+  // Tmap: 검색창에 주소만 넣어 열기 (route 스킴 사용 안 함)
+  let destCoords: NaviCoords | null = null;
+  if (app === "navermap" || app === "kakaomap" || app === "kakaonavi") {
+    destCoords = await geocodeDestination(query);
+  }
+
+  if (app === "kakaonavi" && !destCoords) {
+    window.alert(
+      "주소를 좌표로 찾지 못해 카카오내비를 열 수 없습니다. 주소를 확인하거나 카카오맵·네이버지도를 이용해 주세요."
+    );
+    return;
+  }
+
   const deepLink = buildNaviUrl(app, query, destCoords);
+  if (!deepLink) return;
 
   // 웹/스토어로 폴백하지 않음 — 앱만 시도하고, 실패 시 현장동선에 그대로 둠
   window.location.href = deepLink;
