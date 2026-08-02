@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser, getSessionUserId } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 
 /** 로그인 없이 볼 수 있는 경로 */
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms", "/about"];
+
+/** 앱 실행 시 브랜드 스플래시 최소 노출 (너무 빨리 사라지지 않게) */
+const BOOT_SPLASH_MIN_MS = 1400;
 
 /** React 트리 노드를 remove() 하면 insertBefore 오류가 나므로 숨기기만 함 */
 function hideBootSplash() {
@@ -24,6 +27,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   /** 최초 부팅이 끝난 뒤에는 브랜드 스플래시를 다시 띄우지 않음 */
   const [booted, setBooted] = useState(false);
   const [sessionKey, setSessionKey] = useState("guest");
+  const splashShownAt = useRef(Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -87,12 +91,24 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!ready || booted) return;
-    setBooted(true);
-    hideBootSplash();
+
+    const elapsed = Date.now() - splashShownAt.current;
+    const wait = Math.max(0, BOOT_SPLASH_MIN_MS - elapsed);
+    const timer = window.setTimeout(() => {
+      setBooted(true);
+      hideBootSplash();
+    }, wait);
+
+    return () => window.clearTimeout(timer);
   }, [ready, booted]);
 
   // 최초 부팅 중: children은 마운트하되 보이지 않게 (null 반환 시 트리 깨짐 방지)
   if (!ready && !booted) {
+    return <div className="invisible h-0 overflow-hidden">{children}</div>;
+  }
+
+  // 아직 스플래시 최소 시간 — 화면은 가리고 스플래시(#boot-splash)만 보이게
+  if (ready && !booted) {
     return <div className="invisible h-0 overflow-hidden">{children}</div>;
   }
 

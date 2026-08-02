@@ -8,7 +8,7 @@ export const NAVI_APPS: {
   {
     id: "kakaonavi",
     label: "카카오내비",
-    description: "목적지(작성 주소) 검색",
+    description: "도착=작성 주소 · 출발은 앱이 잡음",
   },
   {
     id: "tmap",
@@ -78,8 +78,9 @@ async function geocodeDestination(
 }
 
 /**
- * 우리가 보내는 것 = 도착(작성 주소)만.
- * 출발 좌표·현재위치는 보내지 않음 → 앱 길찾기 화면의 출발란이 GPS로 채워짐.
+ * 앱 스킴만 사용 (https 웹/스토어 폴백 없음).
+ * → 카카오·티맵 웹의 "앱 실행/다운로드" 화면으로 안 넘어감.
+ * 출발 좌표는 보내지 않음.
  */
 export function buildNaviUrl(
   app: NaviApp,
@@ -98,77 +99,39 @@ export function buildNaviUrl(
 
   switch (app) {
     case "kakaonavi":
-      return `https://map.kakao.com/?q=${encodedName}`;
+      // 웹(map.kakao.com)은 앱실행/다운로드 UI가 나와서 쓰지 않음
+      if (hasCoords) {
+        return `kakaonavi://navigate?name=${encodedName}&x=${lng}&y=${lat}&coord_type=wgs84`;
+      }
+      return `kakaonavi://navigate?name=${encodedName}`;
     case "tmap":
-      // 도착만: goal* / 출발(start*) 파라미터 없음
       if (hasCoords) {
         return `tmap://route?goalname=${encodedName}&goalx=${lng}&goaly=${lat}`;
       }
-      // 좌표 없으면 검색으로 도착 주소라도 보이게
-      return `tmap://search?name=${encodedName}`;
+      return `tmap://route?goalname=${encodedName}`;
     case "navermap":
-      // 도착만: dlat/dlng/dname — slat/slng/sname(출발) 넣지 않음
       if (hasCoords) {
         return `nmap://route/car?dlat=${lat}&dlng=${lng}&dname=${encodedName}&appname=direction-field`;
       }
       return `nmap://search?query=${encodedName}&appname=direction-field`;
     case "kakaomap":
-      // 도착만: ep/en — sp(출발) 넣지 않음
       if (hasCoords) {
         return `kakaomap://route?ep=${lat},${lng}&en=${encodedName}&by=car`;
       }
       return `kakaomap://search?q=${encodedName}`;
     default:
-      return buildWebMapFallback(name, app);
+      return `tmap://route?goalname=${encodedName}`;
   }
-}
-
-/** 웹 폴백 — 도착 주소 검색 */
-export function buildWebMapFallback(
-  address: string,
-  app?: NaviApp
-): string {
-  const name = (toNaviAddress(address) || address).trim();
-  const encodedName = encodeURIComponent(name);
-  if (app === "navermap") {
-    return `https://map.naver.com/p/search/${encodedName}`;
-  }
-  if (app === "tmap") {
-    return `https://www.tmap.co.kr/tmap2/mobile/tmap.jsp?name=${encodedName}`;
-  }
-  return `https://map.kakao.com/?q=${encodedName}`;
 }
 
 export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  // 도착지 좌표만 (출발/현재위치 좌표는 조회·전송하지 않음)
-  const needsDestCoords =
-    app === "tmap" || app === "navermap" || app === "kakaomap";
-  const destCoords = needsDestCoords
-    ? await geocodeDestination(query)
-    : null;
-
+  // 도착 좌표만 (카카오내비·티맵·지도 모두 목적지를 안정적으로 잡기 위해)
+  const destCoords = await geocodeDestination(query);
   const deepLink = buildNaviUrl(app, query, destCoords);
-  const fallback = buildWebMapFallback(query, app);
 
-  if (deepLink.startsWith("http://") || deepLink.startsWith("https://")) {
-    window.location.href = deepLink;
-    return;
-  }
-
-  const openedAt = Date.now();
+  // 웹/스토어로 폴백하지 않음 — 앱만 시도하고, 실패 시 현장동선에 그대로 둠
   window.location.href = deepLink;
-
-  window.setTimeout(() => {
-    if (Date.now() - openedAt > 2500) return;
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState !== "visible"
-    ) {
-      return;
-    }
-    window.location.href = fallback;
-  }, 1400);
 }

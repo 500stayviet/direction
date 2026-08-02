@@ -84,7 +84,7 @@ export default function RootLayout({
             />
             <p className="boot-splash-title">현장동선</p>
           </div>
-          <p className="boot-splash-credit">제공 미스터k</p>
+          <p className="boot-splash-credit">제공 - 미스터k</p>
         </div>
         <AdSenseScript />
         <AppShell>{children}</AppShell>

@@ -118,7 +118,7 @@ main {
 
 #boot-splash .boot-splash-title {
   margin: 1.5rem 0 0;
-  font-size: 34px;
+  font-size: 36px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #191f28;
@@ -126,13 +126,13 @@ main {
 
 #boot-splash .boot-splash-credit {
   position: absolute;
-  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  bottom: max(1.75rem, env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   margin: 0;
   text-align: center;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: 0.02em;
-  color: #9ca3af;
+  color: #6b7280;
 }
