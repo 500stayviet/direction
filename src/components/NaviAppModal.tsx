@@ -48,7 +48,7 @@ export function NaviAppModal({
       title="어떤 앱으로 연결할까요?"
     >
       <p className="-mt-2 mb-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-amber-800">
-        (추천) 아래 앱이 없으시면 플레이스토어나 앱스토어에서 설치한 뒤 사용해주세요
+        (추천) 아래 앱이 없으시면 플레이스토어나 앱스토어에서 설치후 사용을 권장 합니다
       </p>
 
       <div className="space-y-2">

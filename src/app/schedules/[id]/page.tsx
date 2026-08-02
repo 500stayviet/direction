@@ -446,7 +446,7 @@ function ScheduleDetailInner() {
                       aria-expanded={customerDetailOpen}
                     >
                       <span className="text-[13px] font-bold text-gray-600">
-                        입주·대출·주차 등 상세
+                        입주·대출·주차 등
                       </span>
                       <span className="text-[12px] font-bold text-[#3182F6]">
                         {customerDetailOpen
