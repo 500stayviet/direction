@@ -141,7 +141,7 @@ export function CustomerForm({
           value={roomType}
           options={ROOM_TYPES}
           onChange={setRoomType}
-          columns={3}
+          columns={4}
         />
         <DealTypeToggle
           label="희망 거래 유형"
@@ -267,25 +267,42 @@ export function CustomerForm({
             </option>
           ))}
         </Select>
-        <OptionToggle
-          label="주차 유무"
-          columns={2}
-          value={parkingType}
-          options={["유", "무"] as const}
-          onChange={setParkingType}
-        />
-        <OptionToggle
-          label="애완동물 유무"
-          columns={2}
-          value={petAllowed}
-          options={["유", "무"] as const}
-          onChange={setPetAllowed}
-        />
+        {!(roomType === "토지" || roomType === "건물") && (
+          <>
+            <OptionToggle
+              label="주차 유무"
+              columns={2}
+              value={parkingType}
+              options={["유", "무"] as const}
+              onChange={setParkingType}
+            />
+            <OptionToggle
+              label="애완동물 유무"
+              columns={2}
+              value={petAllowed}
+              options={["유", "무"] as const}
+              onChange={setPetAllowed}
+            />
+          </>
+        )}
+        {(roomType === "토지" || roomType === "건물") && (
+          <OptionToggle
+            label="주차 유무"
+            columns={2}
+            value={parkingType}
+            options={["유", "무"] as const}
+            onChange={setParkingType}
+          />
+        )}
         <TextArea
           label="메모 / 특이사항"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="나이, 선호층, 직장위치 등"
+          placeholder={
+            roomType === "토지" || roomType === "건물"
+              ? "건폐율, 용적률, 현황, 향, 희망조건 등"
+              : "나이, 선호층, 직장위치 등"
+          }
         />
       </Card>
     </form>

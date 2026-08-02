@@ -44,6 +44,38 @@ export function matchesPhoneSearch(phone: string, query: string): boolean {
   return onlyDigits(phone).includes(qDigits);
 }
 
+/** 보증금·매매가·월세(만원) 숫자 검색 */
+export function matchesBudgetSearch(
+  customer: {
+    deposit?: number;
+    monthlyRent?: number;
+    budget?: string;
+  },
+  query: string
+): boolean {
+  const digits = query.replace(/\D/g, "");
+  if (!digits) return false;
+  const n = Number(digits);
+  if (typeof customer.deposit === "number") {
+    if (customer.deposit === n || String(customer.deposit).includes(digits)) {
+      return true;
+    }
+  }
+  if (typeof customer.monthlyRent === "number") {
+    if (
+      customer.monthlyRent === n ||
+      String(customer.monthlyRent).includes(digits)
+    ) {
+      return true;
+    }
+  }
+  if (customer.budget) {
+    const budgetDigits = customer.budget.replace(/\D/g, "");
+    if (budgetDigits.includes(digits)) return true;
+  }
+  return false;
+}
+
 /**
  * 만원 단위 입력값 표시
  * - 500 → 500만

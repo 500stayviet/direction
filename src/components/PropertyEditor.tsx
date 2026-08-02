@@ -17,6 +17,10 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimePicker } from "@/components/TimePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { RoomTypeSelect } from "@/components/RoomTypeSelect";
+import {
+  BuildingLandFields,
+  UsableAreaField,
+} from "@/components/BuildingLandFields";
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
 import {
@@ -27,6 +31,14 @@ import {
   getMissingRequiredFields,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
+import {
+  EMPTY_BATHROOM_COUNTS,
+  EMPTY_UNIT_COUNTS,
+  isBuildingType,
+  isLandType,
+  isUnitRoomType,
+} from "@/lib/constants";
+import type { RoomType } from "@/lib/types";
 
 interface PropertyEditorProps {
   index: number;
@@ -95,6 +107,12 @@ export function PropertyEditor({
         onlyDigits(property.landlordPhone ?? "")
     );
   });
+  const [showPasswords, setShowPasswords] = useState(() =>
+    Boolean(
+      (property.floorPassword ?? "").trim() ||
+        (property.roomPassword ?? property.password ?? "").trim()
+    )
+  );
 
   const update = (patch: Partial<Property>) =>
     onChange({ ...property, ...patch });
@@ -161,6 +179,27 @@ export function PropertyEditor({
       property.insuranceType !== "미가입")
       ? "유"
       : "무";
+
+  const isLand = isLandType(property.roomType);
+  const isBuilding = isBuildingType(property.roomType);
+  const isUnit = isUnitRoomType(property.roomType);
+  const hideUnitExtras = isLand || isBuilding;
+  const rentDetailMode = isBuilding && property.rentInputMode === "상세";
+
+  const handleRoomTypeChange = (roomType: RoomType) => {
+    const patch: Partial<Property> = { roomType };
+    if (roomType === "건물") {
+      patch.unitCounts = property.unitCounts ?? { ...EMPTY_UNIT_COUNTS };
+      patch.bathroomCounts =
+        property.bathroomCounts ?? { ...EMPTY_BATHROOM_COUNTS };
+      patch.rentInputMode = property.rentInputMode ?? "합계";
+      if (!property.buildingKind) patch.buildingKind = undefined;
+    }
+    if (roomType === "토지") {
+      patch.dealType = "매매";
+    }
+    update(patch);
+  };
 
   return (
     <Card
@@ -368,6 +407,26 @@ export function PropertyEditor({
             </div>
           </div>
         )}
+
+        <div ref={setFieldRef("roomType")}>
+          <RoomTypeSelect
+            required
+            invalid={isInvalid("roomType")}
+            value={property.roomType ?? "원룸"}
+            onChange={handleRoomTypeChange}
+            hint="손님 유형이 자동으로 불러와져요 · 다시 눌러 변경 가능"
+          />
+        </div>
+        <div ref={setFieldRef("buildingKind")}>
+          <BuildingLandFields
+            property={property}
+            onChange={update}
+            invalidBuildingKind={isInvalid("buildingKind")}
+          />
+        </div>
+        {isUnit && (
+          <UsableAreaField property={property} onChange={update} />
+        )}
       </div>
 
       <div className="space-y-2 border-t border-gray-100 pt-3">
@@ -396,31 +455,59 @@ export function PropertyEditor({
           label="동·호실"
           value={property.roomNo}
           onChange={(e) => update({ roomNo: e.target.value })}
-          placeholder="101동 1203호"
+          placeholder={isLand ? "지번 상세 (선택)" : "101동 1203호"}
         />
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            label="1층 비밀번호"
-            value={property.floorPassword ?? ""}
-            onChange={(e) => update({ floorPassword: e.target.value })}
-            placeholder="1234*"
-          />
-          <Input
-            label="호실 비밀번호"
-            value={property.roomPassword ?? property.password ?? ""}
-            onChange={(e) => update({ roomPassword: e.target.value })}
-            placeholder="5678*"
-          />
-        </div>
-        <div ref={setFieldRef("roomType")}>
-          <RoomTypeSelect
-            required
-            invalid={isInvalid("roomType")}
-            value={property.roomType ?? "원룸"}
-            onChange={(roomType) => update({ roomType })}
-            hint="손님 유형이 자동으로 불러와져요 · 다시 눌러 변경 가능"
-          />
-        </div>
+        {!isLand && (
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setShowPasswords((v) => !v)}
+              className={[
+                "flex h-9 w-full items-center justify-between gap-2 rounded-lg border px-2.5",
+                "active:scale-[0.99] transition-all duration-150",
+                showPasswords
+                  ? "border-[#3182F6]/30 bg-blue-50/50"
+                  : "border-dashed border-gray-200 bg-gray-50",
+              ].join(" ")}
+            >
+              <span className="text-[13px] font-semibold text-gray-700">
+                비밀번호
+                <span className="ml-1.5 text-[11px] font-medium text-gray-400">
+                  {showPasswords ? "접기" : "선택"}
+                </span>
+              </span>
+              <span className="text-[11px] font-bold text-gray-400">
+                {showPasswords ? "▴" : "▾"}
+              </span>
+            </button>
+            {showPasswords && (
+              <div className="grid grid-cols-2 gap-1.5">
+                <label className="block space-y-0.5">
+                  <span className="text-[12px] font-semibold text-gray-500">
+                    1층
+                  </span>
+                  <input
+                    value={property.floorPassword ?? ""}
+                    onChange={(e) => update({ floorPassword: e.target.value })}
+                    placeholder="1234*"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-[14px] text-gray-900 outline-none focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
+                  />
+                </label>
+                <label className="block space-y-0.5">
+                  <span className="text-[12px] font-semibold text-gray-500">
+                    호실
+                  </span>
+                  <input
+                    value={property.roomPassword ?? property.password ?? ""}
+                    onChange={(e) => update({ roomPassword: e.target.value })}
+                    placeholder="5678*"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-[14px] text-gray-900 outline-none focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 border-t border-gray-100 pt-3">
@@ -434,204 +521,268 @@ export function PropertyEditor({
             onChange={(dealType) => update({ dealType })}
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        {!rentDetailMode && (
+          <div className="grid grid-cols-2 gap-2">
+            <div ref={setFieldRef("deposit")}>
+              <Input
+                label={
+                  property.dealType === "매매"
+                    ? "매가 (만원)"
+                    : isBuilding
+                      ? "보증금 합 (만원)"
+                      : "보증금 (만원)"
+                }
+                required
+                invalid={isInvalid("deposit")}
+                hint={isInvalid("deposit") ? "미입력" : undefined}
+                type="number"
+                value={property.deposit || ""}
+                onChange={(e) =>
+                  update({ deposit: Number(e.target.value) || 0 })
+                }
+                placeholder="10000"
+              />
+            </div>
+            {property.dealType !== "매매" && (
+              <Input
+                label={
+                  property.dealType === "전세"
+                    ? isBuilding
+                      ? "월세 합 (만원)"
+                      : "월세 (만원/반전세)"
+                    : isBuilding
+                      ? "월세 합 (만원)"
+                      : "월세 (만원)"
+                }
+                type="number"
+                value={property.monthlyRent || ""}
+                onChange={(e) =>
+                  update({ monthlyRent: Number(e.target.value) || 0 })
+                }
+                placeholder="50"
+                hint={
+                  property.dealType === "전세" && !isBuilding
+                    ? "반전세 등이면 입력 · 없으면 0"
+                    : undefined
+                }
+              />
+            )}
+            {!isLand && (
+              <Input
+                label="관리비 (만원)"
+                type="number"
+                value={property.maintenanceFee || ""}
+                onChange={(e) =>
+                  update({ maintenanceFee: Number(e.target.value) || 0 })
+                }
+                placeholder="10"
+              />
+            )}
+          </div>
+        )}
+        {rentDetailMode && property.dealType === "매매" && (
           <div ref={setFieldRef("deposit")}>
             <Input
-              label={
-                property.dealType === "매매" ? "매가 (만원)" : "보증금 (만원)"
-              }
+              label="매가 (만원)"
               required
               invalid={isInvalid("deposit")}
               hint={isInvalid("deposit") ? "미입력" : undefined}
               type="number"
               value={property.deposit || ""}
               onChange={(e) => update({ deposit: Number(e.target.value) || 0 })}
-              placeholder="10000"
+              placeholder="50000"
             />
           </div>
-          {property.dealType !== "매매" && (
-            <Input
-              label={
-                property.dealType === "전세"
-                  ? "월세 (만원/반전세)"
-                  : "월세 (만원)"
-              }
-              type="number"
-              value={property.monthlyRent || ""}
-              onChange={(e) =>
-                update({ monthlyRent: Number(e.target.value) || 0 })
-              }
-              placeholder="50"
-              hint={
-                property.dealType === "전세"
-                  ? "반전세 등이면 입력 · 없으면 0"
-                  : undefined
-              }
-            />
-          )}
-          <Input
-            label="관리비 (만원)"
-            type="number"
-            value={property.maintenanceFee || ""}
-            onChange={(e) =>
-              update({ maintenanceFee: Number(e.target.value) || 0 })
-            }
-            placeholder="10"
-          />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
-            관리비 포함 항목
+        )}
+        {rentDetailMode && property.dealType !== "매매" && (
+          <p className="rounded-xl bg-blue-50 px-3 py-2 text-[12px] font-semibold text-[#1B64DA]">
+            보증·월세 합계{" "}
+            {property.deposit?.toLocaleString("ko-KR") ?? 0}만 / 월{" "}
+            {property.monthlyRent?.toLocaleString("ko-KR") ?? 0}만 (상세에서
+            자동 합산)
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {MAINTENANCE_OPTIONS.map((opt) => (
-              <ChipToggle
-                key={opt}
-                label={opt}
-                active={property.maintenanceIncludes.includes(opt)}
-                onClick={() => toggleList("maintenanceIncludes", opt)}
-              />
-            ))}
+        )}
+        {!isLand && (
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
+              관리비 포함 항목
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {MAINTENANCE_OPTIONS.map((opt) => (
+                <ChipToggle
+                  key={opt}
+                  label={opt}
+                  active={property.maintenanceIncludes.includes(opt)}
+                  onClick={() => toggleList("maintenanceIncludes", opt)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="space-y-2 border-t border-gray-100 pt-3">
-        <p className="text-sm font-bold text-gray-800">주차 정보</p>
-        <div ref={setFieldRef("parking")}>
-          <OptionToggle
-            label="주차 유무"
-            required
-            invalid={isInvalid("parking")}
-            columns={2}
-            value={property.parkingType === "유" ? "유" : "무"}
-            options={["유", "무"] as const}
-            onChange={(parkingType) =>
-              update({
-                parkingType,
-                parkingFeeType: "별도",
-                parkingFee:
-                  parkingType === "유" ? property.parkingFee : undefined,
-              })
-            }
-          />
+      {!isBuilding && (
+        <div className="space-y-2 border-t border-gray-100 pt-3">
+          <p className="text-sm font-bold text-gray-800">주차 정보</p>
+          <div ref={setFieldRef("parking")}>
+            <OptionToggle
+              label="주차 유무"
+              required
+              invalid={isInvalid("parking")}
+              columns={2}
+              value={property.parkingType === "유" ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(parkingType) =>
+                update({
+                  parkingType,
+                  parkingFeeType: "별도",
+                  parkingFee:
+                    parkingType === "유" ? property.parkingFee : undefined,
+                })
+              }
+            />
+          </div>
+          {property.parkingType === "유" && (
+            <Input
+              label="주차비 (만원/월)"
+              type="number"
+              inputMode="numeric"
+              value={property.parkingFee ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                update({
+                  parkingFeeType: "별도",
+                  parkingFee: raw === "" ? undefined : Number(raw) || 0,
+                });
+              }}
+              placeholder="5"
+            />
+          )}
+          {!isLand && (
+            <OptionToggle
+              label="애완동물 유무"
+              columns={2}
+              value={property.petAllowed ?? "무"}
+              options={["유", "무"] as const}
+              onChange={(petAllowed) => update({ petAllowed })}
+            />
+          )}
         </div>
-        {property.parkingType === "유" && (
-          <Input
-            label="주차비 (만원/월)"
-            type="number"
-            inputMode="numeric"
-            value={property.parkingFee ?? ""}
-            onChange={(e) => {
-              const raw = e.target.value;
-              update({
-                parkingFeeType: "별도",
-                parkingFee: raw === "" ? undefined : Number(raw) || 0,
-              });
-            }}
-            placeholder="5"
-          />
-        )}
-        <OptionToggle
-          label="애완동물 유무"
-          columns={2}
-          value={property.petAllowed ?? "무"}
-          options={["유", "무"] as const}
-          onChange={(petAllowed) => update({ petAllowed })}
-        />
-      </div>
+      )}
 
       <div className="space-y-2 border-t border-gray-100 pt-3">
         <p className="text-sm font-bold text-gray-800">기타</p>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-gray-600">
-              입주 가능일
-            </p>
-            <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-              <input
-                type="checkbox"
-                checked={moveInSingle}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  const to = on ? moveInFrom : property.moveInTo || "";
+        {!isLand && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] font-semibold text-gray-600">
+                입주 가능일
+              </p>
+              <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                <input
+                  type="checkbox"
+                  checked={moveInSingle}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    const to = on ? moveInFrom : property.moveInTo || "";
+                    update({
+                      moveInSingle: on,
+                      moveInFrom,
+                      moveInTo: to,
+                      moveInDate: formatMoveInRange(moveInFrom, to || undefined),
+                    });
+                  }}
+                  className="h-5 w-5 accent-[#3182F6]"
+                />
+                <span className="text-[14px] font-semibold text-gray-700">
+                  단일
+                </span>
+              </label>
+            </div>
+            {moveInSingle ? (
+              <DatePicker
+                label=""
+                value={moveInFrom}
+                onChange={(next) =>
                   update({
-                    moveInSingle: on,
-                    moveInFrom,
+                    moveInSingle: true,
+                    moveInFrom: next,
+                    moveInTo: next,
+                    moveInDate: formatMoveInRange(next, next),
+                  })
+                }
+                placeholder="입주 가능일 선택"
+              />
+            ) : (
+              <DateRangePicker
+                label=""
+                from={moveInFrom}
+                to={property.moveInTo || ""}
+                onChange={({ from, to }) =>
+                  update({
+                    moveInSingle: false,
+                    moveInFrom: from,
                     moveInTo: to,
-                    moveInDate: formatMoveInRange(moveInFrom, to || undefined),
-                  });
-                }}
-                className="h-5 w-5 accent-[#3182F6]"
+                    moveInDate: formatMoveInRange(from, to || undefined),
+                  })
+                }
               />
-              <span className="text-[14px] font-semibold text-gray-700">
-                단일
-              </span>
-            </label>
+            )}
           </div>
-          {moveInSingle ? (
-            <DatePicker
-              label=""
-              value={moveInFrom}
-              onChange={(next) =>
-                update({
-                  moveInSingle: true,
-                  moveInFrom: next,
-                  moveInTo: next,
-                  moveInDate: formatMoveInRange(next, next),
-                })
-              }
-              placeholder="입주 가능일 선택"
+        )}
+        {!hideUnitExtras && (
+          <>
+            <Select
+              label="엘리베이터"
+              value={property.elevator ? "yes" : "no"}
+              onChange={(e) => update({ elevator: e.target.value === "yes" })}
+            >
+              <option value="yes">있음</option>
+              <option value="no">없음</option>
+            </Select>
+            <OptionToggle
+              label="전세보증보험 가입 가능 여부"
+              columns={2}
+              value={insuranceJoined}
+              options={INSURANCE_TYPES}
+              onChange={(insuranceType) => update({ insuranceType })}
             />
-          ) : (
-            <DateRangePicker
-              label=""
-              from={moveInFrom}
-              to={property.moveInTo || ""}
-              onChange={({ from, to }) =>
-                update({
-                  moveInSingle: false,
-                  moveInFrom: from,
-                  moveInTo: to,
-                  moveInDate: formatMoveInRange(from, to || undefined),
-                })
-              }
-            />
-          )}
-        </div>
-        <Select
-          label="엘리베이터"
-          value={property.elevator ? "yes" : "no"}
-          onChange={(e) => update({ elevator: e.target.value === "yes" })}
-        >
-          <option value="yes">있음</option>
-          <option value="no">없음</option>
-        </Select>
-        <OptionToggle
-          label="전세보증보험 가입 가능 여부"
-          columns={2}
-          value={insuranceJoined}
-          options={INSURANCE_TYPES}
-          onChange={(insuranceType) => update({ insuranceType })}
-        />
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-gray-600">옵션</p>
-          <div className="flex flex-wrap gap-1.5">
-            {PROPERTY_OPTIONS.map((opt) => (
-              <ChipToggle
-                key={opt}
-                label={opt}
-                active={property.options.includes(opt)}
-                onClick={() => toggleList("options", opt)}
-              />
-            ))}
-          </div>
-        </div>
+            <div>
+              <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
+                옵션
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {PROPERTY_OPTIONS.map((opt) => (
+                  <ChipToggle
+                    key={opt}
+                    label={opt}
+                    active={property.options.includes(opt)}
+                    onClick={() => toggleList("options", opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {isBuilding && (
+          <Select
+            label="엘리베이터"
+            value={property.elevator ? "yes" : "no"}
+            onChange={(e) => update({ elevator: e.target.value === "yes" })}
+          >
+            <option value="yes">있음</option>
+            <option value="no">없음</option>
+          </Select>
+        )}
         <TextArea
           label="추가내용"
           value={property.notes ?? ""}
           onChange={(e) => update({ notes: e.target.value })}
-          placeholder="특이사항, 방향, 층, 입주조건 등"
+          placeholder={
+            isLand || isBuilding
+              ? "건폐율, 용적률, 현황, 향, 특이사항 등"
+              : "특이사항, 방향, 층, 입주조건 등"
+          }
         />
       </div>
     </Card>

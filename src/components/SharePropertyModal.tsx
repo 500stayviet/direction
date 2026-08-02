@@ -23,11 +23,13 @@ export function SharePropertyModal({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const [excludeRoomNo, setExcludeRoomNo] = useState(true);
+  const [excludeUsableArea, setExcludeUsableArea] = useState(true);
   const [excludeNotes, setExcludeNotes] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setExcludeRoomNo(true);
+    setExcludeUsableArea(true);
     setExcludeNotes(false);
     setCopied(false);
     setError("");
@@ -37,9 +39,10 @@ export function SharePropertyModal({
     if (!agent) return "";
     return buildPropertyShareText(properties, agent, {
       excludeRoomNo,
+      excludeUsableArea,
       excludeNotes,
     });
-  }, [agent, properties, excludeRoomNo, excludeNotes]);
+  }, [agent, properties, excludeRoomNo, excludeUsableArea, excludeNotes]);
 
   const handleCopy = async () => {
     if (!text.trim()) return;
@@ -83,6 +86,15 @@ export function SharePropertyModal({
                 className="h-4 w-4 accent-[#3182F6]"
               />
               호실 제외
+            </label>
+            <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-gray-600">
+              <input
+                type="checkbox"
+                checked={excludeUsableArea}
+                onChange={(e) => setExcludeUsableArea(e.target.checked)}
+                className="h-4 w-4 accent-[#3182F6]"
+              />
+              실사용면적 제외
             </label>
             <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-gray-600">
               <input

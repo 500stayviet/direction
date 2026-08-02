@@ -1,4 +1,12 @@
-import type { DealType, Property, RoomType } from "./types";
+import type {
+  BuildingBathroomCounts,
+  BuildingKind,
+  BuildingUnitCounts,
+  DealType,
+  Property,
+  ResidentialUnitKey,
+  RoomType,
+} from "./types";
 import { createId } from "./id";
 
 export const DEAL_TYPES: DealType[] = ["매매", "전세", "월세"];
@@ -10,13 +18,60 @@ export const ROOM_TYPES: RoomType[] = [
   "쓰리룸+",
   "상가",
   "사무실",
+  "토지",
+  "건물",
 ];
 
+export const BUILDING_KINDS: BuildingKind[] = [
+  "다가구",
+  "상가주택",
+  "근생건물",
+];
+
+export const RESIDENTIAL_UNIT_KEYS: ResidentialUnitKey[] = [
+  "원룸",
+  "투룸",
+  "쓰리룸",
+  "쓰리룸+",
+];
+
+export const EMPTY_UNIT_COUNTS: BuildingUnitCounts = {
+  원룸: 0,
+  투룸: 0,
+  쓰리룸: 0,
+  "쓰리룸+": 0,
+  상가: 0,
+};
+
+export const EMPTY_BATHROOM_COUNTS: BuildingBathroomCounts = {
+  원룸: 1,
+  투룸: 1,
+  쓰리룸: 1,
+  "쓰리룸+": 1,
+};
+
 /** 예전 저장값 '오피스' → '사무실' */
-export function displayRoomType(roomType?: string | null): string {
+export function displayRoomType(
+  roomType?: string | null,
+  buildingKind?: string | null
+): string {
   if (!roomType) return "-";
   if (roomType === "오피스") return "사무실";
+  if (roomType === "건물" && buildingKind) return `건물 · ${buildingKind}`;
   return roomType;
+}
+
+export function isLandType(roomType?: string | null): boolean {
+  return roomType === "토지";
+}
+
+export function isBuildingType(roomType?: string | null): boolean {
+  return roomType === "건물";
+}
+
+/** 단일 호실·상가 유형 (실사용면적 1칸) */
+export function isUnitRoomType(roomType?: string | null): boolean {
+  return Boolean(roomType) && !isLandType(roomType) && !isBuildingType(roomType);
 }
 
 export const LOAN_TYPES = [
@@ -95,6 +150,20 @@ export function createEmptyProperty(): Property {
     petAllowed: "무",
     elevator: false,
     options: [],
+    usableArea: undefined,
+    landArea: undefined,
+    landUse: "",
+    buildingKind: undefined,
+    floorsBasement: undefined,
+    floorsAbove: undefined,
+    buildingArea: undefined,
+    parkingSpaces: undefined,
+    unitCounts: { ...EMPTY_UNIT_COUNTS },
+    bathroomCounts: { ...EMPTY_BATHROOM_COUNTS },
+    roomAreas: {},
+    commercialAreas: [],
+    rentInputMode: "합계",
+    typeRents: {},
     moveInFrom: "",
     moveInTo: "",
     moveInSingle: false,

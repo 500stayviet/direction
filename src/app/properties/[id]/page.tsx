@@ -11,6 +11,7 @@ import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { getCurrentUser } from "@/lib/auth";
 import { getPropertyValidationError } from "@/lib/propertyValidation";
 import {
+  deleteListedProperty,
   getListedPropertyById,
   upsertListedProperty,
 } from "@/lib/storage";
@@ -23,6 +24,7 @@ export default function PropertyDetailPage() {
   const [editing, setEditing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [agent, setAgent] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +69,17 @@ export default function PropertyDetailPage() {
     setEditing(false);
   };
 
+  const handleDelete = () => {
+    if (!window.confirm("이 매물을 삭제할까요?")) return;
+    setDeleting(true);
+    void deleteListedProperty(property.id)
+      .then(() => router.replace("/properties"))
+      .catch((err: unknown) => {
+        alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+        setDeleting(false);
+      });
+  };
+
   return (
     <main>
       <PageHeader
@@ -97,6 +110,15 @@ export default function PropertyDetailPage() {
             >
               {editing ? "취소" : "수정"}
             </Button>
+            {!editing ? (
+              <Button
+                disabled={deleting}
+                onClick={handleDelete}
+                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
+              >
+                {deleting ? "삭제 중…" : "삭제"}
+              </Button>
+            ) : null}
           </div>
         }
       />

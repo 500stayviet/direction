@@ -89,7 +89,10 @@ export default function PropertyListPage() {
                         {p.roomNo || "호실 미입력"}
                       </p>
                       <p className="mt-2 text-sm text-gray-600">
-                        {p.roomType ?? "-"} · {p.dealType} ·{" "}
+                        {p.roomType === "건물" && p.buildingKind
+                          ? `건물 · ${p.buildingKind}`
+                          : p.roomType ?? "-"}{" "}
+                        · {p.dealType} ·{" "}
                         {formatDepositRent(
                           p.dealType,
                           p.deposit,

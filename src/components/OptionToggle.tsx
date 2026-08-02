@@ -6,7 +6,7 @@ interface OptionToggleProps<T extends string> {
   value: T;
   options: readonly T[] | T[];
   onChange: (value: T) => void;
-  columns?: 2 | 3;
+  columns?: 2 | 3 | 4;
   invalid?: boolean;
 }
 
@@ -44,7 +44,11 @@ export function OptionToggle<T extends string>({
       )}
       <div
         className={
-          columns === 2 ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-3 gap-1.5"
+          columns === 2
+            ? "grid grid-cols-2 gap-1.5"
+            : columns === 4
+              ? "grid grid-cols-4 gap-1.5"
+              : "grid grid-cols-3 gap-1.5"
         }
       >
         {options.map((option) => {

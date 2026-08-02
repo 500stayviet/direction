@@ -19,6 +19,7 @@ import { addMinutesToHHmm, cascadeArriveTimes } from "@/lib/arriveTime";
 import { getCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import {
+  deleteSchedule,
   getCustomerById,
   getScheduleById,
   upsertSchedule,
@@ -68,6 +69,7 @@ function ScheduleDetailInner() {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
@@ -204,6 +206,23 @@ function ScheduleDetailInner() {
     );
   }
 
+  const handleDelete = () => {
+    if (!window.confirm("이 방문 일정을 삭제할까요?")) return;
+    setDeleting(true);
+    const back =
+      fromNavi
+        ? "/navi"
+        : customer
+          ? `/customers/${customer.id}`
+          : "/schedules/new";
+    void deleteSchedule(schedule.id)
+      .then(() => router.replace(back))
+      .catch((err: unknown) => {
+        alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+        setDeleting(false);
+      });
+  };
+
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     const propertyIssue = findPropertiesValidationIssue(properties);
@@ -268,6 +287,15 @@ function ScheduleDetailInner() {
             >
               {editing ? "취소" : "수정"}
             </Button>
+            {!editing ? (
+              <Button
+                disabled={deleting}
+                onClick={handleDelete}
+                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
+              >
+                {deleting ? "삭제 중…" : "삭제"}
+              </Button>
+            ) : null}
           </div>
         }
       />

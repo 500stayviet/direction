@@ -78,7 +78,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             {property.roomType ? (
               <span className="rounded-lg bg-[#F2F4F6] px-2.5 py-1 text-[13px] font-bold text-gray-700">
-                {displayRoomType(property.roomType)}
+                {displayRoomType(property.roomType, property.buildingKind)}
               </span>
             ) : null}
             <span className="rounded-lg bg-[#3182F6]/12 px-2.5 py-1 text-[13px] font-bold text-[#3182F6]">
@@ -196,30 +196,99 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               )}
             </p>
           </div>
-          <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
-            <p className="text-[11px] font-bold leading-none text-gray-400">
-              관리비
-            </p>
-            <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
-              {formatMoney(property.maintenanceFee)}
-              {property.maintenanceIncludes.length > 0 ? (
-                <span className="ml-1 text-[12px] font-semibold text-gray-500">
-                  ({property.maintenanceIncludes.join(", ")})
-                </span>
-              ) : null}
-            </p>
-          </div>
-          <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
-            <p className="text-[11px] font-bold leading-none text-gray-400">
-              입주 가능
-            </p>
-            <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
-              {moveInLabel || "-"}
-            </p>
-          </div>
+          {property.roomType === "토지" ? (
+            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                대지면적
+              </p>
+              <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {property.landArea != null ? `${property.landArea}㎡` : "-"}
+                {property.landUse?.trim() ? (
+                  <span className="ml-1 text-[12px] font-semibold text-gray-500">
+                    · {property.landUse.trim()}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          ) : property.roomType === "건물" ? (
+            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                층수 · 주차
+              </p>
+              <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {[
+                  property.floorsBasement
+                    ? `지하 ${property.floorsBasement}`
+                    : null,
+                  property.floorsAbove ? `지상 ${property.floorsAbove}` : null,
+                  property.parkingSpaces != null
+                    ? `주차 ${property.parkingSpaces}대`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "-"}
+              </p>
+            </div>
+          ) : (
+            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                관리비
+              </p>
+              <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {formatMoney(property.maintenanceFee)}
+                {property.maintenanceIncludes.length > 0 ? (
+                  <span className="ml-1 text-[12px] font-semibold text-gray-500">
+                    ({property.maintenanceIncludes.join(", ")})
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          )}
+          {property.roomType === "건물" && property.unitCounts ? (
+            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                방 · 상가
+              </p>
+              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {(
+                  [
+                    ["원룸", property.unitCounts.원룸],
+                    ["투룸", property.unitCounts.투룸],
+                    ["쓰리룸", property.unitCounts.쓰리룸],
+                    ["쓰리룸+", property.unitCounts["쓰리룸+"]],
+                    ["상가", property.unitCounts.상가],
+                  ] as const
+                )
+                  .filter(([, n]) => n > 0)
+                  .map(([label, n]) => `${label} ${n}`)
+                  .join(" · ") || "-"}
+              </p>
+            </div>
+          ) : null}
+          {property.usableArea != null && property.usableArea > 0 ? (
+            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                실사용면적
+              </p>
+              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {property.usableArea}㎡
+              </p>
+            </div>
+          ) : null}
+          {property.roomType !== "토지" ? (
+            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                입주 가능
+              </p>
+              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {moveInLabel || "-"}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* 비밀번호 */}
+        {property.roomType !== "토지" && (
         <div className="divide-y divide-gray-100 rounded-2xl bg-[#F9FAFB] px-3.5">
           <div className="flex items-center justify-between gap-2 py-3">
             <span className="text-[14px] font-bold text-gray-500">
@@ -236,14 +305,18 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             />
           </div>
         </div>
+        )}
 
         {/* 조건 칩 */}
         <div className="flex flex-wrap gap-1.5">
+          {property.roomType !== "토지" && (
           <StatusChip
             label="엘리베이터"
             value={property.elevator ? "유" : "무"}
             active={property.elevator}
           />
+          )}
+          {property.roomType !== "토지" && property.roomType !== "건물" && (
           <StatusChip
             label="보증보험"
             value={
@@ -256,10 +329,13 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
             }
             active={insuranceOn}
           />
+          )}
           <StatusChip
             label="주차"
             value={
-              property.parkingType === "유"
+              property.roomType === "건물" && property.parkingSpaces != null
+                ? `${property.parkingSpaces}대`
+                : property.parkingType === "유"
                 ? [
                     "유",
                     property.parkingFeeType === "포함" ? "포함" : "별도",
@@ -271,14 +347,22 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
                     .join(" · ")
                 : "무"
             }
-            active={property.parkingType === "유"}
+            active={
+              property.roomType === "건물"
+                ? (property.parkingSpaces ?? 0) > 0
+                : property.parkingType === "유"
+            }
           />
+          {property.roomType !== "토지" && property.roomType !== "건물" && (
           <StatusChip
             label="애완동물"
             value={property.petAllowed ?? "무"}
             active={property.petAllowed === "유"}
           />
-          {property.options.map((opt) => (
+          )}
+          {property.roomType !== "토지" &&
+            property.roomType !== "건물" &&
+            property.options.map((opt) => (
             <span key={opt} className={chipOption}>
               {opt}
             </span>

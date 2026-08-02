@@ -101,7 +101,10 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
                   {p.partnerAgency?.name ? ` · ${p.partnerAgency.name}` : ""}
                 </p>
                 <p className="mt-1 truncate text-[12px] font-medium text-gray-600">
-                  {p.roomType ?? "-"} · {p.dealType} ·{" "}
+                  {p.roomType === "건물" && p.buildingKind
+                    ? `건물 · ${p.buildingKind}`
+                    : p.roomType ?? "-"}{" "}
+                  · {p.dealType} ·{" "}
                   {formatDepositRent(p.dealType, p.deposit, p.monthlyRent)}
                 </p>
               </button>

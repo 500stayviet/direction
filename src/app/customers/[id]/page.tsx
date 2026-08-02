@@ -10,6 +10,7 @@ import { CustomerForm } from "@/components/CustomerForm";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import {
+  deleteCustomer,
   getCustomerById,
   getSchedulesByCustomer,
   touchRecentCustomer,
@@ -47,6 +48,7 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,18 +74,47 @@ export default function CustomerDetailPage() {
     );
   }
 
+  const handleDelete = () => {
+    if (
+      !window.confirm(
+        "이 손님을 삭제할까요?\n관련된 방문 일정도 함께 삭제됩니다."
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    void deleteCustomer(customer.id)
+      .then(() => router.replace("/customers"))
+      .catch((err: unknown) => {
+        alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+        setDeleting(false);
+      });
+  };
+
   return (
     <main>
       <PageHeader
         title={editing ? "손님 정보 수정" : "손님 정보"}
         backHref="/customers"
         right={
-          <Button
-            variant={editing ? "secondary" : "outline"}
-            onClick={() => setEditing((v) => !v)}
-          >
-            {editing ? "취소" : "수정"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant={editing ? "secondary" : "outline"}
+              onClick={() => setEditing((v) => !v)}
+              className="!px-2.5 !text-[13px]"
+            >
+              {editing ? "취소" : "수정"}
+            </Button>
+            {!editing ? (
+              <Button
+                disabled={deleting}
+                onClick={handleDelete}
+                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
+              >
+                {deleting ? "삭제 중…" : "삭제"}
+              </Button>
+            ) : null}
+          </div>
         }
       />
 

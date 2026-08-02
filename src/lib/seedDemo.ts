@@ -1,4 +1,7 @@
 import { buildRouteSummary } from "@/lib/distance";
+import { CONTRACT_DEADLINE_DAYS } from "@/lib/deadline";
+import { toISODate, todayISO } from "@/lib/date";
+import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import { loadAppAuth } from "@/lib/supabase/appAuth";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -13,22 +16,63 @@ import {
   touchRecentCustomer,
 } from "@/lib/storage";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
-import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 
-const DEMO_SEED_VERSION = "demo_v6";
+/** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
+export const DEMO_SEED_VERSION = "demo_v8";
 const SEED_SKIP_KEY = `realty_seed_skip_${DEMO_SEED_VERSION}`;
 
-function nowISO() {
-  return new Date().toISOString();
+/** 강동구청 지번 — 원터치 네비 체험용 */
+export const DEMO_GANGDONG_OFFICE_ADDRESS = "서울 강동구 성내동 546-3";
+export const DEMO_TEST_PHONE = "111-1111-1111";
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function daysFromToday(offset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function daysFrom(base: Date, offset: number): string {
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
+  return toISODate(d);
+}
+
+function dateSyncKey(dayISO: string) {
+  return `realty_demo_dates_${DEMO_SEED_VERSION}_${dayISO}`;
+}
+
+/** 가입일(프로필 생성일) — 없으면 오늘 */
+async function getSignupBaseDate(): Promise<Date> {
+  try {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    const created = data.user?.created_at;
+    if (created) {
+      const d = new Date(created);
+      if (!Number.isNaN(d.getTime())) return startOfLocalDay(d);
+    }
+  } catch {
+    /* fallback */
+  }
+  return startOfLocalDay(new Date());
+}
+
+async function ensureSeedSession(): Promise<boolean> {
+  const appAuth = loadAppAuth();
+  const supabase = createClient();
+  if (appAuth?.access_token && appAuth.refresh_token) {
+    try {
+      await Promise.race([
+        supabase.auth.setSession({
+          access_token: appAuth.access_token,
+          refresh_token: appAuth.refresh_token,
+        }),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+      ]);
+    } catch {
+      /* continue */
+    }
+    return true;
+  }
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session?.access_token);
 }
 
 function makeCustomer(
@@ -36,7 +80,7 @@ function makeCustomer(
     createdAt?: string;
   }
 ): Customer {
-  const createdAt = partial.createdAt ?? nowISO();
+  const createdAt = partial.createdAt ?? new Date().toISOString();
   return {
     ...partial,
     budget: formatDepositRent(
@@ -55,7 +99,7 @@ function makeListed(
     createdAt?: string;
   }
 ): ListedProperty {
-  const createdAt = partial.createdAt ?? nowISO();
+  const createdAt = partial.createdAt ?? new Date().toISOString();
   return {
     ...partial,
     createdAt,
@@ -100,43 +144,46 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
   };
 }
 
-/** 로그인 계정에 테스트용 손님·매물·방문일정 시드 (버전 바뀌면 갱신) */
+/**
+ * 로그인 계정에 테스트용 손님·매물·방문일정 시드
+ * - 최초: 가입일 기준으로 날짜 생성
+ * - 이후: 매일 오늘 기준으로 날짜 갱신 (일정·계약마감 체험 유지)
+ */
 export async function seedDemoDataIfNeeded(): Promise<void> {
   if (typeof window === "undefined") return;
 
+  const today = todayISO();
   try {
     if (sessionStorage.getItem(SEED_SKIP_KEY)) return;
+    if (sessionStorage.getItem(dateSyncKey(today))) return;
   } catch {
     /* ignore */
   }
 
   try {
     const currentVersion = await getDemoSeedVersion();
-    if (currentVersion === DEMO_SEED_VERSION) {
+    if (
+      currentVersion &&
+      currentVersion.localeCompare(DEMO_SEED_VERSION) > 0
+    ) {
       return;
     }
 
-    // DB 저장에 쓸 수 있는 토큰이 없으면 시드 스킵 (화면은 유지)
-    const appAuth = loadAppAuth();
-    const supabase = createClient();
-    if (appAuth?.access_token && appAuth.refresh_token) {
-      try {
-        await Promise.race([
-          supabase.auth.setSession({
-            access_token: appAuth.access_token,
-            refresh_token: appAuth.refresh_token,
-          }),
-          new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
-        ]);
-      } catch {
-        /* continue — Authorization 헤더 주입으로 시도 */
-      }
-    } else {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session?.access_token) return;
-    }
+    if (!(await ensureSeedSession())) return;
 
-    await runDemoSeed();
+    const needsFullSeed = currentVersion !== DEMO_SEED_VERSION;
+    const base = needsFullSeed
+      ? await getSignupBaseDate()
+      : startOfLocalDay(new Date());
+
+    await runDemoSeed(base);
+
+    try {
+      sessionStorage.setItem(dateSyncKey(today), "1");
+      sessionStorage.removeItem(SEED_SKIP_KEY);
+    } catch {
+      /* ignore */
+    }
   } catch (e) {
     console.warn("[seedDemo] skipped:", e);
     try {
@@ -147,408 +194,98 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
   }
 }
 
-/** 테스트용 손님·매물·일정 (입력칸 전부 채움) */
-export function buildDemoSeedData(): {
+/**
+ * 체험용 1손님 · 1매물 · 1네비(일정)
+ * baseDate(가입일/오늘) 기준:
+ * - 방문일 = 당일 → 네비·일정 바로 사용
+ * - 희망 입주 = 당일+31일 → 계약 마감 알림 체험
+ */
+export function buildDemoSeedData(baseDate: Date = startOfLocalDay(new Date())): {
   customers: Customer[];
   properties: ListedProperty[];
   schedules: Schedule[];
 } {
-  const t0 = Date.now();
-  const iso = (offsetMs: number) => new Date(t0 - offsetMs).toISOString();
+  const base = startOfLocalDay(baseDate);
+  const baseMs = base.getTime();
+  const iso = (offsetMs: number) => new Date(baseMs + 12 * 3600_000 - offsetMs).toISOString();
+
+  const visitDate = daysFrom(base, 0);
+  const moveInFrom = daysFrom(base, CONTRACT_DEADLINE_DAYS);
+  const moveInTo = daysFrom(base, CONTRACT_DEADLINE_DAYS + 14);
+  const moveInDate = formatMoveInRange(moveInFrom, moveInTo);
+  const propMoveInFrom = daysFrom(base, 14);
+  const propMoveInTo = daysFrom(base, CONTRACT_DEADLINE_DAYS + 14);
+  const propMoveInDate = formatMoveInRange(propMoveInFrom, propMoveInTo);
 
   const customers: Customer[] = [
     makeCustomer({
       id: "demo_cust_1",
-      name: "김민수",
-      phone: "01012345678",
+      name: "테스트",
+      phone: DEMO_TEST_PHONE,
       dealType: "전세",
       roomType: "원룸",
       deposit: 10000,
       monthlyRent: 20,
-      moveInFrom: daysFromToday(45),
-      moveInTo: daysFromToday(60),
+      moveInFrom,
+      moveInTo,
       moveInSingle: false,
       loanType: "버팀목",
-      parkingType: "무",
-      petAllowed: "무",
-      notes: "테스트 손님 · 강동 원룸 전세 · 반전세 가능",
-      createdAt: iso(1000 * 60 * 60 * 3),
-    }),
-    makeCustomer({
-      id: "demo_cust_2",
-      name: "이서연",
-      phone: "01098765432",
-      dealType: "월세",
-      roomType: "투룸",
-      deposit: 3000,
-      monthlyRent: 80,
-      moveInFrom: daysFromToday(20),
-      moveInTo: daysFromToday(40),
-      moveInSingle: false,
-      loanType: "해당없음",
-      parkingType: "유",
-      petAllowed: "유",
-      notes: "테스트 손님 · 주차·반려동물 가능 희망",
-      createdAt: iso(1000 * 60 * 60 * 2),
-    }),
-    makeCustomer({
-      id: "demo_cust_3",
-      name: "박준호",
-      phone: "01055556666",
-      dealType: "매매",
-      roomType: "쓰리룸",
-      deposit: 65000,
-      monthlyRent: 0,
-      nonOccupancy: false,
-      moveInFrom: daysFromToday(60),
-      moveInTo: daysFromToday(90),
-      moveInSingle: false,
-      loanType: "디딤돌",
       parkingType: "유",
       petAllowed: "무",
-      notes: "테스트 손님 · 매매 쓰리룸 · 실입주",
+      notes:
+        "체험용 테스트 손님입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdAt: iso(1000 * 60 * 60),
     }),
-    makeCustomer({
-      id: "demo_cust_4",
-      name: "홍길동",
-      phone: "01022223333",
-      dealType: "전세",
-      roomType: "원룸",
-      deposit: 8000,
-      monthlyRent: 15,
-      moveInFrom: daysFromToday(10),
-      moveInTo: daysFromToday(20),
-      moveInSingle: false,
-      loanType: "중기청",
-      parkingType: "무",
-      petAllowed: "무",
-      notes: "테스트 손님 · 길동 원룸 전세",
-      createdAt: iso(1000 * 60 * 30),
-    }),
   ];
+
+  const propertyFields = {
+    address: DEMO_GANGDONG_OFFICE_ADDRESS,
+    roomNo: "본관 101호",
+    floorPassword: "1234*",
+    roomPassword: "5678*",
+    arriveTime: "10:00",
+    tenantPhone: DEMO_TEST_PHONE,
+    landlordPhone: "02-3425-5114",
+    hasPartnerAgency: true,
+    partnerAgency: {
+      name: "성내동 테스트부동산",
+      phone: DEMO_TEST_PHONE,
+      dong: "성내동",
+    },
+    dealType: "전세" as const,
+    roomType: "원룸" as const,
+    deposit: 10000,
+    monthlyRent: 20,
+    maintenanceFee: 10,
+    maintenanceIncludes: ["인터넷", "TV", "수도", "전기"],
+    parkingType: "유" as const,
+    parkingFeeType: "별도" as const,
+    parkingFee: 5,
+    petAllowed: "무" as const,
+    elevator: true,
+    options: ["에어컨", "냉장고", "세탁기", "인덕션"],
+    moveInFrom: propMoveInFrom,
+    moveInTo: propMoveInTo,
+    moveInSingle: false,
+    moveInDate: propMoveInDate,
+    insuranceType: "유",
+    notes:
+      "강동구청 주소 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
+  };
 
   const properties: ListedProperty[] = [
     makeListed({
       id: "demo_prop_1",
-      address: "서울 강동구 성내동 123-45",
-      roomNo: "101동 1203호",
-      floorPassword: "1234*",
-      roomPassword: "5678*",
-      arriveTime: "10:00",
-      tenantPhone: "01011112222",
-      landlordPhone: "01022221111",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "성내동 테스트부동산",
-        phone: "0212345678",
-        dong: "성내동",
-      },
-      dealType: "전세",
-      roomType: "원룸",
-      deposit: 10000,
-      monthlyRent: 20,
-      maintenanceFee: 10,
-      maintenanceIncludes: ["인터넷", "TV", "수도"],
-      parkingType: "무",
-      parkingFeeType: "별도",
-      parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기"],
-      moveInFrom: daysFromToday(14),
-      moveInTo: daysFromToday(45),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(14), daysFromToday(45)),
-      insuranceType: "유",
-      notes: "남향 · 3층 · 즉시입주 가능 · 반전세 협의",
+      ...propertyFields,
       createdAt: iso(1000 * 60 * 50),
     }),
-    makeListed({
-      id: "demo_prop_2",
-      address: "서울 강동구 천호동 456-7",
-      roomNo: "502호",
-      floorPassword: "0000",
-      roomPassword: "4321",
-      arriveTime: "11:30",
-      tenantPhone: "01044445555",
-      landlordPhone: "01033334444",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "천호 협력공인",
-        phone: "0244445555",
-        dong: "천호동",
-      },
-      dealType: "월세",
-      roomType: "투룸",
-      deposit: 3000,
-      monthlyRent: 75,
-      maintenanceFee: 8,
-      maintenanceIncludes: ["전기", "가스"],
-      parkingType: "유",
-      parkingFeeType: "별도",
-      parkingFee: 5,
-      petAllowed: "유",
-      elevator: true,
-      options: ["에어컨", "인덕션", "세탁기"],
-      moveInFrom: daysFromToday(7),
-      moveInTo: daysFromToday(30),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(7), daysFromToday(30)),
-      insuranceType: "무",
-      notes: "동향 · 반려동물 협의 · 주차 1대",
-      createdAt: iso(1000 * 60 * 40),
-    }),
-    makeListed({
-      id: "demo_prop_3",
-      address: "서울 송파구 잠실동 22",
-      roomNo: "1501호",
-      floorPassword: "2580",
-      roomPassword: "1470",
-      arriveTime: "14:00",
-      tenantPhone: "01077778888",
-      landlordPhone: "01066667777",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "잠실 협력공인",
-        phone: "0255556666",
-        dong: "잠실동",
-      },
-      dealType: "매매",
-      roomType: "쓰리룸",
-      deposit: 62000,
-      monthlyRent: 0,
-      maintenanceFee: 15,
-      maintenanceIncludes: ["청소", "주차", "인터넷"],
-      parkingType: "유",
-      parkingFeeType: "포함",
-      parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기", "가스레인지"],
-      moveInFrom: daysFromToday(90),
-      moveInTo: daysFromToday(120),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(90), daysFromToday(120)),
-      insuranceType: "유",
-      notes: "남서향 · 고층 · 입주협의",
-      createdAt: iso(1000 * 60 * 30),
-    }),
   ];
 
-  const scheduleProps1: Property[] = [
+  const scheduleProps: Property[] = [
     makeProperty({
       id: "demo_sch_prop_1a",
-      address: "서울 강동구 성내동 123-45",
-      roomNo: "101동 1203호",
+      ...propertyFields,
       arriveTime: "10:00",
-      floorPassword: "1234*",
-      roomPassword: "5678*",
-      tenantPhone: "01011112222",
-      landlordPhone: "01022221111",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "성내동 테스트부동산",
-        phone: "0212345678",
-        dong: "성내동",
-      },
-      dealType: "전세",
-      roomType: "원룸",
-      deposit: 10000,
-      monthlyRent: 20,
-      maintenanceFee: 10,
-      maintenanceIncludes: ["인터넷", "TV", "수도"],
-      parkingType: "무",
-      parkingFeeType: "별도",
-      parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기"],
-      insuranceType: "유",
-      notes: "남향 · 3층 · 즉시입주 · 반전세 협의",
-      moveInFrom: daysFromToday(14),
-      moveInTo: daysFromToday(45),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(14), daysFromToday(45)),
-    }),
-    makeProperty({
-      id: "demo_sch_prop_1b",
-      address: "서울 강동구 천호동 456-7",
-      roomNo: "502호",
-      arriveTime: "11:30",
-      floorPassword: "0000",
-      roomPassword: "4321",
-      tenantPhone: "01044445555",
-      landlordPhone: "01033334444",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "천호 협력공인",
-        phone: "0244445555",
-        dong: "천호동",
-      },
-      dealType: "월세",
-      roomType: "투룸",
-      deposit: 3000,
-      monthlyRent: 75,
-      maintenanceFee: 8,
-      maintenanceIncludes: ["전기", "가스"],
-      parkingType: "유",
-      parkingFeeType: "별도",
-      parkingFee: 5,
-      petAllowed: "유",
-      elevator: true,
-      options: ["에어컨", "인덕션", "세탁기"],
-      insuranceType: "무",
-      notes: "동향 · 반려동물 협의 · 주차 1대",
-      moveInFrom: daysFromToday(7),
-      moveInTo: daysFromToday(30),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(7), daysFromToday(30)),
-    }),
-  ];
-
-  const scheduleProps2: Property[] = [
-    makeProperty({
-      id: "demo_sch_prop_2a",
-      address: "서울 송파구 잠실동 22",
-      roomNo: "1501호",
-      arriveTime: "14:00",
-      floorPassword: "2580",
-      roomPassword: "1470",
-      tenantPhone: "01077778888",
-      landlordPhone: "01066667777",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "잠실 협력공인",
-        phone: "0255556666",
-        dong: "잠실동",
-      },
-      dealType: "매매",
-      roomType: "쓰리룸",
-      deposit: 62000,
-      monthlyRent: 0,
-      maintenanceFee: 15,
-      maintenanceIncludes: ["청소", "주차", "인터넷"],
-      parkingType: "유",
-      parkingFeeType: "포함",
-      parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기", "가스레인지"],
-      insuranceType: "유",
-      notes: "남서향 · 고층 · 입주협의",
-      moveInFrom: daysFromToday(90),
-      moveInTo: daysFromToday(120),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(90), daysFromToday(120)),
-    }),
-  ];
-
-  const scheduleProps3: Property[] = [
-    makeProperty({
-      id: "demo_sch_prop_3a",
-      address: "서울 강동구 길동 88",
-      roomNo: "301호",
-      arriveTime: "16:20",
-      floorPassword: "1111",
-      roomPassword: "2222",
-      tenantPhone: "01000001111",
-      landlordPhone: "01099990000",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "길동 공인중개사",
-        phone: "0266667777",
-        dong: "길동",
-      },
-      dealType: "전세",
-      roomType: "원룸",
-      deposit: 8000,
-      monthlyRent: 15,
-      maintenanceFee: 7,
-      maintenanceIncludes: ["인터넷", "수도"],
-      parkingType: "무",
-      parkingFeeType: "별도",
-      parkingFee: 0,
-      petAllowed: "무",
-      elevator: false,
-      options: ["에어컨", "냉장고", "인덕션"],
-      insuranceType: "유",
-      notes: "북향 · 저층 · 홍길동 방문 일정",
-      moveInFrom: daysFromToday(10),
-      moveInTo: daysFromToday(20),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(10), daysFromToday(20)),
-    }),
-  ];
-
-  const scheduleProps4: Property[] = [
-    makeProperty({
-      id: "demo_sch_prop_4a",
-      address: "서울 강동구 성내동 200-1",
-      roomNo: "802호",
-      arriveTime: "15:00",
-      floorPassword: "9876",
-      roomPassword: "5432",
-      tenantPhone: "01012123434",
-      landlordPhone: "01056567878",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "성내 중앙부동산",
-        phone: "0277778888",
-        dong: "성내동",
-      },
-      dealType: "월세",
-      roomType: "투룸",
-      deposit: 2000,
-      monthlyRent: 85,
-      maintenanceFee: 9,
-      maintenanceIncludes: ["인터넷", "전기", "가스"],
-      parkingType: "유",
-      parkingFeeType: "포함",
-      parkingFee: 0,
-      petAllowed: "유",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기", "인덕션"],
-      insuranceType: "유",
-      notes: "이서연 손님 · 주차 포함 · 반려동물 OK",
-      moveInFrom: daysFromToday(20),
-      moveInTo: daysFromToday(40),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(20), daysFromToday(40)),
-    }),
-    makeProperty({
-      id: "demo_sch_prop_4b",
-      address: "서울 강동구 천호동 77-3",
-      roomNo: "1004호",
-      arriveTime: "16:40",
-      floorPassword: "1357",
-      roomPassword: "2468",
-      tenantPhone: "01034345656",
-      landlordPhone: "01078789090",
-      hasPartnerAgency: true,
-      partnerAgency: {
-        name: "천호역 부동산",
-        phone: "0288889999",
-        dong: "천호동",
-      },
-      dealType: "월세",
-      roomType: "투룸",
-      deposit: 5000,
-      monthlyRent: 70,
-      maintenanceFee: 12,
-      maintenanceIncludes: ["인터넷", "TV", "청소"],
-      parkingType: "유",
-      parkingFeeType: "별도",
-      parkingFee: 8,
-      petAllowed: "유",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기", "가스레인지"],
-      insuranceType: "무",
-      notes: "역세권 · 반려동물 협의",
-      moveInFrom: daysFromToday(15),
-      moveInTo: daysFromToday(35),
-      moveInSingle: false,
-      moveInDate: formatMoveInRange(daysFromToday(15), daysFromToday(35)),
     }),
   ];
 
@@ -556,51 +293,22 @@ export function buildDemoSeedData(): {
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
-      visitDate: daysFromToday(1),
-      visitTime: "09:30",
-      properties: scheduleProps1,
-      routeSummary: buildRouteSummary(scheduleProps1),
+      title: "테스트 손님 방문",
+      visitDate,
+      visitTime: "10:00",
+      properties: scheduleProps,
+      routeSummary: buildRouteSummary(scheduleProps),
       createdAt: iso(1000 * 60 * 20),
       updatedAt: iso(1000 * 60 * 20),
-    },
-    {
-      id: "demo_sch_2",
-      customerId: "demo_cust_3",
-      visitDate: daysFromToday(2),
-      visitTime: "13:00",
-      properties: scheduleProps2,
-      routeSummary: buildRouteSummary(scheduleProps2),
-      createdAt: iso(1000 * 60 * 10),
-      updatedAt: iso(1000 * 60 * 10),
-    },
-    {
-      id: "demo_sch_3",
-      customerId: "demo_cust_4",
-      visitDate: daysFromToday(0),
-      visitTime: "16:00",
-      properties: scheduleProps3,
-      routeSummary: buildRouteSummary(scheduleProps3),
-      createdAt: iso(1000 * 60 * 5),
-      updatedAt: iso(1000 * 60 * 5),
-    },
-    {
-      id: "demo_sch_4",
-      customerId: "demo_cust_2",
-      visitDate: daysFromToday(3),
-      visitTime: "14:30",
-      properties: scheduleProps4,
-      routeSummary: buildRouteSummary(scheduleProps4),
-      createdAt: iso(1000 * 60 * 3),
-      updatedAt: iso(1000 * 60 * 3),
     },
   ];
 
   return { customers, properties, schedules };
 }
 
-async function runDemoSeed(): Promise<void> {
+async function runDemoSeed(baseDate: Date): Promise<void> {
   const { customers: demoCustomers, properties: demoProperties, schedules: demoSchedules } =
-    buildDemoSeedData();
+    buildDemoSeedData(baseDate);
 
   const otherCustomers = (await getCustomers()).filter(
     (c) => !c.id.startsWith("demo_cust_")
@@ -612,7 +320,6 @@ async function runDemoSeed(): Promise<void> {
     (s) => !s.id.startsWith("demo_sch_")
   );
 
-  // throw 하지 않음 — Next 오버레이/런타임 에러 방지
   const soft = async (label: string, fn: () => Promise<void>) => {
     try {
       await fn();
@@ -644,15 +351,7 @@ async function runDemoSeed(): Promise<void> {
 
   await soft("recent", async () => {
     await touchRecentCustomer("demo_cust_1");
-    await touchRecentCustomer("demo_cust_2");
-    await touchRecentCustomer("demo_cust_3");
-    await touchRecentCustomer("demo_cust_4");
   });
 
   await setDemoSeedVersion(DEMO_SEED_VERSION);
-  try {
-    sessionStorage.removeItem(SEED_SKIP_KEY);
-  } catch {
-    /* ignore */
-  }
 }

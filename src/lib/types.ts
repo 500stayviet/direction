@@ -5,11 +5,54 @@ export type RoomType =
   | "쓰리룸"
   | "쓰리룸+"
   | "상가"
-  | "사무실";
+  | "사무실"
+  | "토지"
+  | "건물";
+/** 건물 선택 시 세부 유형 */
+export type BuildingKind = "다가구" | "상가주택" | "근생건물";
+/** 건물 임대료 입력 방식 */
+export type RentInputMode = "합계" | "상세";
+export type ResidentialUnitKey = "원룸" | "투룸" | "쓰리룸" | "쓰리룸+";
+export type BuildingUnitKey = ResidentialUnitKey | "상가";
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
 export type PetAllowed = "유" | "무";
 export type NaviApp = "kakaonavi" | "tmap" | "navermap" | "kakaomap";
+
+/** 건물 내 방·상가 호수 */
+export interface BuildingUnitCounts {
+  원룸: number;
+  투룸: number;
+  쓰리룸: number;
+  "쓰리룸+": number;
+  상가: number;
+}
+
+/** 주거 유형별 화장실 개수(호실당) */
+export interface BuildingBathroomCounts {
+  원룸: number;
+  투룸: number;
+  쓰리룸: number;
+  "쓰리룸+": number;
+}
+
+/** 주거 유형별 실사용면적(㎡) */
+export interface BuildingRoomAreas {
+  원룸?: number;
+  투룸?: number;
+  쓰리룸?: number;
+  "쓰리룸+"?: number;
+}
+
+/** 상세 모드 — 유형별 보증·월세(만원) */
+export interface BuildingTypeRent {
+  deposit: number;
+  monthlyRent: number;
+}
+
+export type BuildingTypeRents = Partial<
+  Record<BuildingUnitKey, BuildingTypeRent>
+>;
 
 export interface User {
   id: string;
@@ -104,8 +147,36 @@ export interface Property {
   /** 표시용 요약 */
   moveInDate: string;
   insuranceType?: string;
-  /** 추가 메모·특이사항 */
+  /** 추가 메모·특이사항 (건폐율·용적률·현황·향 등) */
   notes?: string;
+  /** 실사용면적 ㎡ (원룸·상가 등 단일 유형) */
+  usableArea?: number;
+  /** 토지 대지면적 ㎡ / 건물 토지면적 ㎡ */
+  landArea?: number;
+  /** 토지 용도 */
+  landUse?: string;
+  /** 건물 세부 유형 */
+  buildingKind?: BuildingKind;
+  /** 지하 층수 */
+  floorsBasement?: number;
+  /** 지상 층수 */
+  floorsAbove?: number;
+  /** 건축면적 ㎡ */
+  buildingArea?: number;
+  /** 주차 대수 */
+  parkingSpaces?: number;
+  /** 원룸·투룸·쓰리룸·쓰리룸+·상가 호수 */
+  unitCounts?: BuildingUnitCounts;
+  /** 주거 유형별 화장실 수(호실당) */
+  bathroomCounts?: BuildingBathroomCounts;
+  /** 주거 유형별 실사용면적 ㎡ */
+  roomAreas?: BuildingRoomAreas;
+  /** 상가별 실사용면적 ㎡ (길이 = 상가 호수) */
+  commercialAreas?: number[];
+  /** 건물 임대료: 합계 | 유형별 상세 */
+  rentInputMode?: RentInputMode;
+  /** 상세 모드 유형별 임대료 */
+  typeRents?: BuildingTypeRents;
   lat?: number;
   lng?: number;
 }

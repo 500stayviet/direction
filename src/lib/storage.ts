@@ -101,6 +101,48 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
   return getCustomers();
 }
 
+export async function deleteCustomer(id: string): Promise<void> {
+  const userId = await requireUserId();
+  const supabase = createClient();
+
+  const related = await getSchedulesByCustomer(id);
+  if (related.length > 0) {
+    const { error: scheduleError } = await supabase
+      .from("schedules")
+      .delete()
+      .eq("user_id", userId)
+      .in(
+        "id",
+        related.map((s) => s.id)
+      );
+    throwIfError(scheduleError, "손님 관련 일정 삭제 실패");
+  }
+
+  const { error } = await supabase
+    .from("customers")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  throwIfError(error, "손님 삭제 실패");
+
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("recent_customer_ids")
+      .eq("id", userId)
+      .maybeSingle();
+    const ids = ((data?.recent_customer_ids as string[] | null) ?? []).filter(
+      (x) => x !== id
+    );
+    await supabase
+      .from("profiles")
+      .update({ recent_customer_ids: ids })
+      .eq("id", userId);
+  } catch {
+    /* 최근 목록 정리 실패는 무시 */
+  }
+}
+
 export async function getCustomerById(
   id: string
 ): Promise<Customer | undefined> {
@@ -198,6 +240,17 @@ export async function upsertListedProperty(
   return getListedProperties();
 }
 
+export async function deleteListedProperty(id: string): Promise<void> {
+  const userId = await requireUserId();
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("listed_properties")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  throwIfError(error, "매물 삭제 실패");
+}
+
 export async function getListedPropertyById(
   id: string
 ): Promise<ListedProperty | undefined> {
@@ -289,6 +342,17 @@ export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
   );
   throwIfError(error, "일정 저장 실패");
   return getSchedules();
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  const userId = await requireUserId();
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("schedules")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  throwIfError(error, "일정 삭제 실패");
 }
 
 export async function getScheduleById(

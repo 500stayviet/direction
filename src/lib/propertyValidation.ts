@@ -9,6 +9,7 @@ export type PropertyFieldKey =
   | "partnerPhone"
   | "address"
   | "roomType"
+  | "buildingKind"
   | "dealType"
   | "deposit"
   | "parking";
@@ -44,6 +45,7 @@ const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
   partnerPhone: () => "협력 부동산 연락처를 입력해 주세요.",
   address: () => "구·동·지번 본번을 입력해 주세요.",
   roomType: () => "유형을 선택해 주세요.",
+  buildingKind: () => "건물 종류(다가구·상가주택·근생)를 선택해 주세요.",
   dealType: () => "거래 형태를 선택해 주세요.",
   deposit: (p) =>
     p.dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",
@@ -80,11 +82,16 @@ export function getMissingRequiredFields(
   }
 
   if (!property.roomType) missing.push("roomType");
+  if (property.roomType === "건물" && !property.buildingKind) {
+    missing.push("buildingKind");
+  }
   if (!property.dealType) missing.push("dealType");
 
   if (!property.deposit || property.deposit <= 0) missing.push("deposit");
 
-  if (property.parkingType !== "유" && property.parkingType !== "무") {
+  if (property.roomType === "건물") {
+    // 주차대수로 유/무를 맞추므로, 미입력이면 무로 간주
+  } else if (property.parkingType !== "유" && property.parkingType !== "무") {
     missing.push("parking");
   }
 

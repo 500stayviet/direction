@@ -33,6 +33,7 @@ import { PhoneLink } from "@/components/PhoneLink";
 import {
   formatPhone,
   getCustomerBudgetLines,
+  matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
 import {
@@ -104,7 +105,9 @@ function ScheduleCreateInner() {
     return customers
       .filter(
         (c) =>
-          c.name.toLowerCase().includes(q) || matchesPhoneSearch(c.phone, q)
+          c.name.toLowerCase().includes(q) ||
+            matchesPhoneSearch(c.phone, q) ||
+            matchesBudgetSearch(c, q)
       )
       .slice(0, 8);
   }, [customers, query]);

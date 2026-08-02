@@ -94,9 +94,9 @@ export function RoomTypeSelect({
         onClose={() => setOpen(false)}
         position="center"
         title="유형 선택"
-        description="원룸 · 투룸 · 쓰리룸 · 상가 · 사무실"
+        description="원룸 · 상가 · 토지 · 건물 등"
       >
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {ROOM_TYPES.map((type) => {
             const active = draft === type;
             return (

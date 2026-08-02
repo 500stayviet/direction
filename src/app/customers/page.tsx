@@ -12,6 +12,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import {
   getCustomerBudgetLabel,
   getCustomerMoveInLabel,
+  matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
 import { formatSavedDate } from "@/lib/date";
@@ -33,7 +34,9 @@ export default function CustomerListPage() {
     const list = q
       ? customers.filter(
           (c) =>
-            c.name.toLowerCase().includes(q) || matchesPhoneSearch(c.phone, q)
+            c.name.toLowerCase().includes(q) ||
+            matchesPhoneSearch(c.phone, q) ||
+            matchesBudgetSearch(c, q)
         )
       : customers;
     return [...list].sort(
@@ -69,7 +72,7 @@ export default function CustomerListPage() {
       <div className="space-y-3 pb-4">
         <Card>
           <CustomerSearchInput
-            label="성함 / 전화번호 검색"
+            label="성함 / 전화번호 / 금액 검색"
             value={query}
             onChange={setQuery}
           />

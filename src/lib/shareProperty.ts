@@ -9,16 +9,21 @@ import type { Property, User } from "@/lib/types";
 
 /**
  * 손님 공유용 매물 텍스트.
- * 기본 제외: 호실(옵션으로 포함 가능), 손님정보, 상대부동산·임차인·임대인·손님 전화
+ * 기본 제외: 호실·실사용면적(옵션으로 포함 가능), 손님정보, 상대부동산·임차인·임대인·손님 전화
  * 포함: 가입자(업장명·이름·전화), 주소·매물 조건, 앱 현장동선
  */
 export function buildPropertyShareText(
   properties: Property[],
   agent: Pick<User, "shopName" | "name" | "phone" | "username">,
-  options?: { excludeNotes?: boolean; excludeRoomNo?: boolean }
+  options?: {
+    excludeNotes?: boolean;
+    excludeRoomNo?: boolean;
+    excludeUsableArea?: boolean;
+  }
 ): string {
   const excludeNotes = Boolean(options?.excludeNotes);
   const excludeRoomNo = options?.excludeRoomNo !== false;
+  const excludeUsableArea = options?.excludeUsableArea !== false;
   const lines: string[] = [];
   lines.push("매물 안내");
   lines.push("");
@@ -34,9 +39,62 @@ export function buildPropertyShareText(
       lines.push(`방문 약속: ${formatKoreanAmPmTime(property.arriveTime)}`);
     }
 
-    const typeParts = [property.roomType, property.dealType].filter(Boolean);
+    const typeParts = [
+      property.roomType === "건물" && property.buildingKind
+        ? `건물 · ${property.buildingKind}`
+        : property.roomType,
+      property.dealType,
+    ].filter(Boolean);
     if (typeParts.length) {
       lines.push(`유형: ${typeParts.join(" · ")}`);
+    }
+
+    if (property.roomType === "토지") {
+      if (property.landArea != null) {
+        lines.push(`대지면적: ${property.landArea}㎡`);
+      }
+      if (property.landUse?.trim()) {
+        lines.push(`용도: ${property.landUse.trim()}`);
+      }
+    }
+
+    if (property.roomType === "건물") {
+      const floorBits = [
+        property.floorsBasement != null
+          ? `지하 ${property.floorsBasement}`
+          : null,
+        property.floorsAbove != null ? `지상 ${property.floorsAbove}` : null,
+      ].filter(Boolean);
+      if (floorBits.length) lines.push(`층수: ${floorBits.join(" · ")}`);
+      if (property.landArea != null) lines.push(`토지면적: ${property.landArea}㎡`);
+      if (property.buildingArea != null) {
+        lines.push(`건축면적: ${property.buildingArea}㎡`);
+      }
+      if (property.unitCounts) {
+        const units = (
+          [
+            ["원룸", property.unitCounts.원룸],
+            ["투룸", property.unitCounts.투룸],
+            ["쓰리룸", property.unitCounts.쓰리룸],
+            ["쓰리룸+", property.unitCounts["쓰리룸+"]],
+            ["상가", property.unitCounts.상가],
+          ] as const
+        )
+          .filter(([, n]) => n > 0)
+          .map(([label, n]) => `${label} ${n}`);
+        if (units.length) lines.push(`호수: ${units.join(" · ")}`);
+      }
+      if (property.parkingSpaces != null) {
+        lines.push(`주차: ${property.parkingSpaces}대`);
+      }
+    }
+
+    if (
+      !excludeUsableArea &&
+      property.usableArea != null &&
+      property.usableArea > 0
+    ) {
+      lines.push(`실사용면적: ${property.usableArea}㎡`);
     }
 
     lines.push(
