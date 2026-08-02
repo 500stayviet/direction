@@ -60,14 +60,16 @@ export function NaviAppModal({
             ].join(" ")}
           >
             <div className="font-bold text-gray-900">{app.label}</div>
-            <div className="text-sm text-gray-500">{app.description}</div>
+            {app.description ? (
+              <div className="text-sm text-gray-500">{app.description}</div>
+            ) : null}
           </button>
         ))}
       </div>
 
       <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-amber-800">
-        선택한 앱이 휴대폰에 설치되어 있어야 합니다. 없으면 앱스토어에서
-        설치한 뒤 다시 눌러 주세요. (웹·다운로드 안내로는 보내지 않습니다)
+        위 앱이 없으면 플레이스토어나 앱스토어에서 설치한 뒤 사용해주세요
+        (추천)
       </p>
 
       <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">

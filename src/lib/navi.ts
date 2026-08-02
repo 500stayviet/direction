@@ -8,22 +8,22 @@ export const NAVI_APPS: {
   {
     id: "tmap",
     label: "Tmap (추천)",
-    description: "작성 주소를 검색창에 넣어 엽니다",
+    description: "",
   },
   {
     id: "kakaomap",
     label: "카카오맵",
-    description: "도착=작성 주소 · 출발은 앱이 잡음",
+    description: "",
   },
   {
     id: "navermap",
     label: "네이버 지도",
-    description: "도착=작성 주소 · 출발은 앱이 잡음",
+    description: "",
   },
   {
     id: "kakaonavi",
     label: "카카오내비",
-    description: "주소만 전달이 막혀 있어 사용할 수 없습니다",
+    description: "",
   },
 ];
 
@@ -99,9 +99,11 @@ export function buildNaviUrl(
 
   switch (app) {
     case "kakaonavi":
-      // 카카오내비는 주소만 넣는 URL을 공식 지원하지 않음
-      // (비공식 스킴 → 파라미터/인증 오류). API 키 없이는 불가.
-      return "";
+      // 어제(56d53eb)와 동일: 좌표 있으면 name+x+y, 없으면 name만으로 앱 실행
+      if (hasCoords) {
+        return `kakaonavi://navigate?name=${encodedName}&x=${lng}&y=${lat}&coord_type=wgs84`;
+      }
+      return `kakaonavi://navigate?name=${encodedName}`;
     case "tmap":
       // route+goalname만이면 목적지가 비고 현재위치가 잡힘 → 검색으로 주소 입력
       return `tmap://search?name=${encodedName}`;
@@ -124,17 +126,11 @@ export async function openNavi(app: NaviApp, address: string): Promise<void> {
   const query = toNaviAddress(address) || address;
   if (!query.trim()) return;
 
-  if (app === "kakaonavi") {
-    window.alert(
-      "카카오내비는 앱 정책상 주소만 자동으로 넣을 수 없습니다.\nTmap(추천)·카카오맵·네이버지도를 이용해 주세요."
-    );
-    return;
-  }
-
-  // 네이버지도·카카오맵: 좌표 있으면 길찾기, 없으면 주소 검색
-  // Tmap: API 없이 검색창에 주소만 넣어 열기
+  // Tmap: 주소 검색만 (좌표 조회 없음)
+  // 카카오맵·네이버지도: 좌표 있으면 길찾기
+  // 카카오내비: 어제와 같이 도착 좌표 조회 후 앱 스킴으로 열기
   let destCoords: NaviCoords | null = null;
-  if (app === "navermap" || app === "kakaomap") {
+  if (app === "navermap" || app === "kakaomap" || app === "kakaonavi") {
     destCoords = await geocodeDestination(query);
   }
 
