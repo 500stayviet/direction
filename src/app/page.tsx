@@ -317,7 +317,7 @@ export default function HomePage() {
         onClose={closeDeadlineModal}
         position="center"
         title="마지막 계약 데드라인"
-        description="희망 입주까지 정확히 한 달 남은 손님만 표시해요"
+        description="희망 입주 시작일까지 31일 남은 손님만 표시해요"
       >
         <div className="max-h-52 space-y-1.5 overflow-y-auto">
           {deadlineCustomers.map((c) => (

@@ -3,16 +3,21 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { ROOM_TYPES } from "@/lib/constants";
+import { displayRoomType, ROOM_TYPES } from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
 
 interface RoomTypeSelectProps {
   label?: string;
-  value: RoomType;
+  value: RoomType | string;
   onChange: (value: RoomType) => void;
   required?: boolean;
   hint?: string;
   invalid?: boolean;
+}
+
+function asRoomType(value: string): RoomType {
+  if (value === "오피스") return "사무실";
+  return (ROOM_TYPES.includes(value as RoomType) ? value : "원룸") as RoomType;
 }
 
 export function RoomTypeSelect({
@@ -24,10 +29,11 @@ export function RoomTypeSelect({
   invalid,
 }: RoomTypeSelectProps) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<RoomType>(value);
+  const [draft, setDraft] = useState<RoomType>(asRoomType(value));
+  const shown = displayRoomType(value);
 
   const openPicker = () => {
-    setDraft(value);
+    setDraft(asRoomType(value));
     setOpen(true);
   };
 
@@ -60,7 +66,9 @@ export function RoomTypeSelect({
             : "border-gray-200 bg-gray-50 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
         ].join(" ")}
       >
-        <span className="text-[16px] font-semibold text-gray-900">{value}</span>
+        <span className="text-[16px] font-semibold text-gray-900">
+          {shown === "-" ? "원룸" : shown}
+        </span>
         <span
           className={[
             "flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold",
@@ -86,7 +94,7 @@ export function RoomTypeSelect({
         onClose={() => setOpen(false)}
         position="center"
         title="유형 선택"
-        description="원룸 · 투룸 · 쓰리룸 · 상가 · 오피스"
+        description="원룸 · 투룸 · 쓰리룸 · 상가 · 사무실"
       >
         <div className="grid grid-cols-3 gap-1.5">
           {ROOM_TYPES.map((type) => {

@@ -7,29 +7,37 @@ import { Button } from "@/components/ui/Button";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
+import { SharePropertyModal } from "@/components/SharePropertyModal";
+import { getCurrentUser } from "@/lib/auth";
 import { getPropertyValidationError } from "@/lib/propertyValidation";
 import {
   getListedPropertyById,
   upsertListedProperty,
 } from "@/lib/storage";
-import type { ListedProperty } from "@/lib/types";
+import type { ListedProperty, User } from "@/lib/types";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [property, setProperty] = useState<ListedProperty | null>(null);
   const [editing, setEditing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [agent, setAgent] = useState<User | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const found = await getListedPropertyById(params.id);
+      const [found, me] = await Promise.all([
+        getListedPropertyById(params.id),
+        getCurrentUser(),
+      ]);
       if (cancelled) return;
       if (!found) {
         router.replace("/properties");
         return;
       }
       setProperty(found);
+      setAgent(me);
     })();
     return () => {
       cancelled = true;
@@ -65,19 +73,31 @@ export default function PropertyDetailPage() {
         title={editing ? "매물 정보 수정" : "매물 정보"}
         backHref="/properties"
         right={
-          <Button
-            variant={editing ? "secondary" : "outline"}
-            onClick={() => {
-              if (editing) {
-                void getListedPropertyById(params.id).then((found) => {
-                  if (found) setProperty(found);
-                });
-              }
-              setEditing((v) => !v);
-            }}
-          >
-            {editing ? "취소" : "수정"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {!editing ? (
+              <Button
+                variant="outline"
+                onClick={() => setShareOpen(true)}
+                className="!px-2.5 !text-[13px]"
+              >
+                공유하기
+              </Button>
+            ) : null}
+            <Button
+              variant={editing ? "secondary" : "outline"}
+              onClick={() => {
+                if (editing) {
+                  void getListedPropertyById(params.id).then((found) => {
+                    if (found) setProperty(found);
+                  });
+                }
+                setEditing((v) => !v);
+              }}
+              className="!px-2.5 !text-[13px]"
+            >
+              {editing ? "취소" : "수정"}
+            </Button>
+          </div>
         }
       />
 
@@ -110,6 +130,13 @@ export default function PropertyDetailPage() {
           <PropertyBrief index={0} property={property} />
         </div>
       )}
+
+      <SharePropertyModal
+        open={shareOpen}
+        properties={[property]}
+        agent={agent}
+        onClose={() => setShareOpen(false)}
+      />
     </main>
   );
 }

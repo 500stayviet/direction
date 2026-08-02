@@ -77,17 +77,17 @@ function New-Splash {
   )
   $credit = -join @(
     [char]0xC81C, [char]0xACF5, " - ",
-    [char]0xBBF8, [char]0xC2A4, [char]0xD130, "k"
+    [char]0xBBF8, [char]0xC2A4, [char]0xD130, "K"
   )
 
   # 평범한 고딕 — 타이틀은 아이콘 아래, 크레딧은 화면 맨 하단
-  $titleSize = [Math]::Max(28, [int]($Width * 0.058))
+  $titleSize = [Math]::Max(34, [int]($Width * 0.068))
   $titleFont = New-Object System.Drawing.Font "Malgun Gothic", $titleSize, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
   $titleBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 25, 31, 40))
   $titleTop = $iconY + $iconSize + ($Height * 0.028)
   Draw-TightString -Graphics $g -Text $title -Font $titleFont -Brush $titleBrush -CenterX ($Width / 2.0) -TopY $titleTop -Tracking 0.92
 
-  $creditSize = [Math]::Max(14, [int]($Width * 0.03))
+  $creditSize = [Math]::Max(18, [int]($Width * 0.038))
   $creditFont = New-Object System.Drawing.Font "Malgun Gothic", $creditSize, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
   $creditBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 107, 114, 128))
   $creditFormat = [System.Drawing.StringFormat]::GenericTypographic.Clone()

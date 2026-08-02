@@ -1,6 +1,17 @@
 import { parseISODate, toISODate, todayISO } from "@/lib/date";
 import type { Customer } from "@/lib/types";
 
+/** 희망 입주 시작일 기준 D-day (한 달 = 31일) */
+export const CONTRACT_DEADLINE_DAYS = 31;
+
+/** YYYY-MM-DD 에 일수 더하기/빼기 */
+export function addDaysISO(iso: string, delta: number): string | null {
+  const d = parseISODate(iso);
+  if (!d) return null;
+  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + delta);
+  return toISODate(next);
+}
+
 /** YYYY-MM-DD 에 개월 수 더하기/빼기 */
 export function addMonthsISO(iso: string, delta: number): string | null {
   const d = parseISODate(iso);
@@ -9,9 +20,9 @@ export function addMonthsISO(iso: string, delta: number): string | null {
   return toISODate(next);
 }
 
-/** 희망 입주일 기준 마지막 계약 데드라인 (= 입주 1개월 전) */
+/** 희망 입주 시작일 기준 마지막 계약 데드라인 (= 입주 31일 전) */
 export function getContractDeadlineISO(moveInISO: string): string | null {
-  return addMonthsISO(moveInISO, -1);
+  return addDaysISO(moveInISO, -CONTRACT_DEADLINE_DAYS);
 }
 
 /** 알람 기준이 되는 희망 입주일 (시작일) */
@@ -26,10 +37,8 @@ export function getCustomerMoveInTarget(customer: Customer): string | null {
 }
 
 /**
- * 오늘이 '입주 정확히 1개월 전'(마지막 계약 데드라인 당일)일 때만 true
- * — 아직 1개월보다 많이 남은 경우: 제외
- * — 이미 1개월이 안 남은 경우(데드라인 지남): 제외
- * — 입주일이 지난 경우: 제외
+ * 오늘이 '입주 희망 시작일까지 정확히 31일 전'일 때만 true
+ * — 기준: 희망 입주 시작일(moveInFrom)
  */
 export function isContractDeadlineActive(
   customer: Customer,
@@ -38,9 +47,7 @@ export function isContractDeadlineActive(
   const moveIn = getCustomerMoveInTarget(customer);
   if (!moveIn) return false;
   if (moveIn < today) return false;
-  const deadline = getContractDeadlineISO(moveIn);
-  if (!deadline) return false;
-  return today === deadline;
+  return daysUntilISO(moveIn, today) === CONTRACT_DEADLINE_DAYS;
 }
 
 /** 데드라인까지 남은 일수 (음수면 데드라인 지남) */
@@ -53,5 +60,5 @@ export function daysUntilISO(iso: string, today: string = todayISO()): number {
 
 export function getContractDeadlineLabel(customer: Customer): string | null {
   if (!isContractDeadlineActive(customer)) return null;
-  return "오늘 · 마지막 계약 데드라인";
+  return "오늘 · 입주까지 31일";
 }

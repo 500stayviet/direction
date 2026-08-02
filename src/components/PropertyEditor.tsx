@@ -232,19 +232,24 @@ export function PropertyEditor({
             className="h-5 w-5 accent-emerald-600"
           />
           <span className="flex-1">
-            <span
-              className={[
-                "block text-[15px] font-bold",
-                property.hasPartnerAgency
-                  ? "text-emerald-800"
-                  : "text-gray-900",
-              ].join(" ")}
-            >
-              협력 부동산 있음
+            <span className="flex flex-wrap items-baseline gap-x-1.5">
+              <span
+                className={[
+                  "text-[15px] font-bold",
+                  property.hasPartnerAgency
+                    ? "text-emerald-800"
+                    : "text-gray-900",
+                ].join(" ")}
+              >
+                협력 부동산 있음
+              </span>
+              <span className="text-[12px] font-medium text-gray-400">
+                (협력부동산매물일시)
+              </span>
             </span>
             <span
               className={[
-                "block text-xs",
+                "mt-0.5 block text-xs",
                 property.hasPartnerAgency
                   ? "text-emerald-700/80"
                   : "text-gray-500",

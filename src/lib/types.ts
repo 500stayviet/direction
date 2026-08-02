@@ -5,7 +5,7 @@ export type RoomType =
   | "쓰리룸"
   | "쓰리룸+"
   | "상가"
-  | "오피스";
+  | "사무실";
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
 export type PetAllowed = "유" | "무";

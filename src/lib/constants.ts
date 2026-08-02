@@ -9,8 +9,15 @@ export const ROOM_TYPES: RoomType[] = [
   "쓰리룸",
   "쓰리룸+",
   "상가",
-  "오피스",
+  "사무실",
 ];
+
+/** 예전 저장값 '오피스' → '사무실' */
+export function displayRoomType(roomType?: string | null): string {
+  if (!roomType) return "-";
+  if (roomType === "오피스") return "사무실";
+  return roomType;
+}
 
 export const LOAN_TYPES = [
   "해당없음",

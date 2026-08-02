@@ -1,6 +1,7 @@
 "use client";
 
 import type { Property } from "@/lib/types";
+import { displayRoomType } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
@@ -77,7 +78,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             {property.roomType ? (
               <span className="rounded-lg bg-[#F2F4F6] px-2.5 py-1 text-[13px] font-bold text-gray-700">
-                {property.roomType}
+                {displayRoomType(property.roomType)}
               </span>
             ) : null}
             <span className="rounded-lg bg-[#3182F6]/12 px-2.5 py-1 text-[13px] font-bold text-[#3182F6]">
