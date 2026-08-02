@@ -32,7 +32,6 @@ import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import { buildPropertyShareText } from "@/lib/shareProperty";
 import type { Customer, Property, Schedule, User } from "@/lib/types";
 
 function CustomerMeta({
@@ -76,8 +75,32 @@ function ScheduleDetailInner() {
   const [agent, setAgent] = useState<User | null>(null);
   /** -1: 시작 전, 0..n-1: 현재 포커스 매물(시간순) */
   const [navStep, setNavStep] = useState(-1);
+  const [navModalOpen, setNavModalOpen] = useState(false);
+  /** 모달에 표시 중인 단계(시간순 인덱스) */
+  const [navAnnounceStep, setNavAnnounceStep] = useState<number | null>(null);
   const propertyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navModalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeNavModal = () => {
+    if (navModalTimer.current) {
+      clearTimeout(navModalTimer.current);
+      navModalTimer.current = null;
+    }
+    setNavModalOpen(false);
+    setNavAnnounceStep(null);
+  };
+
+  const openNavAnnounce = (step: number) => {
+    if (navModalTimer.current) clearTimeout(navModalTimer.current);
+    setNavAnnounceStep(step);
+    setNavModalOpen(true);
+    navModalTimer.current = setTimeout(() => {
+      setNavModalOpen(false);
+      setNavAnnounceStep(null);
+      navModalTimer.current = null;
+    }, 1000);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +128,7 @@ function ScheduleDetailInner() {
     })();
     return () => {
       cancelled = true;
+      if (navModalTimer.current) clearTimeout(navModalTimer.current);
     };
   }, [params.id, router]);
 
@@ -116,12 +140,9 @@ function ScheduleDetailInner() {
     () => findSmarterRouteHint(properties, routeSummary),
     [properties, routeSummary]
   );
-  const shareText = useMemo(() => {
-    if (!agent) return "";
-    const list =
-      editing || !schedule ? properties : schedule.properties;
-    return buildPropertyShareText(list, agent);
-  }, [agent, editing, properties, schedule]);
+  const shareProperties = useMemo(() => {
+    return editing || !schedule ? properties : schedule.properties;
+  }, [editing, properties, schedule]);
 
   /** 방문 약속 시간 순 매물 인덱스 */
   const navOrder = useMemo(() => {
@@ -430,7 +451,9 @@ function ScheduleDetailInner() {
                 total <= 1 || navStep >= navOrder.length - 1;
               const label = finished
                 ? "오늘도 수고많으셨습니다"
-                : "네비게이션 시작";
+                : navStep < 0
+                  ? "네비게이션 시작"
+                  : "다음 일정 시작하기";
               return (
                 <Button
                   fullWidth
@@ -447,11 +470,11 @@ function ScheduleDetailInner() {
                     if (next >= navOrder.length) return;
                     setNavStep(next);
                     const targetIndex = navOrder[next];
-                    const el = propertyRefs.current[targetIndex];
-                    el?.scrollIntoView({
+                    propertyRefs.current[targetIndex]?.scrollIntoView({
                       behavior: "smooth",
                       block: "start",
                     });
+                    openNavAnnounce(next);
                   }}
                 >
                   {label}
@@ -461,6 +484,22 @@ function ScheduleDetailInner() {
           </StickyActionBar>
         </div>
       )}
+
+      <Modal
+        open={navModalOpen && navAnnounceStep != null}
+        onClose={closeNavModal}
+        position="center"
+        dense
+        title={
+          navAnnounceStep != null
+            ? `${navAnnounceStep + 1}번 매물입니다.`
+            : "매물 안내"
+        }
+      >
+        <Button fullWidth variant="secondary" onClick={closeNavModal}>
+          닫기
+        </Button>
+      </Modal>
 
       <Modal
         open={warnOpen}
@@ -489,7 +528,8 @@ function ScheduleDetailInner() {
 
       <SharePropertyModal
         open={shareOpen}
-        text={shareText}
+        properties={shareProperties}
+        agent={agent}
         onClose={() => setShareOpen(false)}
       />
     </main>

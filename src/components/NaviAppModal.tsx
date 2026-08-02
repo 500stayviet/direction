@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { NAVI_APPS, openNavi } from "@/lib/navi";
-import { setNaviPreference } from "@/lib/storage";
+import { NAVI_REMEMBER_DAYS, setNaviPreference } from "@/lib/storage";
 import type { NaviApp } from "@/lib/types";
 
 interface NaviAppModalProps {
@@ -21,14 +21,21 @@ export function NaviAppModal({
   onOpened,
 }: NaviAppModalProps) {
   const [selected, setSelected] = useState<NaviApp>("kakaonavi");
-  const [remember, setRemember] = useState(true);
+  /** 기본: 매번 선택. 체크해야만 약 15일 기억 */
+  const [remember, setRemember] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setRemember(false);
+  }, [open]);
 
   const handleOpen = () => {
-    void setNaviPreference(selected, remember).then(() => {
-      openNavi(selected, address);
-      onOpened?.(selected);
-      onClose();
-    });
+    void setNaviPreference(selected, remember)
+      .then(() => openNavi(selected, address))
+      .then(() => {
+        onOpened?.(selected);
+        onClose();
+      });
   };
 
   return (
@@ -36,7 +43,7 @@ export function NaviAppModal({
       open={open}
       onClose={onClose}
       title="어떤 앱으로 연결할까요?"
-      description="선택한 내비 앱으로 주소를 바로 전달합니다."
+      description="선택한 내비 앱으로 주소를 바로 전달합니다. 체크하지 않으면 매번 고릅니다."
     >
       <div className="space-y-2">
         {NAVI_APPS.map((app) => (
@@ -57,14 +64,19 @@ export function NaviAppModal({
         ))}
       </div>
 
-      <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+      <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
         <input
           type="checkbox"
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
-          className="h-4 w-4 accent-[#3182F6]"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[#3182F6]"
         />
-        항상 이 앱으로 열기
+        <span>
+          항상 이 앱으로 열기
+          <span className="mt-0.5 block text-[12px] font-medium text-gray-400">
+            약 {NAVI_REMEMBER_DAYS}일간만 기억 · 이후 다시 선택
+          </span>
+        </span>
       </label>
 
       <div className="mt-5 grid grid-cols-2 gap-2">

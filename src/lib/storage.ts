@@ -318,6 +318,22 @@ export async function getSchedulesByCustomer(
   return all.filter((s) => s.customerId === customerId);
 }
 
+/** 내비 앱 '항상 사용' 유지 기간 */
+export const NAVI_REMEMBER_DAYS = 15;
+
+/** 체크한 '항상 이 앱'이 아직 유효한지 (약 15일) */
+export function isActiveNaviPreference(
+  pref: NaviPreference | null | undefined
+): pref is NaviPreference {
+  if (!pref?.remember || !pref.app) return false;
+  // savedAt 없는 예전 설정은 만료로 보고 다시 선택
+  if (!pref.savedAt) return false;
+  const saved = Date.parse(pref.savedAt);
+  if (!Number.isFinite(saved)) return false;
+  const ttlMs = NAVI_REMEMBER_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() - saved < ttlMs;
+}
+
 export async function getNaviPreference(): Promise<NaviPreference | null> {
   try {
     const userId = await requireUserId();
@@ -329,7 +345,16 @@ export async function getNaviPreference(): Promise<NaviPreference | null> {
       .maybeSingle();
 
     if (error || !data?.navi_preference) return null;
-    return data.navi_preference as NaviPreference;
+    const pref = data.navi_preference as NaviPreference;
+    if (!isActiveNaviPreference(pref)) {
+      // 만료·예전 설정 정리 후 매번 선택하게
+      void supabase
+        .from("profiles")
+        .update({ navi_preference: null })
+        .eq("id", userId);
+      return null;
+    }
+    return pref;
   } catch {
     return null;
   }
@@ -344,7 +369,13 @@ export async function setNaviPreference(
   const { error } = await supabase
     .from("profiles")
     .update({
-      navi_preference: remember ? { app, remember: true } : null,
+      navi_preference: remember
+        ? {
+            app,
+            remember: true,
+            savedAt: new Date().toISOString(),
+          }
+        : null,
     })
     .eq("id", userId);
   throwIfError(error, "내비 설정 저장 실패");

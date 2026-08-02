@@ -11,8 +11,9 @@ export function useNaviLaunch() {
     const query = toNaviAddress(address);
     if (!query) return;
     void getNaviPreference().then((pref) => {
-      if (pref?.remember) {
-        openNavi(pref.app, query);
+      // getNaviPreference가 15일 만료·미체크 설정은 null로 돌려줌
+      if (pref?.remember && pref.app) {
+        void openNavi(pref.app, query);
         return;
       }
       setPendingAddress(query);

@@ -46,8 +46,10 @@ export default function FieldLeadPage() {
       }
       const pref = await getNaviPreference();
       if (cancelled) return;
-      if (pref?.remember) {
+      if (pref?.remember && pref.app) {
         setPrefLabel(NAVI_APPS.find((a) => a.id === pref.app)?.label ?? null);
+      } else {
+        setPrefLabel(null);
       }
     })();
     return () => {

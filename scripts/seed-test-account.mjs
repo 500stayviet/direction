@@ -1,69 +1,87 @@
-import { buildRouteSummary } from "@/lib/distance";
-import { loadAppAuth } from "@/lib/supabase/appAuth";
-import { createClient } from "@/lib/supabase/client";
-import {
-  getCustomers,
-  getDemoSeedVersion,
-  getListedProperties,
-  getSchedules,
-  saveCustomers,
-  saveListedProperties,
-  saveSchedules,
-  setDemoSeedVersion,
-  touchRecentCustomer,
-} from "@/lib/storage";
-import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
-import { formatDepositRent, formatMoveInRange } from "@/lib/format";
+/**
+ * 테스트 계정(test)에 손님·매물·일정 시드 삽입
+ * 사용: node scripts/seed-test-account.mjs
+ */
+import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const DEMO_SEED_VERSION = "demo_v6";
-const SEED_SKIP_KEY = `realty_seed_skip_${DEMO_SEED_VERSION}`;
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const env = Object.fromEntries(
+  readFileSync(join(root, ".env.local"), "utf8")
+    .split(/\r?\n/)
+    .filter((l) => l && !l.startsWith("#") && l.includes("="))
+    .map((l) => {
+      const i = l.indexOf("=");
+      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+    })
+);
 
-function nowISO() {
-  return new Date().toISOString();
-}
+const supabase = createClient(
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-function daysFromToday(offset: number): string {
+function daysFromToday(offset) {
   const d = new Date();
   d.setDate(d.getDate() + offset);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return d.toISOString().slice(0, 10);
 }
 
-function makeCustomer(
-  partial: Omit<Customer, "budget" | "moveInDate" | "createdAt" | "updatedAt"> & {
-    createdAt?: string;
+function formatMoney(n) {
+  if (n == null || Number.isNaN(n)) return "0만";
+  return `${Number(n).toLocaleString("ko-KR")}만`;
+}
+
+function formatDepositRent(dealType, deposit, monthlyRent) {
+  if (dealType === "매매") return `매가 ${formatMoney(deposit)}`;
+  if (dealType === "전세") {
+    if (monthlyRent && monthlyRent > 0) {
+      return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent)}`;
+    }
+    return `전세 ${formatMoney(deposit)}`;
   }
-): Customer {
-  const createdAt = partial.createdAt ?? nowISO();
+  return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent ?? 0)}`;
+}
+
+function formatMoveInRange(from, to) {
+  if (!from && !to) return "";
+  if (from && to && from !== to) return `${from} ~ ${to}`;
+  return from || to || "";
+}
+
+function buildRouteSummary(properties) {
+  const summary = [];
+  for (let i = 0; i < properties.length - 1; i++) {
+    summary.push({
+      fromIndex: i,
+      toIndex: i + 1,
+      distanceKm: 1.2 + i * 0.8,
+      durationMin: 8 + i * 5,
+    });
+  }
+  return summary;
+}
+
+function makeCustomer(p) {
+  const createdAt = p.createdAt ?? new Date().toISOString();
   return {
-    ...partial,
-    budget: formatDepositRent(
-      partial.dealType,
-      partial.deposit,
-      partial.monthlyRent
-    ),
-    moveInDate: formatMoveInRange(partial.moveInFrom, partial.moveInTo),
+    ...p,
+    budget: formatDepositRent(p.dealType, p.deposit, p.monthlyRent),
+    moveInDate: formatMoveInRange(p.moveInFrom, p.moveInTo),
     createdAt,
     updatedAt: createdAt,
   };
 }
 
-function makeListed(
-  partial: Omit<ListedProperty, "createdAt" | "updatedAt"> & {
-    createdAt?: string;
-  }
-): ListedProperty {
-  const createdAt = partial.createdAt ?? nowISO();
-  return {
-    ...partial,
-    createdAt,
-    updatedAt: createdAt,
-  };
+function makeListed(p) {
+  const createdAt = p.createdAt ?? new Date().toISOString();
+  return { ...p, createdAt, updatedAt: createdAt };
 }
 
-function makeProperty(partial: Partial<Property> & { id: string }): Property {
+function makeProperty(partial) {
   return {
     id: partial.id,
     address: partial.address ?? "",
@@ -74,11 +92,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
     tenantPhone: partial.tenantPhone ?? "",
     landlordPhone: partial.landlordPhone ?? "",
     hasPartnerAgency: partial.hasPartnerAgency ?? false,
-    partnerAgency: partial.partnerAgency ?? {
-      name: "",
-      phone: "",
-      dong: "",
-    },
+    partnerAgency: partial.partnerAgency ?? { name: "", phone: "", dong: "" },
     dealType: partial.dealType ?? "전세",
     roomType: partial.roomType ?? "원룸",
     deposit: partial.deposit ?? 0,
@@ -100,63 +114,11 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
   };
 }
 
-/** 로그인 계정에 테스트용 손님·매물·방문일정 시드 (버전 바뀌면 갱신) */
-export async function seedDemoDataIfNeeded(): Promise<void> {
-  if (typeof window === "undefined") return;
-
-  try {
-    if (sessionStorage.getItem(SEED_SKIP_KEY)) return;
-  } catch {
-    /* ignore */
-  }
-
-  try {
-    const currentVersion = await getDemoSeedVersion();
-    if (currentVersion === DEMO_SEED_VERSION) {
-      return;
-    }
-
-    // DB 저장에 쓸 수 있는 토큰이 없으면 시드 스킵 (화면은 유지)
-    const appAuth = loadAppAuth();
-    const supabase = createClient();
-    if (appAuth?.access_token && appAuth.refresh_token) {
-      try {
-        await Promise.race([
-          supabase.auth.setSession({
-            access_token: appAuth.access_token,
-            refresh_token: appAuth.refresh_token,
-          }),
-          new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
-        ]);
-      } catch {
-        /* continue — Authorization 헤더 주입으로 시도 */
-      }
-    } else {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session?.access_token) return;
-    }
-
-    await runDemoSeed();
-  } catch (e) {
-    console.warn("[seedDemo] skipped:", e);
-    try {
-      sessionStorage.setItem(SEED_SKIP_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-/** 테스트용 손님·매물·일정 (입력칸 전부 채움) */
-export function buildDemoSeedData(): {
-  customers: Customer[];
-  properties: ListedProperty[];
-  schedules: Schedule[];
-} {
+function buildDemoSeedData() {
   const t0 = Date.now();
-  const iso = (offsetMs: number) => new Date(t0 - offsetMs).toISOString();
+  const iso = (ms) => new Date(t0 - ms).toISOString();
 
-  const customers: Customer[] = [
+  const customers = [
     makeCustomer({
       id: "demo_cust_1",
       name: "김민수",
@@ -228,7 +190,7 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const properties: ListedProperty[] = [
+  const properties = [
     makeListed({
       id: "demo_prop_1",
       address: "서울 강동구 성내동 123-45",
@@ -336,17 +298,37 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const scheduleProps1: Property[] = [
+  const filled = (extra) =>
     makeProperty({
+      floorPassword: "1234",
+      roomPassword: "5678",
+      tenantPhone: "01011112222",
+      landlordPhone: "01022221111",
+      hasPartnerAgency: true,
+      partnerAgency: {
+        name: "테스트부동산",
+        phone: "0211112222",
+        dong: "성내동",
+      },
+      maintenanceFee: 10,
+      maintenanceIncludes: ["인터넷", "수도"],
+      parkingType: "유",
+      parkingFeeType: "별도",
+      parkingFee: 5,
+      petAllowed: "무",
+      elevator: true,
+      options: ["에어컨", "냉장고", "세탁기"],
+      insuranceType: "유",
+      notes: "테스트 매물 · 입력칸 전체 채움",
+      ...extra,
+    });
+
+  const scheduleProps1 = [
+    filled({
       id: "demo_sch_prop_1a",
       address: "서울 강동구 성내동 123-45",
       roomNo: "101동 1203호",
       arriveTime: "10:00",
-      floorPassword: "1234*",
-      roomPassword: "5678*",
-      tenantPhone: "01011112222",
-      landlordPhone: "01022221111",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "성내동 테스트부동산",
         phone: "0212345678",
@@ -356,31 +338,22 @@ export function buildDemoSeedData(): {
       roomType: "원룸",
       deposit: 10000,
       monthlyRent: 20,
-      maintenanceFee: 10,
       maintenanceIncludes: ["인터넷", "TV", "수도"],
       parkingType: "무",
-      parkingFeeType: "별도",
       parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
-      options: ["에어컨", "냉장고", "세탁기"],
-      insuranceType: "유",
       notes: "남향 · 3층 · 즉시입주 · 반전세 협의",
       moveInFrom: daysFromToday(14),
       moveInTo: daysFromToday(45),
       moveInSingle: false,
       moveInDate: formatMoveInRange(daysFromToday(14), daysFromToday(45)),
     }),
-    makeProperty({
+    filled({
       id: "demo_sch_prop_1b",
       address: "서울 강동구 천호동 456-7",
       roomNo: "502호",
       arriveTime: "11:30",
-      floorPassword: "0000",
-      roomPassword: "4321",
       tenantPhone: "01044445555",
       landlordPhone: "01033334444",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "천호 협력공인",
         phone: "0244445555",
@@ -390,13 +363,8 @@ export function buildDemoSeedData(): {
       roomType: "투룸",
       deposit: 3000,
       monthlyRent: 75,
-      maintenanceFee: 8,
       maintenanceIncludes: ["전기", "가스"],
-      parkingType: "유",
-      parkingFeeType: "별도",
-      parkingFee: 5,
       petAllowed: "유",
-      elevator: true,
       options: ["에어컨", "인덕션", "세탁기"],
       insuranceType: "무",
       notes: "동향 · 반려동물 협의 · 주차 1대",
@@ -407,17 +375,14 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const scheduleProps2: Property[] = [
-    makeProperty({
+  const scheduleProps2 = [
+    filled({
       id: "demo_sch_prop_2a",
       address: "서울 송파구 잠실동 22",
       roomNo: "1501호",
       arriveTime: "14:00",
-      floorPassword: "2580",
-      roomPassword: "1470",
       tenantPhone: "01077778888",
       landlordPhone: "01066667777",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "잠실 협력공인",
         phone: "0255556666",
@@ -429,13 +394,9 @@ export function buildDemoSeedData(): {
       monthlyRent: 0,
       maintenanceFee: 15,
       maintenanceIncludes: ["청소", "주차", "인터넷"],
-      parkingType: "유",
       parkingFeeType: "포함",
       parkingFee: 0,
-      petAllowed: "무",
-      elevator: true,
       options: ["에어컨", "냉장고", "세탁기", "가스레인지"],
-      insuranceType: "유",
       notes: "남서향 · 고층 · 입주협의",
       moveInFrom: daysFromToday(90),
       moveInTo: daysFromToday(120),
@@ -444,8 +405,8 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const scheduleProps3: Property[] = [
-    makeProperty({
+  const scheduleProps3 = [
+    filled({
       id: "demo_sch_prop_3a",
       address: "서울 강동구 길동 88",
       roomNo: "301호",
@@ -454,7 +415,6 @@ export function buildDemoSeedData(): {
       roomPassword: "2222",
       tenantPhone: "01000001111",
       landlordPhone: "01099990000",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "길동 공인중개사",
         phone: "0266667777",
@@ -465,14 +425,10 @@ export function buildDemoSeedData(): {
       deposit: 8000,
       monthlyRent: 15,
       maintenanceFee: 7,
-      maintenanceIncludes: ["인터넷", "수도"],
       parkingType: "무",
-      parkingFeeType: "별도",
       parkingFee: 0,
-      petAllowed: "무",
       elevator: false,
       options: ["에어컨", "냉장고", "인덕션"],
-      insuranceType: "유",
       notes: "북향 · 저층 · 홍길동 방문 일정",
       moveInFrom: daysFromToday(10),
       moveInTo: daysFromToday(20),
@@ -481,8 +437,8 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const scheduleProps4: Property[] = [
-    makeProperty({
+  const scheduleProps4 = [
+    filled({
       id: "demo_sch_prop_4a",
       address: "서울 강동구 성내동 200-1",
       roomNo: "802호",
@@ -491,7 +447,6 @@ export function buildDemoSeedData(): {
       roomPassword: "5432",
       tenantPhone: "01012123434",
       landlordPhone: "01056567878",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "성내 중앙부동산",
         phone: "0277778888",
@@ -503,20 +458,17 @@ export function buildDemoSeedData(): {
       monthlyRent: 85,
       maintenanceFee: 9,
       maintenanceIncludes: ["인터넷", "전기", "가스"],
-      parkingType: "유",
       parkingFeeType: "포함",
       parkingFee: 0,
       petAllowed: "유",
-      elevator: true,
       options: ["에어컨", "냉장고", "세탁기", "인덕션"],
-      insuranceType: "유",
       notes: "이서연 손님 · 주차 포함 · 반려동물 OK",
       moveInFrom: daysFromToday(20),
       moveInTo: daysFromToday(40),
       moveInSingle: false,
       moveInDate: formatMoveInRange(daysFromToday(20), daysFromToday(40)),
     }),
-    makeProperty({
+    filled({
       id: "demo_sch_prop_4b",
       address: "서울 강동구 천호동 77-3",
       roomNo: "1004호",
@@ -525,7 +477,6 @@ export function buildDemoSeedData(): {
       roomPassword: "2468",
       tenantPhone: "01034345656",
       landlordPhone: "01078789090",
-      hasPartnerAgency: true,
       partnerAgency: {
         name: "천호역 부동산",
         phone: "0288889999",
@@ -537,11 +488,8 @@ export function buildDemoSeedData(): {
       monthlyRent: 70,
       maintenanceFee: 12,
       maintenanceIncludes: ["인터넷", "TV", "청소"],
-      parkingType: "유",
-      parkingFeeType: "별도",
       parkingFee: 8,
       petAllowed: "유",
-      elevator: true,
       options: ["에어컨", "냉장고", "세탁기", "가스레인지"],
       insuranceType: "무",
       notes: "역세권 · 반려동물 협의",
@@ -552,7 +500,7 @@ export function buildDemoSeedData(): {
     }),
   ];
 
-  const schedules: Schedule[] = [
+  const schedules = [
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
@@ -598,61 +546,87 @@ export function buildDemoSeedData(): {
   return { customers, properties, schedules };
 }
 
-async function runDemoSeed(): Promise<void> {
-  const { customers: demoCustomers, properties: demoProperties, schedules: demoSchedules } =
-    buildDemoSeedData();
+const { data: list } = await supabase.auth.admin.listUsers({
+  page: 1,
+  perPage: 50,
+});
+let user = list.users.find((u) => u.email === "test@users.direction.app");
 
-  const otherCustomers = (await getCustomers()).filter(
-    (c) => !c.id.startsWith("demo_cust_")
-  );
-  const otherProperties = (await getListedProperties()).filter(
-    (p) => !p.id.startsWith("demo_prop_")
-  );
-  const otherSchedules = (await getSchedules()).filter(
-    (s) => !s.id.startsWith("demo_sch_")
-  );
-
-  // throw 하지 않음 — Next 오버레이/런타임 에러 방지
-  const soft = async (label: string, fn: () => Promise<void>) => {
-    try {
-      await fn();
-      return true;
-    } catch (e) {
-      console.warn(`[seedDemo] ${label} failed:`, e);
-      return false;
-    }
-  };
-
-  const okCustomers = await soft("customers", () =>
-    saveCustomers([...demoCustomers, ...otherCustomers])
-  );
-  const okProperties = await soft("properties", () =>
-    saveListedProperties([...demoProperties, ...otherProperties])
-  );
-  const okSchedules = await soft("schedules", () =>
-    saveSchedules([...demoSchedules, ...otherSchedules])
-  );
-
-  if (!okCustomers || !okProperties || !okSchedules) {
-    try {
-      sessionStorage.setItem(SEED_SKIP_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
-
-  await soft("recent", async () => {
-    await touchRecentCustomer("demo_cust_1");
-    await touchRecentCustomer("demo_cust_2");
-    await touchRecentCustomer("demo_cust_3");
-    await touchRecentCustomer("demo_cust_4");
+if (!user) {
+  const { data: created, error } = await supabase.auth.admin.createUser({
+    email: "test@users.direction.app",
+    password: "test1234",
+    email_confirm: true,
+    user_metadata: {
+      username: "test",
+      shop_name: "테스트부동산",
+      display_name: "테스트중개",
+      phone: "01012345678",
+      password_hint: "테스트",
+    },
   });
-
-  await setDemoSeedVersion(DEMO_SEED_VERSION);
-  try {
-    sessionStorage.removeItem(SEED_SKIP_KEY);
-  } catch {
-    /* ignore */
-  }
+  if (error) throw error;
+  user = created.user;
+  await supabase.rpc("admin_upsert_profile", {
+    p_id: user.id,
+    p_username: "test",
+    p_shop_name: "테스트부동산",
+    p_display_name: "테스트중개",
+    p_phone: "01012345678",
+    p_password_hint: "테스트",
+  });
 }
+
+const userId = user.id;
+const { customers, properties, schedules } = buildDemoSeedData();
+
+const { error: cErr } = await supabase.from("customers").upsert(
+  customers.map((c) => ({
+    id: c.id,
+    user_id: userId,
+    payload: c,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
+  })),
+  { onConflict: "user_id,id" }
+);
+if (cErr) throw cErr;
+
+const { error: pErr } = await supabase.from("listed_properties").upsert(
+  properties.map((p) => ({
+    id: p.id,
+    user_id: userId,
+    payload: p,
+    created_at: p.createdAt,
+    updated_at: p.updatedAt,
+  })),
+  { onConflict: "user_id,id" }
+);
+if (pErr) throw pErr;
+
+const { error: sErr } = await supabase.from("schedules").upsert(
+  schedules.map((s) => ({
+    id: s.id,
+    user_id: userId,
+    payload: s,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt,
+  })),
+  { onConflict: "user_id,id" }
+);
+if (sErr) throw sErr;
+
+const { error: prErr } = await supabase
+  .from("profiles")
+  .update({
+    demo_seed_version: "demo_v6",
+    recent_customer_ids: customers.map((c) => c.id),
+  })
+  .eq("id", userId);
+if (prErr) throw prErr;
+
+console.log("OK user=", userId);
+console.log(
+  `customers=${customers.length} properties=${properties.length} schedules=${schedules.length}`
+);
+console.log("login: test / test1234 (hint: 테스트)");

@@ -142,4 +142,6 @@ export interface Schedule {
 export interface NaviPreference {
   app: NaviApp;
   remember: boolean;
+  /** ISO — 항상 사용 선택 시각. 약 15일 후 다시 선택 */
+  savedAt?: string;
 }

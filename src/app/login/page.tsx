@@ -151,7 +151,7 @@ function LoginPageInner() {
   };
 
   return (
-    <main className="relative flex min-h-[calc(100dvh-5.5rem)] flex-col justify-center overflow-hidden py-4">
+    <main className="relative flex min-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden py-3">
       <div
         className="pointer-events-none absolute -left-16 -top-10 h-56 w-56 rounded-full bg-[#3182F6]/10"
         aria-hidden
@@ -161,6 +161,9 @@ function LoginPageInner() {
         aria-hidden
       />
 
+      <InstallAppGuide className="relative z-10 mb-3 shrink-0" />
+
+      <div className="relative flex flex-1 flex-col justify-center">
       <div className="relative mb-4 px-1 text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(49,130,246,0.35)]">
           <BrandIcon size={56} />
@@ -262,8 +265,7 @@ function LoginPageInner() {
           </Link>
         </p>
       </form>
-
-      <InstallAppGuide className="relative mt-5" />
+      </div>
 
       <Modal
         open={findOpen}

@@ -25,12 +25,17 @@ function scheduleTitle(
   return "손님 미지정";
 }
 
-/** 매물 주소에서 선택한 동만 모음. 미선택이면 비움 */
+/** 매물 주소에서 선택한 동만 모음. 방문 약속 시간 순 · 쉼표 구분 */
 function visitDongsLabel(schedule: Schedule): string {
-  return schedule.properties
+  return [...schedule.properties]
+    .sort((a, b) =>
+      (a.arriveTime?.trim() || "99:99").localeCompare(
+        b.arriveTime?.trim() || "99:99"
+      )
+    )
     .map((p) => parseSeoulAddress(p.address).dong.trim())
     .filter(Boolean)
-    .join(" ");
+    .join(", ");
 }
 
 function formatCreatedAt(iso?: string): string {
@@ -135,7 +140,7 @@ export default function NaviEntryPage() {
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {sorted.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500">
@@ -158,32 +163,32 @@ export default function NaviEntryPage() {
               >
                 <Card
                   pressable
-                  className="active:scale-[0.99] transition-all duration-150"
+                  className="px-3.5 py-2.5 active:scale-[0.99] transition-all duration-150"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-[17px] font-extrabold tracking-tight text-[#3182F6]">
+                    <p className="min-w-0 flex-1 text-[16px] font-extrabold leading-snug tracking-tight text-[#3182F6]">
                       {formatVisitDateTime(s.visitDate, s.visitTime)}
                     </p>
-                    <span className="shrink-0 text-xl font-light text-gray-300">
-                      ›
-                    </span>
+                    <p className="max-w-[10rem] shrink-0 truncate text-right text-[16px] font-extrabold leading-snug text-gray-900">
+                      {scheduleTitle(s, customerNames)}
+                    </p>
                   </div>
 
-                  <p className="mt-2 text-[15px] font-bold text-gray-900">
-                    {scheduleTitle(s, customerNames)}
-                    <span className="mx-1.5 font-medium text-gray-300">·</span>
-                    <span className="font-semibold text-gray-700">
-                      매물 {s.properties.length}곳
-                    </span>
+                  <p className="mt-1 text-[14px] font-semibold leading-snug text-gray-700">
+                    매물 {s.properties.length}곳
+                    {dongs ? (
+                      <>
+                        <span className="mx-1.5 font-medium text-gray-300">
+                          ·
+                        </span>
+                        <span className="font-semibold text-gray-600">
+                          {dongs}
+                        </span>
+                      </>
+                    ) : null}
                   </p>
 
-                  {dongs ? (
-                    <p className="mt-1 text-[14px] font-semibold text-gray-600">
-                      {dongs}
-                    </p>
-                  ) : null}
-
-                  <p className="mt-2 text-right text-[11px] font-medium text-gray-400">
+                  <p className="mt-1 text-right text-[11px] font-medium leading-none text-gray-400">
                     {formatCreatedAt(s.createdAt)}
                   </p>
                 </Card>

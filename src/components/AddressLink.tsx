@@ -27,8 +27,8 @@ export function AddressLink({
     e.stopPropagation();
     e.preventDefault();
     void getNaviPreference().then((pref) => {
-      if (pref?.remember) {
-        openNavi(pref.app, naviAddress);
+      if (pref?.remember && pref.app) {
+        void openNavi(pref.app, naviAddress);
         return;
       }
       setModalOpen(true);

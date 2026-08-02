@@ -446,7 +446,11 @@ export function PropertyEditor({
           </div>
           {property.dealType !== "매매" && (
             <Input
-              label="월세 (만원)"
+              label={
+                property.dealType === "전세"
+                  ? "월세 (만원/반전세)"
+                  : "월세 (만원)"
+              }
               type="number"
               value={property.monthlyRent || ""}
               onChange={(e) =>
