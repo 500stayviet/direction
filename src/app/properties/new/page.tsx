@@ -41,7 +41,7 @@ export default function NewPropertyPage() {
     <main>
       <PageHeader
         title="매물 추가"
-        backHref="/"
+        backHref="/properties"
         subtitle="방문 일정과 같은 매물 정보로 등록해요"
       />
 

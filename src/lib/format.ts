@@ -48,7 +48,9 @@ export function matchesPhoneSearch(phone: string, query: string): boolean {
 export function matchesBudgetSearch(
   customer: {
     deposit?: number;
+    depositTo?: number;
     monthlyRent?: number;
+    monthlyRentTo?: number;
     budget?: string;
   },
   query: string
@@ -61,10 +63,26 @@ export function matchesBudgetSearch(
       return true;
     }
   }
+  if (typeof customer.depositTo === "number") {
+    if (
+      customer.depositTo === n ||
+      String(customer.depositTo).includes(digits)
+    ) {
+      return true;
+    }
+  }
   if (typeof customer.monthlyRent === "number") {
     if (
       customer.monthlyRent === n ||
       String(customer.monthlyRent).includes(digits)
+    ) {
+      return true;
+    }
+  }
+  if (typeof customer.monthlyRentTo === "number") {
+    if (
+      customer.monthlyRentTo === n ||
+      String(customer.monthlyRentTo).includes(digits)
     ) {
       return true;
     }
@@ -114,32 +132,58 @@ export function formatMoneyWon(amount: number): string {
   return `${n}만원`;
 }
 
+function formatMoneyRange(from: number, to?: number): string {
+  if (to != null && to > 0 && to !== from) {
+    return `${formatMoney(from)}~${formatMoney(to)}`;
+  }
+  return formatMoney(from);
+}
+
+function formatMoneyWonRange(from: number, to?: number): string {
+  if (to != null && to > 0 && to !== from) {
+    return `${formatMoneyWon(from)}~${formatMoneyWon(to)}`;
+  }
+  return formatMoneyWon(from);
+}
+
 export function formatDepositRent(
   dealType: string,
   deposit: number,
-  monthlyRent?: number
+  monthlyRent?: number,
+  depositTo?: number,
+  monthlyRentTo?: number
 ): string {
-  if (dealType === "매매") return `매가 ${formatMoney(deposit)}`;
-  if (dealType === "전세") return `보증 ${formatMoney(deposit)}`;
-  return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent ?? 0)}`;
+  const amount = formatMoneyRange(deposit, depositTo);
+  if (dealType === "매매") return `매가 ${amount}`;
+  if (dealType === "전세") return `보증 ${amount}`;
+  const rent = formatMoneyRange(monthlyRent ?? 0, monthlyRentTo);
+  return `보증 ${amount} · 월 ${rent}`;
 }
 
 /** 고객 카드용: 보증금/월세(또는 매매가) 줄 단위 */
 export function getCustomerBudgetLines(customer: {
   dealType: string;
   deposit?: number;
+  depositTo?: number;
   monthlyRent?: number;
+  monthlyRentTo?: number;
   budget?: string;
 }): string[] {
   if (typeof customer.deposit !== "number") {
     return customer.budget ? [customer.budget] : ["-"];
   }
+  const amount = formatMoneyWonRange(customer.deposit, customer.depositTo);
   if (customer.dealType === "매매") {
-    return [`매매가 ${formatMoneyWon(customer.deposit)}`];
+    return [`매매가 ${amount}`];
   }
-  const lines = [`보증금 ${formatMoneyWon(customer.deposit)}`];
+  const lines = [`보증금 ${amount}`];
   if (customer.dealType === "월세") {
-    lines.push(`월세 ${formatMoneyWon(customer.monthlyRent ?? 0)}`);
+    lines.push(
+      `월세 ${formatMoneyWonRange(
+        customer.monthlyRent ?? 0,
+        customer.monthlyRentTo
+      )}`
+    );
   }
   return lines;
 }
@@ -148,14 +192,34 @@ export function getCustomerBudgetLines(customer: {
 export function getCustomerBudgetLabel(customer: {
   dealType: string;
   deposit?: number;
+  depositTo?: number;
+  depositSingle?: boolean;
   monthlyRent?: number;
+  monthlyRentTo?: number;
+  monthlyRentSingle?: boolean;
   budget?: string;
 }): string {
   if (typeof customer.deposit === "number") {
+    const to =
+      customer.depositSingle === false
+        ? customer.depositTo
+        : customer.depositTo != null &&
+            customer.depositTo !== customer.deposit
+          ? customer.depositTo
+          : undefined;
+    const rentTo =
+      customer.monthlyRentSingle === false
+        ? customer.monthlyRentTo
+        : customer.monthlyRentTo != null &&
+            customer.monthlyRentTo !== customer.monthlyRent
+          ? customer.monthlyRentTo
+          : undefined;
     return formatDepositRent(
       customer.dealType,
       customer.deposit,
-      customer.monthlyRent
+      customer.monthlyRent,
+      to,
+      rentTo
     );
   }
   return customer.budget || "-";
@@ -228,4 +292,38 @@ export function getCustomerMoveInLabel(customer: {
     customer.moveInTo,
     customer.moveInDate
   );
+}
+
+/** 구데이터 호환: loanNeeded 없으면 loanType으로 유무 추론 */
+export function resolveCustomerLoanNeeded(customer: {
+  loanNeeded?: "유" | "무";
+  loanType?: string;
+}): "유" | "무" {
+  if (customer.loanNeeded === "유" || customer.loanNeeded === "무") {
+    return customer.loanNeeded;
+  }
+  const t = (customer.loanType ?? "").trim();
+  return t && t !== "해당없음" ? "유" : "무";
+}
+
+/** 표시용: 무 / 유 · 버팀목 */
+export function getCustomerLoanLabel(customer: {
+  loanNeeded?: "유" | "무";
+  loanType?: string;
+}): string {
+  const needed = resolveCustomerLoanNeeded(customer);
+  if (needed === "무") return "무";
+  const kind = (customer.loanType ?? "").trim();
+  if (!kind || kind === "해당없음") return "유";
+  return `유 · ${kind}`;
+}
+
+/** 표시용: 무 / 유 · 세단 */
+export function getCustomerParkingLabel(customer: {
+  parkingType?: string;
+  carType?: string;
+}): string {
+  if (customer.parkingType !== "유") return "무";
+  const car = (customer.carType ?? "").trim();
+  return car ? `유 · ${car}` : "유";
 }

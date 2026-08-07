@@ -19,8 +19,11 @@ import {
 import {
   formatVisitDateTime,
   getCustomerBudgetLabel,
+  getCustomerLoanLabel,
   getCustomerMoveInLabel,
+  getCustomerParkingLabel,
 } from "@/lib/format";
+import { displayRoomType } from "@/lib/constants";
 import type { Customer, Schedule } from "@/lib/types";
 
 function InfoRow({
@@ -142,7 +145,7 @@ export default function CustomerDetailPage() {
                 <PhoneLink phone={customer.phone} />
               </InfoRow>
               <InfoRow label="거래유형">
-                {customer.roomType ?? "-"}
+                {displayRoomType(customer.roomType, customer.buildingKind)}
               </InfoRow>
               <InfoRow label="거래">
                 {customer.dealType}
@@ -154,11 +157,17 @@ export default function CustomerDetailPage() {
               <InfoRow label="입주">
                 {getCustomerMoveInLabel(customer)}
               </InfoRow>
-              {customer.loanType && customer.loanType !== "해당없음" && (
-                <InfoRow label="대출">{customer.loanType}</InfoRow>
+              {!(
+                customer.roomType === "상가" ||
+                customer.roomType === "사무실" ||
+                customer.roomType === "토지" ||
+                customer.roomType === "건물"
+              ) && (
+                <InfoRow label="대출">{getCustomerLoanLabel(customer)}</InfoRow>
               )}
-              {customer.roomType !== "토지" && (
-                <InfoRow label="주차">{customer.parkingType ?? "-"}</InfoRow>
+              {customer.roomType !== "토지" &&
+                customer.roomType !== "건물" && (
+                <InfoRow label="주차">{getCustomerParkingLabel(customer)}</InfoRow>
               )}
               {customer.roomType !== "토지" &&
                 customer.roomType !== "건물" && (

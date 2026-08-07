@@ -138,7 +138,7 @@ export default function HomePage() {
 
   return (
     <main className="flex min-h-[calc(100dvh-6.5rem)] flex-col pt-6">
-      <div className="mb-6 px-1">
+      <div className="mb-3 px-1">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function HomePage() {
             </div>
             {user?.shopName?.trim() &&
             user.shopName.trim() !== "현장동선" ? (
-              <p className="mt-3 text-[14px] font-extrabold tracking-tight text-[#3182F6]">
+              <p className="mt-3 text-[14px] font-extrabold leading-none tracking-tight text-[#3182F6]">
                 {user.shopName.trim()}
               </p>
             ) : null}
@@ -159,7 +159,7 @@ export default function HomePage() {
               className={`${
                 user?.shopName?.trim() &&
                 user.shopName.trim() !== "현장동선"
-                  ? "mt-0.5"
+                  ? "mt-0"
                   : "mt-2"
               } text-[30px] font-bold leading-[1.25] tracking-tight text-gray-900`}
             >

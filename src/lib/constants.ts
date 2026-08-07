@@ -23,10 +23,26 @@ export const ROOM_TYPES: RoomType[] = [
 ];
 
 export const BUILDING_KINDS: BuildingKind[] = [
-  "다가구",
+  "단독주택(다중주택)",
   "상가주택",
   "근생건물",
 ];
+
+/** 예전 저장값 '다가구' → '단독주택(다중주택)' */
+export function normalizeBuildingKind(
+  kind?: string | null
+): BuildingKind | undefined {
+  if (!kind) return undefined;
+  if (kind === "다가구") return "단독주택(다중주택)";
+  if (
+    kind === "단독주택(다중주택)" ||
+    kind === "상가주택" ||
+    kind === "근생건물"
+  ) {
+    return kind;
+  }
+  return undefined;
+}
 
 export const RESIDENTIAL_UNIT_KEYS: ResidentialUnitKey[] = [
   "원룸",
@@ -57,7 +73,10 @@ export function displayRoomType(
 ): string {
   if (!roomType) return "-";
   if (roomType === "오피스") return "사무실";
-  if (roomType === "건물" && buildingKind) return `건물 · ${buildingKind}`;
+  if (roomType === "건물" && buildingKind) {
+    const kind = normalizeBuildingKind(buildingKind) ?? buildingKind;
+    return `건물 · ${kind}`;
+  }
   return roomType;
 }
 
@@ -90,6 +109,9 @@ export const LOAN_TYPES = [
   "디딤돌",
   "기타",
 ];
+
+/** 대출 유일 때 선택하는 종류 (해당없음 제외) */
+export const LOAN_KIND_OPTIONS = LOAN_TYPES.filter((t) => t !== "해당없음");
 
 export const MAINTENANCE_OPTIONS = [
   "인터넷",

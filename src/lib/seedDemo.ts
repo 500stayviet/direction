@@ -86,7 +86,9 @@ function makeCustomer(
     budget: formatDepositRent(
       partial.dealType,
       partial.deposit,
-      partial.monthlyRent
+      partial.monthlyRent,
+      partial.depositSingle === false ? partial.depositTo : undefined,
+      partial.monthlyRentSingle === false ? partial.monthlyRentTo : undefined
     ),
     moveInDate: formatMoveInRange(partial.moveInFrom, partial.moveInTo),
     createdAt,
@@ -229,8 +231,10 @@ export function buildDemoSeedData(baseDate: Date = startOfLocalDay(new Date())):
       moveInFrom,
       moveInTo,
       moveInSingle: false,
+      loanNeeded: "유",
       loanType: "버팀목",
       parkingType: "유",
+      carType: "세단",
       petAllowed: "무",
       notes:
         "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",

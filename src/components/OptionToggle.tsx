@@ -6,7 +6,9 @@ interface OptionToggleProps<T extends string> {
   value: T;
   options: readonly T[] | T[];
   onChange: (value: T) => void;
-  columns?: 2 | 3 | 4;
+  columns?: 1 | 2 | 3 | 4;
+  /** 한 행에 두고 글자 길이에 맞게 칸 폭·글자 크기 조절 */
+  fit?: boolean;
   invalid?: boolean;
 }
 
@@ -17,6 +19,7 @@ export function OptionToggle<T extends string>({
   options,
   onChange,
   columns = 3,
+  fit = false,
   invalid,
 }: OptionToggleProps<T>) {
   return (
@@ -44,11 +47,15 @@ export function OptionToggle<T extends string>({
       )}
       <div
         className={
-          columns === 2
-            ? "grid grid-cols-2 gap-1.5"
-            : columns === 4
-              ? "grid grid-cols-4 gap-1.5"
-              : "grid grid-cols-3 gap-1.5"
+          fit
+            ? "flex gap-1.5"
+            : columns === 1
+              ? "grid grid-cols-1 gap-1.5"
+              : columns === 2
+                ? "grid grid-cols-2 gap-1.5"
+                : columns === 4
+                  ? "grid grid-cols-4 gap-1.5"
+                  : "grid grid-cols-3 gap-1.5"
         }
       >
         {options.map((option) => {
@@ -59,8 +66,10 @@ export function OptionToggle<T extends string>({
               type="button"
               onClick={() => onChange(option)}
               className={[
-                "min-h-[44px] rounded-xl text-[15px] font-bold",
-                "active:scale-95 transition-all duration-150",
+                "min-h-[44px] rounded-xl font-bold active:scale-95 transition-all duration-150",
+                fit
+                  ? "min-w-0 flex-1 px-1.5 text-[12px] leading-snug tracking-tight"
+                  : "text-[15px]",
                 active
                   ? "bg-[#3182F6] text-white shadow-sm"
                   : "bg-gray-100 text-gray-600",

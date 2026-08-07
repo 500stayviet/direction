@@ -18,19 +18,25 @@ export function Field({
 }: FieldProps & { children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span
-        className={[
-          "text-[13px] font-semibold",
-          invalid ? "text-red-600" : "text-gray-600",
-        ].join(" ")}
-      >
-        {label}
-        {required && (
-          <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
-            *
-          </span>
-        )}
-      </span>
+      {label ? (
+        <span
+          className={[
+            "text-[13px] font-semibold",
+            invalid ? "text-red-600" : "text-gray-600",
+          ].join(" ")}
+        >
+          {label}
+          {required && (
+            <span
+              className={
+                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+              }
+            >
+              *
+            </span>
+          )}
+        </span>
+      ) : null}
       {children}
       {hint && (
         <span

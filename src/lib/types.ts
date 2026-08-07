@@ -9,13 +9,15 @@ export type RoomType =
   | "토지"
   | "건물";
 /** 건물 선택 시 세부 유형 */
-export type BuildingKind = "다가구" | "상가주택" | "근생건물";
+export type BuildingKind = "단독주택(다중주택)" | "상가주택" | "근생건물";
 /** 건물 임대료 입력 방식 */
 export type RentInputMode = "합계" | "상세";
 export type ResidentialUnitKey = "원룸" | "투룸" | "쓰리룸" | "쓰리룸+";
 export type BuildingUnitKey = ResidentialUnitKey | "상가";
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
+/** 고객 주차 유일 때 차종 */
+export type CarType = "세단" | "SUV";
 export type PetAllowed = "유" | "무";
 export type NaviApp = "kakaonavi" | "tmap" | "navermap" | "kakaomap";
 
@@ -71,10 +73,20 @@ export interface Customer {
   dealType: DealType;
   /** 희망 방/매물 유형 */
   roomType?: RoomType;
-  /** 보증금 또는 매가 (만원 단위) */
+  /** 건물일 때 희망 건물 종류 (매물 buildingKind와 매칭) */
+  buildingKind?: BuildingKind;
+  /** 보증금 또는 매가 (만원) — 단일값 또는 범위 시작 */
   deposit: number;
-  /** 월세 (만원 단위). 월세 거래일 때만 사용 */
+  /** 보증금/매가 범위 종료 (만원). 단일일 때는 deposit와 같거나 생략 */
+  depositTo?: number;
+  /** true면 보증금/매가가 단일 금액 */
+  depositSingle?: boolean;
+  /** 월세 (만원) — 단일값 또는 범위 시작 */
   monthlyRent?: number;
+  /** 월세 범위 종료 (만원) */
+  monthlyRentTo?: number;
+  /** true면 월세가 단일 금액 */
+  monthlyRentSingle?: boolean;
   /** 표시용 요약 문자열 (하위 호환) */
   budget: string;
   /** 희망 입주 시작일 (YYYY-MM-DD) */
@@ -87,9 +99,14 @@ export interface Customer {
   moveInDate: string;
   /** 매매 시 비입주(투자 등) 여부 */
   nonOccupancy?: boolean;
+  /** 대출 유무 — 매칭 키. 상세 종류(loanType)는 기록용 */
+  loanNeeded?: ParkingType;
+  /** 대출 종류 (loanNeeded=유 일 때 기록). 매칭에는 사용하지 않음 */
   loanType?: string;
   /** 고객 희망 주차 조건 */
   parkingType: ParkingType;
+  /** 주차 유일 때 차종 */
+  carType?: CarType;
   /** 고객 애완동물 유무 */
   petAllowed: PetAllowed;
   notes?: string;

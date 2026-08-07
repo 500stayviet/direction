@@ -45,7 +45,8 @@ const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
   partnerPhone: () => "협력 부동산 연락처를 입력해 주세요.",
   address: () => "구·동·지번 본번을 입력해 주세요.",
   roomType: () => "유형을 선택해 주세요.",
-  buildingKind: () => "건물 종류(다가구·상가주택·근생)를 선택해 주세요.",
+  buildingKind: () =>
+    "건물 종류(단독주택·상가주택·근생)를 선택해 주세요.",
   dealType: () => "거래 형태를 선택해 주세요.",
   deposit: (p) =>
     p.dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",

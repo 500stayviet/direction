@@ -5,6 +5,7 @@ import { OptionToggle } from "@/components/OptionToggle";
 import {
   BUILDING_KINDS,
   EMPTY_UNIT_COUNTS,
+  normalizeBuildingKind,
   RESIDENTIAL_UNIT_KEYS,
 } from "@/lib/constants";
 import type {
@@ -82,9 +83,12 @@ export function BuildingLandFields({
         label="건물 종류"
         required
         invalid={invalidBuildingKind}
-        value={(property.buildingKind ?? ("—" as BuildingKind))}
+        value={
+          (normalizeBuildingKind(property.buildingKind) ??
+            ("—" as BuildingKind))
+        }
         options={BUILDING_KINDS}
-        columns={3}
+        fit
         onChange={(buildingKind) =>
           onChange({ buildingKind: buildingKind as BuildingKind })
         }

@@ -27,8 +27,11 @@ import {
 import {
   formatVisitDateTime,
   getCustomerBudgetLabel,
+  getCustomerLoanLabel,
   getCustomerMoveInLabel,
+  getCustomerParkingLabel,
 } from "@/lib/format";
+import { displayRoomType } from "@/lib/constants";
 import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
@@ -428,7 +431,7 @@ function ScheduleDetailInner() {
                         {customer.name}
                       </p>
                       <p className="mt-1 text-[12px] font-semibold text-gray-500">
-                        {customer.roomType ?? "-"} · {customer.dealType}
+                        {displayRoomType(customer.roomType, customer.buildingKind)} · {customer.dealType}
                         {customer.nonOccupancy ? " · 비입주" : ""} ·{" "}
                         {getCustomerBudgetLabel(customer)}
                       </p>
@@ -462,16 +465,11 @@ function ScheduleDetailInner() {
                         />
                         <CustomerMeta
                           label="대출"
-                          value={
-                            customer.loanType &&
-                            customer.loanType !== "해당없음"
-                              ? customer.loanType
-                              : "-"
-                          }
+                          value={getCustomerLoanLabel(customer)}
                         />
                         <CustomerMeta
                           label="주차"
-                          value={customer.parkingType ?? "-"}
+                          value={getCustomerParkingLabel(customer)}
                         />
                         <CustomerMeta
                           label="애완동물"
