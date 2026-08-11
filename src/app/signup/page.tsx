@@ -286,7 +286,7 @@ export default function SignupPage() {
               className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
-              이용약관 · 개인정보 · 면책 안내
+              이용약관 · 개인정보 · 광고 · 면책 안내
             </Link>
             에 동의합니다.
             <span className="mt-1 block text-[12px] text-gray-400">

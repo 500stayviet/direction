@@ -134,6 +134,25 @@ export function SiteShareDevMark({ className = "" }: { className?: string }) {
   );
 }
 
+/** 조건 매칭 하단 — 사이트내 공유 자동매칭 준비 중 강조 */
+export function SiteShareMatchingEmpty({
+  kind,
+}: {
+  kind: "customer" | "property";
+}) {
+  const label = kind === "customer" ? "고객" : "매물";
+  return (
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[13px] font-extrabold tracking-tight text-amber-700 ring-1 ring-inset ring-amber-300/80">
+        준비 중
+      </span>
+      <span className="text-[13px] font-semibold text-gray-600">
+        사이트내 공유 {label} 자동 매칭은 아직 이용할 수 없습니다.
+      </span>
+    </p>
+  );
+}
+
 /** 리스트·상세 사이트내공유 뱃지/버튼 */
 export function SiteShareBadge({
   active,

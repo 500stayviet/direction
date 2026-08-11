@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s · 현장동선",
   },
   description:
-    "부동산 중개인을 위한 모바일 현장 고객·동선·매물 브리핑 앱. 원클릭 전화·네비 연동. 고객·매물·방문 일정을 계정별로 정리합니다.",
+    "부동산 중개인을 위한 모바일 현장 고객·매물·동선 앱. 원클릭 전화·네비, 계정별 정리, 팀 공유(항목별).",
   applicationName: "현장동선",
   manifest: "/manifest.webmanifest",
   keywords: [

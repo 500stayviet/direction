@@ -6,7 +6,7 @@ export function onlyDigits(phone: string, max = 11): string {
 /**
  * 업장명 정규화 — 「부동산」「공인중개사사무소」가 없으면
  * 「공인중개사사무소」를 붙여 저장 (예: 천호동 → 천호동 공인중개사사무소)
- * 미입력 기본값「현장동선」은 그대로 둠
+ * 미입력·기본값「현장동선」은 그대로 둠 (접미사 붙이지 않음)
  */
 export function normalizeShopName(
   raw: string,
@@ -22,6 +22,11 @@ export function normalizeShopName(
     return trimmed;
   }
   return `${trimmed} 공인중개사사무소`;
+}
+
+/** 이미 저장된 업장명 보정용 — normalizeShopName 과 동일 규칙 */
+export function backfillShopName(raw: string | null | undefined): string {
+  return normalizeShopName(raw ?? "");
 }
 
 /**

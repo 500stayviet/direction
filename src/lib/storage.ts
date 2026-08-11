@@ -158,11 +158,14 @@ async function softDeleteRow(
 ): Promise<void> {
   const actor = await resolveActor();
   const row = await findRow(table, id);
-  if (!row || row.deleted_at) return;
+  if (!row) {
+    throw new Error(`${entityLabel}을(를) 찾을 수 없습니다.`);
+  }
+  if (row.deleted_at) return;
 
   const supabase = createClient();
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from(table)
     .update({
       deleted_at: now,
@@ -170,8 +173,13 @@ async function softDeleteRow(
       updated_at: now,
     })
     .eq("user_id", row.user_id)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
   throwIfError(error, `${entityLabel} 삭제 실패`);
+  if (!data) {
+    throw new Error(`${entityLabel} 삭제 권한이 없거나 이미 삭제되었습니다.`);
+  }
 }
 
 async function listActivePayloads<T>(
@@ -371,13 +379,13 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
-  removeCustomerFromCache(id);
   const related = await getSchedulesByCustomer(id);
   for (const s of related) {
-    removeScheduleFromCache(s.id);
     await softDeleteRow("schedules", s.id, "일정");
+    removeScheduleFromCache(s.id);
   }
   await softDeleteRow("customers", id, "고객");
+  removeCustomerFromCache(id);
 
   try {
     const actor = await resolveActor();
@@ -531,8 +539,8 @@ export async function upsertListedProperty(
 }
 
 export async function deleteListedProperty(id: string): Promise<void> {
-  removePropertyFromCache(id);
   await softDeleteRow("listed_properties", id, "매물");
+  removePropertyFromCache(id);
 }
 
 export async function getListedPropertyById(

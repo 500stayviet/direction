@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { CustomerForm } from "@/components/CustomerForm";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { SiteShareDevMark, TeamShareButton } from "@/components/SiteShareUi";
+import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
 import { MatchingPropertiesSection } from "@/components/MatchListPanel";
 import {
   deleteCustomer,
@@ -257,7 +257,7 @@ export default function CustomerDetailPage() {
                 title="현장동선내 공유 매물"
                 titleRight={<SiteShareDevMark />}
                 items={matches.partner}
-                emptyText="사이트내 공유 매물 자동 매칭은 준비 중입니다."
+                emptyText={<SiteShareMatchingEmpty kind="property" />}
                 onRemoved={(id) =>
                   setProperties((prev) => prev.filter((p) => p.id !== id))
                 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -18,7 +18,7 @@ import {
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
 } from "@/lib/format";
-import { deleteCustomer, deleteListedProperty } from "@/lib/storage";
+import { deleteCustomer, deleteListedProperty, getListedProperties } from "@/lib/storage";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 function CloseXButton({ onClick }: { onClick: () => void }) {
@@ -117,7 +117,7 @@ export function MatchingPropertiesSection({
   listHint?: string;
   titleRight?: React.ReactNode;
   items: ListedProperty[];
-  emptyText: string;
+  emptyText: ReactNode;
   onRemoved: (id: string) => void;
 }) {
   const [preview, setPreview] = useState<ListedProperty | null>(null);
@@ -128,14 +128,20 @@ export function MatchingPropertiesSection({
 
   const confirmDelete = async () => {
     if (!pendingDelete || busy) return;
+    const target = pendingDelete;
     setBusy(true);
+    onRemoved(target.id);
+    if (preview?.id === target.id) setPreview(null);
+    setPendingDelete(null);
     try {
-      await deleteListedProperty(pendingDelete.id);
-      onRemoved(pendingDelete.id);
-      if (preview?.id === pendingDelete.id) setPreview(null);
-      setPendingDelete(null);
+      await deleteListedProperty(target.id);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+      try {
+        await getListedProperties();
+      } catch {
+        /* ignore */
+      }
     } finally {
       setBusy(false);
     }
@@ -153,7 +159,7 @@ export function MatchingPropertiesSection({
       </div>
       {items.length === 0 ? (
         <Card className="!p-3">
-          <p className="text-sm text-gray-500">{emptyText}</p>
+          <div className="text-sm leading-relaxed text-gray-500">{emptyText}</div>
         </Card>
       ) : (
         items.map((p) => {
@@ -212,7 +218,7 @@ export function MatchingPropertiesSection({
       <Modal
         open={Boolean(pendingDelete)}
         title="매물 삭제"
-        description="삭제하시겠습니까? 매물 리스트에서도 제외됩니다."
+        description="삭제하시겠습니까? 조건에 맞는 매물 리스트에서 영구적으로 제외됩니다."
         onClose={() => {
           if (!busy) setPendingDelete(null);
         }}
@@ -254,7 +260,7 @@ export function MatchingCustomersSection({
   listHint?: string;
   titleRight?: React.ReactNode;
   items: Customer[];
-  emptyText: string;
+  emptyText: ReactNode;
   onRemoved: (id: string) => void;
 }) {
   const [preview, setPreview] = useState<Customer | null>(null);
@@ -288,7 +294,7 @@ export function MatchingCustomersSection({
       </div>
       {items.length === 0 ? (
         <Card className="!p-3">
-          <p className="text-sm text-gray-500">{emptyText}</p>
+          <div className="text-sm leading-relaxed text-gray-500">{emptyText}</div>
         </Card>
       ) : (
         items.map((c) => (

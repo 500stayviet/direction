@@ -5,6 +5,7 @@ import { createClient, resetBrowserClient } from "./supabase/client";
 import { normalizeUsername } from "./supabase/email";
 import { clearAppAuth, loadAppAuth, saveAppAuth } from "./supabase/appAuth";
 import { clearEntityCache } from "./entityCache";
+import { backfillShopName } from "./format";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
 const LEGACY_SHARED_KEYS = [
@@ -93,15 +94,43 @@ function rowToUser(row: {
   password_hint: string;
   created_at: string;
 }): User {
+  const raw = String(row.shop_name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const shopName =
+    raw && raw !== "현장동선" ? backfillShopName(raw) : raw || "현장동선";
   return {
     id: row.id,
     username: row.username,
-    shopName: row.shop_name,
+    shopName,
     name: row.display_name,
     phone: row.phone,
     passwordHint: row.password_hint,
     createdAt: row.created_at,
   };
+}
+
+/** 입력된 업장명에 접미사가 없으면 DB에 한 번 보정 */
+function persistShopNameBackfill(
+  userId: string,
+  rawShop: string,
+  nextShop: string
+) {
+  if (!rawShop || rawShop === "현장동선" || rawShop === nextShop) return;
+  void (async () => {
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("profiles")
+        .update({ shop_name: nextShop })
+        .eq("id", userId);
+      await supabase.auth.updateUser({
+        data: { shop_name: nextShop },
+      });
+    } catch {
+      /* ignore */
+    }
+  })();
 }
 
 export function getCachedUser(): User | null {
@@ -111,10 +140,28 @@ export function getCachedUser(): User | null {
 /** 동기 — 화면 로그인 표시용 (localStorage·쿠키·메모리) */
 export function peekCurrentUser(): User | null {
   if (typeof window === "undefined") return null;
-  if (cachedUser?.id) return cachedUser;
+  if (cachedUser?.id) {
+    const raw = String(cachedUser.shopName ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+    const shopName =
+      raw && raw !== "현장동선" ? backfillShopName(raw) : raw || "현장동선";
+    if (shopName !== cachedUser.shopName) {
+      cachedUser = { ...cachedUser, shopName };
+    }
+    return cachedUser;
+  }
   const app = loadAppAuth();
   if (app?.user?.id) {
-    cachedUser = app.user;
+    const raw = String(app.user.shopName ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+    const shopName =
+      raw && raw !== "현장동선" ? backfillShopName(raw) : raw || "현장동선";
+    cachedUser =
+      shopName !== app.user.shopName
+        ? { ...app.user, shopName }
+        : app.user;
     return cachedUser;
   }
   return null;
@@ -239,10 +286,15 @@ function userFromAuthSession(authUser: {
   const username =
     String(meta.username ?? "").trim() ||
     (authUser.email?.split("@")[0] ?? "user");
+  const raw = String(meta.shop_name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const shopName =
+    raw && raw !== "현장동선" ? backfillShopName(raw) : raw || "현장동선";
   return {
     id: authUser.id,
     username,
-    shopName: String(meta.shop_name ?? "현장동선"),
+    shopName,
     name: String(meta.display_name ?? username),
     phone: String(meta.phone ?? ""),
     passwordHint: String(meta.password_hint ?? ""),
@@ -254,7 +306,25 @@ export async function getCurrentUser(): Promise<User | null> {
   // 하드 리로드 후에도 바로 로그인 유지
   const appAuth = loadAppAuth();
   if (appAuth?.user) {
-    cachedUser = appAuth.user;
+    const raw = String(appAuth.user.shopName ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+    const shopName =
+      raw && raw !== "현장동선" ? backfillShopName(raw) : raw || "현장동선";
+    cachedUser =
+      shopName !== appAuth.user.shopName
+        ? { ...appAuth.user, shopName }
+        : appAuth.user;
+    if (shopName !== raw && raw && raw !== "현장동선") {
+      persistShopNameBackfill(cachedUser.id, raw, shopName);
+      saveAppAuth(
+        {
+          access_token: appAuth.access_token,
+          refresh_token: appAuth.refresh_token,
+        },
+        cachedUser
+      );
+    }
     // 토큰 복구 시도 — 실패해도 화면 로그인(내정보/로그아웃)은 유지
     // (쿠키만 있는 경우 clear 하면 홈이 비로그인으로 깜빡이거나 고정됨)
     void getAccessToken().catch(() => undefined);
@@ -283,7 +353,15 @@ export async function getCurrentUser(): Promise<User | null> {
           .maybeSingle();
 
         if (!error && data) {
+          const rawShop = String(data.shop_name ?? "")
+            .trim()
+            .replace(/\s+/g, " ");
           cachedUser = rowToUser(data);
+          persistShopNameBackfill(
+            data.id,
+            rawShop,
+            cachedUser.shopName
+          );
           saveAppAuth(
             {
               access_token: session.access_token,

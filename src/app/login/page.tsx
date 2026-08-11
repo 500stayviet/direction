@@ -258,7 +258,7 @@ function LoginPageInner() {
             href="/terms"
             className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
           >
-            이용약관 · 면책 안내
+            이용약관 · 개인정보 · 광고 · 면책 안내
           </Link>
         </p>
       </form>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
+import { backfillShopName } from "@/lib/format";
 
 export async function POST(request: Request) {
   try {
@@ -88,14 +89,58 @@ export async function POST(request: Request) {
     }
 
     const meta = data.user.user_metadata ?? {};
+    const { data: profile } = await admin
+      .from("profiles")
+      .select(
+        "shop_name, display_name, phone, password_hint, username, created_at"
+      )
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    const rawShop = String(
+      profile?.shop_name ?? meta.shop_name ?? ""
+    )
+      .trim()
+      .replace(/\s+/g, " ");
+
+    // 미입력·기본값「현장동선」은 그대로, 그 외 접미사 없는 업장명만 보정
+    let shopName = rawShop || "현장동선";
+    const shouldBackfill =
+      Boolean(rawShop) &&
+      rawShop !== "현장동선" &&
+      !rawShop.includes("부동산") &&
+      !rawShop.includes("공인중개사사무소");
+
+    if (shouldBackfill) {
+      shopName = backfillShopName(rawShop);
+      await admin
+        .from("profiles")
+        .update({
+          shop_name: shopName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.user.id);
+      try {
+        await admin.auth.admin.updateUserById(data.user.id, {
+          user_metadata: { ...meta, shop_name: shopName },
+        });
+      } catch {
+        /* ignore metadata sync */
+      }
+    }
+
     const user = {
       id: data.user.id,
-      username: String(meta.username ?? username),
-      shopName: String(meta.shop_name ?? "현장동선"),
-      name: String(meta.display_name ?? meta.username ?? username),
-      phone: String(meta.phone ?? ""),
-      passwordHint: String(meta.password_hint ?? ""),
-      createdAt: data.user.created_at ?? new Date().toISOString(),
+      username: String(profile?.username ?? meta.username ?? username),
+      shopName,
+      name: String(
+        profile?.display_name ?? meta.display_name ?? meta.username ?? username
+      ),
+      phone: String(profile?.phone ?? meta.phone ?? ""),
+      passwordHint: String(profile?.password_hint ?? meta.password_hint ?? ""),
+      createdAt: String(
+        profile?.created_at ?? data.user.created_at ?? new Date().toISOString()
+      ),
     };
 
     const res = NextResponse.json({

@@ -9,7 +9,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
-import { SiteShareDevMark, TeamShareButton } from "@/components/SiteShareUi";
+import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
 import { MatchingCustomersSection } from "@/components/MatchListPanel";
 import { getCurrentUser } from "@/lib/auth";
 import { getPropertyValidationError } from "@/lib/propertyValidation";
@@ -229,7 +229,7 @@ export default function PropertyDetailPage() {
               title="현장동선내 공유 고객"
               titleRight={<SiteShareDevMark />}
               items={matches.partner}
-              emptyText="사이트내 공유 고객 자동 매칭은 준비 중입니다."
+              emptyText={<SiteShareMatchingEmpty kind="customer" />}
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))
               }

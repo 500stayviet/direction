@@ -236,8 +236,8 @@ export default function AccountPage() {
           <div>
             <p className="text-[14px] font-bold text-gray-900">팀 공유</p>
             <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-              코드로 동료와 고객·매물을 같이 씁니다. 네비는 일정에서 「팀공유」를
-              눌러야 보입니다.
+              코드로 동료와 고객·매물·네비를 같이 씁니다. 고객리스트·매물리스트·네비에서
+              「팀 공유하기」를 눌러야 공유됩니다.
             </p>
           </div>
 
