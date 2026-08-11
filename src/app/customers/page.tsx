@@ -25,6 +25,12 @@ import {
   markCustomerSwipeUsed,
 } from "@/lib/customerSwipeHint";
 import { deleteCustomer, upsertCustomer } from "@/lib/storage";
+import { peekCurrentUser } from "@/lib/auth";
+import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import { useCustomersList } from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/seedDemo";
 import type { Customer } from "@/lib/types";
@@ -105,6 +111,15 @@ export default function CustomerListPage() {
 
   const confirmPending = async () => {
     if (!pending || !pendingCustomer || busy) return;
+    const myId = peekCurrentUser()?.id;
+    const foreign = isForeignTeamItem(pendingCustomer.createdBy, myId);
+    if (foreign) {
+      const ok =
+        pending.type === "delete"
+          ? confirmForeignTeamDelete("고객")
+          : confirmForeignTeamEdit("고객");
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       if (pending.type === "delete") {

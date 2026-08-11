@@ -30,24 +30,74 @@ async function authHeaders(): Promise<HeadersInit> {
   };
 }
 
+const LOGIN_AGAIN = "로그인이 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.";
+const NETWORK_FAIL =
+  "네트워크 연결을 확인해 주세요. 잠시 후 다시 시도해 주세요.";
+
+function isNetworkError(e: unknown): boolean {
+  return (
+    e instanceof TypeError ||
+    (e instanceof Error &&
+      /failed to fetch|networkerror|load failed/i.test(e.message))
+  );
+}
+
+async function safeFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    if (isNetworkError(e)) {
+      throw new Error(NETWORK_FAIL);
+    }
+    throw e;
+  }
+}
+
 async function parseJson<T>(
   res: Response
 ): Promise<T & { message?: string; ok?: boolean }> {
-  return (await res.json()) as T & { message?: string; ok?: boolean };
+  try {
+    return (await res.json()) as T & { message?: string; ok?: boolean };
+  } catch {
+    return { message: "서버 응답을 읽지 못했습니다." } as T & {
+      message?: string;
+      ok?: boolean;
+    };
+  }
 }
 
-const LOGIN_AGAIN = "로그인이 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.";
-
-export async function fetchWorkspaceStatus(): Promise<WorkspaceInfo | null> {
+export async function fetchWorkspaceStatus(): Promise<
+  | { ok: true; workspace: WorkspaceInfo | null }
+  | { ok: false; message: string }
+> {
   const token = await getAccessToken();
-  if (!token) return null;
-  const res = await fetch("/api/workspace/status", {
-    method: "GET",
-    headers: await authHeaders(),
-  });
-  const body = await parseJson<{ workspace?: WorkspaceInfo | null }>(res);
-  if (!res.ok) return null;
-  return body.workspace ?? null;
+  if (!token) {
+    return { ok: false, message: LOGIN_AGAIN };
+  }
+  try {
+    const res = await safeFetch("/api/workspace/status", {
+      method: "GET",
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    const body = await parseJson<{ workspace?: WorkspaceInfo | null }>(res);
+    if (!res.ok) {
+      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      return {
+        ok: false,
+        message: body.message ?? "팀 공유 상태를 불러오지 못했습니다.",
+      };
+    }
+    return { ok: true, workspace: body.workspace ?? null };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "팀 공유 상태를 불러오지 못했습니다.",
+    };
+  }
 }
 
 export async function createWorkspace(name?: string): Promise<
@@ -56,20 +106,27 @@ export async function createWorkspace(name?: string): Promise<
   const token = await getAccessToken();
   if (!token) return { ok: false, message: LOGIN_AGAIN };
 
-  const res = await fetch("/api/workspace/create", {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({ name, accessToken: token }),
-  });
-  const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
-  if (!res.ok || !body.workspace) {
-    if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+  try {
+    const res = await safeFetch("/api/workspace/create", {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ name, accessToken: token }),
+    });
+    const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
+    if (!res.ok || !body.workspace) {
+      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      return {
+        ok: false,
+        message: body.message ?? "팀 공유 생성에 실패했습니다.",
+      };
+    }
+    return { ok: true, workspace: body.workspace };
+  } catch (e) {
     return {
       ok: false,
-      message: body.message ?? "팀 공유 생성에 실패했습니다.",
+      message: e instanceof Error ? e.message : "팀 공유 생성에 실패했습니다.",
     };
   }
-  return { ok: true, workspace: body.workspace };
 }
 
 export async function joinWorkspace(shareCode: string): Promise<
@@ -78,17 +135,24 @@ export async function joinWorkspace(shareCode: string): Promise<
   const token = await getAccessToken();
   if (!token) return { ok: false, message: LOGIN_AGAIN };
 
-  const res = await fetch("/api/workspace/join", {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({ shareCode, accessToken: token }),
-  });
-  const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
-  if (!res.ok || !body.workspace) {
-    if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
-    return { ok: false, message: body.message ?? "팀 참여에 실패했습니다." };
+  try {
+    const res = await safeFetch("/api/workspace/join", {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ shareCode, accessToken: token }),
+    });
+    const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
+    if (!res.ok || !body.workspace) {
+      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      return { ok: false, message: body.message ?? "팀 참여에 실패했습니다." };
+    }
+    return { ok: true, workspace: body.workspace };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "팀 참여에 실패했습니다.",
+    };
   }
-  return { ok: true, workspace: body.workspace };
 }
 
 export async function reissueShareCode(): Promise<
@@ -97,15 +161,25 @@ export async function reissueShareCode(): Promise<
   const token = await getAccessToken();
   if (!token) return { ok: false, message: LOGIN_AGAIN };
 
-  const res = await fetch("/api/workspace/reissue", {
-    method: "POST",
-    headers: await authHeaders(),
-    body: JSON.stringify({ accessToken: token }),
-  });
-  const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
-  if (!res.ok || !body.workspace) {
-    if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
-    return { ok: false, message: body.message ?? "코드 재발급에 실패했습니다." };
+  try {
+    const res = await safeFetch("/api/workspace/reissue", {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ accessToken: token }),
+    });
+    const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
+    if (!res.ok || !body.workspace) {
+      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      return {
+        ok: false,
+        message: body.message ?? "코드 재발급에 실패했습니다.",
+      };
+    }
+    return { ok: true, workspace: body.workspace };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "코드 재발급에 실패했습니다.",
+    };
   }
-  return { ok: true, workspace: body.workspace };
 }

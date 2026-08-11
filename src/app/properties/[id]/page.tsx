@@ -11,7 +11,7 @@ import { PropertyEditor } from "@/components/PropertyEditor";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
 import { MatchingCustomersSection } from "@/components/MatchListPanel";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { getPropertyValidationError } from "@/lib/propertyValidation";
 import { findMatchingCustomersGrouped } from "@/lib/matchCustomerProperty";
 import {
@@ -19,6 +19,11 @@ import {
   getListedPropertyById,
   upsertListedProperty,
 } from "@/lib/storage";
+import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import { useCustomersList } from "@/hooks/useEntityList";
 import type { ListedProperty, User } from "@/lib/types";
 
@@ -67,6 +72,9 @@ export default function PropertyDetailPage() {
     );
   }
 
+  const myId = peekCurrentUser()?.id ?? agent?.id;
+  const isForeign = isForeignTeamItem(property.createdBy, myId);
+
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     const error = getPropertyValidationError(property);
@@ -86,6 +94,7 @@ export default function PropertyDetailPage() {
 
   const handleDelete = () => {
     if (!window.confirm("이 매물을 삭제할까요?")) return;
+    if (isForeign && !confirmForeignTeamDelete("매물")) return;
     setDeleting(true);
     void deleteListedProperty(property.id)
       .then(() => router.replace("/properties"))
@@ -93,6 +102,11 @@ export default function PropertyDetailPage() {
         alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
         setDeleting(false);
       });
+  };
+
+  const startEditing = () => {
+    if (isForeign && !confirmForeignTeamEdit("매물")) return;
+    setEditing(true);
   };
 
   const cancelEditing = () => {
@@ -160,7 +174,7 @@ export default function PropertyDetailPage() {
                 if (editing) {
                   cancelEditing();
                 } else {
-                  setEditing(true);
+                  startEditing();
                 }
               }}
               className={

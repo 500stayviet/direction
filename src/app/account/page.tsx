@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -42,8 +42,12 @@ export default function AccountPage() {
   const [joinCode, setJoinCode] = useState("");
   const [wsBusy, setWsBusy] = useState(false);
   const [wsMessage, setWsMessage] = useState("");
-  const [createConsentOpen, setCreateConsentOpen] = useState(false);
+  const [codeConsent, setCodeConsent] = useState<"create" | "reissue" | null>(
+    null
+  );
   const [membersOpen, setMembersOpen] = useState(false);
+  /** 이 방문에서 유효 코드를 본 뒤에만 만료 빨간 UI 표시 (재진입 시 초기화) */
+  const sawValidCodeThisVisit = useRef(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmPhrase, setConfirmPhrase] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,6 +56,21 @@ export default function AccountPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const loadWorkspace = async () => {
+      let status = await fetchWorkspaceStatus();
+      if (!status.ok) {
+        await new Promise((r) => window.setTimeout(r, 400));
+        if (cancelled) return;
+        status = await fetchWorkspaceStatus();
+      }
+      if (cancelled) return;
+      if (status.ok) {
+        setWorkspace(status.workspace);
+      } else {
+        setWsMessage(status.message);
+      }
+    };
+
     void (async () => {
       const u = await getCurrentUser();
       if (cancelled) return;
@@ -60,11 +79,19 @@ export default function AccountPage() {
         return;
       }
       setUser(u);
-      const ws = await fetchWorkspaceStatus();
-      if (!cancelled) setWorkspace(ws);
+      await loadWorkspace();
     })();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void loadWorkspace();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [router]);
 
@@ -83,6 +110,38 @@ export default function AccountPage() {
   const codeValid =
     Boolean(workspace?.shareCodeExpiresAt) &&
     Date.parse(workspace?.shareCodeExpiresAt ?? "") > nowTick;
+
+  // 내정보 재진입 시: 이미 만료면 만료 UI 없이 초기화 / 유효하면 이 방문에서 만료 추적
+  useEffect(() => {
+    if (!workspace?.shareCode) {
+      sawValidCodeThisVisit.current = false;
+      return;
+    }
+    const stillValid =
+      Boolean(workspace.shareCodeExpiresAt) &&
+      Date.parse(workspace.shareCodeExpiresAt ?? "") > Date.now();
+    sawValidCodeThisVisit.current = stillValid;
+  }, [
+    workspace?.workspaceId,
+    workspace?.shareCode,
+    workspace?.shareCodeExpiresAt,
+  ]);
+
+  useEffect(() => {
+    if (codeValid) sawValidCodeThisVisit.current = true;
+  }, [codeValid]);
+
+  /** 이 화면에서 카운트다운이 끝난 경우에만 빨간 만료 UI */
+  const showExpiredCodeUi =
+    Boolean(workspace?.shareCode) &&
+    !codeValid &&
+    sawValidCodeThisVisit.current;
+
+  /** 유효한 코드 박스 (재진입·만료 후는 생성 버튼으로 초기화) */
+  const showActiveCodeUi = Boolean(workspace?.shareCode) && codeValid;
+
+  const teammateCount = workspace?.memberCount ?? 0;
+  const showTeammateList = teammateCount >= 2;
 
   const closeDelete = () => {
     if (busy) return;
@@ -116,7 +175,7 @@ export default function AccountPage() {
         return;
       }
       setWorkspace(result.workspace);
-      setCreateConsentOpen(false);
+      setCodeConsent(null);
       setWsMessage(
         "팀 공유가 시작되었습니다. 공유 코드는 약 5분간만 사용할 수 있습니다."
       );
@@ -142,15 +201,7 @@ export default function AccountPage() {
     }
   };
 
-  const handleReissue = async (opts?: { skipConfirm?: boolean }) => {
-    if (
-      !opts?.skipConfirm &&
-      !window.confirm(
-        "새 코드를 발급할까요? 기존 코드는 바로 사용할 수 없습니다."
-      )
-    ) {
-      return;
-    }
+  const handleReissue = async () => {
     setWsMessage("");
     setWsBusy(true);
     try {
@@ -160,9 +211,20 @@ export default function AccountPage() {
         return;
       }
       setWorkspace(result.workspace);
+      setCodeConsent(null);
       setWsMessage("새 공유 코드가 발급되었습니다. 약 5분간 유효합니다.");
     } finally {
       setWsBusy(false);
+    }
+  };
+
+  const confirmCodeConsent = () => {
+    if (codeConsent === "create") {
+      void handleCreate();
+      return;
+    }
+    if (codeConsent === "reissue") {
+      void handleReissue();
     }
   };
 
@@ -243,60 +305,62 @@ export default function AccountPage() {
 
           {workspace ? (
             <div className="space-y-2">
-              <div className="rounded-lg bg-gray-50 px-2.5 py-2">
-                <p className="text-[11px] text-gray-400">공유 공간</p>
-                <p className="text-[14px] font-bold text-gray-900">
-                  {workspace.workspaceName || "팀 공간"}
-                </p>
-                <p className="mt-0.5 text-[11px] text-gray-500">
-                  {workspace.role === "owner" ? "생성자" : "멤버"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setMembersOpen((v) => !v)}
-                  className="mt-1.5 flex w-full items-center justify-between rounded-md bg-white px-2 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
-                >
-                  <span className="text-[12px] font-bold text-gray-800">
-                    공유중인 팀원 · {workspace.memberCount}명
-                  </span>
-                  <span className="text-[11px] font-semibold text-[#3182F6]">
-                    {membersOpen ? "접기" : "보기"}
-                  </span>
-                </button>
-                {membersOpen ? (
-                  <div className="mt-1.5 space-y-1">
-                    {(workspace.members ?? []).map((m) => (
-                      <div
-                        key={m.userId}
-                        className="rounded-md border border-gray-100 bg-white px-2 py-1.5 text-[12px] leading-snug text-gray-700"
-                      >
-                        <span className="font-semibold text-gray-900">
-                          {m.shopName}
-                        </span>
-                        <span className="text-gray-300"> · </span>
-                        <span className="font-semibold text-gray-800">
-                          {m.name}
-                        </span>
-                        <span className="text-gray-300"> · </span>
-                        <span className="font-mono text-[11px] text-gray-500">
-                          {m.username}
-                        </span>
-                        {m.role === "owner" ? (
-                          <span className="ml-1 text-[10px] font-bold text-[#3182F6]">
-                            생성자
+              {showTeammateList ? (
+                <div className="rounded-lg bg-gray-50 px-2.5 py-2">
+                  <p className="text-[11px] text-gray-400">공유 공간</p>
+                  <p className="text-[14px] font-bold text-gray-900">
+                    {workspace.workspaceName || "팀 공간"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    {workspace.role === "owner" ? "생성자" : "멤버"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMembersOpen((v) => !v)}
+                    className="mt-1.5 flex w-full items-center justify-between rounded-md bg-white px-2 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
+                  >
+                    <span className="text-[12px] font-bold text-gray-800">
+                      공유중인 팀원 · {teammateCount}명
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#3182F6]">
+                      {membersOpen ? "접기" : "보기"}
+                    </span>
+                  </button>
+                  {membersOpen ? (
+                    <div className="mt-1.5 space-y-1">
+                      {(workspace.members ?? []).map((m) => (
+                        <div
+                          key={m.userId}
+                          className="rounded-md border border-gray-100 bg-white px-2 py-1.5 text-[12px] leading-snug text-gray-700"
+                        >
+                          <span className="font-semibold text-gray-900">
+                            {m.shopName}
                           </span>
-                        ) : null}
-                      </div>
-                    ))}
-                    {(workspace.members ?? []).length === 0 ? (
-                      <p className="px-1 text-[11px] text-gray-400">
-                        팀원 정보를 불러오지 못했습니다.
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-              {codeValid ? (
+                          <span className="text-gray-300"> · </span>
+                          <span className="font-semibold text-gray-800">
+                            {m.name}
+                          </span>
+                          <span className="text-gray-300"> · </span>
+                          <span className="font-mono text-[11px] text-gray-500">
+                            {m.username}
+                          </span>
+                          {m.role === "owner" ? (
+                            <span className="ml-1 text-[10px] font-bold text-[#3182F6]">
+                              생성자
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                      {(workspace.members ?? []).length === 0 ? (
+                        <p className="px-1 text-[11px] text-gray-400">
+                          팀원 정보를 불러오지 못했습니다.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {showActiveCodeUi ? (
                 <div className="rounded-lg border-2 border-[#3182F6]/30 bg-[#E8F3FF] px-2.5 py-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -307,7 +371,8 @@ export default function AccountPage() {
                         {workspace.shareCode}
                       </p>
                       <p className="mt-1 text-[11px] font-semibold text-emerald-600">
-                        {codeRemainLabel}
+                        {codeRemainLabel} · 다른 화면을 다녀와도 이 시간이 지나기
+                        전에는 같은 코드가 유지됩니다.
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col gap-1">
@@ -323,7 +388,7 @@ export default function AccountPage() {
                           variant="secondary"
                           disabled={wsBusy}
                           className="!min-h-[32px] !rounded-lg !px-2.5 !text-[12px]"
-                          onClick={() => void handleReissue()}
+                          onClick={() => setCodeConsent("reissue")}
                         >
                           재발급
                         </Button>
@@ -331,61 +396,106 @@ export default function AccountPage() {
                     </div>
                   </div>
                 </div>
+              ) : showExpiredCodeUi ? (
+                <div className="rounded-lg border-2 border-red-200 bg-red-50 px-2.5 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-red-600">
+                        공유 코드 (
+                        <span className="text-red-600">만료됨</span>
+                        {" · "}
+                        <span className="text-red-600">다시 발급 필요</span>)
+                      </p>
+                      <p className="mt-1 font-mono text-[22px] font-extrabold tracking-[0.2em] text-red-400">
+                        {workspace.shareCode}
+                      </p>
+                      <p className="mt-1 text-[11px] font-semibold text-red-600">
+                        만료된 코드로는 참여할 수 없습니다. 다시 발급해 주세요.
+                      </p>
+                    </div>
+                    {workspace.role === "owner" ? (
+                      <Button
+                        disabled={wsBusy}
+                        className="!min-h-[32px] !rounded-lg !bg-red-500 !px-2.5 !text-[12px] hover:!bg-red-600"
+                        onClick={() => setCodeConsent("reissue")}
+                      >
+                        코드 다시 발급
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               ) : workspace.role === "owner" ? (
                 <Button
                   fullWidth
                   disabled={wsBusy}
                   className="!min-h-[44px] !text-[15px]"
-                  onClick={() => void handleReissue({ skipConfirm: true })}
+                  onClick={() => setCodeConsent("reissue")}
                 >
-                  {wsBusy ? "생성 중…" : "공유 코드 생성"}
+                  공유 코드 생성
                 </Button>
               ) : (
                 <p className="rounded-lg bg-gray-50 px-2.5 py-2 text-[12px] leading-snug text-gray-500">
-                  공유 코드가 만료되었습니다. 생성자에게 새 코드를 요청해 주세요.
+                  공유 코드가 만료되었거나 없습니다. 생성자에게 새 코드를 요청해
+                  주세요.
                 </p>
               )}
             </div>
           ) : (
-            <div className="space-y-2">
-              <Button
-                fullWidth
-                disabled={wsBusy}
-                className="!min-h-[44px] !text-[15px]"
-                onClick={() => setCreateConsentOpen(true)}
-              >
-                공유 코드 생성
-              </Button>
-              <div className="flex items-end gap-1.5">
-                <div className="min-w-0 flex-1">
-                  <label className="mb-0.5 block text-[11px] font-semibold text-gray-500">
-                    공유 코드
-                  </label>
-                  <input
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="코드 입력"
-                    autoComplete="off"
-                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-semibold tracking-wide text-gray-900 outline-none focus:border-[#3182F6]"
-                  />
-                </div>
-                <Button
-                  variant="secondary"
-                  disabled={wsBusy || !joinCode.trim()}
-                  className="!h-9 !min-h-0 !rounded-lg !px-3 !text-[12px]"
-                  onClick={() => void handleJoin()}
-                >
-                  참여
-                </Button>
-              </div>
-            </div>
+            <Button
+              fullWidth
+              disabled={wsBusy}
+              className="!min-h-[44px] !text-[15px]"
+              onClick={() => setCodeConsent("create")}
+            >
+              공유 코드 생성
+            </Button>
           )}
+
+          {/* 참여 코드 입력 — 공간 유무와 관계없이 항상 표시 */}
+          <div className="space-y-1">
+            <div className="flex items-end gap-1.5">
+              <div className="min-w-0 flex-1">
+                <label className="mb-0.5 block text-[11px] font-semibold text-gray-500">
+                  공유 코드 입력
+                </label>
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="동료에게 받은 코드"
+                  autoComplete="off"
+                  disabled={Boolean(workspace) || wsBusy}
+                  className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-semibold tracking-wide text-gray-900 outline-none focus:border-[#3182F6] disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                disabled={Boolean(workspace) || wsBusy || !joinCode.trim()}
+                className="!h-9 !min-h-0 !rounded-lg !px-3 !text-[12px]"
+                onClick={() => void handleJoin()}
+              >
+                참여
+              </Button>
+            </div>
+            {workspace ? (
+              <p className="px-0.5 text-[11px] leading-snug text-gray-400">
+                이미 팀에 참여 중입니다. 코드 입력은 아직 팀에 없는 계정에서
+                사용하세요.
+              </p>
+            ) : (
+              <p className="px-0.5 text-[11px] leading-snug text-gray-400">
+                공유 코드 생성 대신, 동료 코드를 입력해 참여할 수 있습니다.
+              </p>
+            )}
+          </div>
 
           {wsMessage ? (
             <p
               className={[
                 "text-[11px] font-semibold",
-                wsMessage.includes("로그인") || wsMessage.includes("실패")
+                wsMessage.includes("로그인") ||
+                  wsMessage.includes("실패") ||
+                  wsMessage.includes("네트워크") ||
+                  wsMessage.includes("연결")
                   ? "text-red-500"
                   : "text-[#3182F6]",
               ].join(" ")}
@@ -418,24 +528,36 @@ export default function AccountPage() {
       </div>
 
       <Modal
-        open={createConsentOpen}
+        open={codeConsent !== null}
         onClose={() => {
           if (wsBusy) return;
-          setCreateConsentOpen(false);
+          setCodeConsent(null);
         }}
-        title="팀 공유를 시작할까요?"
-        description="동의하시면 공유 코드가 생성됩니다. 같은 코드를 입력한 동료와 고객·매물 리스트가 함께 보입니다. 코드는 약 5분만 유효합니다."
+        title={
+          codeConsent === "reissue"
+            ? "공유 코드를 다시 발급할까요?"
+            : "팀 공유를 시작할까요?"
+        }
+        description={
+          codeConsent === "reissue"
+            ? "새 코드를 발급하면 기존 코드는 바로 사용할 수 없습니다. 코드를 받은 제3자가 팀에 참여하면 팀원 정보(업장명·이름·아이디 등)와 공유된 고객·매물·일정이 그 사람에게 보일 수 있으며, 개인정보 제공·유출 등으로 법적 문제가 될 수 있습니다. 이에 동의하십니까?"
+            : "동의하시면 공유 코드가 생성됩니다. 같은 코드를 입력한 사람이 팀에 참여하면 팀원 정보(업장명·이름·아이디 등)와 「팀 공유하기」로 켠 고객·매물·일정이 그 사람에게 보일 수 있으며, 개인정보 제공·유출 등으로 법적 문제가 될 수 있습니다. 코드는 약 5분만 유효합니다. 이에 동의하십니까?"
+        }
       >
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="secondary"
             disabled={wsBusy}
-            onClick={() => setCreateConsentOpen(false)}
+            onClick={() => setCodeConsent(null)}
           >
             취소
           </Button>
-          <Button disabled={wsBusy} onClick={() => void handleCreate()}>
-            {wsBusy ? "생성 중…" : "동의하고 생성"}
+          <Button disabled={wsBusy} onClick={() => confirmCodeConsent()}>
+            {wsBusy
+              ? "처리 중…"
+              : codeConsent === "reissue"
+                ? "동의하고 재발급"
+                : "동의하고 생성"}
           </Button>
         </div>
       </Modal>

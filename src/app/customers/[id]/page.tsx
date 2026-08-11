@@ -12,6 +12,12 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
 import { MatchingPropertiesSection } from "@/components/MatchListPanel";
 import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
+import { peekCurrentUser } from "@/lib/auth";
+import {
   deleteCustomer,
   getCustomerById,
   touchRecentCustomer,
@@ -91,6 +97,9 @@ export default function CustomerDetailPage() {
     );
   }
 
+  const myId = peekCurrentUser()?.id;
+  const isForeign = isForeignTeamItem(customer.createdBy, myId);
+
   const handleDelete = () => {
     if (
       !window.confirm(
@@ -99,6 +108,7 @@ export default function CustomerDetailPage() {
     ) {
       return;
     }
+    if (isForeign && !confirmForeignTeamDelete("고객")) return;
     setDeleting(true);
     void deleteCustomer(customer.id)
       .then(() => router.replace("/customers"))
@@ -106,6 +116,11 @@ export default function CustomerDetailPage() {
         alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
         setDeleting(false);
       });
+  };
+
+  const startEditing = () => {
+    if (isForeign && !confirmForeignTeamEdit("고객")) return;
+    setEditing(true);
   };
 
   const toggleTeamShare = async () => {
@@ -145,7 +160,10 @@ export default function CustomerDetailPage() {
             ) : null}
             <Button
               variant={editing ? "secondary" : "outline"}
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => {
+                if (editing) setEditing(false);
+                else startEditing();
+              }}
               className={
                 editing
                   ? "!px-2.5 !text-[13px]"

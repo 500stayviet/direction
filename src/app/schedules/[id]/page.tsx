@@ -17,7 +17,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { createEmptyProperty } from "@/lib/constants";
 import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import {
   deleteSchedule,
@@ -26,6 +26,11 @@ import {
   setScheduleWorkspaceShared,
   upsertSchedule,
 } from "@/lib/storage";
+import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import {
   formatVisitDateTime,
@@ -135,7 +140,11 @@ function ScheduleDetailInner() {
         return;
       }
       setAgent(me);
-      setHasTeammates(Boolean(ws && ws.memberCount > 1));
+      setHasTeammates(
+        Boolean(
+          ws.ok && ws.workspace && (ws.workspace.memberCount ?? 0) > 1
+        )
+      );
       setSchedule(found);
       setVisitDate(found.visitDate ?? "");
       setVisitTime(found.visitTime ?? "");
@@ -217,6 +226,13 @@ function ScheduleDetailInner() {
 
   const handleDelete = () => {
     if (!window.confirm("이 방문 일정을 삭제할까요?")) return;
+    const myId = peekCurrentUser()?.id ?? agent?.id;
+    if (
+      isForeignTeamItem(schedule.createdBy, myId) &&
+      !confirmForeignTeamDelete("네비")
+    ) {
+      return;
+    }
     setDeleting(true);
     const back =
       fromNavi
@@ -366,8 +382,17 @@ function ScheduleDetailInner() {
                   setVisitDate(schedule.visitDate ?? "");
                   setVisitTime(schedule.visitTime ?? "");
                   setProperties(schedule.properties);
+                  setEditing(false);
+                  return;
                 }
-                setEditing((v) => !v);
+                const myId = peekCurrentUser()?.id ?? agent?.id;
+                if (
+                  isForeignTeamItem(schedule.createdBy, myId) &&
+                  !confirmForeignTeamEdit("네비")
+                ) {
+                  return;
+                }
+                setEditing(true);
               }}
               className={
                 editing

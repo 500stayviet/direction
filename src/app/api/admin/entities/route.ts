@@ -27,8 +27,7 @@ export async function GET(request: Request) {
     let query = admin
       .from(table)
       .select(
-        "id, user_id, workspace_id, created_by_name, deleted_at, deleted_by, created_at, updated_at, payload" +
-          (table === "schedules" ? ", workspace_shared" : "")
+        "id, user_id, workspace_id, created_by_name, deleted_at, deleted_by, created_at, updated_at, payload, workspace_shared"
       )
       .order("updated_at", { ascending: false })
       .limit(100);
@@ -38,6 +37,26 @@ export async function GET(request: Request) {
       : query.is("deleted_at", null);
 
     const { data, error } = await query;
+    if (error && /workspace_shared|does not exist|schema cache/i.test(error.message)) {
+      let fallback = admin
+        .from(table)
+        .select(
+          "id, user_id, workspace_id, created_by_name, deleted_at, deleted_by, created_at, updated_at, payload"
+        )
+        .order("updated_at", { ascending: false })
+        .limit(100);
+      fallback = deletedOnly
+        ? fallback.not("deleted_at", "is", null)
+        : fallback.is("deleted_at", null);
+      const retry = await fallback;
+      if (retry.error) {
+        return NextResponse.json(
+          { ok: false, message: retry.error.message },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ ok: true, rows: retry.data ?? [] });
+    }
     if (error) {
       return NextResponse.json(
         { ok: false, message: error.message },

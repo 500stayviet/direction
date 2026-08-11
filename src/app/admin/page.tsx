@@ -103,6 +103,20 @@ export default function AdminPage() {
       setDeletedAccounts(body.deletedAccounts ?? []);
       setWorkspaces(body.workspaces ?? []);
       setAuditLogs(body.auditLogs ?? []);
+      // 입장 시 삭제된 항목 목록을 바로 로드 (복원용)
+      setDeletedOnly(true);
+      setTab("customers");
+      void (async () => {
+        const ent = await fetch(
+          `/api/admin/entities?type=customers&deleted=1`,
+          { headers: adminHeaders(next) }
+        );
+        const entBody = (await ent.json()) as {
+          ok?: boolean;
+          rows?: EntityRow[];
+        };
+        if (ent.ok && entBody.ok) setRows(entBody.rows ?? []);
+      })();
     } catch {
       setError("서버에 연결할 수 없습니다.");
       setCreds(null);
@@ -280,6 +294,13 @@ export default function AdminPage() {
         </Card>
 
         <Card className="space-y-2 !p-3">
+          <p className="text-[14px] font-bold text-gray-900">
+            삭제된 항목 복원
+          </p>
+          <p className="text-[12px] leading-snug text-gray-500">
+            팀원이 삭제한 고객·매물·네비(소프트 삭제)를 여기서 다시 살릴 수
+            있습니다. 「삭제됨만」을 켠 뒤 복원을 누르세요.
+          </p>
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -317,7 +338,7 @@ export default function AdminPage() {
               disabled={busy}
               onClick={() => void loadEntities()}
             >
-              불러오기
+              새로고침
             </Button>
           </div>
           <div className="max-h-72 space-y-1 overflow-y-auto text-[12px]">
@@ -337,13 +358,13 @@ export default function AdminPage() {
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{title}</p>
                     <p className="text-gray-400">
-                      {row.created_by_name || "-"} · {row.updated_at}
+                      {row.created_by_name || "-"} · {row.user_id.slice(0, 8)}…
                       {row.deleted_at ? ` · 삭제 ${row.deleted_at}` : ""}
                     </p>
                   </div>
                   {row.deleted_at ? (
                     <Button
-                      className="!min-h-[32px] !px-2.5 !text-[12px]"
+                      className="!min-h-[32px] shrink-0 !px-2.5 !text-[12px]"
                       disabled={busy}
                       onClick={() => void restore(row)}
                     >
@@ -354,7 +375,11 @@ export default function AdminPage() {
               );
             })}
             {rows.length === 0 ? (
-              <p className="text-gray-400">불러오기를 눌러 목록을 보세요.</p>
+              <p className="text-gray-400">
+                {deletedOnly
+                  ? "삭제된 항목이 없습니다."
+                  : "활성 항목이 없습니다. 「삭제됨만」으로 전환해 보세요."}
+              </p>
             ) : null}
           </div>
         </Card>

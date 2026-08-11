@@ -87,8 +87,8 @@ export interface Customer extends SharedMeta {
   /** 희망 화장실 수 (투룸·3룸+·아파트) */
   bathroomCount?: number;
   /**
-   * 팀 공유 여부 (테스트/표시용). false면 팀공유 중단 중.
-   * 미설정이면 업장 연결 시 공유 중으로 간주.
+   * 팀 공유 여부. true일 때만 같은 업장 팀원에게 보입니다.
+   * false·미설정이면 본인만 보입니다.
    */
   workspaceShared?: boolean;
   /** 사이트내(현장동선) 공유 — 다른 회원 매물 자동매칭용 */

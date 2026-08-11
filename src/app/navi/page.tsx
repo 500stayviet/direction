@@ -22,6 +22,12 @@ import {
 } from "@/lib/customerSwipeHint";
 import { parseSeoulAddress } from "@/lib/seoulRegions";
 import { deleteSchedule, setScheduleWorkspaceShared, upsertSchedule } from "@/lib/storage";
+import { peekCurrentUser } from "@/lib/auth";
+import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import { useCustomersList, useSchedulesList } from "@/hooks/useEntityList";
 import type { Customer, Schedule } from "@/lib/types";
 
@@ -178,6 +184,15 @@ export default function NaviEntryPage() {
 
   const confirmPending = async () => {
     if (!pending || !pendingSchedule || busy) return;
+    const myId = peekCurrentUser()?.id;
+    const foreign = isForeignTeamItem(pendingSchedule.createdBy, myId);
+    if (foreign) {
+      const ok =
+        pending.type === "delete"
+          ? confirmForeignTeamDelete("네비")
+          : confirmForeignTeamEdit("네비");
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       if (pending.type === "delete") {

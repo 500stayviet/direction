@@ -82,19 +82,11 @@ export function shareCodeExpiryIso(from = Date.now()): string {
 export async function unlinkDemoFromWorkspace(admin: Admin, userId: string) {
   const tables = ["customers", "listed_properties", "schedules"] as const;
   for (const table of tables) {
-    if (table === "schedules") {
-      await admin
-        .from(table)
-        .update({ workspace_id: null, workspace_shared: false })
-        .eq("user_id", userId)
-        .like("id", "demo_%");
-    } else {
-      await admin
-        .from(table)
-        .update({ workspace_id: null })
-        .eq("user_id", userId)
-        .like("id", "demo_%");
-    }
+    await admin
+      .from(table)
+      .update({ workspace_id: null, workspace_shared: false })
+      .eq("user_id", userId)
+      .like("id", "demo_%");
   }
 }
 
@@ -107,7 +99,7 @@ export async function migrateUserDataToWorkspace(
 
   const tables = ["customers", "listed_properties", "schedules"] as const;
   for (const table of tables) {
-    // 실데이터만 팀 공간으로 이동 (체험 demo_* 제외)
+    // 실데이터만 팀 공간에 workspace_id 연결 (공유 플래그는 끄고 시작 — 항목별 공유)
     const { data: rows } = await admin
       .from(table)
       .select("id")
@@ -123,7 +115,7 @@ export async function migrateUserDataToWorkspace(
 
     await admin
       .from(table)
-      .update({ workspace_id: workspaceId })
+      .update({ workspace_id: workspaceId, workspace_shared: false })
       .eq("user_id", userId)
       .in("id", ids);
   }

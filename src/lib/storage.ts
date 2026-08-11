@@ -106,7 +106,11 @@ function withCreatorMeta<T extends { id: string; createdAt?: string }>(
 }
 
 function hasWorkspaceSharedColumn(table: EntityTable) {
-  return table === "schedules" || table === "listed_properties";
+  return (
+    table === "schedules" ||
+    table === "listed_properties" ||
+    table === "customers"
+  );
 }
 
 function baseSelectCols(withShared: boolean) {
@@ -142,13 +146,34 @@ async function findRow(
   let { data, error } = await trySelect(true);
   if (
     error &&
-    table === "listed_properties" &&
+    (table === "listed_properties" || table === "customers") &&
     isMissingWorkspaceSharedColumn(error)
   ) {
     ({ data, error } = await trySelect(false));
   }
   if (error || !data) return null;
-  return data as unknown as RowMeta;
+  const row = data as unknown as RowMeta;
+  if (!(await canAccessEntityRow(row))) return null;
+  return row;
+}
+
+/** 본인 행이거나, 같은 팀 + 팀 공유 켠 행만 접근 허용 */
+async function canAccessEntityRow(row: RowMeta): Promise<boolean> {
+  try {
+    const userId = await getSessionUserId();
+    if (!userId) return false;
+    if (row.user_id === userId) return true;
+    if (isDemoEntityId(row.id)) return false;
+    const payloadShared = Boolean(
+      (row.payload as { workspaceShared?: boolean } | null)?.workspaceShared
+    );
+    const shared = row.workspace_shared === true || payloadShared;
+    if (!shared || !row.workspace_id) return false;
+    const myWorkspace = await getWorkspaceId(userId);
+    return Boolean(myWorkspace && myWorkspace === row.workspace_id);
+  } catch {
+    return false;
+  }
 }
 
 async function softDeleteRow(
@@ -162,6 +187,7 @@ async function softDeleteRow(
     throw new Error(`${entityLabel}을(를) 찾을 수 없습니다.`);
   }
   if (row.deleted_at) return;
+  // 본인 또는 팀 공유된 항목만 삭제 가능 (findRow/canAccess 로 이미 검증)
 
   const supabase = createClient();
   const now = new Date().toISOString();
@@ -210,7 +236,7 @@ async function listActivePayloads<T>(
     let { data, error } = await selectOwn(canSharedCol);
     if (
       error &&
-      table === "listed_properties" &&
+      (table === "listed_properties" || table === "customers") &&
       isMissingWorkspaceSharedColumn(error)
     ) {
       ({ data, error } = await selectOwn(false));
@@ -220,7 +246,7 @@ async function listActivePayloads<T>(
     const ownRows = data as unknown as RowMeta[];
     const byId = new Map(ownRows.map((r) => [r.id, r]));
 
-    // 팀 공유 행 (다른 회원) — 컬럼/권한 없으면 조용히 스킵
+    // 팀 공유 행 (다른 회원) — workspace_shared = true 만
     if (workspaceId && canSharedCol) {
       const selectCols = baseSelectCols(true);
       const shared = await supabase
@@ -229,20 +255,6 @@ async function listActivePayloads<T>(
         .eq("workspace_id", workspaceId)
         .eq("workspace_shared", true)
         .is("deleted_at", null)
-        .order("updated_at", { ascending: false });
-      if (!shared.error && shared.data) {
-        for (const row of shared.data as unknown as RowMeta[]) {
-          if (!byId.has(row.id)) byId.set(row.id, row);
-        }
-      }
-    } else if (workspaceId && table === "customers") {
-      const selectCols = baseSelectCols(false);
-      const shared = await supabase
-        .from(table)
-        .select(selectCols)
-        .eq("workspace_id", workspaceId)
-        .is("deleted_at", null)
-        .neq("user_id", userId)
         .order("updated_at", { ascending: false });
       if (!shared.error && shared.data) {
         for (const row of shared.data as unknown as RowMeta[]) {
@@ -270,6 +282,8 @@ function enrichCustomer(row: RowMeta): Customer {
     createdByName:
       row.created_by_name || payload.createdByName || "",
     workspaceId: row.workspace_id || payload.workspaceId,
+    workspaceShared:
+      row.workspace_shared ?? payload.workspaceShared ?? false,
   };
 }
 
@@ -343,8 +357,12 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
   const boundWorkspace = demo
     ? null
     : workspaceId || existing?.workspace_id || null;
+  const shared = Boolean(customer.workspaceShared === true);
   const payload = withCreatorMeta(
-    customer,
+    {
+      ...customer,
+      workspaceShared: shared,
+    },
     actor,
     boundWorkspace,
     existing
@@ -356,24 +374,32 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
   );
 
   const supabase = createClient();
-  const { error } = await supabase.from("customers").upsert(
-    {
-      id: payload.id,
-      user_id: ownerId,
-      workspace_id: boundWorkspace,
-      created_by: payload.createdBy,
-      created_by_name: payload.createdByName,
-      payload,
-      created_at: payload.createdAt,
-      updated_at: payload.updatedAt,
-      deleted_at: null,
-    },
-    { onConflict: "user_id,id" }
-  );
+  const rowBody = {
+    id: payload.id,
+    user_id: ownerId,
+    workspace_id: boundWorkspace,
+    created_by: payload.createdBy,
+    created_by_name: payload.createdByName,
+    workspace_shared: shared,
+    payload,
+    created_at: payload.createdAt,
+    updated_at: payload.updatedAt,
+    deleted_at: null,
+  };
+  let { error } = await supabase
+    .from("customers")
+    .upsert(rowBody, { onConflict: "user_id,id" });
+  if (error && isMissingWorkspaceSharedColumn(error)) {
+    const { workspace_shared: _ignored, ...withoutShared } = rowBody;
+    ({ error } = await supabase
+      .from("customers")
+      .upsert(withoutShared, { onConflict: "user_id,id" }));
+  }
   throwIfError(error, "고객 저장 실패");
   upsertCustomerInCache({
     ...payload,
     workspaceId: boundWorkspace || undefined,
+    workspaceShared: shared,
   });
   return getCustomers();
 }

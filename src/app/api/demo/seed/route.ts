@@ -134,22 +134,34 @@ export async function POST(request: Request) {
         ...c,
         createdBy: userId,
         createdByName: displayName,
+        workspaceShared: false,
       };
-      const { error } = await admin.from("customers").upsert(
-        {
-          id: c.id,
-          user_id: userId,
-          workspace_id: null,
-          created_by: userId,
-          created_by_name: displayName,
-          payload,
-          created_at: c.createdAt,
-          updated_at: new Date().toISOString(),
-          deleted_at: null,
-          deleted_by: null,
-        },
-        { onConflict: "user_id,id" }
-      );
+      const rowBody: Record<string, unknown> = {
+        id: c.id,
+        user_id: userId,
+        workspace_id: null,
+        created_by: userId,
+        created_by_name: displayName,
+        payload,
+        created_at: c.createdAt,
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+        deleted_by: null,
+      };
+      let { error } = await admin
+        .from("customers")
+        .upsert(
+          { ...rowBody, workspace_shared: false },
+          { onConflict: "user_id,id" }
+        );
+      if (
+        error &&
+        /workspace_shared|does not exist|schema cache/i.test(error.message)
+      ) {
+        ({ error } = await admin
+          .from("customers")
+          .upsert(rowBody, { onConflict: "user_id,id" }));
+      }
       if (error) {
         return NextResponse.json(
           { ok: false, message: `고객 시드 실패: ${error.message}` },

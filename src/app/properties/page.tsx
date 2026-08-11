@@ -18,6 +18,12 @@ import {
   markCustomerSwipeUsed,
 } from "@/lib/customerSwipeHint";
 import { deleteListedProperty, upsertListedProperty } from "@/lib/storage";
+import { peekCurrentUser } from "@/lib/auth";
+import {
+  confirmForeignTeamDelete,
+  confirmForeignTeamEdit,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import { usePropertiesList } from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/seedDemo";
 import type { ListedProperty } from "@/lib/types";
@@ -117,6 +123,15 @@ export default function PropertyListPage() {
 
   const confirmPending = async () => {
     if (!pending || !pendingProperty || busy) return;
+    const myId = peekCurrentUser()?.id;
+    const foreign = isForeignTeamItem(pendingProperty.createdBy, myId);
+    if (foreign) {
+      const ok =
+        pending.type === "delete"
+          ? confirmForeignTeamDelete("매물")
+          : confirmForeignTeamEdit("매물");
+      if (!ok) return;
+    }
     setBusy(true);
     try {
       if (pending.type === "delete") {

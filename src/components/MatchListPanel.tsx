@@ -19,6 +19,11 @@ import {
   getCustomerParkingLabel,
 } from "@/lib/format";
 import { deleteCustomer, deleteListedProperty, getListedProperties } from "@/lib/storage";
+import { peekCurrentUser } from "@/lib/auth";
+import {
+  foreignTeamDeleteMessage,
+  isForeignTeamItem,
+} from "@/lib/teamActionGuard";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 function CloseXButton({ onClick }: { onClick: () => void }) {
@@ -218,7 +223,12 @@ export function MatchingPropertiesSection({
       <Modal
         open={Boolean(pendingDelete)}
         title="매물 삭제"
-        description="삭제하시겠습니까? 조건에 맞는 매물 리스트에서 영구적으로 제외됩니다."
+        description={
+          pendingDelete &&
+          isForeignTeamItem(pendingDelete.createdBy, peekCurrentUser()?.id)
+            ? foreignTeamDeleteMessage("매물")
+            : "삭제하시겠습니까? 조건에 맞는 매물 리스트에서 영구적으로 제외됩니다."
+        }
         onClose={() => {
           if (!busy) setPendingDelete(null);
         }}
@@ -345,7 +355,12 @@ export function MatchingCustomersSection({
       <Modal
         open={Boolean(pendingDelete)}
         title="고객 삭제"
-        description="삭제하시겠습니까? 고객 리스트에서도 제외됩니다."
+        description={
+          pendingDelete &&
+          isForeignTeamItem(pendingDelete.createdBy, peekCurrentUser()?.id)
+            ? foreignTeamDeleteMessage("고객")
+            : "삭제하시겠습니까? 고객 리스트에서도 제외됩니다."
+        }
         onClose={() => {
           if (!busy) setPendingDelete(null);
         }}
