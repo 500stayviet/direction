@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import type {
   BuildingKind,
   CarType,
@@ -14,8 +14,12 @@ import {
   BUILDING_KINDS,
   LOAN_KIND_OPTIONS,
   ROOM_TYPES,
+  defaultRoomBathCounts,
+  needsRoomBathCounts,
   normalizeBuildingKind,
+  normalizeRoomType,
 } from "@/lib/constants";
+import { SITE_SHARE_UI_ENABLED } from "@/lib/siteShare";
 import { createId } from "@/lib/id";
 import {
   formatDepositRent,
@@ -23,11 +27,16 @@ import {
   formatPhoneInput,
   resolveCustomerLoanNeeded,
 } from "@/lib/format";
+import { findCustomerBySamePhone } from "@/lib/duplicateEntity";
+import { useCustomersList } from "@/hooks/useEntityList";
 import { Input, Select, TextArea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StickyActionBar } from "@/components/StickyActionBar";
+import { SiteShareFormField } from "@/components/SiteShareUi";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
+import { RoomBathCountFields } from "@/components/RoomBathCountFields";
+import { CircleCheck } from "@/components/ui/CircleCheck";
 import { OptionToggle } from "@/components/OptionToggle";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -46,17 +55,36 @@ export function CustomerForm({
   onSubmit,
   submitLabel = "저장하기",
 }: CustomerFormProps) {
+  const { items: customers } = useCustomersList();
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(formatPhoneInput(initial?.phone ?? ""));
   const [dealType, setDealType] = useState<DealType>(
     initial?.dealType ?? "월세"
   );
   const [roomType, setRoomType] = useState<RoomType>(
-    initial?.roomType ?? "원룸"
+    () => normalizeRoomType(initial?.roomType) ?? initial?.roomType ?? "원룸"
   );
   const [buildingKind, setBuildingKind] = useState<BuildingKind | "">(
     () => normalizeBuildingKind(initial?.buildingKind) ?? ""
   );
+  const [roomCount, setRoomCount] = useState<number>(() => {
+    const type =
+      normalizeRoomType(initial?.roomType) ?? initial?.roomType ?? "원룸";
+    if (initial?.roomCount && initial.roomCount > 0) return initial.roomCount;
+    if (needsRoomBathCounts(type)) return defaultRoomBathCounts(type).roomCount;
+    return 0;
+  });
+  const [bathroomCount, setBathroomCount] = useState<number>(() => {
+    const type =
+      normalizeRoomType(initial?.roomType) ?? initial?.roomType ?? "원룸";
+    if (initial?.bathroomCount && initial.bathroomCount > 0) {
+      return initial.bathroomCount;
+    }
+    if (needsRoomBathCounts(type)) {
+      return defaultRoomBathCounts(type).bathroomCount;
+    }
+    return 1;
+  });
   const [deposit, setDeposit] = useState<number>(initial?.deposit ?? 0);
   const [depositTo, setDepositTo] = useState<number>(
     () => initial?.depositTo ?? initial?.deposit ?? 0
@@ -121,6 +149,15 @@ export function CustomerForm({
     initial?.petAllowed ?? "무"
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [workspaceShared, setWorkspaceShared] = useState(
+    initial?.workspaceShared === true
+  );
+  const [siteShared, setSiteShared] = useState(initial?.siteShared === true);
+
+  const duplicateCustomer = useMemo(
+    () => findCustomerBySamePhone(phone, customers, initial?.id),
+    [phone, customers, initial?.id]
+  );
 
   const isLandOrBuilding = roomType === "토지" || roomType === "건물";
   const effectiveDealType: DealType = isLandOrBuilding ? "매매" : dealType;
@@ -142,6 +179,14 @@ export function CustomerForm({
     if (roomType === "건물" && !buildingKind) {
       alert("건물 종류를 선택해 주세요.");
       return;
+    }
+    if (needsRoomBathCounts(roomType)) {
+      const rooms = roomType === "투룸" ? 2 : roomCount;
+      const min = roomType === "3룸+" ? 3 : 1;
+      if (!rooms || rooms < min) {
+        alert("방 수를 선택해 주세요.");
+        return;
+      }
     }
     if (!deposit || deposit <= 0) {
       alert(
@@ -208,6 +253,12 @@ export function CustomerForm({
       dealType: savedDealType,
       roomType,
       buildingKind: roomType === "건물" ? buildingKind || undefined : undefined,
+      roomCount: needsRoomBathCounts(roomType)
+        ? roomType === "투룸"
+          ? 2
+          : roomCount
+        : undefined,
+      bathroomCount: needsRoomBathCounts(roomType) ? bathroomCount : undefined,
       deposit,
       depositTo: savedDepositTo,
       depositSingle,
@@ -251,6 +302,8 @@ export function CustomerForm({
           : carType,
       petAllowed,
       notes: notes.trim(),
+      workspaceShared,
+      siteShared: SITE_SHARE_UI_ENABLED ? siteShared : false,
       contractCompleted: initial?.contractCompleted,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
@@ -273,10 +326,13 @@ export function CustomerForm({
             required
             value={phone}
             onChange={setPhone}
+            labelRight={
+              duplicateCustomer ? "동일 고객이 존재합니다" : undefined
+            }
             hint="숫자만 입력해도 - 가 자동으로 붙어요 · 저장 후 원클릭 전화"
           />
           <OptionToggle
-            label="거래유형"
+            label="매물 유형"
             required
             value={roomType}
             options={ROOM_TYPES}
@@ -302,15 +358,16 @@ export function CustomerForm({
               if (next !== "건물") {
                 setBuildingKind("");
               }
+              if (needsRoomBathCounts(next)) {
+                const defaults = defaultRoomBathCounts(next);
+                setRoomCount(defaults.roomCount);
+                setBathroomCount(defaults.bathroomCount);
+              } else {
+                setRoomCount(0);
+                setBathroomCount(1);
+              }
             }}
             columns={4}
-          />
-          <DealTypeToggle
-            label="희망 거래 유형"
-            required
-            value={effectiveDealType}
-            onChange={handleDealTypeChange}
-            types={isLandOrBuilding ? (["매매"] as const) : undefined}
           />
 
           {roomType === "건물" ? (
@@ -323,6 +380,24 @@ export function CustomerForm({
               onChange={setBuildingKind}
             />
           ) : null}
+
+          <RoomBathCountFields
+            roomType={roomType}
+            roomCount={roomCount}
+            bathroomCount={bathroomCount}
+            onChange={({ roomCount: nextRooms, bathroomCount: nextBaths }) => {
+              setRoomCount(nextRooms);
+              setBathroomCount(nextBaths);
+            }}
+          />
+
+          <DealTypeToggle
+            label="희망거래"
+            required
+            value={effectiveDealType}
+            onChange={handleDealTypeChange}
+            types={isLandOrBuilding ? (["매매"] as const) : undefined}
+          />
 
           <div className="space-y-2">
             <div className="space-y-1">
@@ -341,8 +416,7 @@ export function CustomerForm({
                   ) : null}
                 </p>
                 <label className="flex shrink-0 items-center gap-2 active:scale-95 transition-all duration-150">
-                  <input
-                    type="checkbox"
+                  <CircleCheck
                     checked={depositSingle}
                     onChange={(e) => {
                       const on = e.target.checked;
@@ -351,7 +425,6 @@ export function CustomerForm({
                         setDepositTo(deposit);
                       }
                     }}
-                    className="h-5 w-5 accent-[#3182F6]"
                   />
                   <span className="text-[14px] font-semibold text-gray-700">
                     단일
@@ -414,8 +487,7 @@ export function CustomerForm({
                     <span className="ml-0.5 text-[#3182F6]">*</span>
                   </p>
                   <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                    <input
-                      type="checkbox"
+                    <CircleCheck
                       checked={monthlyRentSingle}
                       onChange={(e) => {
                         const on = e.target.checked;
@@ -424,7 +496,6 @@ export function CustomerForm({
                           setMonthlyRentTo(monthlyRent);
                         }
                       }}
-                      className="h-5 w-5 accent-[#3182F6]"
                     />
                     <span className="text-[14px] font-semibold text-gray-700">
                       단일
@@ -476,11 +547,9 @@ export function CustomerForm({
 
             {effectiveDealType === "매매" ? (
               <label className="flex min-h-[48px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
-                <input
-                  type="checkbox"
+                <CircleCheck
                   checked={nonOccupancy}
                   onChange={(e) => setNonOccupancy(e.target.checked)}
-                  className="h-5 w-5 accent-[#3182F6]"
                 />
                 <span className="flex-1">
                   <span className="block text-[15px] font-bold text-gray-900">
@@ -502,8 +571,7 @@ export function CustomerForm({
                   <span className="ml-0.5 text-[#3182F6]">*</span>
                 </p>
                 <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                  <input
-                    type="checkbox"
+                  <CircleCheck
                     checked={moveInSingle}
                     onChange={(e) => {
                       const on = e.target.checked;
@@ -512,7 +580,6 @@ export function CustomerForm({
                         setMoveInTo(moveInFrom);
                       }
                     }}
-                    className="h-5 w-5 accent-[#3182F6]"
                   />
                   <span className="text-[14px] font-semibold text-gray-700">
                     단일
@@ -539,6 +606,9 @@ export function CustomerForm({
                   onChange={({ from, to }) => {
                     setMoveInFrom(from);
                     setMoveInTo(to);
+                    if (from && to && from === to) {
+                      setMoveInSingle(true);
+                    }
                   }}
                 />
               )}
@@ -616,6 +686,17 @@ export function CustomerForm({
                 ? "건폐율, 용적률, 현황, 향, 희망조건 등"
                 : "현황, 향, 희망조건, 희망층수, 애완동물 등"
             }
+          />
+          <OptionToggle
+            label="팀공유 유무"
+            columns={2}
+            value={workspaceShared ? "유" : "무"}
+            options={["유", "무"] as const}
+            onChange={(v) => setWorkspaceShared(v === "유")}
+          />
+          <SiteShareFormField
+            value={siteShared}
+            onChange={setSiteShared}
           />
         </Card>
       </form>

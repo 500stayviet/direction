@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername } from "@/lib/supabase/email";
 
 const CONFIRM_PHRASE = "계정삭제에 동의합니다";
+/** ~100년 — 로그인 불가 처리 (하드 삭제하지 않음) */
+const BAN_DURATION = "876000h";
 
 export async function POST(request: Request) {
   try {
@@ -82,12 +84,18 @@ export async function POST(request: Request) {
 
     const [{ data: customers }, { data: properties }, { data: schedules }] =
       await Promise.all([
-        admin.from("customers").select("id, payload, created_at, updated_at").eq("user_id", userId),
+        admin
+          .from("customers")
+          .select("id, payload, created_at, updated_at")
+          .eq("user_id", userId),
         admin
           .from("listed_properties")
           .select("id, payload, created_at, updated_at")
           .eq("user_id", userId),
-        admin.from("schedules").select("id, payload, created_at, updated_at").eq("user_id", userId),
+        admin
+          .from("schedules")
+          .select("id, payload, created_at, updated_at")
+          .eq("user_id", userId),
       ]);
 
     const shopName = String(
@@ -137,20 +145,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // 활성 데이터 제거 후 Auth 계정 삭제 (profiles 등은 cascade)
-    await Promise.all([
-      admin.from("customers").delete().eq("user_id", userId),
-      admin.from("listed_properties").delete().eq("user_id", userId),
-      admin.from("schedules").delete().eq("user_id", userId),
-    ]);
+    // 하드 삭제하지 않음 — 보관·복구용으로 원본 유지, 로그인만 차단
+    const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: BAN_DURATION,
+      user_metadata: {
+        ...meta,
+        account_deleted: true,
+        account_deleted_at: archive.deleted_at,
+      },
+    });
 
-    const { error: deleteError } =
-      await admin.auth.admin.deleteUser(userId);
-    if (deleteError) {
+    if (banError) {
       return NextResponse.json(
         {
           ok: false,
-          message: `계정 삭제에 실패했습니다. ${deleteError.message}`,
+          message: `계정 비활성화에 실패했습니다. ${banError.message}`,
         },
         { status: 500 }
       );

@@ -23,11 +23,11 @@ import { createEmptyProperty } from "@/lib/constants";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import { createId } from "@/lib/id";
 import {
-  getCustomers,
   getCustomerById,
   touchRecentCustomer,
   upsertSchedule,
 } from "@/lib/storage";
+import { useCustomersList } from "@/hooks/useEntityList";
 import type { Customer, Property, Schedule } from "@/lib/types";
 import { PhoneLink } from "@/components/PhoneLink";
 import {
@@ -40,7 +40,7 @@ import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import { addMinutesToHHmm, cascadeArriveTimes } from "@/lib/arriveTime";
+import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { Modal } from "@/components/ui/Modal";
 
 type CustomerMode = "search" | "guest" | "selected";
@@ -51,7 +51,7 @@ function ScheduleCreateInner() {
   const presetCustomerId = searchParams.get("customerId");
 
   const [query, setQuery] = useState("");
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const { items: customers } = useCustomersList();
   const [mode, setMode] = useState<CustomerMode>("search");
   const [selected, setSelected] = useState<Customer | null>(null);
   const [guestName, setGuestName] = useState("");
@@ -88,13 +88,10 @@ function ScheduleCreateInner() {
   };
 
   useEffect(() => {
+    if (!presetCustomerId) return;
     void (async () => {
-      const list = await getCustomers();
-      setCustomers(list);
-      if (presetCustomerId) {
-        const found = await getCustomerById(presetCustomerId);
-        if (found) applyCustomerDealType(found);
-      }
+      const found = await getCustomerById(presetCustomerId);
+      if (found) applyCustomerDealType(found);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetCustomerId]);
@@ -125,13 +122,21 @@ function ScheduleCreateInner() {
     setProperties((prev) => {
       const prevItem = prev[index];
       const replaced = prev.map((p, i) => (i === index ? next : p));
-      return cascadeArriveTimes(
+      const cascaded = cascadeArriveTimes(
         replaced,
         index,
         prevItem?.arriveTime ?? "",
         next.arriveTime ?? ""
       );
+      if ((prevItem?.arriveTime ?? "") !== (next.arriveTime ?? "")) {
+        return sortPropertiesByArriveTime(cascaded);
+      }
+      return cascaded;
     });
+  };
+
+  const swapProperty = (fromIndex: number, toIndex: number) => {
+    setProperties((prev) => swapPropertySlots(prev, fromIndex, toIndex));
   };
 
   const addProperty = () => {
@@ -417,6 +422,9 @@ function ScheduleCreateInner() {
                 onChange={(next) => updateProperty(index, next)}
                 canRemove={properties.length > 1}
                 onRemove={() => removeProperty(index)}
+                propertyCount={properties.length}
+                allProperties={properties}
+                onSwapWith={(target) => swapProperty(index, target)}
                 enableLoad
                 validationActive={validationFocus?.index === index}
                 focusField={

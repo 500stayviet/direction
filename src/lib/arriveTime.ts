@@ -10,6 +10,10 @@ export function isUnsetArriveTime(value: string | undefined): boolean {
   return !t || t === "00:00" || t === "0:00";
 }
 
+function arriveSortKey(value: string | undefined): string {
+  return isUnsetArriveTime(value) ? "99:99" : (value ?? "").trim();
+}
+
 /**
  * HH:mm 에 분을 더한 시각.
  * 정오(12시)는 선택 불가이므로 13:00으로 넘기고, 최대 23:50.
@@ -75,5 +79,40 @@ export function cascadeArriveTimes(
     cursor = filled;
   }
 
+  return next;
+}
+
+/** 방문 약속 시간이 빠른 순으로 정렬 (미입력은 맨 뒤) */
+export function sortPropertiesByArriveTime(list: Property[]): Property[] {
+  return [...list].sort((a, b) =>
+    arriveSortKey(a.arriveTime).localeCompare(arriveSortKey(b.arriveTime))
+  );
+}
+
+/**
+ * 두 슬롯의 매물을 맞바꾸고, 각 슬롯의 방문 약속 시간은 유지
+ * (예: 1번↔2번 교환 시 시간은 자리에 남고 매물만 바뀜)
+ */
+export function swapPropertySlots(
+  list: Property[],
+  fromIndex: number,
+  toIndex: number
+): Property[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= list.length ||
+    toIndex >= list.length
+  ) {
+    return list;
+  }
+  const next = [...list];
+  const from = next[fromIndex];
+  const to = next[toIndex];
+  const fromTime = from.arriveTime;
+  const toTime = to.arriveTime;
+  next[fromIndex] = { ...to, arriveTime: fromTime };
+  next[toIndex] = { ...from, arriveTime: toTime };
   return next;
 }

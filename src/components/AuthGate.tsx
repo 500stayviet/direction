@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getCurrentUser, getSessionUserId, BOOT_SPLASH_DONE_KEY } from "@/lib/auth";
+import { getCurrentUser, getSessionUserId, getAccessToken, BOOT_SPLASH_DONE_KEY } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { createClient } from "@/lib/supabase/client";
 
@@ -96,14 +96,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         }
 
         if (user && (pathname === "/login" || pathname === "/signup")) {
-          void seedDemoDataIfNeeded().catch(() => undefined);
+          await getAccessToken();
+          await seedDemoDataIfNeeded().catch(() => undefined);
           if (cancelled) return;
           router.replace("/");
           return;
         }
 
         if (user) {
-          void seedDemoDataIfNeeded().catch(() => undefined);
+          await getAccessToken();
+          await seedDemoDataIfNeeded().catch(() => undefined);
         }
         if (cancelled) return;
         setReady(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Property } from "@/lib/types";
-import { displayRoomType, skipsResidentialExtras } from "@/lib/constants";
+import { skipsResidentialExtras, normalizeUnitCounts, needsRoomBathCounts } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
@@ -12,10 +12,16 @@ import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
 import { AddressLink } from "@/components/AddressLink";
 import { PasswordReveal } from "@/components/PasswordReveal";
+import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
+import { ListEdgeChips } from "@/components/ListEdgeChips";
+import { useState } from "react";
 
 interface PropertyBriefProps {
   index: number;
   property: Property;
+  /** 순서 변경용 전체 매물 (2개 이상일 때 제목 탭) */
+  allProperties?: Property[];
+  onSwapWith?: (targetIndex: number) => void;
 }
 
 const chipBase =
@@ -41,7 +47,14 @@ function StatusChip({
   );
 }
 
-export function PropertyBrief({ index, property }: PropertyBriefProps) {
+export function PropertyBrief({
+  index,
+  property,
+  allProperties,
+  onSwapWith,
+}: PropertyBriefProps) {
+  const [moveOpen, setMoveOpen] = useState(false);
+  const canReorder = Boolean(onSwapWith);
   const insuranceOn =
     property.insuranceType === "유" ||
     Boolean(
@@ -57,37 +70,62 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
   const partnerLabel =
     property.partnerAgency.name?.trim() || "협력부동산";
 
+  const dealLabel =
+    property.roomType === "건물" || property.roomType === "토지"
+      ? "매매"
+      : property.dealType;
+
   return (
     <div className="relative pt-3">
-      {property.arriveTime ? (
-        <div className="absolute left-4 top-3 z-10 -translate-y-1/2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1.5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
+      <div className="pointer-events-none absolute inset-x-2 top-3 z-10 flex -translate-y-1/2 items-center gap-1 overflow-hidden">
+        {property.arriveTime ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#3182F6] px-2.5 py-1 text-[12px] font-extrabold text-white shadow-sm ring-2 ring-[#F9FAFB]">
             <span className="text-white/80">방문 약속</span>
             <span className="tabular-nums tracking-tight">
               {formatDisplayTime(property.arriveTime)}
             </span>
           </span>
-        </div>
-      ) : null}
+        ) : null}
+        <div className="min-w-0 flex-1" />
+        <ListEdgeChips
+          placement="inline"
+          roomType={property.roomType}
+          buildingKind={property.buildingKind}
+          dealType={dealLabel}
+        />
+      </div>
 
       <Card className="space-y-0 !overflow-visible !p-0">
-        <div className="flex items-center justify-between gap-3 px-4 pt-5">
-          <p className="min-w-0 text-[22px] font-extrabold tracking-tight text-gray-900">
-            {index + 1}번 매물
-          </p>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-            {property.roomType ? (
-              <span className="rounded-lg bg-[#F2F4F6] px-2.5 py-1 text-[13px] font-bold text-gray-700">
-                {displayRoomType(property.roomType, property.buildingKind)}
+        <div className="relative z-10 px-4 pt-5">
+          {canReorder ? (
+            <button
+              type="button"
+              onClick={() => setMoveOpen(true)}
+              className="group flex min-h-[44px] min-w-0 items-center gap-1.5 text-left active:scale-[0.98] transition-transform"
+            >
+              <span className="truncate text-[22px] font-extrabold tracking-tight text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
+                {index + 1}번 매물
               </span>
-            ) : null}
-            <span className="rounded-lg bg-[#3182F6]/12 px-2.5 py-1 text-[13px] font-bold text-[#3182F6]">
-              {property.roomType === "건물" || property.roomType === "토지"
-                ? "매매"
-                : property.dealType}
-            </span>
-          </div>
+              <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-[#3182F6]">
+                순서 변경
+              </span>
+            </button>
+          ) : (
+            <p className="min-w-0 text-[22px] font-extrabold tracking-tight text-gray-900">
+              {index + 1}번 매물
+            </p>
+          )}
         </div>
+
+        {canReorder ? (
+          <SchedulePropertySwapModal
+            open={moveOpen}
+            onClose={() => setMoveOpen(false)}
+            properties={allProperties ?? [property]}
+            fromIndex={index}
+            onSelect={(target) => onSwapWith?.(target)}
+          />
+        ) : null}
 
         <div className="space-y-3 px-4 pb-4 pt-3">
         {/* 원터치 네비 — 블루 포인트 (탭 = 지번까지만 네비 전달) */}
@@ -172,7 +210,7 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               {property.landlordPhone ? (
                 <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
                   <span className="shrink-0 text-[14px] font-bold text-gray-700">
-                    집주인
+                    임대인
                   </span>
                   <PhoneLink
                     phone={property.landlordPhone}
@@ -257,16 +295,27 @@ export function PropertyBrief({ index, property }: PropertyBriefProps) {
               <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {(
                   [
-                    ["원룸", property.unitCounts.원룸],
-                    ["투룸", property.unitCounts.투룸],
-                    ["쓰리룸", property.unitCounts.쓰리룸],
-                    ["쓰리룸+", property.unitCounts["쓰리룸+"]],
-                    ["상가", property.unitCounts.상가],
+                    ["원룸", normalizeUnitCounts(property.unitCounts).원룸],
+                    ["투룸", normalizeUnitCounts(property.unitCounts).투룸],
+                    ["3룸+", normalizeUnitCounts(property.unitCounts)["3룸+"]],
+                    ["상가", normalizeUnitCounts(property.unitCounts).상가],
                   ] as const
                 )
                   .filter(([, n]) => n > 0)
                   .map(([label, n]) => `${label} ${n}`)
                   .join(" · ") || "-"}
+              </p>
+            </div>
+          ) : null}
+          {needsRoomBathCounts(property.roomType) ? (
+            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                방 · 화장실
+              </p>
+              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                방 {property.roomType === "투룸" ? 2 : property.roomCount ?? "-"}개
+                {" · "}
+                화장실 {property.bathroomCount ?? 1}개
               </p>
             </div>
           ) : null}

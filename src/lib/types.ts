@@ -2,8 +2,8 @@ export type DealType = "전세" | "월세" | "매매";
 export type RoomType =
   | "원룸"
   | "투룸"
-  | "쓰리룸"
-  | "쓰리룸+"
+  | "3룸+"
+  | "아파트"
   | "상가"
   | "사무실"
   | "토지"
@@ -12,7 +12,7 @@ export type RoomType =
 export type BuildingKind = "단독주택(다중주택)" | "상가주택" | "근생건물";
 /** 건물 임대료 입력 방식 */
 export type RentInputMode = "합계" | "상세";
-export type ResidentialUnitKey = "원룸" | "투룸" | "쓰리룸" | "쓰리룸+";
+export type ResidentialUnitKey = "원룸" | "투룸" | "3룸+";
 export type BuildingUnitKey = ResidentialUnitKey | "상가";
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
@@ -25,8 +25,7 @@ export type NaviApp = "kakaonavi" | "tmap" | "navermap" | "kakaomap";
 export interface BuildingUnitCounts {
   원룸: number;
   투룸: number;
-  쓰리룸: number;
-  "쓰리룸+": number;
+  "3룸+": number;
   상가: number;
 }
 
@@ -34,16 +33,14 @@ export interface BuildingUnitCounts {
 export interface BuildingBathroomCounts {
   원룸: number;
   투룸: number;
-  쓰리룸: number;
-  "쓰리룸+": number;
+  "3룸+": number;
 }
 
 /** 주거 유형별 실사용면적(평) */
 export interface BuildingRoomAreas {
   원룸?: number;
   투룸?: number;
-  쓰리룸?: number;
-  "쓰리룸+"?: number;
+  "3룸+"?: number;
 }
 
 /** 상세 모드 — 유형별 보증·월세(만원) */
@@ -66,7 +63,17 @@ export interface User {
   createdAt: string;
 }
 
-export interface Customer {
+/** 공통: 업장 공유·등록자 표시용 */
+export interface SharedMeta {
+  /** 업장 공간 ID */
+  workspaceId?: string;
+  /** 등록자 user id */
+  createdBy?: string;
+  /** 등록 당시 표시 이름 스냅샷 */
+  createdByName?: string;
+}
+
+export interface Customer extends SharedMeta {
   id: string;
   name: string;
   phone: string;
@@ -75,6 +82,17 @@ export interface Customer {
   roomType?: RoomType;
   /** 건물일 때 희망 건물 종류 (매물 buildingKind와 매칭) */
   buildingKind?: BuildingKind;
+  /** 희망 방 수 (투룸·3룸+·아파트) */
+  roomCount?: number;
+  /** 희망 화장실 수 (투룸·3룸+·아파트) */
+  bathroomCount?: number;
+  /**
+   * 팀 공유 여부 (테스트/표시용). false면 팀공유 중단 중.
+   * 미설정이면 업장 연결 시 공유 중으로 간주.
+   */
+  workspaceShared?: boolean;
+  /** 사이트내(현장동선) 공유 — 다른 회원 매물 자동매칭용 */
+  siteShared?: boolean;
   /** 보증금 또는 매가 (만원) — 단일값 또는 범위 시작 */
   deposit: number;
   /** 보증금/매가 범위 종료 (만원). 단일일 때는 deposit와 같거나 생략 */
@@ -122,7 +140,7 @@ export interface PartnerAgency {
   dong: string;
 }
 
-export interface Property {
+export interface Property extends SharedMeta {
   id: string;
   address: string;
   roomNo: string;
@@ -136,7 +154,7 @@ export interface Property {
   arriveTime?: string;
   /** 임차인 연락처 */
   tenantPhone?: string;
-  /** 집주인 연락처 */
+  /** 임대인 연락처 */
   landlordPhone?: string;
   /** 협력 부동산 여부 */
   hasPartnerAgency: boolean;
@@ -144,6 +162,10 @@ export interface Property {
   dealType: DealType;
   /** 방/매물 유형 (고객 유형을 기본으로 불러옴) */
   roomType?: RoomType;
+  /** 방 수 (투룸은 2 고정 · 3룸+/아파트 선택, 필수 · 최대 5) */
+  roomCount?: number;
+  /** 화장실 수 (투룸·3룸+·아파트) */
+  bathroomCount?: number;
   deposit: number;
   monthlyRent?: number;
   maintenanceFee: number;
@@ -166,6 +188,10 @@ export interface Property {
   insuranceType?: string;
   /** 추가 메모·특이사항 (건폐율·용적률·현황·향 등) */
   notes?: string;
+  /** 리스트 매물: 사이트내공유 여부 (유=공유중). 필드명 호환 유지 */
+  partnerAgencyShared?: boolean;
+  /** 리스트 매물: 팀공유 여부 (유=공유중) */
+  workspaceShared?: boolean;
   /** 실사용면적 평 (원룸·상가 등 단일 유형) */
   usableArea?: number;
   /** 토지 대지면적 평 / 건물 토지면적 평 */
@@ -182,7 +208,7 @@ export interface Property {
   buildingArea?: number;
   /** 주차 대수 */
   parkingSpaces?: number;
-  /** 원룸·투룸·쓰리룸·쓰리룸+·상가 호수 */
+  /** 원룸·투룸·3룸+·상가 호수 */
   unitCounts?: BuildingUnitCounts;
   /** 주거 유형별 화장실 수(호실당) */
   bathroomCounts?: BuildingBathroomCounts;
@@ -202,6 +228,8 @@ export interface Property {
 export interface ListedProperty extends Property {
   createdAt: string;
   updatedAt: string;
+  /** 계약/거래 완료 여부 */
+  contractCompleted?: boolean;
 }
 
 export interface RouteSummary {
@@ -211,7 +239,7 @@ export interface RouteSummary {
   durationMin: number;
 }
 
-export interface Schedule {
+export interface Schedule extends SharedMeta {
   id: string;
   /** 등록 고객 ID. 고객없음(게스트)일 때는 비움 */
   customerId?: string;
@@ -223,6 +251,10 @@ export interface Schedule {
   visitTime?: string;
   properties: Property[];
   routeSummary: RouteSummary[];
+  /** true면 업장 멤버에게 네비(일정) 공유 */
+  workspaceShared?: boolean;
+  /** 방문 종료(완료) — 리스트에서 회색·하단 정렬 */
+  visitCompleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }

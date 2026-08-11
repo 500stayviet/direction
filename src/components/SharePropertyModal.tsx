@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { CircleCheck } from "@/components/ui/CircleCheck";
 import { buildPropertyShareText } from "@/lib/shareProperty";
 import type { Property, User } from "@/lib/types";
 
@@ -76,20 +77,16 @@ export function SharePropertyModal({
           </p>
           <div className="mt-1 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
             <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-gray-600">
-              <input
-                type="checkbox"
+              <CircleCheck
                 checked={excludeRoomNo}
                 onChange={(e) => setExcludeRoomNo(e.target.checked)}
-                className="h-4 w-4 accent-[#3182F6]"
               />
               호실 제외
             </label>
             <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-semibold text-gray-600">
-              <input
-                type="checkbox"
+              <CircleCheck
                 checked={excludeNotes}
                 onChange={(e) => setExcludeNotes(e.target.checked)}
-                className="h-4 w-4 accent-[#3182F6]"
               />
               추가내용 제외
             </label>

@@ -9,6 +9,7 @@ export type PropertyFieldKey =
   | "partnerPhone"
   | "address"
   | "roomType"
+  | "roomCount"
   | "buildingKind"
   | "dealType"
   | "deposit"
@@ -38,16 +39,17 @@ function hasUsableContact(property: Property): boolean {
 const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
   contacts: (p) =>
     p.hasPartnerAgency
-      ? "협력 부동산 연락처 또는 임차인·집주인 번호를 입력해 주세요."
-      : "임차인 번호 또는 집주인 번호 중 하나는 입력해 주세요.",
+      ? "협력 부동산 연락처 또는 임차인·임대인 번호를 입력해 주세요."
+      : "임차인 번호 또는 임대인 번호 중 하나는 입력해 주세요.",
   partnerName: () => "협력 부동산 상호명을 입력해 주세요.",
   partnerDong: () => "협력 부동산 동을 입력해 주세요.",
   partnerPhone: () => "협력 부동산 연락처를 입력해 주세요.",
   address: () => "구·동·지번 본번을 입력해 주세요.",
-  roomType: () => "유형을 선택해 주세요.",
+  roomType: () => "매물 유형을 선택해 주세요.",
+  roomCount: () => "방 수를 선택해 주세요.",
   buildingKind: () =>
     "건물 종류(단독주택·상가주택·근생)를 선택해 주세요.",
-  dealType: () => "거래 형태를 선택해 주세요.",
+  dealType: () => "희망거래를 선택해 주세요.",
   deposit: (p) =>
     p.dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",
   parking: () => "주차 유무를 선택해 주세요.",
@@ -85,6 +87,16 @@ export function getMissingRequiredFields(
   if (!property.roomType) missing.push("roomType");
   if (property.roomType === "건물" && !property.buildingKind) {
     missing.push("buildingKind");
+  }
+  if (
+    property.roomType === "투룸" ||
+    property.roomType === "3룸+" ||
+    property.roomType === "아파트"
+  ) {
+    const rooms =
+      property.roomType === "투룸" ? 2 : property.roomCount;
+    const min = property.roomType === "3룸+" ? 3 : 1;
+    if (!rooms || rooms < min) missing.push("roomCount");
   }
   if (!property.dealType) missing.push("dealType");
 

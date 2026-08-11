@@ -4,6 +4,27 @@ export function onlyDigits(phone: string, max = 11): string {
 }
 
 /**
+ * 업장명 정규화 — 「부동산」「공인중개사사무소」가 없으면
+ * 「공인중개사사무소」를 붙여 저장 (예: 천호동 → 천호동 공인중개사사무소)
+ * 미입력 기본값「현장동선」은 그대로 둠
+ */
+export function normalizeShopName(
+  raw: string,
+  emptyDefault = "현장동선"
+): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed) return emptyDefault;
+  if (trimmed === emptyDefault) return trimmed;
+  if (
+    trimmed.includes("부동산") ||
+    trimmed.includes("공인중개사사무소")
+  ) {
+    return trimmed;
+  }
+  return `${trimmed} 공인중개사사무소`;
+}
+
+/**
  * 입력 중에도 자동 하이픈
  * - 휴대폰: 010-1234-5678
  * - 서울: 02-123-4567 / 02-1234-5678
@@ -155,9 +176,9 @@ export function formatDepositRent(
 ): string {
   const amount = formatMoneyRange(deposit, depositTo);
   if (dealType === "매매") return `매가 ${amount}`;
-  if (dealType === "전세") return `보증 ${amount}`;
+  if (dealType === "전세") return `보증금 ${amount}`;
   const rent = formatMoneyRange(monthlyRent ?? 0, monthlyRentTo);
-  return `보증 ${amount} · 월 ${rent}`;
+  return `보증금 ${amount} · 월 ${rent}`;
 }
 
 /** 고객 카드용: 보증금/월세(또는 매매가) 줄 단위 */

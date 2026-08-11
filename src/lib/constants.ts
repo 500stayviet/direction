@@ -2,6 +2,7 @@ import type {
   BuildingBathroomCounts,
   BuildingKind,
   BuildingUnitCounts,
+  BuildingRoomAreas,
   DealType,
   Property,
   ResidentialUnitKey,
@@ -14,8 +15,8 @@ export const DEAL_TYPES: DealType[] = ["매매", "전세", "월세"];
 export const ROOM_TYPES: RoomType[] = [
   "원룸",
   "투룸",
-  "쓰리룸",
-  "쓰리룸+",
+  "3룸+",
+  "아파트",
   "상가",
   "사무실",
   "토지",
@@ -47,37 +48,130 @@ export function normalizeBuildingKind(
 export const RESIDENTIAL_UNIT_KEYS: ResidentialUnitKey[] = [
   "원룸",
   "투룸",
-  "쓰리룸",
-  "쓰리룸+",
+  "3룸+",
 ];
 
 export const EMPTY_UNIT_COUNTS: BuildingUnitCounts = {
   원룸: 0,
   투룸: 0,
-  쓰리룸: 0,
-  "쓰리룸+": 0,
+  "3룸+": 0,
   상가: 0,
 };
 
 export const EMPTY_BATHROOM_COUNTS: BuildingBathroomCounts = {
   원룸: 1,
   투룸: 1,
-  쓰리룸: 1,
-  "쓰리룸+": 1,
+  "3룸+": 1,
 };
 
-/** 예전 저장값 '오피스' → '사무실' */
+export const ROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5"] as const;
+export const ROOM_COUNT_OPTIONS_3PLUS = ["3", "4", "5"] as const;
+export const BATHROOM_COUNT_OPTIONS = ["1", "2", "3", "4"] as const;
+
+/** 투룸·3룸+·아파트 — 방/화장실 수 입력 */
+export function needsRoomBathCounts(roomType?: string | null): boolean {
+  return roomType === "투룸" || roomType === "3룸+" || roomType === "아파트";
+}
+
+/** 투룸은 방 2개 고정 */
+export function isRoomCountFixed(roomType?: string | null): boolean {
+  return roomType === "투룸";
+}
+
+/** 유형별 선택 가능한 방 수 (3룸+는 3개부터) */
+export function roomCountOptionsForType(
+  roomType?: string | null
+): readonly string[] {
+  if (roomType === "3룸+") return ROOM_COUNT_OPTIONS_3PLUS;
+  return ROOM_COUNT_OPTIONS;
+}
+
+export function defaultRoomBathCounts(roomType: string): {
+  roomCount: number;
+  bathroomCount: number;
+} {
+  if (roomType === "투룸") return { roomCount: 2, bathroomCount: 1 };
+  if (roomType === "3룸+") return { roomCount: 3, bathroomCount: 1 };
+  if (roomType === "아파트") return { roomCount: 2, bathroomCount: 1 };
+  return { roomCount: 1, bathroomCount: 1 };
+}
+
+/** 예전 쓰리룸·쓰리룸+ → 3룸+ */
+export function normalizeRoomType(
+  roomType?: string | null
+): RoomType | undefined {
+  if (!roomType) return undefined;
+  if (roomType === "오피스") return "사무실";
+  if (roomType === "쓰리룸" || roomType === "쓰리룸+") return "3룸+";
+  if (ROOM_TYPES.includes(roomType as RoomType)) return roomType as RoomType;
+  return undefined;
+}
+
+export function normalizeUnitCounts(
+  raw?: Partial<BuildingUnitCounts> & {
+    쓰리룸?: number;
+    "쓰리룸+"?: number;
+  } | null
+): BuildingUnitCounts {
+  if (!raw) return { ...EMPTY_UNIT_COUNTS };
+  const three =
+    Number(raw["3룸+"] ?? 0) +
+    Number(raw.쓰리룸 ?? 0) +
+    Number(raw["쓰리룸+"] ?? 0);
+  return {
+    원룸: Number(raw.원룸 ?? 0) || 0,
+    투룸: Number(raw.투룸 ?? 0) || 0,
+    "3룸+": three || 0,
+    상가: Number(raw.상가 ?? 0) || 0,
+  };
+}
+
+export function normalizeBathroomCounts(
+  raw?: Partial<BuildingBathroomCounts> & {
+    쓰리룸?: number;
+    "쓰리룸+"?: number;
+  } | null
+): BuildingBathroomCounts {
+  if (!raw) return { ...EMPTY_BATHROOM_COUNTS };
+  const three =
+    Number(raw["3룸+"] ?? 0) ||
+    Number(raw["쓰리룸+"] ?? 0) ||
+    Number(raw.쓰리룸 ?? 0) ||
+    1;
+  return {
+    원룸: Number(raw.원룸 ?? 1) || 1,
+    투룸: Number(raw.투룸 ?? 1) || 1,
+    "3룸+": three,
+  };
+}
+
+export function normalizeRoomAreas(
+  raw?: Partial<BuildingRoomAreas> & {
+    쓰리룸?: number;
+    "쓰리룸+"?: number;
+  } | null
+): BuildingRoomAreas {
+  if (!raw) return {};
+  const three = raw["3룸+"] ?? raw["쓰리룸+"] ?? raw.쓰리룸;
+  return {
+    원룸: raw.원룸,
+    투룸: raw.투룸,
+    ...(three != null ? { "3룸+": three } : {}),
+  };
+}
+
+/** 예전 저장값 '오피스' → '사무실', 쓰리룸 → 3룸+ */
 export function displayRoomType(
   roomType?: string | null,
   buildingKind?: string | null
 ): string {
   if (!roomType) return "-";
-  if (roomType === "오피스") return "사무실";
-  if (roomType === "건물" && buildingKind) {
+  const normalized = normalizeRoomType(roomType) ?? roomType;
+  if (normalized === "건물" && buildingKind) {
     const kind = normalizeBuildingKind(buildingKind) ?? buildingKind;
     return `건물 · ${kind}`;
   }
-  return roomType;
+  return normalized;
 }
 
 export function isLandType(roomType?: string | null): boolean {
@@ -169,6 +263,8 @@ export function createEmptyProperty(): Property {
     },
     dealType: "월세",
     roomType: "원룸",
+    roomCount: undefined,
+    bathroomCount: undefined,
     deposit: 0,
     monthlyRent: undefined,
     maintenanceFee: 0,
@@ -199,5 +295,7 @@ export function createEmptyProperty(): Property {
     moveInDate: "",
     insuranceType: "무",
     notes: "",
+    partnerAgencyShared: false,
+    workspaceShared: false,
   };
 }

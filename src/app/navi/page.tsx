@@ -2,27 +2,56 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { todayISO } from "@/lib/date";
-import { formatVisitDateTime } from "@/lib/format";
+import { Modal } from "@/components/ui/Modal";
+import { PhoneLink } from "@/components/PhoneLink";
+import { ListEdgeChips } from "@/components/ListEdgeChips";
+import { SwipeRevealRow } from "@/components/SwipeRevealRow";
+import { StickyActionBar } from "@/components/StickyActionBar";
+import { formatSavedDate, todayISO } from "@/lib/date";
+import {
+  formatVisitDateTime,
+  getCustomerBudgetLabel,
+} from "@/lib/format";
+import {
+  consumeCustomerSwipeNudge,
+  markCustomerSwipeUsed,
+} from "@/lib/customerSwipeHint";
 import { parseSeoulAddress } from "@/lib/seoulRegions";
-import { getCustomerById, getSchedules } from "@/lib/storage";
-import type { Schedule } from "@/lib/types";
+import { deleteSchedule, setScheduleWorkspaceShared, upsertSchedule } from "@/lib/storage";
+import { useCustomersList, useSchedulesList } from "@/hooks/useEntityList";
+import type { Customer, Schedule } from "@/lib/types";
 
 type SortMode = "created" | "visit";
 
+type PendingAction = {
+  id: string;
+  type: "complete" | "delete";
+};
+
 function scheduleTitle(
   schedule: Schedule,
-  customerNames: Record<string, string>
+  customers: Record<string, Customer>
 ): string {
   if (schedule.guestName?.trim()) return schedule.guestName.trim();
   if (schedule.customerId) {
-    const name = customerNames[schedule.customerId];
+    const name = customers[schedule.customerId]?.name;
     if (name) return name;
   }
   return "고객 미지정";
+}
+
+function schedulePhone(
+  schedule: Schedule,
+  customers: Record<string, Customer>
+): string {
+  if (schedule.customerId) {
+    return customers[schedule.customerId]?.phone?.trim() || "";
+  }
+  return "";
 }
 
 /** 매물 주소에서 선택한 동만 모음. 방문 약속 시간 순 · 쉼표 구분 */
@@ -38,17 +67,6 @@ function visitDongsLabel(schedule: Schedule): string {
     .join(", ");
 }
 
-function formatCreatedAt(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${m}/${day} ${hh}:${mm}`;
-}
-
 function visitStamp(schedule: Schedule): string {
   const date = schedule.visitDate || "9999-12-31";
   const time = schedule.visitTime || "00:00";
@@ -57,14 +75,26 @@ function visitStamp(schedule: Schedule): string {
 
 function sortSchedules(list: Schedule[], mode: SortMode): Schedule[] {
   const items = [...list];
+  const byDone = (a: Schedule, b: Schedule) => {
+    const aDone = Boolean(a.visitCompleted);
+    const bDone = Boolean(b.visitCompleted);
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    return 0;
+  };
+
   if (mode === "created") {
-    return items.sort((a, b) =>
-      (b.createdAt || "").localeCompare(a.createdAt || "")
-    );
+    return items.sort((a, b) => {
+      const done = byDone(a, b);
+      if (done !== 0) return done;
+      return (b.createdAt || "").localeCompare(a.createdAt || "");
+    });
   }
 
   const today = todayISO();
   return items.sort((a, b) => {
+    const done = byDone(a, b);
+    if (done !== 0) return done;
+
     const aDate = a.visitDate || "";
     const bDate = b.visitDate || "";
     const aPast = Boolean(aDate && aDate < today);
@@ -72,38 +102,106 @@ function sortSchedules(list: Schedule[], mode: SortMode): Schedule[] {
     if (aPast !== bPast) return aPast ? 1 : -1;
 
     const cmp = visitStamp(a).localeCompare(visitStamp(b));
-    // 다가오는 일정: 빠른 순 / 지난 일정: 최근이 위
     return aPast ? -cmp : cmp;
   });
 }
 
 export default function NaviEntryPage() {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [customerNames, setCustomerNames] = useState<Record<string, string>>(
-    {}
-  );
+  const router = useRouter();
+  const { items: schedules, setItems: setSchedules } = useSchedulesList();
+  const { items: customerList } = useCustomersList();
+  const customers = useMemo(() => {
+    const map: Record<string, Customer> = {};
+    for (const c of customerList) map[c.id] = c;
+    return map;
+  }, [customerList]);
   const [sortMode, setSortMode] = useState<SortMode>("visit");
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [nudgeFirstCard, setNudgeFirstCard] = useState(false);
 
   useEffect(() => {
-    void (async () => {
-      const list = await getSchedules();
-      setSchedules(list);
-      const names: Record<string, string> = {};
-      await Promise.all(
-        list.map(async (s) => {
-          if (!s.customerId || names[s.customerId]) return;
-          const c = await getCustomerById(s.customerId);
-          if (c?.name) names[s.customerId] = c.name;
-        })
-      );
-      setCustomerNames(names);
-    })();
-  }, []);
+    if (schedules.length === 0) return;
+    if (consumeCustomerSwipeNudge()) setNudgeFirstCard(true);
+  }, [schedules.length]);
 
   const sorted = useMemo(
     () => sortSchedules(schedules, sortMode),
     [schedules, sortMode]
   );
+
+  const pendingSchedule = pending
+    ? schedules.find((s) => s.id === pending.id)
+    : undefined;
+  const pendingDone = Boolean(pendingSchedule?.visitCompleted);
+  const pendingName = pendingSchedule
+    ? scheduleTitle(pendingSchedule, customers)
+    : "";
+
+  const closePending = () => {
+    if (busy) return;
+    setPending(null);
+  };
+
+  const toggleTeamShare = async (s: Schedule) => {
+    if (busy) return;
+    const prevShared = Boolean(s.workspaceShared);
+    const nextShared = !prevShared;
+    setSchedules((prev) =>
+      prev.map((item) =>
+        item.id === s.id
+          ? { ...item, workspaceShared: nextShared }
+          : item
+      )
+    );
+    setBusy(true);
+    try {
+      const updated = await setScheduleWorkspaceShared(s.id, nextShared);
+      if (updated) {
+        setSchedules((prev) =>
+          prev.map((item) => (item.id === updated.id ? updated : item))
+        );
+      }
+    } catch (err: unknown) {
+      setSchedules((prev) =>
+        prev.map((item) =>
+          item.id === s.id
+            ? { ...item, workspaceShared: prevShared }
+            : item
+        )
+      );
+      alert(err instanceof Error ? err.message : "팀 공유 변경에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmPending = async () => {
+    if (!pending || !pendingSchedule || busy) return;
+    setBusy(true);
+    try {
+      if (pending.type === "delete") {
+        await deleteSchedule(pendingSchedule.id);
+        setSchedules((prev) =>
+          prev.filter((s) => s.id !== pendingSchedule.id)
+        );
+      } else {
+        const next = await upsertSchedule({
+          ...pendingSchedule,
+          visitCompleted: !pendingDone,
+          updatedAt: new Date().toISOString(),
+        });
+        setSchedules(next);
+      }
+      markCustomerSwipeUsed();
+      setNudgeFirstCard(false);
+      setPending(null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "처리에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main>
@@ -140,63 +238,206 @@ export default function NaviEntryPage() {
         </button>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 overflow-visible pr-2">
         {sorted.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500">
-              저장된 방문 일정이 없습니다. 일정을 먼저 만들어 주세요.
+              저장된 방문 일정이 없습니다. 아래 버튼으로 만들어 주세요.
             </p>
-            <Link href="/schedules/new">
-              <Button className="mt-3" fullWidth>
-                방문 일정 만들기
-              </Button>
-            </Link>
           </Card>
         ) : (
-          sorted.map((s) => {
+          sorted.map((s, index) => {
             const dongs = visitDongsLabel(s);
+            const name = scheduleTitle(s, customers);
+            const phone = schedulePhone(s, customers);
+            const customer = s.customerId ? customers[s.customerId] : null;
+            const saved = formatSavedDate(s.createdAt);
+            const done = Boolean(s.visitCompleted);
+            const propertyLine = [
+              `매물 ${s.properties.length}곳`,
+              dongs || null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
             return (
-              <Link
+              <div
                 key={s.id}
-                href={`/schedules/${s.id}?from=navi`}
-                className="block"
+                className="relative mb-2.5 overflow-visible pb-0.5 pt-2"
               >
-                <Card
-                  pressable
-                  className="px-3.5 py-2.5 active:scale-[0.99] transition-all duration-150"
+                <ListEdgeChips
+                  roomType={customer?.roomType}
+                  buildingKind={customer?.buildingKind}
+                  dealType={customer?.dealType}
+                  moneyLabel={
+                    customer ? getCustomerBudgetLabel(customer) : null
+                  }
+                  depositMan={
+                    customer
+                      ? Math.max(customer.deposit ?? 0, customer.depositTo ?? 0)
+                      : null
+                  }
+                  done={done}
+                  right={
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void toggleTeamShare(s);
+                      }}
+                      className={[
+                        "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+                        done
+                          ? "bg-gray-400"
+                          : s.workspaceShared
+                            ? "bg-emerald-500"
+                            : "bg-gray-500",
+                      ].join(" ")}
+                    >
+                      {s.workspaceShared ? "팀 공유 중" : "팀 공유하기"}
+                    </button>
+                  }
+                />
+
+                <SwipeRevealRow
+                  hintNudge={nudgeFirstCard && index === 0}
+                  onTap={() =>
+                    router.push(`/schedules/${s.id}?from=navi`)
+                  }
+                  onSwipeLeft={() =>
+                    setPending({ id: s.id, type: "complete" })
+                  }
+                  onSwipeRight={() =>
+                    setPending({ id: s.id, type: "delete" })
+                  }
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-[16px] font-extrabold leading-snug tracking-tight text-[#3182F6]">
-                      {formatVisitDateTime(s.visitDate, s.visitTime)}
-                    </p>
-                    <p className="max-w-[10rem] shrink-0 truncate text-right text-[16px] font-extrabold leading-snug text-gray-900">
-                      {scheduleTitle(s, customerNames)}
-                    </p>
-                  </div>
+                  <Card
+                    className={[
+                      "relative !rounded-2xl !border !border-gray-100 !px-3 !pb-2.5 !pt-3 !shadow-none",
+                      done
+                        ? "!bg-gray-200 !border-gray-300 text-gray-500"
+                        : "",
+                    ].join(" ")}
+                  >
+                    <div className="relative">
+                      <p
+                        className={[
+                          "min-w-0 text-[15px] font-extrabold leading-snug tracking-tight",
+                          done ? "text-gray-500" : "text-[#3182F6]",
+                        ].join(" ")}
+                      >
+                        {formatVisitDateTime(s.visitDate, s.visitTime)}
+                      </p>
 
-                  <p className="mt-1 text-[14px] font-semibold leading-snug text-gray-700">
-                    매물 {s.properties.length}곳
-                    {dongs ? (
-                      <>
-                        <span className="mx-1.5 font-medium text-gray-300">
-                          ·
-                        </span>
-                        <span className="font-semibold text-gray-600">
-                          {dongs}
-                        </span>
-                      </>
-                    ) : null}
-                  </p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p
+                          className={[
+                            "min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight leading-none",
+                            done ? "text-gray-600" : "text-gray-900",
+                          ].join(" ")}
+                        >
+                          {name}
+                        </p>
+                        {phone ? (
+                          <PhoneLink
+                            phone={phone}
+                            className={[
+                              "relative z-[1] !shrink-0 !text-[16px] !font-extrabold",
+                              done ? "!text-gray-500" : "",
+                            ].join(" ")}
+                          />
+                        ) : (
+                          <span className="shrink-0 text-[13px] font-semibold text-gray-300">
+                            번호 없음
+                          </span>
+                        )}
+                      </div>
 
-                  <p className="mt-1 text-right text-[11px] font-medium leading-none text-gray-400">
-                    {formatCreatedAt(s.createdAt)}
-                  </p>
-                </Card>
-              </Link>
+                      <div className="mt-3">
+                        <p
+                          className={[
+                            "min-w-0 truncate text-[13px] font-semibold leading-snug",
+                            done ? "text-gray-500" : "text-gray-600",
+                          ].join(" ")}
+                        >
+                          {propertyLine}
+                        </p>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <p
+                            className={[
+                              "min-w-0 truncate text-[11px] font-bold leading-none",
+                              done ? "text-gray-500" : "text-gray-500",
+                            ].join(" ")}
+                          >
+                            {s.createdByName?.trim() || ""}
+                          </p>
+                          <p className="shrink-0 text-[11px] font-bold leading-none text-gray-400">
+                            {saved ? `등록일 · ${saved}` : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </SwipeRevealRow>
+              </div>
             );
           })
         )}
       </div>
+
+      <StickyActionBar>
+        <Link href="/schedules/new">
+          <Button fullWidth size="lg">
+            방문 일정 만들기
+          </Button>
+        </Link>
+      </StickyActionBar>
+
+      <Modal
+        open={Boolean(pending)}
+        onClose={closePending}
+        title={
+          pending?.type === "delete"
+            ? "일정을 삭제할까요?"
+            : pendingDone
+              ? "종료를 취소할까요?"
+              : "일정을 종료할까요?"
+        }
+        description={
+          pendingSchedule
+            ? pending?.type === "delete"
+              ? `${pendingName} 방문 일정을 삭제합니다.`
+              : pendingDone
+                ? `${pendingName} 일정을 진행 중 상태로 되돌립니다.`
+                : `${pendingName} 일정을 종료 처리합니다. 목록 하단으로 이동합니다.`
+            : pending?.type === "delete"
+              ? "이 방문 일정을 삭제합니다."
+              : "일정의 종료 상태를 변경합니다."
+        }
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={closePending}
+          >
+            아니오
+          </Button>
+          <Button
+            disabled={busy}
+            className={
+              pending?.type === "delete"
+                ? "!bg-red-500 hover:!bg-red-600"
+                : undefined
+            }
+            onClick={() => void confirmPending()}
+          >
+            {busy ? "처리 중…" : "예"}
+          </Button>
+        </div>
+      </Modal>
     </main>
   );
 }

@@ -20,6 +20,8 @@ interface SeoulAddressFieldProps {
   /** false면 동 필수 표시/검증 UI 제외. 기본 true */
   requireDong?: boolean;
   invalid?: boolean;
+  /** 라벨 우측 경고 (동일 매물 등) */
+  labelRight?: React.ReactNode;
 }
 
 const DEFAULT_GU = "강동구";
@@ -36,6 +38,7 @@ export function SeoulAddressField({
   required,
   requireDong = true,
   invalid,
+  labelRight,
 }: SeoulAddressFieldProps) {
   const parsed = useMemo(() => parseSeoulAddress(value), [value]);
   const initialGu = parsed.gu || DEFAULT_GU;
@@ -46,6 +49,9 @@ export function SeoulAddressField({
   );
   const [jibunMain, setJibunMain] = useState(initialJibun.main);
   const [jibunSub, setJibunSub] = useState(initialJibun.sub);
+  /** 사용자가 구·동을 선택한 뒤에만 완료(초록) 표시 */
+  const [guComplete, setGuComplete] = useState(Boolean(parsed.gu));
+  const [dongComplete, setDongComplete] = useState(Boolean(parsed.dong));
 
   // 외부 value가 바뀌면(매물 불러오기 등) 구·동·상세 동기화
   useEffect(() => {
@@ -56,6 +62,8 @@ export function SeoulAddressField({
       const jibun = parseJibunDetail(next.detail);
       setJibunMain(jibun.main);
       setJibunSub(jibun.sub);
+      setGuComplete(true);
+      setDongComplete(Boolean(next.dong));
       return;
     }
     if (!value) {
@@ -65,6 +73,8 @@ export function SeoulAddressField({
       setDong(nextDong);
       setJibunMain("");
       setJibunSub("");
+      setGuComplete(false);
+      setDongComplete(false);
       onChange(composeSeoulAddress(nextGu, nextDong, ""));
       onDongChange?.(nextDong);
     } else {
@@ -105,25 +115,34 @@ export function SeoulAddressField({
     <div className="space-y-2">
       <p
         className={[
-          "flex flex-wrap items-baseline gap-x-1.5 text-[13px] font-semibold",
+          "flex flex-wrap items-baseline justify-between gap-x-1.5 gap-y-1 text-[13px] font-semibold",
           addressInvalid ? "text-red-600" : "text-gray-600",
         ].join(" ")}
       >
-        <span>
-          매물 주소
-          {required && (
-            <span
-              className={
-                addressInvalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
-              }
-            >
-              *
-            </span>
-          )}
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+          <span>
+            매물 주소
+            {required && (
+              <span
+                className={
+                  addressInvalid
+                    ? "ml-0.5 text-red-500"
+                    : "ml-0.5 text-[#3182F6]"
+                }
+              >
+                *
+              </span>
+            )}
+          </span>
+          <span className="text-[11px] font-bold text-red-500">
+            도로명 주소 사용불가
+          </span>
         </span>
-        <span className="text-[11px] font-bold text-red-500">
-          도로명 주소 사용불가
-        </span>
+        {labelRight ? (
+          <span className="shrink-0 text-[12px] font-bold text-red-500">
+            {labelRight}
+          </span>
+        ) : null}
       </p>
       {addressInvalid && (
         <p className="text-xs font-semibold text-red-500">
@@ -138,6 +157,7 @@ export function SeoulAddressField({
           label="구"
           required={required}
           invalid={guInvalid || addressInvalid}
+          complete={guComplete}
           value={gu}
           options={SEOUL_GU_LIST}
           placeholder="구 선택"
@@ -147,6 +167,8 @@ export function SeoulAddressField({
             const nextDong = defaultDongForGu(nextGu);
             setGu(nextGu);
             setDong(nextDong);
+            setGuComplete(true);
+            setDongComplete(false);
             if (nextDong) onDongChange?.(nextDong);
             emitSelectAddress(nextGu, nextDong, jibunMain, jibunSub);
           }}
@@ -155,6 +177,7 @@ export function SeoulAddressField({
           label="동"
           required={required && requireDong}
           invalid={dongInvalid}
+          complete={dongComplete}
           value={dong}
           options={dongs}
           disabled={!gu}
@@ -163,6 +186,7 @@ export function SeoulAddressField({
           description={gu ? `${gu} 법정동` : "구를 먼저 선택해 주세요"}
           onChange={(nextDong) => {
             setDong(nextDong);
+            setDongComplete(true);
             onDongChange?.(nextDong);
             emitSelectAddress(gu, nextDong, jibunMain, jibunSub);
           }}

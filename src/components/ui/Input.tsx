@@ -14,27 +14,42 @@ export function Field({
   hint,
   required,
   invalid,
+  labelRight,
   children,
-}: FieldProps & { children: React.ReactNode }) {
+}: FieldProps & {
+  children: React.ReactNode;
+  labelRight?: React.ReactNode;
+}) {
   return (
     <label className="block space-y-1">
-      {label ? (
-        <span
-          className={[
-            "text-[13px] font-semibold",
-            invalid ? "text-red-600" : "text-gray-600",
-          ].join(" ")}
-        >
-          {label}
-          {required && (
+      {label || labelRight ? (
+        <span className="flex items-center justify-between gap-2">
+          {label ? (
             <span
-              className={
-                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
-              }
+              className={[
+                "text-[13px] font-semibold",
+                invalid ? "text-red-600" : "text-gray-600",
+              ].join(" ")}
             >
-              *
+              {label}
+              {required && (
+                <span
+                  className={
+                    invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+                  }
+                >
+                  *
+                </span>
+              )}
             </span>
+          ) : (
+            <span />
           )}
+          {labelRight ? (
+            <span className="shrink-0 text-[12px] font-bold text-red-500">
+              {labelRight}
+            </span>
+          ) : null}
         </span>
       ) : null}
       {children}
@@ -63,11 +78,21 @@ export function Input({
   hint,
   required,
   invalid,
+  labelRight,
   className = "",
   ...props
-}: FieldProps & InputHTMLAttributes<HTMLInputElement>) {
+}: FieldProps &
+  InputHTMLAttributes<HTMLInputElement> & {
+    labelRight?: React.ReactNode;
+  }) {
   return (
-    <Field label={label} hint={hint} required={required} invalid={invalid}>
+    <Field
+      label={label}
+      hint={hint}
+      required={required}
+      invalid={invalid}
+      labelRight={labelRight}
+    >
       <input
         className={[inputClass, invalid ? invalidClass : "", className].join(
           " "

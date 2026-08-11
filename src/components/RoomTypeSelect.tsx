@@ -17,11 +17,12 @@ interface RoomTypeSelectProps {
 
 function asRoomType(value: string): RoomType {
   if (value === "오피스") return "사무실";
+  if (value === "쓰리룸" || value === "쓰리룸+") return "3룸+";
   return (ROOM_TYPES.includes(value as RoomType) ? value : "원룸") as RoomType;
 }
 
 export function RoomTypeSelect({
-  label = "유형",
+  label = "매물 유형",
   value,
   onChange,
   required,
@@ -29,13 +30,8 @@ export function RoomTypeSelect({
   invalid,
 }: RoomTypeSelectProps) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<RoomType>(asRoomType(value));
+  const current = asRoomType(String(value));
   const shown = displayRoomType(value);
-
-  const openPicker = () => {
-    setDraft(asRoomType(value));
-    setOpen(true);
-  };
 
   return (
     <div className="space-y-1">
@@ -57,7 +53,7 @@ export function RoomTypeSelect({
 
       <button
         type="button"
-        onClick={openPicker}
+        onClick={() => setOpen(true)}
         className={[
           "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
           "active:scale-[0.99] transition-all duration-150",
@@ -98,13 +94,12 @@ export function RoomTypeSelect({
       >
         <div className="grid grid-cols-4 gap-1.5">
           {ROOM_TYPES.map((type) => {
-            const active = draft === type;
+            const active = current === type;
             return (
               <button
                 key={type}
                 type="button"
                 onClick={() => {
-                  setDraft(type);
                   onChange(type);
                   setOpen(false);
                 }}
@@ -121,19 +116,14 @@ export function RoomTypeSelect({
             );
           })}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            취소
-          </Button>
-          <Button
-            onClick={() => {
-              onChange(draft);
-              setOpen(false);
-            }}
-          >
-            선택하기
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mt-4"
+          onClick={() => setOpen(false)}
+        >
+          취소
+        </Button>
       </Modal>
     </div>
   );

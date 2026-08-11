@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -9,22 +9,28 @@ import { Card } from "@/components/ui/Card";
 import { CustomerForm } from "@/components/CustomerForm";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
+import { SiteShareDevMark, TeamShareButton } from "@/components/SiteShareUi";
+import { MatchingPropertiesSection } from "@/components/MatchListPanel";
 import {
   deleteCustomer,
   getCustomerById,
-  getSchedulesByCustomer,
   touchRecentCustomer,
   upsertCustomer,
 } from "@/lib/storage";
+import { usePropertiesList } from "@/hooks/useEntityList";
 import {
-  formatVisitDateTime,
   getCustomerBudgetLabel,
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
 } from "@/lib/format";
-import { displayRoomType } from "@/lib/constants";
-import type { Customer, Schedule } from "@/lib/types";
+import {
+  displayRoomType,
+  needsRoomBathCounts,
+  normalizeRoomType,
+} from "@/lib/constants";
+import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import type { Customer } from "@/lib/types";
 
 function InfoRow({
   label,
@@ -49,9 +55,10 @@ export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const { items: properties, setItems: setProperties } = usePropertiesList();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,13 +70,20 @@ export default function CustomerDetailPage() {
         return;
       }
       setCustomer(found);
-      setSchedules(await getSchedulesByCustomer(found.id));
       void touchRecentCustomer(found.id);
     })();
     return () => {
       cancelled = true;
     };
   }, [params.id, router]);
+
+  const matches = useMemo(
+    () =>
+      customer
+        ? findMatchingPropertiesGrouped(customer, properties)
+        : { own: [], partner: [] },
+    [customer, properties]
+  );
 
   if (!customer) {
     return (
@@ -94,13 +108,41 @@ export default function CustomerDetailPage() {
       });
   };
 
+  const toggleTeamShare = async () => {
+    if (!customer || shareBusy) return;
+    const prevShared = Boolean(customer.workspaceShared);
+    const next = {
+      ...customer,
+      workspaceShared: !prevShared,
+      updatedAt: new Date().toISOString(),
+    };
+    setCustomer(next);
+    setShareBusy(true);
+    try {
+      await upsertCustomer(next);
+    } catch (err: unknown) {
+      setCustomer({ ...customer, workspaceShared: prevShared });
+      alert(err instanceof Error ? err.message : "팀 공유 변경에 실패했습니다.");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
   return (
     <main>
       <PageHeader
         title={editing ? "고객 정보 수정" : "고객 정보"}
+        titleAlign="left"
         backHref="/customers"
         right={
           <div className="flex items-center gap-1.5">
+            {!editing ? (
+              <TeamShareButton
+                active={customer.workspaceShared === true}
+                disabled={shareBusy}
+                onToggle={() => void toggleTeamShare()}
+              />
+            ) : null}
             <Button
               variant={editing ? "secondary" : "outline"}
               onClick={() => setEditing((v) => !v)}
@@ -144,10 +186,22 @@ export default function CustomerDetailPage() {
               <InfoRow label="전화">
                 <PhoneLink phone={customer.phone} />
               </InfoRow>
-              <InfoRow label="거래유형">
+              <InfoRow label="매물 유형">
                 {displayRoomType(customer.roomType, customer.buildingKind)}
               </InfoRow>
-              <InfoRow label="거래">
+              {needsRoomBathCounts(
+                normalizeRoomType(customer.roomType) ?? customer.roomType
+              ) && (
+                <InfoRow label="방 · 화장실">
+                  방{" "}
+                  {(normalizeRoomType(customer.roomType) ??
+                    customer.roomType) === "투룸"
+                    ? 2
+                    : customer.roomCount ?? "-"}
+                  개 · 화장실 {customer.bathroomCount ?? 1}개
+                </InfoRow>
+              )}
+              <InfoRow label="희망거래">
                 {customer.dealType}
                 {customer.nonOccupancy ? " · 비입주" : ""}
               </InfoRow>
@@ -167,11 +221,15 @@ export default function CustomerDetailPage() {
               )}
               {customer.roomType !== "토지" &&
                 customer.roomType !== "건물" && (
-                <InfoRow label="주차">{getCustomerParkingLabel(customer)}</InfoRow>
-              )}
+                  <InfoRow label="주차">
+                    {getCustomerParkingLabel(customer)}
+                  </InfoRow>
+                )}
               {customer.roomType !== "토지" &&
                 customer.roomType !== "건물" && (
-                  <InfoRow label="애완동물">{customer.petAllowed ?? "-"}</InfoRow>
+                  <InfoRow label="애완동물">
+                    {customer.petAllowed ?? "-"}
+                  </InfoRow>
                 )}
               {customer.notes && (
                 <InfoRow label="메모">
@@ -182,30 +240,36 @@ export default function CustomerDetailPage() {
               )}
             </Card>
 
-            {schedules.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="px-1 text-sm font-bold text-gray-700">저장된 일정</p>
-                {schedules.map((s) => (
-                  <Link key={s.id} href={`/schedules/${s.id}`}>
-                    <Card pressable className="mb-1.5 !p-3">
-                      <p className="text-[15px] font-bold">
-                        매물 {s.properties.length}곳 ·{" "}
-                        {formatVisitDateTime(
-                          s.visitDate || s.createdAt.slice(0, 10),
-                          s.visitTime
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-sm text-gray-500">
-                        {s.properties
-                          .map((p) => p.partnerAgency.dong || p.address)
-                          .filter(Boolean)
-                          .join(" → ") || "주소 미입력"}
-                      </p>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div className="space-y-3">
+              <p className="px-1 text-sm font-bold text-gray-800">
+                조건에 맞는 매물
+              </p>
+              <MatchingPropertiesSection
+                title="내 매물"
+                listHint="(내 매물리스트내)"
+                items={matches.own}
+                emptyText="조건에 맞는 내 매물이 없습니다."
+                onRemoved={(id) =>
+                  setProperties((prev) => prev.filter((p) => p.id !== id))
+                }
+              />
+              <MatchingPropertiesSection
+                title="현장동선내 공유 매물"
+                titleRight={<SiteShareDevMark />}
+                items={matches.partner}
+                emptyText="사이트내 공유 매물 자동 매칭은 준비 중입니다."
+                onRemoved={(id) =>
+                  setProperties((prev) => prev.filter((p) => p.id !== id))
+                }
+              />
+              {matches.own.length === 0 ? (
+                <Link href="/properties/new" className="inline-block px-1">
+                  <span className="text-[13px] font-bold text-[#3182F6]">
+                    매물 추가하기 →
+                  </span>
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           <StickyActionBar>

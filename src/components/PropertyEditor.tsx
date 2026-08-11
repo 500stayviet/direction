@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { Property } from "@/lib/types";
 import {
   INSURANCE_TYPES,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
 import { OptionToggle } from "@/components/OptionToggle";
+import { SiteShareFormField } from "@/components/SiteShareUi";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimePicker } from "@/components/TimePicker";
@@ -21,7 +22,11 @@ import {
   BuildingLandFields,
 } from "@/components/BuildingLandFields";
 import { SeoulAddressField } from "@/components/SeoulAddressField";
+import { CircleCheck } from "@/components/ui/CircleCheck";
+import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
+import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
+import { usePropertiesList } from "@/hooks/useEntityList";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
@@ -32,11 +37,15 @@ import {
 } from "@/lib/propertyValidation";
 import {
   EMPTY_UNIT_COUNTS,
+  defaultRoomBathCounts,
   isBuildingType,
   isLandType,
+  needsRoomBathCounts,
+  normalizeRoomType,
   skipsResidentialExtras,
 } from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
+import { RoomBathCountFields } from "@/components/RoomBathCountFields";
 
 interface PropertyEditorProps {
   index: number;
@@ -56,6 +65,12 @@ interface PropertyEditorProps {
   focusField?: PropertyFieldKey;
   /** false면 동 필수 제외 (방문 일정). 기본 true */
   requireDong?: boolean;
+  /** 전체 매물 수 — 제목 탭으로 순서 변경할 때 사용 */
+  propertyCount?: number;
+  /** 순서 변경 모달에 보여줄 전체 매물 목록 */
+  allProperties?: Property[];
+  /** N번 매물 제목으로 다른 슬롯과 맞바꿀 때 */
+  onSwapWith?: (targetIndex: number) => void;
 }
 
 function ChipToggle({
@@ -95,16 +110,35 @@ export function PropertyEditor({
   validationActive = false,
   focusField,
   requireDong = true,
+  propertyCount,
+  allProperties,
+  onSwapWith,
 }: PropertyEditorProps) {
+  const { items: listedProperties } = usePropertiesList();
   const fieldRefs = useRef<Partial<Record<PropertyFieldKey, HTMLDivElement | null>>>(
     {}
   );
+  const [moveOpen, setMoveOpen] = useState(false);
   const [enterDirectContacts, setEnterDirectContacts] = useState(() => {
     return Boolean(
       onlyDigits(property.tenantPhone ?? "") ||
         onlyDigits(property.landlordPhone ?? "")
     );
   });
+
+  const reorderList = allProperties ?? [];
+  const canReorder = Boolean(onSwapWith);
+
+  const duplicateProperty = useMemo(
+    () =>
+      findPropertyBySameAddressRoom(
+        property.address,
+        property.roomNo ?? "",
+        listedProperties,
+        property.id
+      ),
+    [property.address, property.roomNo, property.id, listedProperties]
+  );
 
   const update = (patch: Partial<Property>) => {
     const next: Property = { ...property, ...patch };
@@ -215,6 +249,14 @@ export function PropertyEditor({
     ) {
       patch.dealType = "월세";
     }
+    if (needsRoomBathCounts(roomType)) {
+      const defaults = defaultRoomBathCounts(roomType);
+      patch.roomCount = defaults.roomCount;
+      patch.bathroomCount = defaults.bathroomCount;
+    } else {
+      patch.roomCount = undefined;
+      patch.bathroomCount = undefined;
+    }
     update(patch);
   };
 
@@ -236,11 +278,30 @@ export function PropertyEditor({
       )}
 
       {(showTitle || (canRemove && onRemove)) && (
-        <div className="flex items-center justify-between">
+        <div className="relative z-10 flex items-center justify-between gap-2">
           {showTitle ? (
-            <h3 className="text-lg font-bold text-gray-900">
-              {index + 1}번 매물
-            </h3>
+            canReorder ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setMoveOpen(true);
+                }}
+                className="group relative z-10 flex min-h-[44px] items-center gap-1.5 rounded-xl px-1 py-1 text-left active:scale-[0.98] transition-transform"
+              >
+                <span className="text-lg font-bold text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
+                  {index + 1}번 매물
+                </span>
+                <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-[#3182F6]">
+                  순서 변경
+                </span>
+              </button>
+            ) : (
+              <h3 className="text-lg font-bold text-gray-900">
+                {index + 1}번 매물
+              </h3>
+            )
           ) : (
             <span />
           )}
@@ -251,6 +312,16 @@ export function PropertyEditor({
           )}
         </div>
       )}
+
+      {canReorder ? (
+        <SchedulePropertySwapModal
+          open={moveOpen}
+          onClose={() => setMoveOpen(false)}
+          properties={reorderList.length > 0 ? reorderList : [property]}
+          fromIndex={index}
+          onSelect={(target) => onSwapWith?.(target)}
+        />
+      ) : null}
 
       {showArriveTime && (
         <TimePicker
@@ -272,8 +343,8 @@ export function PropertyEditor({
               : "border-gray-200 bg-gray-50",
           ].join(" ")}
         >
-          <input
-            type="checkbox"
+          <CircleCheck
+            accent="emerald"
             checked={property.hasPartnerAgency ?? false}
             onChange={(e) => {
               const on = e.target.checked;
@@ -285,7 +356,6 @@ export function PropertyEditor({
               });
               if (!on) setEnterDirectContacts(false);
             }}
-            className="h-5 w-5 accent-emerald-600"
           />
           <span className="flex-1">
             <span className="flex flex-wrap items-baseline gap-x-1.5">
@@ -322,7 +392,7 @@ export function PropertyEditor({
                 label="상호명 (동 이름 포함)"
                 value={property.partnerAgency.name}
                 onChange={(e) => updateAgency({ name: e.target.value })}
-                placeholder="성내동 OO부동산"
+                placeholder="OO부동산"
                 hint="동 이름을 포함하면 찾기 쉬워요"
               />
             </div>
@@ -350,14 +420,12 @@ export function PropertyEditor({
               </div>
             </div>
             <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white px-3.5 active:scale-[0.99] transition-all duration-150">
-              <input
-                type="checkbox"
+              <CircleCheck
                 checked={enterDirectContacts}
                 onChange={(e) => setEnterDirectContacts(e.target.checked)}
-                className="h-5 w-5 accent-[#3182F6]"
               />
               <span className="text-[14px] font-semibold text-gray-700">
-                임차인 집주인 연락처 추가 입력 (선택)
+                임차인 임대인 연락처 추가 입력 (선택)
               </span>
             </label>
           </>
@@ -401,8 +469,8 @@ export function PropertyEditor({
               ].join(" ")}
             >
               {isInvalid("contacts")
-                ? "미입력 · 임차인 또는 집주인 번호 필요"
-                : "임차인·집주인 중 하나 이상 필수"}
+                ? "미입력 · 임차인 또는 임대인 번호 필요"
+                : "임차인·임대인 중 하나 이상 필수"}
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <PhoneInput
@@ -414,7 +482,7 @@ export function PropertyEditor({
                 hint=""
               />
               <PhoneInput
-                label="집주인 번호"
+                label="임대인 번호"
                 invalid={isInvalid("contacts")}
                 value={formatPhoneInput(property.landlordPhone ?? "")}
                 onChange={(landlordPhone) => update({ landlordPhone })}
@@ -429,8 +497,24 @@ export function PropertyEditor({
           <RoomTypeSelect
             required
             invalid={isInvalid("roomType")}
-            value={property.roomType ?? "원룸"}
+            value={
+              normalizeRoomType(property.roomType) ??
+              property.roomType ??
+              "원룸"
+            }
             onChange={handleRoomTypeChange}
+          />
+        </div>
+
+        <div ref={setFieldRef("roomCount")}>
+          <RoomBathCountFields
+            roomType={normalizeRoomType(property.roomType) ?? property.roomType}
+            roomCount={property.roomCount}
+            bathroomCount={property.bathroomCount}
+            invalidRoomCount={isInvalid("roomCount")}
+            onChange={({ roomCount, bathroomCount }) =>
+              update({ roomCount, bathroomCount })
+            }
           />
         </div>
       </div>
@@ -439,7 +523,7 @@ export function PropertyEditor({
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>
         <div ref={setFieldRef("dealType")}>
           <DealTypeToggle
-            label="거래 형태"
+            label="희망거래"
             required
             invalid={isInvalid("dealType")}
             value={
@@ -517,8 +601,7 @@ export function PropertyEditor({
                 입주 가능일
               </p>
               <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                <input
-                  type="checkbox"
+                <CircleCheck
                   checked={moveInSingle}
                   onChange={(e) => {
                     const on = e.target.checked;
@@ -530,7 +613,6 @@ export function PropertyEditor({
                       moveInDate: formatMoveInRange(moveInFrom, to || undefined),
                     });
                   }}
-                  className="h-5 w-5 accent-[#3182F6]"
                 />
                 <span className="text-[14px] font-semibold text-gray-700">
                   단일
@@ -556,14 +638,15 @@ export function PropertyEditor({
                 label=""
                 from={moveInFrom}
                 to={property.moveInTo || ""}
-                onChange={({ from, to }) =>
+                onChange={({ from, to }) => {
+                  const sameDay = Boolean(from && to && from === to);
                   update({
-                    moveInSingle: false,
+                    moveInSingle: sameDay,
                     moveInFrom: from,
                     moveInTo: to,
                     moveInDate: formatMoveInRange(from, to || undefined),
-                  })
-                }
+                  });
+                }}
               />
             )}
           </div>
@@ -579,11 +662,12 @@ export function PropertyEditor({
             invalid={isInvalid("address")}
             value={property.address}
             onChange={(address) => update({ address })}
+            labelRight={
+              duplicateProperty ? "동일 매물이 존재합니다" : undefined
+            }
             onDongChange={(dong) => {
               updateAgency({
                 dong: property.partnerAgency.dong || dong,
-                name:
-                  property.partnerAgency.name || (dong ? `${dong} ` : ""),
               });
             }}
           />
@@ -598,6 +682,9 @@ export function PropertyEditor({
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             placeholder="101동 1203호"
+            labelRight={
+              duplicateProperty ? "동일 매물이 존재합니다" : undefined
+            }
           />
         )}
         {!isLand && (
@@ -652,6 +739,17 @@ export function PropertyEditor({
               onChange={(e) => update({ notes: e.target.value })}
               placeholder="위반건축물, 건물현황, 향, 특이사항 등"
             />
+            <OptionToggle
+              label="팀공유 유무"
+              columns={2}
+              value={property.workspaceShared === true ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(v) => update({ workspaceShared: v === "유" })}
+            />
+            <SiteShareFormField
+              value={property.partnerAgencyShared === true}
+              onChange={(on) => update({ partnerAgencyShared: on })}
+            />
           </div>
         </div>
       )}
@@ -669,6 +767,17 @@ export function PropertyEditor({
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
               placeholder="위반건축물, 건물현황, 향, 특이사항 등"
+            />
+            <OptionToggle
+              label="팀공유 유무"
+              columns={2}
+              value={property.workspaceShared === true ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(v) => update({ workspaceShared: v === "유" })}
+            />
+            <SiteShareFormField
+              value={property.partnerAgencyShared === true}
+              onChange={(on) => update({ partnerAgencyShared: on })}
             />
           </div>
         </div>
@@ -764,6 +873,17 @@ export function PropertyEditor({
                   ? "층, 건물현황, 향, 특이사항 등"
                   : "위반건축물, 건물현황, 향, 특이사항 등"
             }
+          />
+          <OptionToggle
+            label="팀공유 유무"
+            columns={2}
+            value={property.workspaceShared === true ? "유" : "무"}
+            options={["유", "무"] as const}
+            onChange={(v) => update({ workspaceShared: v === "유" })}
+          />
+          <SiteShareFormField
+            value={property.partnerAgencyShared === true}
+            onChange={(on) => update({ partnerAgencyShared: on })}
           />
         </div>
       )}

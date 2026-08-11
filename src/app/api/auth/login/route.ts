@@ -33,6 +33,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: deletedAccount } = await admin
+      .from("deleted_accounts")
+      .select("username")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (deletedAccount) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "아이디 또는 비밀번호가 올바르지 않습니다.",
+        },
+        { status: 401 }
+      );
+    }
+
     // service_role로 서버 인증 (Vercel anon 키 불일치 시에도 동작)
     const { data, error } = await admin.auth.signInWithPassword({
       email: usernameToEmail(username),
@@ -56,6 +72,16 @@ export async function POST(request: Request) {
           ok: false,
           message:
             "아이디 또는 비밀번호가 올바르지 않습니다. 「비밀번호 찾기」로 새 비밀번호를 설정해 보세요.",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (data.user.user_metadata?.account_deleted === true) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "아이디 또는 비밀번호가 올바르지 않습니다.",
         },
         { status: 401 }
       );

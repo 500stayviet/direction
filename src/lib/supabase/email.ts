@@ -14,3 +14,23 @@ export function usernameToEmail(username: string): string {
 export function normalizeUsername(username: string): string {
   return toHalfWidth(username).trim().toLowerCase();
 }
+
+/** 회원가입·중복확인 공통 아이디 규칙 */
+export function validateUsernameFormat(
+  raw: string
+): { ok: true; username: string } | { ok: false; message: string } {
+  const username = normalizeUsername(raw);
+  if (!username) {
+    return { ok: false, message: "아이디를 입력해 주세요." };
+  }
+  if (username.length < 4) {
+    return { ok: false, message: "아이디는 4자 이상이어야 합니다." };
+  }
+  if (!/^[a-z0-9._-]+$/.test(username)) {
+    return {
+      ok: false,
+      message: "아이디는 영문 소문자, 숫자, . _ - 만 사용할 수 있습니다.",
+    };
+  }
+  return { ok: true, username };
+}

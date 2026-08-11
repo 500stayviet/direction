@@ -6,6 +6,7 @@ import {
   BUILDING_KINDS,
   EMPTY_UNIT_COUNTS,
   normalizeBuildingKind,
+  normalizeUnitCounts,
   RESIDENTIAL_UNIT_KEYS,
 } from "@/lib/constants";
 import type {
@@ -35,10 +36,10 @@ export function BuildingLandFields({
   invalidBuildingKind,
 }: BuildingLandFieldsProps) {
   const roomType = property.roomType;
-  const unitCounts: BuildingUnitCounts = {
+  const unitCounts: BuildingUnitCounts = normalizeUnitCounts({
     ...EMPTY_UNIT_COUNTS,
     ...property.unitCounts,
-  };
+  });
 
   const setUnitCount = (key: BuildingUnitKey, n: number) => {
     onChange({ unitCounts: { ...unitCounts, [key]: n } });
@@ -168,7 +169,7 @@ export function BuildingLandFields({
         <p className="text-[13px] font-semibold text-gray-600">
           방 · 상가수
         </p>
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {([...RESIDENTIAL_UNIT_KEYS, "상가"] as BuildingUnitKey[]).map(
             (key) => (
               <label key={key} className="block min-w-0 space-y-0.5">

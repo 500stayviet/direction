@@ -4,6 +4,7 @@ import type { User } from "./types";
 import { createClient, resetBrowserClient } from "./supabase/client";
 import { normalizeUsername } from "./supabase/email";
 import { clearAppAuth, loadAppAuth, saveAppAuth } from "./supabase/appAuth";
+import { clearEntityCache } from "./entityCache";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
 const LEGACY_SHARED_KEYS = [
@@ -32,6 +33,7 @@ function canUseStorage(): boolean {
 export function clearAuthRuntimeCache(): void {
   cachedUser = null;
   clearAppAuth();
+  clearEntityCache();
   if (typeof window === "undefined") return;
   try {
     const splashDone = sessionStorage.getItem(BOOT_SPLASH_DONE_KEY);
@@ -106,6 +108,109 @@ export function getCachedUser(): User | null {
   return cachedUser;
 }
 
+/** 동기 — 화면 로그인 표시용 (localStorage·쿠키·메모리) */
+export function peekCurrentUser(): User | null {
+  if (typeof window === "undefined") return null;
+  if (cachedUser?.id) return cachedUser;
+  const app = loadAppAuth();
+  if (app?.user?.id) {
+    cachedUser = app.user;
+    return cachedUser;
+  }
+  return null;
+}
+
+/** API 호출용 access token — 앱 백업 → 갱신 → Supabase 세션 순으로 확보 */
+export async function getAccessToken(): Promise<string | null> {
+  const appAuth = loadAppAuth();
+  const fromApp = appAuth?.access_token?.trim() ?? "";
+
+  try {
+    const supabase = createClient();
+
+    // 앱에 토큰이 있으면 세션에 먼저 올려 RLS가 anon으로 떨어지지 않게 함
+    if (fromApp && appAuth?.refresh_token?.trim()) {
+      try {
+        await Promise.race([
+          supabase.auth.setSession({
+            access_token: fromApp,
+            refresh_token: appAuth.refresh_token,
+          }),
+          new Promise<void>((resolve) => window.setTimeout(resolve, 2000)),
+        ]);
+      } catch {
+        /* refresh 시도 */
+      }
+    }
+
+    if (fromApp) {
+      // 만료됐을 수 있어 refresh 한 번 시도
+      if (appAuth?.refresh_token?.trim()) {
+        const refreshed = await supabase.auth.refreshSession({
+          refresh_token: appAuth.refresh_token,
+        });
+        const session = refreshed.data.session;
+        if (session?.access_token && appAuth.user) {
+          saveAppAuth(
+            {
+              access_token: session.access_token,
+              refresh_token: session.refresh_token || appAuth.refresh_token,
+            },
+            appAuth.user
+          );
+          return session.access_token;
+        }
+      }
+      return fromApp;
+    }
+
+    if (appAuth?.refresh_token?.trim()) {
+      const refreshed = await supabase.auth.refreshSession({
+        refresh_token: appAuth.refresh_token,
+      });
+      const session = refreshed.data.session;
+      if (session?.access_token && appAuth.user) {
+        saveAppAuth(
+          {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token || appAuth.refresh_token,
+          },
+          appAuth.user
+        );
+        return session.access_token;
+      }
+    }
+
+    const {
+      data: { session },
+    } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<{ data: { session: null } }>((resolve) =>
+        window.setTimeout(() => resolve({ data: { session: null } }), 2000)
+      ),
+    ]);
+
+    if (session?.access_token) {
+      const user = appAuth?.user ?? cachedUser;
+      if (user) {
+        saveAppAuth(
+          {
+            access_token: session.access_token,
+            refresh_token:
+              session.refresh_token || appAuth?.refresh_token || "",
+          },
+          user
+        );
+      }
+      return session.access_token;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
+
 export async function getSessionUserId(): Promise<string | null> {
   const fromApp = loadAppAuth()?.user.id ?? cachedUser?.id ?? null;
   if (fromApp) return fromApp;
@@ -146,23 +251,13 @@ function userFromAuthSession(authUser: {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  // 하드 리로드 후에도 바로 로그인 유지 — supabase 세션보다 앱 백업을 우선
+  // 하드 리로드 후에도 바로 로그인 유지
   const appAuth = loadAppAuth();
   if (appAuth?.user) {
     cachedUser = appAuth.user;
-    if (appAuth.access_token && appAuth.refresh_token) {
-      try {
-        const supabase = createClient();
-        void supabase.auth
-          .setSession({
-            access_token: appAuth.access_token,
-            refresh_token: appAuth.refresh_token,
-          })
-          .then(() => undefined);
-      } catch {
-        /* anon 키 문제여도 화면 로그인 상태는 유지 */
-      }
-    }
+    // 토큰 복구 시도 — 실패해도 화면 로그인(내정보/로그아웃)은 유지
+    // (쿠키만 있는 경우 clear 하면 홈이 비로그인으로 깜빡이거나 고정됨)
+    void getAccessToken().catch(() => undefined);
     return cachedUser;
   }
 
@@ -189,12 +284,26 @@ export async function getCurrentUser(): Promise<User | null> {
 
         if (!error && data) {
           cachedUser = rowToUser(data);
+          saveAppAuth(
+            {
+              access_token: session.access_token,
+              refresh_token: session.refresh_token || "",
+            },
+            cachedUser
+          );
           return cachedUser;
         }
       } catch {
         /* 프로필 조회 실패 시 메타데이터로 표시 */
       }
       cachedUser = userFromAuthSession(session.user);
+      saveAppAuth(
+        {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token || "",
+        },
+        cachedUser
+      );
       return cachedUser;
     }
 
@@ -416,3 +525,126 @@ export async function resetPasswordWithHint(
     return { ok: false, message: "서버에 연결할 수 없습니다." };
   }
 }
+
+export type UpdateProfileInput = {
+  shopName?: string;
+  name?: string;
+  phone?: string;
+  passwordHint: string;
+};
+
+export async function updateProfile(
+  input: UpdateProfileInput
+): Promise<AuthResult> {
+  const passwordHint = input.passwordHint.trim();
+  if (!passwordHint) {
+    return { ok: false, message: "비밀번호 힌트를 입력해 주세요." };
+  }
+
+  try {
+    const appAuth = loadAppAuth();
+    const accessToken = appAuth?.access_token?.trim() ?? "";
+    if (!accessToken) {
+      return {
+        ok: false,
+        message: "로그인이 필요합니다. 다시 로그인해 주세요.",
+      };
+    }
+
+    const res = await fetch("/api/auth/update-profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        shopName: input.shopName,
+        name: input.name,
+        phone: input.phone,
+        passwordHint,
+        accessToken,
+      }),
+    });
+    const body = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      user?: User;
+    };
+
+    if (!res.ok || !body.ok || !body.user) {
+      return {
+        ok: false,
+        message: body.message ?? "정보 수정에 실패했습니다.",
+      };
+    }
+
+    const nextUser = body.user;
+    cachedUser = nextUser;
+    if (appAuth?.refresh_token) {
+      saveAppAuth(
+        {
+          access_token: appAuth.access_token,
+          refresh_token: appAuth.refresh_token,
+        },
+        nextUser
+      );
+    }
+
+    return { ok: true, user: nextUser };
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "정보 수정 중 오류가 발생했습니다.";
+    return { ok: false, message };
+  }
+}
+
+const DELETE_CONFIRM_PHRASE = "계정삭제에 동의합니다";
+
+export async function deleteAccount(
+  confirmPhrase: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (confirmPhrase.trim() !== DELETE_CONFIRM_PHRASE) {
+    return {
+      ok: false,
+      message: `「${DELETE_CONFIRM_PHRASE}」를 정확히 입력해 주세요.`,
+    };
+  }
+
+  try {
+    const appAuth = loadAppAuth();
+    const accessToken = appAuth?.access_token?.trim() ?? "";
+    if (!accessToken) {
+      return {
+        ok: false,
+        message: "로그인이 필요합니다. 다시 로그인해 주세요.",
+      };
+    }
+
+    const res = await fetch("/api/auth/delete-account", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        confirmPhrase: confirmPhrase.trim(),
+        accessToken,
+      }),
+    });
+    const body = (await res.json()) as { ok?: boolean; message?: string };
+
+    if (!res.ok || !body.ok) {
+      return {
+        ok: false,
+        message: body.message ?? "회원 탈퇴에 실패했습니다.",
+      };
+    }
+
+    clearAuthRuntimeCache();
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "서버에 연결할 수 없습니다." };
+  }
+}
+
+export { DELETE_CONFIRM_PHRASE };

@@ -50,6 +50,17 @@ export function buildPropertyShareText(
       lines.push(`유형: ${typeParts.join(" · ")}`);
     }
 
+    if (
+      property.roomType === "투룸" ||
+      property.roomType === "3룸+" ||
+      property.roomType === "아파트"
+    ) {
+      const rooms = property.roomType === "투룸" ? 2 : property.roomCount;
+      lines.push(
+        `방·화장실: 방 ${rooms ?? "-"}개 · 화장실 ${property.bathroomCount ?? 1}개`
+      );
+    }
+
     if (property.roomType === "토지") {
       if (property.landArea != null) {
         lines.push(`대지면적: ${property.landArea}평`);
@@ -76,8 +87,7 @@ export function buildPropertyShareText(
           [
             ["원룸", property.unitCounts.원룸],
             ["투룸", property.unitCounts.투룸],
-            ["쓰리룸", property.unitCounts.쓰리룸],
-            ["쓰리룸+", property.unitCounts["쓰리룸+"]],
+            ["3룸+", property.unitCounts["3룸+"]],
             ["상가", property.unitCounts.상가],
           ] as const
         )
@@ -186,8 +196,11 @@ export function buildPropertyShareText(
 
   lines.push("─".repeat(12));
   // 값 있으면 값 표시, 가입 시 미입력이면 라벨만
+  // 저장 시 이미 「부동산」「공인중개사사무소」가 붙을 수 있음 — 중복 추가 금지
   if (shop) {
-    lines.push(shop.endsWith("부동산") ? shop : `${shop} 부동산`);
+    const hasLabel =
+      shop.includes("부동산") || shop.includes("공인중개사사무소");
+    lines.push(hasLabel ? shop : `${shop} 공인중개사사무소`);
   } else {
     lines.push("부동산");
   }

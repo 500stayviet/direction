@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -8,23 +9,29 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
+import { SiteShareDevMark, TeamShareButton } from "@/components/SiteShareUi";
+import { MatchingCustomersSection } from "@/components/MatchListPanel";
 import { getCurrentUser } from "@/lib/auth";
 import { getPropertyValidationError } from "@/lib/propertyValidation";
+import { findMatchingCustomersGrouped } from "@/lib/matchCustomerProperty";
 import {
   deleteListedProperty,
   getListedPropertyById,
   upsertListedProperty,
 } from "@/lib/storage";
+import { useCustomersList } from "@/hooks/useEntityList";
 import type { ListedProperty, User } from "@/lib/types";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [property, setProperty] = useState<ListedProperty | null>(null);
+  const { items: customers, setItems: setCustomers } = useCustomersList();
   const [editing, setEditing] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [agent, setAgent] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +52,14 @@ export default function PropertyDetailPage() {
       cancelled = true;
     };
   }, [params.id, router]);
+
+  const matches = useMemo(
+    () =>
+      property
+        ? findMatchingCustomersGrouped(property, customers)
+        : { own: [], partner: [] },
+    [property, customers]
+  );
 
   if (!property) {
     return (
@@ -80,13 +95,57 @@ export default function PropertyDetailPage() {
       });
   };
 
+  const cancelEditing = () => {
+    void getListedPropertyById(params.id).then((found) => {
+      if (found) setProperty(found);
+    });
+    setEditing(false);
+  };
+
+  const toggleTeamShare = async () => {
+    if (!property || shareBusy) return;
+    const prevShared = Boolean(property.workspaceShared);
+    const next = {
+      ...property,
+      workspaceShared: !prevShared,
+      updatedAt: new Date().toISOString(),
+    };
+    setProperty(next);
+    setShareBusy(true);
+    try {
+      await upsertListedProperty(next);
+    } catch (err: unknown) {
+      setProperty({ ...property, workspaceShared: prevShared });
+      alert(err instanceof Error ? err.message : "팀 공유 변경에 실패했습니다.");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const teamOn = property.workspaceShared === true;
+
   return (
     <main>
       <PageHeader
         title={editing ? "매물 정보 수정" : "매물 정보"}
-        backHref="/properties"
+        titleAlign="left"
+        backHref={editing ? undefined : "/properties"}
+        onBack={
+          editing
+            ? () => {
+                cancelEditing();
+              }
+            : undefined
+        }
         right={
           <div className="flex items-center gap-1.5">
+            {!editing ? (
+              <TeamShareButton
+                active={teamOn}
+                disabled={shareBusy}
+                onToggle={() => void toggleTeamShare()}
+              />
+            ) : null}
             {!editing ? (
               <Button
                 onClick={() => setShareOpen(true)}
@@ -99,11 +158,10 @@ export default function PropertyDetailPage() {
               variant={editing ? "secondary" : "outline"}
               onClick={() => {
                 if (editing) {
-                  void getListedPropertyById(params.id).then((found) => {
-                    if (found) setProperty(found);
-                  });
+                  cancelEditing();
+                } else {
+                  setEditing(true);
                 }
-                setEditing((v) => !v);
               }}
               className={
                 editing
@@ -151,8 +209,39 @@ export default function PropertyDetailPage() {
           </StickyActionBar>
         </>
       ) : (
-        <div className="pb-4">
+        <div className="space-y-3 pb-4">
           <PropertyBrief index={0} property={property} />
+
+          <div className="space-y-3">
+            <p className="px-1 text-sm font-bold text-gray-800">
+              조건에 맞는 고객
+            </p>
+            <MatchingCustomersSection
+              title="내 고객"
+              listHint="(내 고객리스트 내)"
+              items={matches.own}
+              emptyText="조건에 맞는 내 고객이 없습니다."
+              onRemoved={(id) =>
+                setCustomers((prev) => prev.filter((c) => c.id !== id))
+              }
+            />
+            <MatchingCustomersSection
+              title="현장동선내 공유 고객"
+              titleRight={<SiteShareDevMark />}
+              items={matches.partner}
+              emptyText="사이트내 공유 고객 자동 매칭은 준비 중입니다."
+              onRemoved={(id) =>
+                setCustomers((prev) => prev.filter((c) => c.id !== id))
+              }
+            />
+            {matches.own.length === 0 ? (
+              <Link href="/customers/new" className="inline-block px-1">
+                <span className="text-[13px] font-bold text-[#3182F6]">
+                  고객 추가하기 →
+                </span>
+              </Link>
+            ) : null}
+          </div>
         </div>
       )}
 

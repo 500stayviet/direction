@@ -37,8 +37,8 @@ export function getCustomerMoveInTarget(customer: Customer): string | null {
 }
 
 /**
- * 오늘이 '입주 희망 시작일까지 정확히 31일 전'일 때만 true
- * — 기준: 희망 입주 시작일(moveInFrom)
+ * 오늘이 '희망 입주 시작일까지 정확히 31일 전'일 때만 true
+ * — 기준: 희망 입주 시작일(moveInFrom). 종료일(moveInTo)은 보지 않음
  */
 export function isContractDeadlineActive(
   customer: Customer,
@@ -58,7 +58,11 @@ export function daysUntilISO(iso: string, today: string = todayISO()): number {
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * 알림 배지 문구
+ * — 단일이든 기간이든 라벨은 동일 (상세 날짜는 카드 하단 희망입주에서 확인)
+ */
 export function getContractDeadlineLabel(customer: Customer): string | null {
   if (!isContractDeadlineActive(customer)) return null;
-  return "오늘 · 입주까지 31일";
+  return "희망 입주일 31일전";
 }

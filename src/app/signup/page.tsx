@@ -8,6 +8,14 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BrandIcon } from "@/components/BrandIcon";
 import { hardRedirectLogin, registerUser } from "@/lib/auth";
+import { normalizeUsername } from "@/lib/supabase/email";
+
+type UsernameCheck =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "ok"; username: string; message: string }
+  | { status: "taken"; username: string; message: string }
+  | { status: "error"; message: string };
 
 export default function SignupPage() {
   const [shopName, setShopName] = useState("");
@@ -19,8 +27,66 @@ export default function SignupPage() {
   const [passwordHint, setPasswordHint] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
-
+  const [usernameCheck, setUsernameCheck] = useState<UsernameCheck>({
+    status: "idle",
+  });
   const [loading, setLoading] = useState(false);
+
+  const onUsernameChange = (value: string) => {
+    setUsername(value);
+    setUsernameCheck({ status: "idle" });
+  };
+
+  const checkUsername = async (): Promise<boolean> => {
+    const normalized = normalizeUsername(username);
+    if (!normalized) {
+      setUsernameCheck({
+        status: "error",
+        message: "아이디를 입력해 주세요.",
+      });
+      return false;
+    }
+    setUsernameCheck({ status: "checking" });
+    try {
+      const res = await fetch("/api/auth/check-username", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: normalized }),
+      });
+      const body = (await res.json().catch(() => null)) as {
+        available?: boolean;
+        username?: string;
+        message?: string;
+      } | null;
+      if (!res.ok || !body) {
+        setUsernameCheck({
+          status: "error",
+          message: body?.message || "아이디 확인에 실패했습니다.",
+        });
+        return false;
+      }
+      if (body.available) {
+        setUsernameCheck({
+          status: "ok",
+          username: body.username || normalized,
+          message: body.message || "사용 가능한 아이디입니다.",
+        });
+        return true;
+      }
+      setUsernameCheck({
+        status: "taken",
+        username: body.username || normalized,
+        message: body.message || "이미 사용 중인 아이디입니다.",
+      });
+      return false;
+    } catch {
+      setUsernameCheck({
+        status: "error",
+        message: "아이디 확인 중 오류가 발생했습니다.",
+      });
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,6 +95,19 @@ export default function SignupPage() {
       setError("이용약관 및 면책 안내에 동의해 주세요.");
       return;
     }
+
+    const normalized = normalizeUsername(username);
+    const alreadyOk =
+      usernameCheck.status === "ok" &&
+      usernameCheck.username === normalized;
+    if (!alreadyOk) {
+      const ok = await checkUsername();
+      if (!ok) {
+        setError("아이디 중복 확인을 완료해 주세요.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const result = await registerUser({
@@ -42,6 +121,13 @@ export default function SignupPage() {
       });
       if (!result.ok) {
         setError(result.message);
+        if (/이미 사용|삭제된 아이디/i.test(result.message)) {
+          setUsernameCheck({
+            status: "taken",
+            username: normalized,
+            message: result.message,
+          });
+        }
         return;
       }
       hardRedirectLogin({
@@ -52,6 +138,15 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  const checkHint =
+    usernameCheck.status === "ok"
+      ? usernameCheck.message
+      : usernameCheck.status === "taken" || usernameCheck.status === "error"
+        ? usernameCheck.message
+        : usernameCheck.status === "checking"
+          ? "확인 중…"
+          : "영문 소문자·숫자 4자 이상 · 중복 확인을 눌러 주세요";
 
   return (
     <main className="py-6 pb-10">
@@ -66,7 +161,10 @@ export default function SignupPage() {
         <p className="mt-2 text-sm text-gray-500">
           아이디·비밀번호·확인·힌트만 필수예요. 나머지는 선택입니다.
           가입 전{" "}
-          <Link href="/terms" className="font-semibold text-[#3182F6] underline-offset-2 hover:underline">
+          <Link
+            href="/terms"
+            className="font-semibold text-[#3182F6] underline-offset-2 hover:underline"
+          >
             약관·광고 안내
           </Link>
           를 확인해 주세요.
@@ -83,7 +181,8 @@ export default function SignupPage() {
             label="업장명"
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
-            placeholder="성내동 ○○부동산 (선택)"
+            placeholder="예: 천호동 (선택)"
+            hint="「부동산」「공인중개사사무소」가 없으면 저장 시 공인중개사사무소가 붙습니다"
           />
           <Input
             label="이름"
@@ -97,14 +196,50 @@ export default function SignupPage() {
             onChange={setPhone}
             hint="선택 입력 · 매물 공유 시 사용"
           />
-          <Input
-            label="아이디"
-            required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="영문·숫자 4자 이상"
-            autoComplete="username"
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  label="아이디"
+                  required
+                  value={username}
+                  onChange={(e) => onUsernameChange(e.target.value)}
+                  placeholder="영문·숫자 4자 이상"
+                  autoComplete="username"
+                  invalid={
+                    usernameCheck.status === "taken" ||
+                    usernameCheck.status === "error"
+                  }
+                  hint=""
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="!min-h-[48px] shrink-0 !px-3.5 !text-[14px]"
+                disabled={
+                  usernameCheck.status === "checking" ||
+                  !normalizeUsername(username)
+                }
+                onClick={() => void checkUsername()}
+              >
+                {usernameCheck.status === "checking" ? "확인 중" : "중복확인"}
+              </Button>
+            </div>
+            <p
+              className={[
+                "px-0.5 text-xs font-semibold",
+                usernameCheck.status === "ok"
+                  ? "text-emerald-600"
+                  : usernameCheck.status === "taken" ||
+                      usernameCheck.status === "error"
+                    ? "text-red-500"
+                    : "text-gray-400",
+              ].join(" ")}
+            >
+              {checkHint}
+            </p>
+          </div>
           <Input
             label="비밀번호"
             required
@@ -155,7 +290,8 @@ export default function SignupPage() {
             </Link>
             에 동의합니다.
             <span className="mt-1 block text-[12px] text-gray-400">
-              무료 편의 도구이며, 필요한 분만 자발적으로 이용합니다.
+              업무 편의 도구이며, 필요한 분만 자발적으로 이용합니다. 향후 유료
+              요금제가 도입될 수 있습니다.
             </span>
           </span>
         </label>

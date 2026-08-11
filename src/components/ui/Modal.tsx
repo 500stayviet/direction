@@ -14,6 +14,8 @@ interface ModalProps {
   dense?: boolean;
   /** 패널 추가 클래스 (너비·패딩 등) */
   className?: string;
+  /** 우측 상단 X 닫기 버튼 */
+  showClose?: boolean;
 }
 
 export function Modal({
@@ -25,6 +27,7 @@ export function Modal({
   position = "bottom",
   dense = false,
   className = "",
+  showClose = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -69,6 +72,16 @@ export function Modal({
             : { paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }
         }
       >
+        {showClose ? (
+          <button
+            type="button"
+            aria-label="닫기"
+            onClick={onClose}
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-[18px] font-bold leading-none text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800"
+          >
+            ×
+          </button>
+        ) : null}
         {!centered && (
           <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
         )}
@@ -77,6 +90,7 @@ export function Modal({
             className={[
               "font-bold text-gray-900",
               dense ? "text-lg leading-snug" : "text-xl",
+              showClose ? "pr-10" : "",
             ].join(" ")}
           >
             {title}

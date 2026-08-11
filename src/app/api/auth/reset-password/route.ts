@@ -71,6 +71,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: deletedAccount } = await admin
+      .from("deleted_accounts")
+      .select("username")
+      .eq("username", username)
+      .maybeSingle();
+    if (deletedAccount) {
+      return NextResponse.json(
+        { ok: false, message: "아이디 또는 힌트가 올바르지 않습니다." },
+        { status: 400 }
+      );
+    }
+
     // profiles + Auth 메타데이터 둘 다 확인 (가입 시 힌트 불일치 방지)
     const { data: profile } = await admin
       .from("profiles")

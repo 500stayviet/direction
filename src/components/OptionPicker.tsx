@@ -11,6 +11,8 @@ interface OptionPickerProps {
   onChange: (value: string) => void;
   required?: boolean;
   invalid?: boolean;
+  /** 값 선택 완료 — 연한 파란 테두리 */
+  complete?: boolean;
   disabled?: boolean;
   placeholder?: string;
   title?: string;
@@ -25,6 +27,7 @@ export function OptionPicker({
   onChange,
   required,
   invalid,
+  complete,
   disabled,
   placeholder = "선택",
   title,
@@ -32,13 +35,13 @@ export function OptionPicker({
   columns = 3,
 }: OptionPickerProps) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value);
 
   const openPicker = () => {
     if (disabled) return;
-    setDraft(value);
     setOpen(true);
   };
+
+  const showComplete = Boolean(complete && value && !invalid && !disabled);
 
   return (
     <div className="space-y-1">
@@ -68,7 +71,9 @@ export function OptionPicker({
           disabled ? "opacity-50" : "",
           invalid
             ? "border-red-500 bg-red-50"
-            : "border-gray-200 bg-gray-50 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
+            : showComplete
+              ? "border-[#3182F6]/55 bg-gray-50"
+              : "border-gray-200 bg-gray-50 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
         ].join(" ")}
       >
         <span
@@ -82,7 +87,9 @@ export function OptionPicker({
         <span
           className={[
             "flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold",
-            invalid ? "bg-red-100 text-red-600" : "bg-blue-50 text-[#3182F6]",
+            invalid
+              ? "bg-red-100 text-red-600"
+              : "bg-blue-50 text-[#3182F6]",
           ].join(" ")}
         >
           ▾
@@ -99,16 +106,21 @@ export function OptionPicker({
         <div
           className={[
             "mt-1 max-h-[50vh] overflow-y-auto overscroll-contain",
-            columns === 2 ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-3 gap-1.5",
+            columns === 2
+              ? "grid grid-cols-2 gap-1.5"
+              : "grid grid-cols-3 gap-1.5",
           ].join(" ")}
         >
           {options.map((option) => {
-            const active = draft === option;
+            const active = value === option;
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => setDraft(option)}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
                 className={[
                   "min-h-[48px] rounded-xl px-1 text-[15px] font-bold",
                   "active:scale-95 transition-all duration-150",
@@ -122,21 +134,14 @@ export function OptionPicker({
             );
           })}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={() => setOpen(false)}>
-            취소
-          </Button>
-          <Button
-            onClick={() => {
-              if (!draft) return;
-              onChange(draft);
-              setOpen(false);
-            }}
-            disabled={!draft}
-          >
-            선택하기
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          fullWidth
+          className="mt-4"
+          onClick={() => setOpen(false)}
+        >
+          취소
+        </Button>
       </Modal>
     </div>
   );

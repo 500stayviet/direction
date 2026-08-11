@@ -14,7 +14,7 @@ interface DealTypeToggleProps {
 }
 
 export function DealTypeToggle({
-  label = "희망 거래 유형",
+  label = "희망거래",
   required,
   value,
   onChange,

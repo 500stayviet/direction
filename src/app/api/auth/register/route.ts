@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
-import { formatPhoneInput } from "@/lib/format";
+import { usernameToEmail, validateUsernameFormat } from "@/lib/supabase/email";
+import { formatPhoneInput, normalizeShopName } from "@/lib/format";
 
 export async function POST(request: Request) {
   try {
@@ -15,37 +15,23 @@ export async function POST(request: Request) {
       passwordHint?: string;
     };
 
-    const username = normalizeUsername(body.username ?? "");
+    const usernameCheck = validateUsernameFormat(body.username ?? "");
+    if (!usernameCheck.ok) {
+      return NextResponse.json(
+        { ok: false, message: usernameCheck.message },
+        { status: 400 }
+      );
+    }
+    const username = usernameCheck.username;
     const password = (body.password ?? "").normalize("NFKC").trim();
     const passwordConfirm = (body.passwordConfirm ?? "")
       .normalize("NFKC")
       .trim();
     const passwordHint = (body.passwordHint ?? "").trim();
-    const shopName = (body.shopName ?? "").trim() || "현장동선";
+    const shopName = normalizeShopName(body.shopName ?? "");
     const name = (body.name ?? "").trim() || username;
     const phone = formatPhoneInput(body.phone ?? "");
 
-    if (!username) {
-      return NextResponse.json(
-        { ok: false, message: "아이디를 입력해 주세요." },
-        { status: 400 }
-      );
-    }
-    if (username.length < 4) {
-      return NextResponse.json(
-        { ok: false, message: "아이디는 4자 이상이어야 합니다." },
-        { status: 400 }
-      );
-    }
-    if (!/^[a-z0-9._-]+$/.test(username)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "아이디는 영문 소문자, 숫자, . _ - 만 사용할 수 있습니다.",
-        },
-        { status: 400 }
-      );
-    }
     if (!password || password.length < 6) {
       return NextResponse.json(
         { ok: false, message: "비밀번호는 6자 이상이어야 합니다." },

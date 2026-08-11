@@ -11,6 +11,8 @@ interface PhoneInputProps {
   hint?: string;
   placeholder?: string;
   invalid?: boolean;
+  /** 라벨 우측 안내 (예: 동일 고객 존재) */
+  labelRight?: React.ReactNode;
 }
 
 export function PhoneInput({
@@ -21,12 +23,14 @@ export function PhoneInput({
   hint,
   placeholder = "010-1234-5678",
   invalid,
+  labelRight,
 }: PhoneInputProps) {
   return (
     <Input
       label={label}
       required={required}
       invalid={invalid}
+      labelRight={labelRight}
       type="tel"
       inputMode="numeric"
       autoComplete="tel"

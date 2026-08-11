@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/AppShell";
 import { AdSenseScript } from "@/components/ads/AdSenseScript";
+import { BootSplashScript } from "@/components/BootSplashScript";
+import { ChunkLoadRecovery } from "@/components/ChunkLoadRecovery";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -132,11 +134,8 @@ export default function RootLayout({
           aria-hidden="true"
           suppressHydrationWarning
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(sessionStorage.getItem("realty_boot_splash_done")!=="1"){var e=document.getElementById("boot-splash");if(e){e.classList.remove("boot-splash-done");e.setAttribute("aria-hidden","false");}}}catch(t){}`,
-          }}
-        />
+        <BootSplashScript />
+        <ChunkLoadRecovery />
         <AdSenseScript />
         <AppShell>{children}</AppShell>
       </body>

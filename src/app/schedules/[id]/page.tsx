@@ -12,18 +12,21 @@ import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
+import { ListEdgeChips } from "@/components/ListEdgeChips";
 import { Modal } from "@/components/ui/Modal";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { createEmptyProperty } from "@/lib/constants";
-import { addMinutesToHHmm, cascadeArriveTimes } from "@/lib/arriveTime";
+import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { getCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import {
   deleteSchedule,
   getCustomerById,
   getScheduleById,
+  setScheduleWorkspaceShared,
   upsertSchedule,
 } from "@/lib/storage";
+import { fetchWorkspaceStatus } from "@/lib/workspace";
 import {
   formatVisitDateTime,
   getCustomerBudgetLabel,
@@ -31,7 +34,6 @@ import {
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
 } from "@/lib/format";
-import { displayRoomType } from "@/lib/constants";
 import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
@@ -84,6 +86,8 @@ function ScheduleDetailInner() {
   const [warnOpen, setWarnOpen] = useState(false);
   const [customerDetailOpen, setCustomerDetailOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [hasTeammates, setHasTeammates] = useState(false);
+  const [workspaceShareBusy, setWorkspaceShareBusy] = useState(false);
   const [agent, setAgent] = useState<User | null>(null);
   /** -1: 시작 전, 0..n-1: 현재 포커스 매물(시간순) */
   const [navStep, setNavStep] = useState(-1);
@@ -120,9 +124,10 @@ function ScheduleDetailInner() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [found, me] = await Promise.all([
+      const [found, me, ws] = await Promise.all([
         getScheduleById(params.id),
         getCurrentUser(),
+        fetchWorkspaceStatus(),
       ]);
       if (cancelled) return;
       if (!found) {
@@ -130,6 +135,7 @@ function ScheduleDetailInner() {
         return;
       }
       setAgent(me);
+      setHasTeammates(Boolean(ws && ws.memberCount > 1));
       setSchedule(found);
       setVisitDate(found.visitDate ?? "");
       setVisitTime(found.visitTime ?? "");
@@ -254,6 +260,28 @@ function ScheduleDetailInner() {
     setEditing(false);
   };
 
+  const handleViewSwap = async (fromIndex: number, toIndex: number) => {
+    if (!schedule || fromIndex === toIndex) return;
+    const nextProperties = swapPropertySlots(
+      schedule.properties,
+      fromIndex,
+      toIndex
+    );
+    const next: Schedule = {
+      ...schedule,
+      properties: nextProperties,
+      routeSummary: buildRouteSummary(nextProperties),
+      updatedAt: new Date().toISOString(),
+    };
+    setSchedule(next);
+    setProperties(nextProperties);
+    try {
+      await upsertSchedule(next);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "순서 변경에 실패했습니다.");
+    }
+  };
+
   return (
     <main>
       <PageHeader
@@ -267,6 +295,62 @@ function ScheduleDetailInner() {
         }
         right={
           <div className="flex items-center gap-1.5">
+            {!editing &&
+            (schedule.id.startsWith("demo_sch_") ||
+              hasTeammates ||
+              schedule.workspaceShared) ? (
+              <Button
+                disabled={
+                  workspaceShareBusy ||
+                  (!schedule.id.startsWith("demo_sch_") &&
+                    !hasTeammates &&
+                    !schedule.workspaceShared)
+                }
+                onClick={() => {
+                  void (async () => {
+                    if (!schedule || workspaceShareBusy) return;
+                    const isDemo = schedule.id.startsWith("demo_sch_");
+                    if (!isDemo && !hasTeammates && !schedule.workspaceShared) {
+                      return;
+                    }
+                    const prevShared = Boolean(schedule.workspaceShared);
+                    const nextShared = !prevShared;
+                    setSchedule({
+                      ...schedule,
+                      workspaceShared: nextShared,
+                      updatedAt: new Date().toISOString(),
+                    });
+                    setWorkspaceShareBusy(true);
+                    try {
+                      const updated = await setScheduleWorkspaceShared(
+                        schedule.id,
+                        nextShared
+                      );
+                      if (updated) setSchedule(updated);
+                    } catch (err) {
+                      setSchedule({
+                        ...schedule,
+                        workspaceShared: prevShared,
+                      });
+                      alert(
+                        err instanceof Error
+                          ? err.message
+                          : "팀 공유 변경에 실패했습니다."
+                      );
+                    } finally {
+                      setWorkspaceShareBusy(false);
+                    }
+                  })();
+                }}
+                className={
+                  schedule?.workspaceShared
+                    ? "!border-2 !border-violet-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-violet-600 hover:!bg-violet-50"
+                    : "!border-2 !border-gray-400 !bg-white !px-2.5 !text-[13px] !font-bold !text-gray-600 hover:!bg-gray-50"
+                }
+              >
+                {schedule?.workspaceShared ? "팀 공유 중" : "팀 공유하기"}
+              </Button>
+            ) : null}
             {!editing ? (
               <Button
                 onClick={() => setShareOpen(true)}
@@ -343,12 +427,19 @@ function ScheduleDetailInner() {
                         const replaced = prev.map((p, i) =>
                           i === index ? next : p
                         );
-                        return cascadeArriveTimes(
+                        const cascaded = cascadeArriveTimes(
                           replaced,
                           index,
                           prevItem?.arriveTime ?? "",
                           next.arriveTime ?? ""
                         );
+                        if (
+                          (prevItem?.arriveTime ?? "") !==
+                          (next.arriveTime ?? "")
+                        ) {
+                          return sortPropertiesByArriveTime(cascaded);
+                        }
+                        return cascaded;
                       })
                     }
                     enableLoad
@@ -356,6 +447,13 @@ function ScheduleDetailInner() {
                     onRemove={() =>
                       setProperties((prev) =>
                         prev.filter((_, i) => i !== index)
+                      )
+                    }
+                    propertyCount={properties.length}
+                    allProperties={properties}
+                    onSwapWith={(target) =>
+                      setProperties((prev) =>
+                        swapPropertySlots(prev, index, target)
                       )
                     }
                     validationActive={validationFocus?.index === index}
@@ -425,16 +523,27 @@ function ScheduleDetailInner() {
             <Card className="!overflow-visible space-y-2.5 pt-5">
               {customer ? (
                 <>
+                  <ListEdgeChips
+                    placement="inline"
+                    roomType={customer.roomType}
+                    buildingKind={customer.buildingKind}
+                    dealType={customer.dealType}
+                    moneyLabel={getCustomerBudgetLabel(customer)}
+                    depositMan={Math.max(
+                      customer.deposit ?? 0,
+                      customer.depositTo ?? 0
+                    )}
+                  />
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-[20px] font-extrabold tracking-tight text-gray-900">
                         {customer.name}
                       </p>
-                      <p className="mt-1 text-[12px] font-semibold text-gray-500">
-                        {displayRoomType(customer.roomType, customer.buildingKind)} · {customer.dealType}
-                        {customer.nonOccupancy ? " · 비입주" : ""} ·{" "}
-                        {getCustomerBudgetLabel(customer)}
-                      </p>
+                      {customer.nonOccupancy ? (
+                        <p className="mt-1 text-[12px] font-semibold text-gray-500">
+                          비입주
+                        </p>
+                      ) : null}
                     </div>
                     <PhoneLink
                       phone={customer.phone}
@@ -510,7 +619,14 @@ function ScheduleDetailInner() {
               }}
               className="space-y-3 scroll-mt-20"
             >
-              <PropertyBrief index={index} property={property} />
+              <PropertyBrief
+                index={index}
+                property={property}
+                allProperties={schedule.properties}
+                onSwapWith={(target) =>
+                  void handleViewSwap(index, target)
+                }
+              />
               {schedule.routeSummary[index] && (
                 <RouteSummaryCard summary={schedule.routeSummary[index]} />
               )}

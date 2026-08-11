@@ -8,7 +8,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-const DEMO_SEED_VERSION = "demo_v9";
+const DEMO_SEED_VERSION = "demo_v12";
 const DEMO_GANGDONG_OFFICE_ADDRESS = "서울특별시 강동구 성내동 540";
 const DEMO_TEST_PHONE = "111-1111-1111";
 const CONTRACT_DEADLINE_DAYS = 31;

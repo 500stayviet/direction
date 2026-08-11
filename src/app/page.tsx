@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { BrandIcon } from "@/components/BrandIcon";
-import { getCurrentUser, hardRedirectHome, logoutUser } from "@/lib/auth";
+import { getCurrentUser, hardRedirectHome, logoutUser, peekCurrentUser } from "@/lib/auth";
 import { getDailyGreeting } from "@/lib/dailyGreeting";
 import { todayISO } from "@/lib/date";
 import {
   getContractDeadlineLabel,
   isContractDeadlineActive,
 } from "@/lib/deadline";
-import { getCustomers } from "@/lib/storage";
-import type { Customer, User } from "@/lib/types";
+import { useCustomersList } from "@/hooks/useEntityList";
+import type { User } from "@/lib/types";
 import { AdBanner } from "@/components/ads/AdBanner";
+
+function subscribeNoop() {
+  return () => {};
+}
+
+/** SSR·hydration은 null, 이후 localStorage peek (mismatch 방지) */
+function usePeekedUser(): User | null {
+  return useSyncExternalStore(subscribeNoop, peekCurrentUser, () => null);
+}
 
 const menus = [
   {
@@ -57,57 +66,58 @@ const FREE_NOTICE_HIDE_KEY = "realty_home_free_notice_hide";
 
 export default function HomePage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const peekedUser = usePeekedUser();
+  /** undefined = 아직 getCurrentUser 전 → peekedUser 사용 */
+  const [userOverride, setUserOverride] = useState<User | null | undefined>(
+    undefined
+  );
+  const user = userOverride === undefined ? peekedUser : userOverride;
+  const { items: customers } = useCustomersList();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
   const [freeNoticeOpen, setFreeNoticeOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    let timer: number | undefined;
 
     void (async () => {
       const u = await getCurrentUser();
       if (cancelled) return;
-      setUser(u);
-
-      // 가입 안내는 홈 + 비로그인일 때만
-      if (!u) {
-        try {
-          if (localStorage.getItem(FREE_NOTICE_HIDE_KEY) !== "1") {
-            setFreeNoticeOpen(true);
-          }
-        } catch {
-          setFreeNoticeOpen(true);
-        }
+      setUserOverride(u);
+      if (u) {
+        setFreeNoticeOpen(false);
         return;
       }
-
-      const list = await getCustomers();
-      if (cancelled) return;
-      setCustomers(list);
-
-      const due = list.filter((c) => isContractDeadlineActive(c));
-      if (due.length === 0) return;
-
-      const key = deadlineModalKey(u.id);
       try {
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, "1");
+        if (localStorage.getItem(FREE_NOTICE_HIDE_KEY) !== "1") {
+          setFreeNoticeOpen(true);
+        }
       } catch {
-        // sessionStorage 불가 시에도 모달은 표시
+        setFreeNoticeOpen(true);
       }
-
-      setDeadlineModalOpen(true);
-      timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
     })();
 
     return () => {
       cancelled = true;
-      if (timer) window.clearTimeout(timer);
     };
   }, []);
+
+  // 고객 캐시가 채워지면 계약 마감 모달
+  useEffect(() => {
+    if (!user) return;
+    const due = customers.filter((c) => isContractDeadlineActive(c));
+    if (due.length === 0) return;
+    const key = deadlineModalKey(user.id);
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* ignore */
+    }
+    setDeadlineModalOpen(true);
+    const timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
+    return () => window.clearTimeout(timer);
+  }, [user, customers]);
 
   const closeFreeNotice = () => setFreeNoticeOpen(false);
 
@@ -124,7 +134,12 @@ export default function HomePage() {
     () => customers.filter((c) => isContractDeadlineActive(c)),
     [customers]
   );
-  const dailyGreeting = useMemo(() => getDailyGreeting(), []);
+  // SSR은 고정값, hydration 이후 로컬 날짜 인사 (mismatch 방지)
+  const dailyGreeting = useSyncExternalStore(
+    subscribeNoop,
+    () => getDailyGreeting(),
+    () => "오늘도 현장 화이팅"
+  );
 
   const requireAuth = (href: string) => {
     if (user) {
@@ -194,19 +209,30 @@ export default function HomePage() {
             </p>
           </div>
           {user ? (
-            <button
-              type="button"
-              onClick={() => {
-                void (async () => {
-                  setUser(null);
-                  await logoutUser();
-                  hardRedirectHome();
-                })();
-              }}
-              className="shrink-0 pt-1 text-[13px] font-semibold text-gray-500 active:scale-95 transition-all duration-150"
-            >
-              로그아웃
-            </button>
+            <div className="flex shrink-0 items-center gap-2.5 pt-1">
+              <Link
+                href="/account"
+                className="text-[13px] font-semibold text-[#3182F6] active:scale-95 transition-all duration-150"
+              >
+                내정보
+              </Link>
+              <span className="text-[12px] text-gray-300" aria-hidden>
+                |
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  void (async () => {
+                    setUserOverride(null);
+                    await logoutUser();
+                    hardRedirectHome();
+                  })();
+                }}
+                className="text-[13px] font-semibold text-gray-500 active:scale-95 transition-all duration-150"
+              >
+                로그아웃
+              </button>
+            </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2.5 pt-1">
               <Link
@@ -268,13 +294,19 @@ export default function HomePage() {
             서비스 소개
           </Link>
           <Link
+            href="/about#guide"
+            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
+          >
+            사용설명
+          </Link>
+          <Link
             href="/terms"
             className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
           >
             약관·개인정보·광고
           </Link>
         </div>
-        <p>무료 편의 도구 · 필요한 분만 이용</p>
+        <p>업무 편의 도구 · 필요한 분만 이용</p>
         <p>
           문의{" "}
           <a
@@ -304,9 +336,9 @@ export default function HomePage() {
           </span>
           <p className="text-[13px] font-extrabold text-[#3182F6]">현장동선</p>
           <p className="text-[16px] font-bold leading-snug tracking-tight text-[#1B64DA]">
-            회원가입 후 무료로
+            회원가입 후
             <br />
-            서비스 이용 가능합니다.
+            서비스를 이용할 수 있습니다.
           </p>
           <div className="mt-1 flex w-full gap-2">
             <Button
@@ -331,7 +363,7 @@ export default function HomePage() {
         onClose={closeDeadlineModal}
         position="center"
         title="마지막 계약 데드라인"
-        description="희망 입주 시작일까지 31일 남은 고객만 표시해요"
+        description="희망 입주 시작일 기준 31일 전인 고객만 표시해요 · 단일은 그날, 기간은 시작~끝까지 보여요"
       >
         <div className="max-h-52 space-y-1.5 overflow-y-auto">
           {deadlineCustomers.map((c) => (
