@@ -579,8 +579,8 @@ export default function AdminPage() {
             현장동선 운영
           </p>
           <p className="text-[13px] leading-snug text-gray-500">
-            슈퍼관리자·직원 계정으로 로그인합니다. 회원·팀·삭제 복원을
-            관리합니다.
+            슈퍼관리자·직원 계정으로 로그인합니다. 직원은 정지·팀 강퇴 가능,
+            복원·PII 열람은 슈퍼만.
           </p>
           <Input
             label="관리자 아이디"
@@ -1400,7 +1400,7 @@ export default function AdminPage() {
         description={detail ? `@${detail.username}` : undefined}
         dense
         headerRight={
-          isSuper && detail && detail.status !== "deleted" ? (
+          detail && detail.status !== "deleted" ? (
             detail.status === "suspended" ? (
               <button
                 type="button"
@@ -1846,12 +1846,11 @@ export default function AdminPage() {
                     @{m.username} · {m.role}
                   </p>
                 </div>
-                {isSuper ? (
-                  <Button
-                    variant="danger"
-                    className="!min-h-[32px] shrink-0 !px-2 !text-[11px]"
-                    disabled={busy}
-                    onClick={() => {
+                <Button
+                  variant="danger"
+                  className="!min-h-[32px] shrink-0 !px-2 !text-[11px]"
+                  disabled={busy}
+                  onClick={() => {
                     if (
                       !window.confirm(
                         `${m.username} 님만 팀에서 나가게 할까요? 공유는 팀에서 빠집니다.`
@@ -1894,7 +1893,6 @@ export default function AdminPage() {
                 >
                   나가기
                 </Button>
-                ) : null}
               </div>
             ))}
             <Button

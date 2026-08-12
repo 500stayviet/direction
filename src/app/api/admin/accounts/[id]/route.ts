@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession, requireSuper } from "@/lib/adminAuth";
+import { requireAdminSession } from "@/lib/adminAuth";
 import { writeAuditLog } from "@/lib/workspaceServer";
 
 type Params = { params: Promise<{ id: string }> };
@@ -175,20 +175,13 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
-/** 계정 정지 / 정지 해제 (슈퍼만) */
+/** 계정 정지 / 정지 해제 (슈퍼·직원) */
 export async function POST(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
       { ok: false, message: auth.message },
       { status: auth.status }
-    );
-  }
-  const superOk = requireSuper(auth.session);
-  if (!superOk.ok) {
-    return NextResponse.json(
-      { ok: false, message: superOk.message },
-      { status: superOk.status }
     );
   }
 

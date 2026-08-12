@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession, requireSuper } from "@/lib/adminAuth";
+import { requireAdminSession } from "@/lib/adminAuth";
 import {
   adminRemoveWorkspaceMember,
   listWorkspaceMembers,
@@ -64,14 +64,6 @@ export async function POST(request: Request, { params }: Params) {
       { status: auth.status }
     );
   }
-  const superOk = requireSuper(auth.session);
-  if (!superOk.ok) {
-    return NextResponse.json(
-      { ok: false, message: superOk.message },
-      { status: superOk.status }
-    );
-  }
-
   const { id } = await params;
   const workspaceId = (id ?? "").trim();
   try {
