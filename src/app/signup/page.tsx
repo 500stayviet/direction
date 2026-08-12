@@ -181,7 +181,7 @@ export default function SignupPage() {
       });
       if (!result.ok) {
         setError(result.message);
-        if (/이미 사용|삭제된 아이디/i.test(result.message)) {
+        if (/이미 사용|사용할 수 없|삭제된 아이디/i.test(result.message)) {
           setUsernameCheck({
             status: "taken",
             username: normalized,

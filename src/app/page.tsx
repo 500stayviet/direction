@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
+import { useAccountSuspended } from "@/components/AccountSuspendedGate";
 import { BrandIcon } from "@/components/BrandIcon";
 import { getCurrentUser, hardRedirectHome, logoutUser, peekCurrentUser } from "@/lib/auth";
 import { getDailyGreeting } from "@/lib/dailyGreeting";
@@ -76,6 +77,7 @@ export default function HomePage() {
     undefined
   );
   const user = userOverride === undefined ? peekedUser : userOverride;
+  const { suspended, blockOrExplain } = useAccountSuspended();
   // 홈에서 고객·매물·네비를 같이 워밍 — 리스트 진입 시 빈 화면 깜빡임 방지
   const { items: customers } = useCustomersList();
   usePropertiesList();
@@ -150,6 +152,7 @@ export default function HomePage() {
 
   const requireAuth = (href: string) => {
     if (user) {
+      if (blockOrExplain()) return;
       router.push(href);
       return;
     }
@@ -217,12 +220,22 @@ export default function HomePage() {
           </div>
           {user ? (
             <div className="flex shrink-0 items-center gap-2.5 pt-1">
-              <Link
-                href="/account"
-                className="text-[13px] font-semibold text-[#3182F6] active:scale-95 transition-all duration-150"
-              >
-                내정보
-              </Link>
+              {suspended ? (
+                <button
+                  type="button"
+                  onClick={() => blockOrExplain()}
+                  className="text-[13px] font-semibold text-[#3182F6] active:scale-95 transition-all duration-150"
+                >
+                  내정보
+                </button>
+              ) : (
+                <Link
+                  href="/account"
+                  className="text-[13px] font-semibold text-[#3182F6] active:scale-95 transition-all duration-150"
+                >
+                  내정보
+                </Link>
+              )}
               <span className="text-[12px] text-gray-300" aria-hidden>
                 |
               </span>

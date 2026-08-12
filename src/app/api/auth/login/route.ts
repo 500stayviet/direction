@@ -89,6 +89,10 @@ export async function POST(request: Request) {
     }
 
     const meta = data.user.user_metadata ?? {};
+    const suspended = meta.account_suspended === true;
+    const suspendedReason = suspended
+      ? String(meta.account_suspended_reason ?? "관리자 정지")
+      : undefined;
     const { data: profile } = await admin
       .from("profiles")
       .select(
@@ -141,6 +145,8 @@ export async function POST(request: Request) {
       createdAt: String(
         profile?.created_at ?? data.user.created_at ?? new Date().toISOString()
       ),
+      suspended: suspended || undefined,
+      suspendedReason,
     };
 
     const res = NextResponse.json({

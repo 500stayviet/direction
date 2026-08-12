@@ -4,7 +4,7 @@ export type AlertTab = "customers" | "properties" | "navi";
 /** 고객 상세에서 본 매칭 vs 매물 상세에서 본 매칭 — 서로 독립 */
 export type MatchAlertSide = "customer" | "property";
 
-type AlertState = {
+export type AlertState = {
   shareSeeded: Record<AlertTab, boolean>;
   matchSeeded: boolean;
   knownShare: Record<AlertTab, string[]>;
@@ -48,6 +48,7 @@ const listeners = new Set<Listener>();
 
 let userId: string | null = null;
 let state: AlertState = emptyState();
+let skipRemotePush = false;
 
 function notify() {
   listeners.forEach((fn) => {
@@ -69,6 +70,9 @@ function persist() {
     localStorage.setItem(storageKey(userId), JSON.stringify(state));
   } catch {
     /* ignore */
+  }
+  if (!skipRemotePush) {
+    void import("./userUiPrefs").then((m) => m.scheduleUiPrefsPush());
   }
 }
 
@@ -124,6 +128,14 @@ export function subscribeTeamAlerts(listener: Listener): () => void {
 
 export function getTeamAlertsSnapshot(): AlertState {
   return state;
+}
+
+export function applyAlertStateFromRemote(next: AlertState) {
+  skipRemotePush = true;
+  state = next;
+  persist();
+  notify();
+  skipRemotePush = false;
 }
 
 export function ensureTeamAlertsUser(uid: string | null | undefined) {

@@ -147,7 +147,16 @@ export default function AboutPage() {
                 에서 각각{" "}
                 <strong className="font-bold text-gray-800">팀 공유하기</strong>
                 를 누른 항목만 팀원에게 보입니다. 공간 합류만으로 전부 공개되지
-                않습니다.
+                않습니다. 공유 끄기는 등록자만 할 수 있고, 팀원이 타인 공유
+                항목을 지우면 내 목록에서만 숨겨질 수 있습니다. 팀 나가기는 앱에서
+                바로 되지 않을 수 있으며 이메일(
+                <a
+                  href="mailto:bek94900@gmail.com"
+                  className="font-bold text-[#3182F6]"
+                >
+                  bek94900@gmail.com
+                </a>
+                )로 문의합니다.
               </p>
             </GuideItem>
 
@@ -211,10 +220,11 @@ export default function AboutPage() {
               </p>
             </GuideItem>
 
-            <GuideItem title="허위 등록 주의">
+            <GuideItem title="허위 등록 · 계정 정지">
               <p>
                 허위 매물·허위 고객을 등록하면 약관에 따라 계정이 정지될 수
-                있습니다.
+                있습니다. 정지되어도 로그인은 될 수 있으나 홈 외 기능이 막히고
+                사유·문의 안내가 표시됩니다.
               </p>
             </GuideItem>
           </div>
@@ -230,9 +240,10 @@ export default function AboutPage() {
             <li>전화·티맵·네이버지도·카카오맵 등 원클릭 연결</li>
             <li>
               팀 공유: 공유 코드로 공간 합류 후, 리스트에서 「팀 공유하기」로
-              항목별 공개
+              항목별 공개 · 소유자만 공유 해제
             </li>
-            <li>계정별 클라우드 저장(다른 기기에서도 동일 계정으로 이용)</li>
+            <li>계정별 클라우드 저장·기기 간 알림/숨김 맞춤 · 화면 유지 중 동기화</li>
+            <li>약관 위반 시 계정 정지(로그인 가능·홈 외 제한) 및 운영 복원</li>
           </ul>
         </section>
 

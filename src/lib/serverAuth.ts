@@ -15,16 +15,6 @@ export function getBearerToken(request: Request): string {
   return "";
 }
 
-export function requireAdminKey(request: Request): boolean {
-  const expectedId = (process.env.ADMIN_ID ?? "").trim();
-  const expectedPw = (process.env.ADMIN_PASSWORD ?? "").trim();
-  if (!expectedId || !expectedPw) return false;
-
-  const gotId = (request.headers.get("x-admin-id") ?? "").trim();
-  const gotPw = (request.headers.get("x-admin-password") ?? "").trim();
-  return gotId === expectedId && gotPw === expectedPw;
-}
-
 export function generateShareCode(length = 8): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";

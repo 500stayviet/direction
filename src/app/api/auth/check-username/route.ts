@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         ok: true,
         available: false,
         username,
-        message: "삭제된 아이디는 다시 사용할 수 없습니다.",
+        message: "해당 아이디를 사용할 수 없습니다.",
       });
     }
     if (activeProfile) {

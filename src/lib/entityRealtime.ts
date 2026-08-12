@@ -8,6 +8,7 @@ import {
   getMyWorkspaceId,
   refreshAllEntityLists,
 } from "@/lib/storage";
+import { pullAndMergeUiPrefs } from "@/lib/userUiPrefs";
 
 const TABLES = ["customers", "listed_properties", "schedules"] as const;
 
@@ -68,6 +69,8 @@ export async function startEntityRealtime(userId: string): Promise<void> {
   if (!(await ensureRealtimeAuth())) return;
   if (mine !== generation) return;
 
+  await pullAndMergeUiPrefs();
+  if (mine !== generation) return;
   await refreshAllEntityLists();
   if (mine !== generation) return;
   if (typeof document !== "undefined" && document.visibilityState !== "visible") {

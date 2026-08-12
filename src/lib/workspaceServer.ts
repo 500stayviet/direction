@@ -127,6 +127,7 @@ export type WorkspaceMemberInfo = {
   shopName: string;
   name: string;
   username: string;
+  phone: string;
 };
 
 export async function listWorkspaceMembers(
@@ -144,7 +145,7 @@ export async function listWorkspaceMembers(
   const userIds = members.map((m) => String(m.user_id));
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, username, shop_name, display_name")
+    .select("id, username, shop_name, display_name, phone")
     .in("id", userIds);
 
   const profileMap = new Map(
@@ -164,6 +165,7 @@ export async function listWorkspaceMembers(
       shopName,
       name: name || "-",
       username: username || "-",
+      phone: String(profile?.phone ?? "").trim(),
     };
   });
 }
@@ -247,6 +249,84 @@ export async function removeMemberKeepSharedData(
     entityType: "workspace",
     entityId: membership.workspaceId,
   });
+}
+
+/**
+ * 관리자: 팀원 한 명만 나가게.
+ * 공유는 팀에서 끄고(본인 자료는 유지), 1명만 남으면 팀 해체.
+ */
+export async function adminRemoveWorkspaceMember(
+  admin: Admin,
+  workspaceId: string,
+  targetUserId: string,
+  actorName: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data: member } = await admin
+    .from("workspace_members")
+    .select("user_id, role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", targetUserId)
+    .maybeSingle();
+  if (!member) {
+    return { ok: false, message: "해당 팀원을 찾을 수 없습니다." };
+  }
+
+  const members = await listWorkspaceMembers(admin, workspaceId);
+  const tables = ["customers", "listed_properties", "schedules"] as const;
+  for (const table of tables) {
+    await admin
+      .from(table)
+      .update({ workspace_id: null, workspace_shared: false })
+      .eq("user_id", targetUserId)
+      .eq("workspace_id", workspaceId);
+  }
+
+  if (member.role === "owner") {
+    const next = members.find((m) => m.userId !== targetUserId);
+    if (next) {
+      await admin
+        .from("workspace_members")
+        .update({ role: "owner" })
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", next.userId);
+    }
+  }
+
+  await admin
+    .from("workspace_members")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", targetUserId);
+
+  const remaining = await listWorkspaceMembers(admin, workspaceId);
+  if (remaining.length <= 1) {
+    if (remaining.length === 1) {
+      const last = remaining[0];
+      for (const table of tables) {
+        await admin
+          .from(table)
+          .update({ workspace_id: null, workspace_shared: false })
+          .eq("user_id", last.userId)
+          .eq("workspace_id", workspaceId);
+      }
+      await admin
+        .from("workspace_members")
+        .delete()
+        .eq("workspace_id", workspaceId);
+    }
+    await admin.from("workspaces").delete().eq("id", workspaceId);
+  }
+
+  await writeAuditLog(admin, {
+    workspaceId,
+    actorName,
+    action: "admin_workspace_remove_member",
+    entityType: "workspace",
+    entityId: workspaceId,
+    detail: { targetUserId, dissolved: remaining.length <= 1 },
+  });
+
+  return { ok: true };
 }
 
 export async function buildWorkspaceInfo(admin: Admin, userId: string) {

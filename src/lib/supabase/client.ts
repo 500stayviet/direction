@@ -21,7 +21,9 @@ export function createClient() {
       browserClient = createSupabaseClient(url, anonKey, {
         auth: {
           persistSession: true,
-          autoRefreshToken: true,
+          // 앱은 realty_app_auth_v1 로 세션을 관리. GoTrue auto-refresh는
+          // 만료 refresh_token 에 대해 400을 콘솔에 반복 출력함.
+          autoRefreshToken: false,
           detectSessionInUrl: true,
           storage: window.localStorage,
           flowType: "implicit",

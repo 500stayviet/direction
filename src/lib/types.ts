@@ -61,6 +61,10 @@ export interface User {
   phone: string;
   passwordHint: string;
   createdAt: string;
+  /** 관리자 계정 정지 — 로그인 가능, 홈 외 이용 불가 */
+  suspended?: boolean;
+  /** 정지 사유 (사용자에게 표시) */
+  suspendedReason?: string;
 }
 
 /** 공통: 업장 공유·등록자 표시용 */

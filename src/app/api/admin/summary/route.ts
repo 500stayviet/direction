@@ -1,83 +1,84 @@
 import { NextResponse } from "next/server";
-import { requireAdminKey } from "@/lib/serverAuth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminSession } from "@/lib/adminAuth";
+
+/** Asia/Seoul 기준 오늘 0시 (UTC ISO) */
+function startOfTodayKstIso(): string {
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${day}T00:00:00+09:00`).toISOString();
+}
 
 export async function GET(request: Request) {
-  if (!requireAdminKey(request)) {
+  const auth = await requireAdminSession(request);
+  if (!auth.ok) {
     return NextResponse.json(
-      { ok: false, message: "관리자 키가 올바르지 않습니다." },
-      { status: 401 }
+      { ok: false, message: auth.message },
+      { status: auth.status }
     );
   }
 
   try {
-    const admin = createAdminClient();
+    const sinceIso = startOfTodayKstIso();
+
     const [
       { count: profileCount },
       { count: workspaceCount },
-      { data: profiles },
-      { data: deletedAccounts },
-      { data: workspaces },
       { count: customersActive },
       { count: customersDeleted },
       { count: propertiesActive },
       { count: propertiesDeleted },
       { count: schedulesActive },
       { count: schedulesDeleted },
-      { data: auditLogs },
+      { count: deletedAccountCount },
+      { count: todaySignups },
+      { count: todayVisitors },
     ] = await Promise.all([
-      admin.from("profiles").select("*", { count: "exact", head: true }),
-      admin.from("workspaces").select("*", { count: "exact", head: true }),
-      admin
-        .from("profiles")
-        .select("id, username, shop_name, display_name, phone, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50),
-      admin
+      auth.admin.from("profiles").select("*", { count: "exact", head: true }),
+      auth.admin.from("workspaces").select("*", { count: "exact", head: true }),
+      auth.admin
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null),
+      auth.admin
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+        .not("deleted_at", "is", null),
+      auth.admin
+        .from("listed_properties")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null),
+      auth.admin
+        .from("listed_properties")
+        .select("*", { count: "exact", head: true })
+        .not("deleted_at", "is", null),
+      auth.admin
+        .from("schedules")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null),
+      auth.admin
+        .from("schedules")
+        .select("*", { count: "exact", head: true })
+        .not("deleted_at", "is", null),
+      auth.admin
         .from("deleted_accounts")
-        .select(
-          "username, former_user_id, shop_name, display_name, phone, deleted_at, data_snapshot"
-        )
-        .order("deleted_at", { ascending: false })
-        .limit(50),
-      admin
-        .from("workspaces")
-        .select("id, name, share_code, created_by, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50),
-      admin
-        .from("customers")
+        .select("*", { count: "exact", head: true }),
+      auth.admin
+        .from("profiles")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
-      admin
-        .from("customers")
+        .gte("created_at", sinceIso),
+      auth.admin
+        .from("profiles")
         .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
-      admin
-        .from("listed_properties")
-        .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
-      admin
-        .from("listed_properties")
-        .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
-      admin
-        .from("schedules")
-        .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
-      admin
-        .from("schedules")
-        .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
-      admin
-        .from("audit_logs")
-        .select("id, action, entity_type, entity_id, actor_name, created_at, detail")
-        .order("created_at", { ascending: false })
-        .limit(40),
+        .gte("last_seen_at", sinceIso),
     ]);
 
     return NextResponse.json({
       ok: true,
+      session: auth.session,
       summary: {
         profiles: profileCount ?? 0,
         workspaces: workspaceCount ?? 0,
@@ -87,11 +88,10 @@ export async function GET(request: Request) {
         propertiesDeleted: propertiesDeleted ?? 0,
         schedulesActive: schedulesActive ?? 0,
         schedulesDeleted: schedulesDeleted ?? 0,
+        deletedAccounts: deletedAccountCount ?? 0,
+        todayVisitors: todayVisitors ?? 0,
+        todaySignups: todaySignups ?? 0,
       },
-      profiles: profiles ?? [],
-      deletedAccounts: deletedAccounts ?? [],
-      workspaces: workspaces ?? [],
-      auditLogs: auditLogs ?? [],
     });
   } catch (e) {
     return NextResponse.json(

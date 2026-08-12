@@ -2,12 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getCurrentUser, getSessionUserId, BOOT_SPLASH_DONE_KEY } from "@/lib/auth";
+import { getCurrentUser, getSessionUserId, BOOT_SPLASH_DONE_KEY, peekCurrentUser } from "@/lib/auth";
 import { seedDemoDataIfNeeded } from "@/lib/seedDemo";
 import { createClient } from "@/lib/supabase/client";
 
 /** 로그인 없이 볼 수 있는 경로 */
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms", "/about"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/terms", "/about", "/admin"];
+
+/** 앱 세션 갱신·데모 시드가 필요 없는 경로 */
+function skipAppSessionWork(pathname: string) {
+  return (
+    pathname.startsWith("/admin") ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/login/") ||
+    pathname.startsWith("/signup/")
+  );
+}
 
 /** 앱 실행 시 브랜드 스플래시 최소 노출 (너무 빨리 사라지지 않게) */
 const BOOT_SPLASH_MIN_MS = 1400;
@@ -83,10 +94,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       const publicPage = PUBLIC_PATHS.some(
         (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))
       );
+      const light = skipAppSessionWork(pathname);
 
       try {
-        const user = await getCurrentUser();
-        const sid = (await getSessionUserId()) ?? "guest";
+        // 관리자·로그인: 앱 유저 조회만(토큰 강제 갱신·데모시드 없음)
+        const user = light
+          ? peekCurrentUser()
+          : await getCurrentUser();
+        const sid = light
+          ? peekCurrentUser()?.id ?? "guest"
+          : (await getSessionUserId()) ?? "guest";
         if (cancelled) return;
         setSessionKey(sid);
 
@@ -102,7 +119,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (user) {
+        if (user && !light) {
           await seedDemoDataIfNeeded().catch(() => undefined);
         }
         if (cancelled) return;

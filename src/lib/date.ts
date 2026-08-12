@@ -26,6 +26,30 @@ export function formatDisplayDate(iso: string): string {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
+/** ISO 시각 → 서울 기준 년.월.일 시:분 (예: 2026. 8. 12. 17:05) */
+export function formatSeoulDateTime(iso?: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  const y = get("year");
+  const m = get("month");
+  const day = get("day");
+  const h = get("hour");
+  const min = get("minute");
+  return `${y}. ${m}. ${day}. ${h}:${min}`;
+}
+
 /** ISO 시각 → 카드용 저장일 (예: 2026.8.1) */
 export function formatSavedDate(iso?: string): string {
   if (!iso) return "";

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
+import { useAccountSuspended } from "@/components/AccountSuspendedGate";
 import { useAlertBadgeCounts } from "@/components/TeamAlertsSync";
 import { getCachedUser } from "@/lib/auth";
 
@@ -40,6 +40,7 @@ export function BottomTabBar() {
   const router = useRouter();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const badges = useAlertBadgeCounts();
+  const { blockOrExplain } = useAccountSuspended();
 
   // 현장 리드 중에는 하단 CTA만 남김
   if (pathname.startsWith("/navi/") && pathname !== "/navi") {
@@ -47,6 +48,7 @@ export function BottomTabBar() {
   }
 
   const handleTab = (href: string, isPublic: boolean) => {
+    if (href !== "/" && blockOrExplain()) return;
     if (isPublic || getCachedUser()) {
       router.push(href);
       return;
@@ -93,10 +95,15 @@ export function BottomTabBar() {
 
               if (tab.public) {
                 return (
-                  <Link key={tab.href} href={tab.href} className={className}>
+                  <button
+                    key={tab.href}
+                    type="button"
+                    onClick={() => handleTab(tab.href, tab.public)}
+                    className={className}
+                  >
                     {icon}
                     <span>{tab.label}</span>
-                  </Link>
+                  </button>
                 );
               }
 

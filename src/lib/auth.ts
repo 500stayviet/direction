@@ -170,6 +170,58 @@ export function peekCurrentUser(): User | null {
   return null;
 }
 
+/** 서버에서 정지 여부 최신화 후 로컬 세션 반영 */
+export async function refreshSuspendedFromServer(
+  accessToken: string
+): Promise<{ suspended: boolean; reason: string }> {
+  try {
+    const res = await fetch("/api/auth/account-status", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const body = (await res.json()) as {
+      ok?: boolean;
+      suspended?: boolean;
+      reason?: string | null;
+    };
+    if (!res.ok || !body.ok) {
+      // 401 등은 콘솔 노이즈만 만들지 않고 로컬 상태로 폴백
+      const u = peekCurrentUser();
+      return {
+        suspended: Boolean(u?.suspended),
+        reason: u?.suspendedReason ?? "",
+      };
+    }
+    const suspended = Boolean(body.suspended);
+    const reason = suspended ? String(body.reason ?? "관리자 정지") : "";
+    const current = peekCurrentUser();
+    if (current) {
+      const next: User = {
+        ...current,
+        suspended: suspended || undefined,
+        suspendedReason: suspended ? reason : undefined,
+      };
+      cachedUser = next;
+      const app = loadAppAuth();
+      if (app) {
+        saveAppAuth(
+          {
+            access_token: app.access_token || accessToken,
+            refresh_token: app.refresh_token,
+          },
+          next
+        );
+      }
+    }
+    return { suspended, reason };
+  } catch {
+    const u = peekCurrentUser();
+    return {
+      suspended: Boolean(u?.suspended),
+      reason: u?.suspendedReason ?? "",
+    };
+  }
+}
+
 /** access token이 이 시간보다 더 남았으면 refreshSession 생략 */
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
 
@@ -192,6 +244,13 @@ function accessTokenStillFresh(token: string): boolean {
   return exp - Date.now() > ACCESS_TOKEN_REFRESH_SKEW_MS;
 }
 
+/** 네트워크 refresh 없이, 아직 유효한 access_token만 반환 */
+export function peekAccessTokenIfFresh(): string | null {
+  const fromApp = loadAppAuth()?.access_token?.trim() ?? "";
+  if (fromApp && accessTokenStillFresh(fromApp)) return fromApp;
+  return null;
+}
+
 /** API 호출용 access token — 앱 백업 →(만료 임박 시) 갱신 → Supabase 세션 순으로 확보 */
 export async function getAccessToken(): Promise<string | null> {
   const appAuth = loadAppAuth();
@@ -202,60 +261,45 @@ export async function getAccessToken(): Promise<string | null> {
     return fromApp;
   }
 
+  const refresh = appAuth?.refresh_token?.trim() ?? "";
+  if (!refresh) {
+    // 만료 access만 있어도 일시적으로 반환(호출측이 401 처리)
+    return fromApp || null;
+  }
+
   try {
     const supabase = createClient();
 
-    // 만료·임박 시에만 세션 복구 후 refresh
-    if (fromApp && appAuth?.refresh_token?.trim()) {
-      try {
-        await Promise.race([
-          supabase.auth.setSession({
-            access_token: fromApp,
-            refresh_token: appAuth.refresh_token,
-          }),
-          new Promise<void>((resolve) => window.setTimeout(resolve, 2000)),
-        ]);
-      } catch {
-        /* refresh 시도 */
-      }
-
-      const refreshed = await supabase.auth.refreshSession({
-        refresh_token: appAuth.refresh_token,
-      });
-      const session = refreshed.data.session;
-      if (session?.access_token && appAuth.user) {
-        saveAppAuth(
-          {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token || appAuth.refresh_token,
-          },
-          appAuth.user
-        );
-        return session.access_token;
-      }
-      // refresh 실패해도 아직 쓸 수 있으면 반환
-      if (fromApp) return fromApp;
+    // setSession(만료 access)은 GoTrue가 refresh를 시도하며 400을 콘솔에 찍음
+    // → refreshSession만 직접 호출
+    const refreshed = await supabase.auth.refreshSession({
+      refresh_token: refresh,
+    });
+    const session = refreshed.data.session;
+    if (session?.access_token && appAuth?.user) {
+      saveAppAuth(
+        {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token || refresh,
+        },
+        appAuth.user
+      );
+      return session.access_token;
     }
 
-    if (appAuth?.refresh_token?.trim()) {
-      const refreshed = await supabase.auth.refreshSession({
-        refresh_token: appAuth.refresh_token,
-      });
-      const session = refreshed.data.session;
-      if (session?.access_token && appAuth.user) {
-        saveAppAuth(
-          {
-            access_token: session.access_token,
-            refresh_token: session.refresh_token || appAuth.refresh_token,
-          },
-          appAuth.user
-        );
-        return session.access_token;
-      }
+    // refresh 실패(만료·폐기): 죽은 refresh로 재시도하지 않도록 비움
+    if (appAuth?.user && refreshed.error) {
+      saveAppAuth(
+        {
+          access_token: fromApp,
+          refresh_token: "",
+        },
+        appAuth.user
+      );
     }
 
     const {
-      data: { session },
+      data: { session: existing },
     } = await Promise.race([
       supabase.auth.getSession(),
       new Promise<{ data: { session: null } }>((resolve) =>
@@ -263,19 +307,19 @@ export async function getAccessToken(): Promise<string | null> {
       ),
     ]);
 
-    if (session?.access_token) {
+    if (existing?.access_token) {
       const user = appAuth?.user ?? cachedUser;
       if (user) {
         saveAppAuth(
           {
-            access_token: session.access_token,
+            access_token: existing.access_token,
             refresh_token:
-              session.refresh_token || appAuth?.refresh_token || "",
+              existing.refresh_token || appAuth?.refresh_token || "",
           },
           user
         );
       }
-      return session.access_token;
+      return existing.access_token;
     }
   } catch {
     /* ignore */
@@ -325,6 +369,11 @@ function userFromAuthSession(authUser: {
     phone: String(meta.phone ?? ""),
     passwordHint: String(meta.password_hint ?? ""),
     createdAt: authUser.created_at ?? new Date().toISOString(),
+    suspended: meta.account_suspended === true || undefined,
+    suspendedReason:
+      meta.account_suspended === true
+        ? String(meta.account_suspended_reason ?? "관리자 정지")
+        : undefined,
   };
 }
 
@@ -351,9 +400,8 @@ export async function getCurrentUser(): Promise<User | null> {
         cachedUser
       );
     }
-    // 토큰 복구 시도 — 실패해도 화면 로그인(내정보/로그아웃)은 유지
-    // (쿠키만 있는 경우 clear 하면 홈이 비로그인으로 깜빡이거나 고정됨)
-    void getAccessToken().catch(() => undefined);
+    // 화면 로그인 유지용 — 백그라운드 토큰 강제 갱신은 하지 않음
+    // (만료 refresh_token setSession → 400 콘솔 노이즈 /admin·로그인에서도 발생)
     return cachedUser;
   }
 

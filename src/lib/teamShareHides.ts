@@ -4,7 +4,9 @@ import { peekCurrentUser } from "@/lib/auth";
 
 export type HideBucket = "customers" | "properties" | "schedules";
 
-type HideState = Record<HideBucket, string[]>;
+export type HideState = Record<HideBucket, string[]>;
+
+let skipRemotePush = false;
 
 const STORAGE_PREFIX = "realty_team_share_hides_v1";
 
@@ -28,6 +30,24 @@ function persist() {
   } catch {
     /* ignore */
   }
+  if (!skipRemotePush) {
+    void import("./userUiPrefs").then((m) => m.scheduleUiPrefsPush());
+  }
+}
+
+export function getHideSnapshot(): HideState {
+  return state;
+}
+
+export function applyHideStateFromRemote(next: HideState) {
+  skipRemotePush = true;
+  state = {
+    customers: Array.isArray(next.customers) ? [...next.customers] : [],
+    properties: Array.isArray(next.properties) ? [...next.properties] : [],
+    schedules: Array.isArray(next.schedules) ? [...next.schedules] : [],
+  };
+  persist();
+  skipRemotePush = false;
 }
 
 function load(uid: string): HideState {

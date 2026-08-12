@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     ]);
     if (deletedRow) {
       return NextResponse.json(
-        { ok: false, message: "삭제된 아이디는 다시 가입할 수 없습니다." },
+        { ok: false, message: "해당 아이디를 사용할 수 없습니다." },
         { status: 409 }
       );
     }

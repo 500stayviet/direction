@@ -16,6 +16,8 @@ interface ModalProps {
   className?: string;
   /** 우측 상단 X 닫기 버튼 */
   showClose?: boolean;
+  /** 타이틀 행 우측 액션 (작은 버튼 등) */
+  headerRight?: React.ReactNode;
 }
 
 export function Modal({
@@ -28,6 +30,7 @@ export function Modal({
   dense = false,
   className = "",
   showClose = false,
+  headerRight,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -85,16 +88,29 @@ export function Modal({
         {!centered && (
           <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
         )}
-        {title ? (
-          <h2
+        {title || headerRight ? (
+          <div
             className={[
-              "font-bold text-gray-900",
-              dense ? "text-lg leading-snug" : "text-xl",
+              "flex items-start gap-2",
               showClose ? "pr-10" : "",
             ].join(" ")}
           >
-            {title}
-          </h2>
+            {title ? (
+              <h2
+                className={[
+                  "min-w-0 flex-1 font-bold text-gray-900",
+                  dense ? "text-lg leading-snug" : "text-xl",
+                ].join(" ")}
+              >
+                {title}
+              </h2>
+            ) : (
+              <div className="flex-1" />
+            )}
+            {headerRight ? (
+              <div className="shrink-0 pt-0.5">{headerRight}</div>
+            ) : null}
+          </div>
         ) : null}
         {description && (
           <p className="mt-1 text-sm text-gray-500">{description}</p>

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/AuthGate";
+import { AccountSuspendedGate } from "@/components/AccountSuspendedGate";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
@@ -33,6 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-[#F9FAFB] text-gray-900">
       <div className="relative mx-auto min-h-dvh w-full max-w-[430px] bg-[#F9FAFB] shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
         <AuthGate>
+          <AccountSuspendedGate>
           <EntityRealtimeSync />
           <TeamAlertsSync />
           <div
@@ -49,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {!hideTab && <BottomTabBar />}
           {!hideTab && <AdConsentNotice />}
+          </AccountSuspendedGate>
         </AuthGate>
       </div>
     </div>
