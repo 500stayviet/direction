@@ -10,6 +10,18 @@ export function isForeignTeamItem(
   return ownerUserId !== myUserId;
 }
 
+/** 팀원 공유 항목만 「공유자 이름」. 본인 등록은 이름만. */
+export function teamSharerLabel(
+  createdByName: string | null | undefined,
+  createdBy: string | null | undefined,
+  myUserId: string | null | undefined
+): string {
+  const name = createdByName?.trim() || "";
+  if (!name) return "";
+  if (isForeignTeamItem(createdBy, myUserId)) return `공유자 ${name}`;
+  return name;
+}
+
 export function foreignTeamDeleteMessage(kind: TeamOwnedKind): string {
   return [
     `다른 팀원이 등록한 ${kind}입니다.`,

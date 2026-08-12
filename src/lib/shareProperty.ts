@@ -4,6 +4,7 @@ import {
   formatMoney,
   formatMoveInRange,
   formatPhone,
+  isInsuranceJoined,
 } from "@/lib/format";
 import { skipsResidentialExtras } from "@/lib/constants";
 import type { Property, User } from "@/lib/types";
@@ -128,20 +129,14 @@ export function buildPropertyShareText(
     } else if (property.roomType === "건물") {
       lines.push(`관리비: ${formatMoney(property.maintenanceFee)}`);
     }
-    lines.push(`엘리베이터: ${property.elevator ? "유" : "무"}`);
-
-    if (
+    const showResidential =
       property.roomType !== "토지" &&
       property.roomType !== "건물" &&
-      !skipsResidentialExtras(property.roomType)
-    ) {
-      const insuranceOn =
-        property.insuranceType === "유" ||
-        Boolean(
-          property.insuranceType &&
-            property.insuranceType !== "무" &&
-            property.insuranceType !== "미가입"
-        );
+      !skipsResidentialExtras(property.roomType);
+
+    if (showResidential) {
+      lines.push(`대출: ${property.loanAvailable === "유" ? "유" : "무"}`);
+      const insuranceOn = isInsuranceJoined(property.insuranceType);
       lines.push(
         `보증보험: ${
           insuranceOn
@@ -167,11 +162,11 @@ export function buildPropertyShareText(
       }
     }
 
-    if (
-      property.roomType !== "토지" &&
-      property.roomType !== "건물" &&
-      !skipsResidentialExtras(property.roomType)
-    ) {
+    if (property.roomType !== "토지") {
+      lines.push(`엘리베이터: ${property.elevator ? "유" : "무"}`);
+    }
+
+    if (showResidential) {
       lines.push(`애완동물: ${property.petAllowed ?? "무"}`);
 
       if (property.options?.length) {

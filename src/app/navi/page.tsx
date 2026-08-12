@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -27,7 +27,15 @@ import {
   confirmForeignTeamDelete,
   confirmForeignTeamEdit,
   isForeignTeamItem,
+  teamSharerLabel,
 } from "@/lib/teamActionGuard";
+import {
+  alertHighlightClass,
+  getTeamAlertsSnapshot,
+  listCardHighlight,
+  markShareSeen,
+  subscribeTeamAlerts,
+} from "@/lib/teamAlerts";
 import { useCustomersList, useSchedulesList } from "@/hooks/useEntityList";
 import type { Customer, Schedule } from "@/lib/types";
 
@@ -125,6 +133,11 @@ export default function NaviEntryPage() {
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [nudgeFirstCard, setNudgeFirstCard] = useState(false);
+  useSyncExternalStore(
+    subscribeTeamAlerts,
+    getTeamAlertsSnapshot,
+    getTeamAlertsSnapshot
+  );
 
   useEffect(() => {
     if (schedules.length === 0) return;
@@ -318,9 +331,10 @@ export default function NaviEntryPage() {
 
                 <SwipeRevealRow
                   hintNudge={nudgeFirstCard && index === 0}
-                  onTap={() =>
-                    router.push(`/schedules/${s.id}?from=navi`)
-                  }
+                  onTap={() => {
+                    markShareSeen("navi", s.id);
+                    router.push(`/schedules/${s.id}?from=navi`);
+                  }}
                   onSwipeLeft={() =>
                     setPending({ id: s.id, type: "complete" })
                   }
@@ -330,10 +344,11 @@ export default function NaviEntryPage() {
                 >
                   <Card
                     className={[
-                      "relative !rounded-2xl !border !border-gray-100 !px-3 !pb-2.5 !pt-3 !shadow-none",
-                      done
-                        ? "!bg-gray-200 !border-gray-300 text-gray-500"
-                        : "",
+                      "relative !rounded-2xl !border-2 !px-3 !pb-2.5 !pt-3 !shadow-none",
+                      alertHighlightClass(
+                        done ? null : listCardHighlight("navi", s.id),
+                        done
+                      ),
                     ].join(" ")}
                   >
                     <div className="relative">
@@ -380,13 +395,12 @@ export default function NaviEntryPage() {
                           {propertyLine}
                         </p>
                         <div className="mt-3 flex items-center justify-between gap-2">
-                          <p
-                            className={[
-                              "min-w-0 truncate text-[11px] font-bold leading-none",
-                              done ? "text-gray-500" : "text-gray-500",
-                            ].join(" ")}
-                          >
-                            {s.createdByName?.trim() || ""}
+                          <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
+                            {teamSharerLabel(
+                              s.createdByName,
+                              s.createdBy,
+                              peekCurrentUser()?.id
+                            )}
                           </p>
                           <p className="shrink-0 text-[11px] font-bold leading-none text-gray-400">
                             {saved ? `등록일 · ${saved}` : "-"}

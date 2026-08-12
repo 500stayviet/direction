@@ -100,11 +100,11 @@ export default function AboutPage() {
               <p>
                 카드를{" "}
                 <strong className="font-bold text-gray-800">누른 채</strong>{" "}
-                좌우로 밀면 삭제·종료가 나타납니다. (짧게 탭하면 상세로
-                이동합니다)
+                좌우로 밀면 삭제·계약완료(네비는 종료)가 나타납니다. (짧게
+                탭하면 상세로 이동합니다)
               </p>
               <p>· 오른쪽 밀기 → 삭제</p>
-              <p>· 왼쪽 밀기 → 종료(회색 처리 후 목록 하단)</p>
+              <p>· 왼쪽 밀기 → 고객·매물 계약완료 / 네비 종료 (회색 처리 후 목록 하단)</p>
               <p>
                 PC에서는{" "}
                 <strong className="font-bold text-gray-800">

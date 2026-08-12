@@ -1,14 +1,20 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BrandIcon } from "@/components/BrandIcon";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { hardRedirectLogin, registerUser } from "@/lib/auth";
 import { normalizeUsername } from "@/lib/supabase/email";
+import {
+  getMissingSignupFields,
+  getSignupFieldMessage,
+  type SignupFieldKey,
+} from "@/lib/signupValidation";
 
 type UsernameCheck =
   | { status: "idle" }
@@ -31,6 +37,56 @@ export default function SignupPage() {
     status: "idle",
   });
   const [loading, setLoading] = useState(false);
+  const [validationActive, setValidationActive] = useState(false);
+  const [focusField, setFocusField] = useState<SignupFieldKey | null>(null);
+  const [warnOpen, setWarnOpen] = useState(false);
+  const [warnMessage, setWarnMessage] = useState("");
+  const fieldRefs = useRef<
+    Partial<Record<SignupFieldKey, HTMLDivElement | null>>
+  >({});
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setFieldRef =
+    (key: SignupFieldKey) => (node: HTMLDivElement | null) => {
+      fieldRefs.current[key] = node;
+    };
+
+  const signupInput = {
+    username,
+    password,
+    passwordConfirm,
+    passwordHint,
+    agreed,
+  };
+  const missingFields = validationActive
+    ? getMissingSignupFields(signupInput)
+    : [];
+  const isInvalid = (key: SignupFieldKey) =>
+    missingFields.includes(key) ||
+    (key === "username" &&
+      (usernameCheck.status === "taken" || usernameCheck.status === "error"));
+
+  useEffect(() => {
+    if (!validationActive || !focusField) return;
+    fieldRefs.current[focusField]?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [validationActive, focusField]);
+
+  useEffect(() => {
+    return () => {
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+    };
+  }, []);
+
+  const showFieldWarn = (field: SignupFieldKey, message: string) => {
+    setValidationActive(true);
+    setFocusField(field);
+    setWarnMessage(message);
+    if (warnTimer.current) clearTimeout(warnTimer.current);
+    warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
+  };
 
   const onUsernameChange = (value: string) => {
     setUsername(value);
@@ -91,8 +147,10 @@ export default function SignupPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!agreed) {
-      setError("이용약관 및 면책 안내에 동의해 주세요.");
+    const missing = getMissingSignupFields(signupInput);
+    if (missing.length > 0) {
+      const field = missing[0];
+      showFieldWarn(field, getSignupFieldMessage(field, signupInput));
       return;
     }
 
@@ -103,10 +161,12 @@ export default function SignupPage() {
     if (!alreadyOk) {
       const ok = await checkUsername();
       if (!ok) {
-        setError("아이디 중복 확인을 완료해 주세요.");
+        showFieldWarn("username", "아이디 중복 확인을 완료해 주세요.");
         return;
       }
     }
+    setValidationActive(false);
+    setWarnOpen(false);
 
     setLoading(true);
     try {
@@ -146,7 +206,9 @@ export default function SignupPage() {
         ? usernameCheck.message
         : usernameCheck.status === "checking"
           ? "확인 중…"
-          : "영문 소문자·숫자 4자 이상 · 중복 확인을 눌러 주세요";
+          : isInvalid("username")
+            ? getSignupFieldMessage("username", signupInput)
+            : "영문 소문자·숫자 4자 이상 · 중복 확인을 눌러 주세요";
 
   return (
     <main className="py-6 pb-10">
@@ -171,7 +233,7 @@ export default function SignupPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form noValidate onSubmit={handleSubmit} className="space-y-3">
         <Card className="space-y-2.5">
           <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
             업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
@@ -196,7 +258,7 @@ export default function SignupPage() {
             onChange={setPhone}
             hint="선택 입력 · 매물 공유 시 사용"
           />
-          <div className="space-y-1.5">
+          <div ref={setFieldRef("username")} className="space-y-1.5">
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
                 <Input
@@ -206,10 +268,7 @@ export default function SignupPage() {
                   onChange={(e) => onUsernameChange(e.target.value)}
                   placeholder="영문·숫자 4자 이상"
                   autoComplete="username"
-                  invalid={
-                    usernameCheck.status === "taken" ||
-                    usernameCheck.status === "error"
-                  }
+                  invalid={isInvalid("username")}
                   hint=""
                 />
               </div>
@@ -232,7 +291,8 @@ export default function SignupPage() {
                 usernameCheck.status === "ok"
                   ? "text-emerald-600"
                   : usernameCheck.status === "taken" ||
-                      usernameCheck.status === "error"
+                      usernameCheck.status === "error" ||
+                      isInvalid("username")
                     ? "text-red-500"
                     : "text-gray-400",
               ].join(" ")}
@@ -240,32 +300,51 @@ export default function SignupPage() {
               {checkHint}
             </p>
           </div>
-          <Input
-            label="비밀번호"
-            required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="6자 이상"
-            autoComplete="new-password"
-          />
-          <Input
-            label="비밀번호 확인"
-            required
-            type="password"
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            placeholder="비밀번호 다시 입력"
-            autoComplete="new-password"
-          />
-          <Input
-            label="비밀번호 힌트"
-            required
-            value={passwordHint}
-            onChange={(e) => setPasswordHint(e.target.value)}
-            placeholder="본인만 알아볼 수 있는 힌트"
-            hint="비밀번호 찾을 때 쓰는 힌트예요. 잊지 말고 공유하지 마세요."
-          />
+          <div ref={setFieldRef("password")}>
+            <Input
+              label="비밀번호"
+              required
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="6자 이상"
+              autoComplete="new-password"
+              invalid={isInvalid("password")}
+              hint={isInvalid("password") ? "미입력" : undefined}
+            />
+          </div>
+          <div ref={setFieldRef("passwordConfirm")}>
+            <Input
+              label="비밀번호 확인"
+              required
+              type="password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              placeholder="비밀번호 다시 입력"
+              autoComplete="new-password"
+              invalid={isInvalid("passwordConfirm")}
+              hint={
+                isInvalid("passwordConfirm")
+                  ? "미입력 또는 비밀번호와 다릅니다"
+                  : undefined
+              }
+            />
+          </div>
+          <div ref={setFieldRef("passwordHint")}>
+            <Input
+              label="비밀번호 힌트"
+              required
+              value={passwordHint}
+              onChange={(e) => setPasswordHint(e.target.value)}
+              placeholder="본인만 알아볼 수 있는 힌트"
+              invalid={isInvalid("passwordHint")}
+              hint={
+                isInvalid("passwordHint")
+                  ? "미입력"
+                  : "비밀번호 찾을 때 쓰는 힌트예요. 잊지 말고 공유하지 마세요."
+              }
+            />
+          </div>
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
               {error}
@@ -273,7 +352,15 @@ export default function SignupPage() {
           )}
         </Card>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-100 bg-white px-3.5 py-3 active:scale-[0.99] transition-all duration-150">
+        <label
+          ref={setFieldRef("agreed")}
+          className={[
+            "flex cursor-pointer items-start gap-3 rounded-2xl border px-3.5 py-3 active:scale-[0.99] transition-all duration-150",
+            isInvalid("agreed")
+              ? "border-red-500 bg-red-50"
+              : "border-gray-100 bg-white",
+          ].join(" ")}
+        >
           <input
             type="checkbox"
             checked={agreed}
@@ -296,10 +383,16 @@ export default function SignupPage() {
           </span>
         </label>
 
-        <Button type="submit" fullWidth size="lg" disabled={!agreed || loading}>
+        <Button type="submit" fullWidth size="lg" disabled={loading}>
           {loading ? "가입 중..." : "가입하고 시작하기"}
         </Button>
       </form>
+
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={warnMessage}
+        onClose={() => setWarnOpen(false)}
+      />
     </main>
   );
 }

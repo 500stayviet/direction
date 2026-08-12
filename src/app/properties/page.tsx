@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
-import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
-import { ListEdgeChips } from "@/components/ListEdgeChips";
-import { formatDepositRent, formatMoveInRange } from "@/lib/format";
-import { formatSavedDate } from "@/lib/date";
+import { PropertyListCard } from "@/components/PropertyListCard";
 import {
   consumeCustomerSwipeNudge,
   markCustomerSwipeUsed,
@@ -24,32 +21,21 @@ import {
   confirmForeignTeamEdit,
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
+import {
+  getTeamAlertsSnapshot,
+  hasUnseenMatchForProperty,
+  listCardHighlight,
+  markShareSeen,
+  subscribeTeamAlerts,
+} from "@/lib/teamAlerts";
 import { usePropertiesList } from "@/hooks/useEntityList";
-import { isDemoEntityId } from "@/lib/seedDemo";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import type { ListedProperty } from "@/lib/types";
 
 type PendingAction = {
   id: string;
   type: "complete" | "delete";
 };
-
-function getPropertyListContact(p: ListedProperty): {
-  label: string;
-  phone: string;
-} | null {
-  if (p.hasPartnerAgency) {
-    const partner = p.partnerAgency?.phone?.trim();
-    if (partner) {
-      const name = p.partnerAgency?.name?.trim();
-      return { label: name || "협력부동산", phone: partner };
-    }
-  }
-  const landlord = p.landlordPhone?.trim();
-  if (landlord) return { label: "임대인", phone: landlord };
-  const tenant = p.tenantPhone?.trim();
-  if (tenant) return { label: "임차인", phone: tenant };
-  return null;
-}
 
 export default function PropertyListPage() {
   const router = useRouter();
@@ -58,6 +44,11 @@ export default function PropertyListPage() {
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [nudgeFirstCard, setNudgeFirstCard] = useState(false);
+  useSyncExternalStore(
+    subscribeTeamAlerts,
+    getTeamAlertsSnapshot,
+    getTeamAlertsSnapshot
+  );
 
   useEffect(() => {
     if (properties.length === 0) return;
@@ -72,7 +63,10 @@ export default function PropertyListPage() {
             p.address.toLowerCase().includes(q) ||
             p.roomNo.toLowerCase().includes(q) ||
             (p.roomType ?? "").includes(q) ||
-            p.dealType.includes(q)
+            p.dealType.includes(q) ||
+            (p.moveInFrom ?? "").includes(q) ||
+            (p.moveInTo ?? "").includes(q) ||
+            (p.moveInDate ?? "").toLowerCase().includes(q)
         )
       : properties;
     return [...list].sort((a, b) => {
@@ -93,6 +87,12 @@ export default function PropertyListPage() {
   const closePending = () => {
     if (busy) return;
     setPending(null);
+  };
+
+  const openProperty = (p: ListedProperty) => {
+    markShareSeen("properties", p.id);
+    const scroll = hasUnseenMatchForProperty(p.id) ? "?scrollMatch=1" : "";
+    router.push(`/properties/${p.id}${scroll}`);
   };
 
   const toggleTeamShare = async (p: ListedProperty) => {
@@ -191,157 +191,55 @@ export default function PropertyListPage() {
         ) : (
           <div className="space-y-2 overflow-visible pr-2">
             {filtered.map((p, index) => {
-              const saved = formatSavedDate(p.createdAt);
-              const moneyChip = formatDepositRent(
-                p.dealType,
-                p.deposit,
-                p.monthlyRent
-              );
-              const address = p.address.trim() || "주소 미입력";
-              const room = p.roomNo.trim();
-              const contact = getPropertyListContact(p);
               const done = Boolean(p.contractCompleted);
               const showTeamChip =
                 Boolean(p.workspaceId) || isDemoEntityId(p.id);
               const teamOn = Boolean(p.workspaceShared);
 
               return (
-                <div
+                <PropertyListCard
                   key={p.id}
-                  className="relative mb-2.5 overflow-visible pb-0.5 pt-2"
-                >
-                  <ListEdgeChips
-                    roomType={p.roomType}
-                    buildingKind={p.buildingKind}
-                    dealType={p.dealType}
-                    moneyLabel={moneyChip}
-                    depositMan={p.deposit}
-                    done={done}
-                    right={
-                      showTeamChip ? (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            void toggleTeamShare(p);
-                          }}
-                          className={[
-                            "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-                            done
-                              ? "bg-gray-400"
-                              : teamOn
-                                ? "bg-emerald-500"
-                                : "bg-gray-500",
-                          ].join(" ")}
-                        >
-                          {teamOn ? "팀 공유 중" : "팀 공유하기"}
-                        </button>
-                      ) : null
-                    }
-                  />
-
-                  <SwipeRevealRow
-                    hintNudge={nudgeFirstCard && index === 0}
-                    onTap={() => router.push(`/properties/${p.id}`)}
-                    onSwipeLeft={() =>
-                      setPending({ id: p.id, type: "complete" })
-                    }
-                    onSwipeRight={() =>
-                      setPending({ id: p.id, type: "delete" })
-                    }
-                  >
-                    <Card
-                      className={[
-                        "relative !rounded-2xl !border !border-gray-100 !px-3 !pb-2 !pt-3 !shadow-none",
-                        done
-                          ? "!bg-gray-200 !border-gray-300 text-gray-500"
-                          : "",
-                      ].join(" ")}
+                  property={p}
+                  alertHighlight={listCardHighlight("properties", p.id)}
+                  right={
+                    showTeamChip ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void toggleTeamShare(p);
+                        }}
+                        className={[
+                          "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+                          done
+                            ? "bg-gray-400"
+                            : teamOn
+                              ? "bg-emerald-500"
+                              : "bg-gray-500",
+                        ].join(" ")}
+                      >
+                        {teamOn ? "팀 공유 중" : "팀 공유하기"}
+                      </button>
+                    ) : null
+                  }
+                  renderCard={(card) => (
+                    <SwipeRevealRow
+                      hintNudge={nudgeFirstCard && index === 0}
+                      leftActionLabel="계약완료"
+                      onTap={() => openProperty(p)}
+                      onSwipeLeft={() =>
+                        setPending({ id: p.id, type: "complete" })
+                      }
+                      onSwipeRight={() =>
+                        setPending({ id: p.id, type: "delete" })
+                      }
                     >
-                      <div className="relative">
-                        <p
-                          className={[
-                            "min-w-0 text-[11px] leading-tight",
-                            done ? "text-gray-500" : "text-gray-400",
-                          ].join(" ")}
-                        >
-                          입주가능{" "}
-                          {formatMoveInRange(
-                            p.moveInFrom,
-                            p.moveInTo,
-                            p.moveInDate
-                          )}
-                        </p>
-
-                        <p
-                          className={[
-                            "mt-1 min-w-0 truncate text-[18px] font-extrabold tracking-tight leading-snug",
-                            done ? "text-gray-600" : "text-gray-900",
-                          ].join(" ")}
-                        >
-                          {address}
-                          {room ? (
-                            <span
-                              className={[
-                                "ml-1.5 text-[13px] font-semibold",
-                                done ? "text-gray-500" : "text-gray-400",
-                              ].join(" ")}
-                            >
-                              {room}
-                            </span>
-                          ) : null}
-                        </p>
-
-                        <div className="mt-1.5 flex items-center justify-end gap-2">
-                          {contact ? (
-                            <>
-                              <span
-                                className={[
-                                  "shrink-0 text-[12px] font-bold",
-                                  done ? "text-gray-500" : "text-gray-400",
-                                ].join(" ")}
-                              >
-                                {contact.label}
-                              </span>
-                              <PhoneLink
-                                phone={contact.phone}
-                                className={[
-                                  "relative z-[1] !shrink-0 !text-[16px] !font-extrabold",
-                                  done ? "!text-gray-500" : "",
-                                ].join(" ")}
-                              />
-                            </>
-                          ) : (
-                            <span className="text-[13px] font-semibold text-gray-300">
-                              번호 없음
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between gap-2">
-                          <p
-                            className={[
-                              "min-w-0 truncate text-[11px] font-bold leading-none",
-                              done ? "text-gray-500" : "text-gray-500",
-                            ].join(" ")}
-                          >
-                            {p.createdByName?.trim() || ""}
-                          </p>
-                          <p
-                            className={[
-                              "shrink-0 text-[11px] font-bold leading-none",
-                              done ? "text-gray-500" : "text-gray-400",
-                            ].join(" ")}
-                          >
-                            {saved ? `등록일 · ${saved}` : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </SwipeRevealRow>
-                </div>
+                      {card}
+                    </SwipeRevealRow>
+                  )}
+                />
               );
             })}
           </div>
@@ -351,7 +249,7 @@ export default function PropertyListPage() {
       <StickyActionBar>
         <Link href="/properties/new">
           <Button fullWidth size="lg">
-            매물 추가하기
+            매물등록하기
           </Button>
         </Link>
       </StickyActionBar>
@@ -363,8 +261,8 @@ export default function PropertyListPage() {
           pending?.type === "delete"
             ? "매물을 삭제할까요?"
             : pendingDone
-              ? "종료를 취소할까요?"
-              : "매물을 종료할까요?"
+              ? "계약완료를 취소할까요?"
+              : "매물을 계약완료할까요?"
         }
         description={
           pendingProperty
@@ -372,10 +270,10 @@ export default function PropertyListPage() {
               ? `${pendingProperty.address.trim() || "이 매물"}을(를) 삭제합니다.`
               : pendingDone
                 ? `${pendingProperty.address.trim() || "이 매물"}을(를) 진행 중 상태로 되돌립니다.`
-                : `${pendingProperty.address.trim() || "이 매물"}을(를) 종료 처리합니다. 목록 하단으로 이동합니다.`
+                : `${pendingProperty.address.trim() || "이 매물"}을(를) 계약완료 처리합니다. 목록 하단으로 이동합니다.`
             : pending?.type === "delete"
               ? "선택한 매물을 삭제합니다."
-              : "해당 매물의 종료 상태를 변경합니다."
+              : "해당 매물의 계약완료 상태를 변경합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

@@ -5,7 +5,7 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v14";
+export const DEMO_SEED_VERSION = "demo_v15";
 
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
@@ -31,6 +31,20 @@ export function isDemoEntityId(id: string): boolean {
     id.startsWith("demo_prop_") ||
     id.startsWith("demo_sch_")
   );
+}
+
+/** 가입일 다음날부터 세어 7일째(가입일+7일 00:00)부터 데모 카드 만료 */
+export const DEMO_SEED_TTL_DAYS = 7;
+
+export function isDemoSeedExpired(
+  signupAt?: string | Date | null
+): boolean {
+  if (!signupAt) return false;
+  const d = typeof signupAt === "string" ? new Date(signupAt) : signupAt;
+  if (Number.isNaN(d.getTime())) return false;
+  const expire = startOfLocalDay(d);
+  expire.setDate(expire.getDate() + DEMO_SEED_TTL_DAYS);
+  return Date.now() >= expire.getTime();
 }
 
 const DEMO_MOVE_IN_SPAN_DAYS = 7;
@@ -107,6 +121,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
     parkingType: partial.parkingType ?? "무",
     parkingFeeType: partial.parkingFeeType ?? "별도",
     parkingFee: partial.parkingFee,
+    loanAvailable: partial.loanAvailable ?? "무",
     petAllowed: partial.petAllowed ?? "무",
     elevator: partial.elevator ?? false,
     options: partial.options ?? [],
@@ -148,7 +163,10 @@ export function buildDemoSeedData(
     CONTRACT_DEADLINE_DAYS + DEMO_MOVE_IN_SPAN_DAYS
   );
   const propMoveInFrom = daysFrom(base, 14);
-  const propMoveInTo = daysFrom(base, 14 + DEMO_MOVE_IN_SPAN_DAYS);
+  const propMoveInTo = daysFrom(
+    base,
+    CONTRACT_DEADLINE_DAYS + DEMO_MOVE_IN_SPAN_DAYS
+  );
   const propMoveInDate = formatMoveInRange(propMoveInFrom, propMoveInTo);
 
   const customers: Customer[] = [
@@ -165,6 +183,8 @@ export function buildDemoSeedData(
       moveInSingle: false,
       loanNeeded: "유",
       loanType: "버팀목",
+      insuranceNeeded: "유",
+      elevatorNeeded: "유",
       parkingType: "유",
       carType: "세단",
       petAllowed: "무",
@@ -199,6 +219,7 @@ export function buildDemoSeedData(
     parkingType: "유" as const,
     parkingFeeType: "별도" as const,
     parkingFee: 5,
+    loanAvailable: "유" as const,
     petAllowed: "무" as const,
     elevator: true,
     options: ["에어컨", "냉장고", "세탁기", "인덕션"],

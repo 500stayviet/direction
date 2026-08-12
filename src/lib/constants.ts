@@ -12,6 +12,9 @@ import { createId } from "./id";
 
 export const DEAL_TYPES: DealType[] = ["매매", "전세", "월세"];
 
+/** 방문 일정에 넣을 수 있는 매물 최대 개수 */
+export const MAX_SCHEDULE_PROPERTIES = 6;
+
 export const ROOM_TYPES: RoomType[] = [
   "원룸",
   "투룸",
@@ -272,6 +275,7 @@ export function createEmptyProperty(): Property {
     parkingType: "무",
     parkingFeeType: "별도",
     parkingFee: undefined,
+    loanAvailable: "무",
     petAllowed: "무",
     elevator: false,
     options: [],

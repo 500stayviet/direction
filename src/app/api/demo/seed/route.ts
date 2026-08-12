@@ -6,8 +6,34 @@ import {
   DEMO_SEED_VERSION,
   buildDemoSeedData,
   demoSeedBaseDate,
+  isDemoSeedExpired,
   type DemoSeedActor,
 } from "@/lib/demoSeedPayload";
+
+async function expireDemoRows(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+) {
+  const now = new Date().toISOString();
+  const tables: Array<["customers" | "listed_properties" | "schedules", string]> =
+    [
+      ["customers", DEMO_CORE_IDS[0]],
+      ["listed_properties", DEMO_CORE_IDS[1]],
+      ["schedules", DEMO_CORE_IDS[2]],
+    ];
+  for (const [table, id] of tables) {
+    await admin
+      .from(table)
+      .update({
+        deleted_at: now,
+        deleted_by: userId,
+        updated_at: now,
+      })
+      .eq("user_id", userId)
+      .eq("id", id)
+      .is("deleted_at", null);
+  }
+}
 
 /**
  * 로그인 사용자에게 체험용 고객·매물·네비를 service_role로 심음.
@@ -48,6 +74,17 @@ export async function POST(request: Request) {
       forceMissing?: boolean;
       createdAt?: string | null;
     };
+
+    const signupAt = userData.user.created_at ?? body.createdAt ?? null;
+    if (isDemoSeedExpired(signupAt)) {
+      await expireDemoRows(admin, userId);
+      return NextResponse.json({
+        ok: true,
+        expired: true,
+        skipped: true,
+        reason: "expired",
+      });
+    }
 
     const { data: profile } = await admin
       .from("profiles")

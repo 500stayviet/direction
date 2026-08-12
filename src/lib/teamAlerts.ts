@@ -1,0 +1,446 @@
+"use client";
+
+export type AlertTab = "customers" | "properties" | "navi";
+/** 고객 상세에서 본 매칭 vs 매물 상세에서 본 매칭 — 서로 독립 */
+export type MatchAlertSide = "customer" | "property";
+
+type AlertState = {
+  shareSeeded: Record<AlertTab, boolean>;
+  matchSeeded: boolean;
+  knownShare: Record<AlertTab, string[]>;
+  unseenShare: Record<AlertTab, string[]>;
+  knownMatch: string[];
+  /** 고객 상세 → 조건에 맞는 매물 미열람 */
+  unseenMatchCustomer: string[];
+  /** 매물 상세 → 조건에 맞는 고객 미열람 */
+  unseenMatchProperty: string[];
+  /** 데모 시드 알람 — 본인 생성 데모 id를 공유처럼 유지 */
+  preserveDemoShareAlerts: boolean;
+};
+
+const STORAGE_PREFIX = "realty_team_alerts_v2";
+
+const emptyTabLists = (): Record<AlertTab, string[]> => ({
+  customers: [],
+  properties: [],
+  navi: [],
+});
+
+const emptyTabFlags = (): Record<AlertTab, boolean> => ({
+  customers: false,
+  properties: false,
+  navi: false,
+});
+
+const emptyState = (): AlertState => ({
+  shareSeeded: emptyTabFlags(),
+  matchSeeded: false,
+  knownShare: emptyTabLists(),
+  unseenShare: emptyTabLists(),
+  knownMatch: [],
+  unseenMatchCustomer: [],
+  unseenMatchProperty: [],
+  preserveDemoShareAlerts: false,
+});
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+let userId: string | null = null;
+let state: AlertState = emptyState();
+
+function notify() {
+  listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+function storageKey(uid: string) {
+  return `${STORAGE_PREFIX}:${uid}`;
+}
+
+function persist() {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    localStorage.setItem(storageKey(userId), JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadFromStorage(uid: string): AlertState {
+  if (typeof window === "undefined") return emptyState();
+  try {
+    const raw = localStorage.getItem(storageKey(uid));
+    if (!raw) return emptyState();
+    const parsed = JSON.parse(raw) as Partial<AlertState>;
+    return {
+      shareSeeded: {
+        customers: Boolean(parsed.shareSeeded?.customers),
+        properties: Boolean(parsed.shareSeeded?.properties),
+        navi: Boolean(parsed.shareSeeded?.navi),
+      },
+      matchSeeded: Boolean(parsed.matchSeeded),
+      knownShare: {
+        customers: parsed.knownShare?.customers ?? [],
+        properties: parsed.knownShare?.properties ?? [],
+        navi: parsed.knownShare?.navi ?? [],
+      },
+      unseenShare: {
+        customers: parsed.unseenShare?.customers ?? [],
+        properties: parsed.unseenShare?.properties ?? [],
+        navi: parsed.unseenShare?.navi ?? [],
+      },
+      knownMatch: parsed.knownMatch ?? [],
+      unseenMatchCustomer: parsed.unseenMatchCustomer ?? [],
+      unseenMatchProperty: parsed.unseenMatchProperty ?? [],
+      preserveDemoShareAlerts: Boolean(parsed.preserveDemoShareAlerts),
+    };
+  } catch {
+    return emptyState();
+  }
+}
+
+function sortedUnique(ids: Iterable<string>): string[] {
+  return [...new Set([...ids].filter(Boolean))].sort();
+}
+
+function sameList(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+export function subscribeTeamAlerts(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getTeamAlertsSnapshot(): AlertState {
+  return state;
+}
+
+export function ensureTeamAlertsUser(uid: string | null | undefined) {
+  const next = uid?.trim() || null;
+  if (next === userId) return;
+  userId = next;
+  state = next ? loadFromStorage(next) : emptyState();
+  notify();
+}
+
+export function matchPairKey(customerId: string, propertyId: string): string {
+  return `${customerId}::${propertyId}`;
+}
+
+export function parseMatchPairKey(
+  key: string
+): { customerId: string; propertyId: string } | null {
+  const i = key.indexOf("::");
+  if (i <= 0) return null;
+  return {
+    customerId: key.slice(0, i),
+    propertyId: key.slice(i + 2),
+  };
+}
+
+/** 팀원 공유·생성으로 내 리스트에 보이는 id 동기화 */
+export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
+  if (!userId) return;
+  const incoming = new Set(foreignIds.filter(Boolean));
+
+  if (!state.shareSeeded[tab]) {
+    state = {
+      ...state,
+      shareSeeded: { ...state.shareSeeded, [tab]: true },
+      knownShare: {
+        ...state.knownShare,
+        [tab]: sortedUnique(incoming),
+      },
+      unseenShare: { ...state.unseenShare, [tab]: [] },
+    };
+    persist();
+    notify();
+    return;
+  }
+
+  const known = new Set(state.knownShare[tab]);
+  const unseen = new Set(state.unseenShare[tab]);
+
+  for (const id of incoming) {
+    if (!known.has(id)) {
+      known.add(id);
+      unseen.add(id);
+    }
+  }
+  for (const id of [...known]) {
+    if (!incoming.has(id)) {
+      if (state.preserveDemoShareAlerts && id.startsWith("demo_")) {
+        continue;
+      }
+      known.delete(id);
+      unseen.delete(id);
+    }
+  }
+  for (const id of [...unseen]) {
+    if (!incoming.has(id)) unseen.delete(id);
+  }
+
+  const nextKnown = sortedUnique(known);
+  const nextUnseen = sortedUnique(unseen);
+  if (
+    sameList(nextKnown, state.knownShare[tab]) &&
+    sameList(nextUnseen, state.unseenShare[tab])
+  ) {
+    return;
+  }
+
+  state = {
+    ...state,
+    knownShare: { ...state.knownShare, [tab]: nextKnown },
+    unseenShare: { ...state.unseenShare, [tab]: nextUnseen },
+  };
+  persist();
+  notify();
+}
+
+/** 현재 성립 매칭 쌍 동기화 — 신규 쌍은 고객·매물 양쪽에 각각 unseen */
+export function syncMatchPairs(pairKeys: string[]) {
+  if (!userId) return;
+  const incoming = new Set(pairKeys.filter(Boolean));
+
+  if (!state.matchSeeded) {
+    state = {
+      ...state,
+      matchSeeded: true,
+      knownMatch: sortedUnique(incoming),
+      unseenMatchCustomer: [],
+      unseenMatchProperty: [],
+    };
+    persist();
+    notify();
+    return;
+  }
+
+  const known = new Set(state.knownMatch);
+  const unseenC = new Set(state.unseenMatchCustomer);
+  const unseenP = new Set(state.unseenMatchProperty);
+
+  for (const key of incoming) {
+    if (!known.has(key)) {
+      known.add(key);
+      unseenC.add(key);
+      unseenP.add(key);
+    }
+  }
+  for (const key of [...known]) {
+    if (!incoming.has(key)) {
+      known.delete(key);
+      unseenC.delete(key);
+      unseenP.delete(key);
+    }
+  }
+  for (const key of [...unseenC]) {
+    if (!incoming.has(key)) unseenC.delete(key);
+  }
+  for (const key of [...unseenP]) {
+    if (!incoming.has(key)) unseenP.delete(key);
+  }
+
+  const nextKnown = sortedUnique(known);
+  const nextC = sortedUnique(unseenC);
+  const nextP = sortedUnique(unseenP);
+  if (
+    sameList(nextKnown, state.knownMatch) &&
+    sameList(nextC, state.unseenMatchCustomer) &&
+    sameList(nextP, state.unseenMatchProperty)
+  ) {
+    return;
+  }
+
+  state = {
+    ...state,
+    knownMatch: nextKnown,
+    unseenMatchCustomer: nextC,
+    unseenMatchProperty: nextP,
+  };
+  persist();
+  notify();
+}
+
+export function markShareSeen(tab: AlertTab, id: string) {
+  if (!userId || !id) return;
+  if (!state.unseenShare[tab].includes(id)) return;
+  state = {
+    ...state,
+    unseenShare: {
+      ...state.unseenShare,
+      [tab]: state.unseenShare[tab].filter((x) => x !== id),
+    },
+  };
+  persist();
+  notify();
+}
+
+export function markMatchSeen(
+  customerId: string,
+  propertyId: string,
+  side: MatchAlertSide
+) {
+  if (!userId) return;
+  const key = matchPairKey(customerId, propertyId);
+  if (side === "customer") {
+    if (!state.unseenMatchCustomer.includes(key)) return;
+    state = {
+      ...state,
+      unseenMatchCustomer: state.unseenMatchCustomer.filter((x) => x !== key),
+    };
+  } else {
+    if (!state.unseenMatchProperty.includes(key)) return;
+    state = {
+      ...state,
+      unseenMatchProperty: state.unseenMatchProperty.filter((x) => x !== key),
+    };
+  }
+  persist();
+  notify();
+}
+
+export function isShareUnseen(tab: AlertTab, id: string): boolean {
+  return state.unseenShare[tab].includes(id);
+}
+
+export function isMatchUnseen(
+  customerId: string,
+  propertyId: string,
+  side: MatchAlertSide
+): boolean {
+  const key = matchPairKey(customerId, propertyId);
+  return side === "customer"
+    ? state.unseenMatchCustomer.includes(key)
+    : state.unseenMatchProperty.includes(key);
+}
+
+export function hasUnseenMatchForCustomer(customerId: string): boolean {
+  const prefix = `${customerId}::`;
+  return state.unseenMatchCustomer.some((k) => k.startsWith(prefix));
+}
+
+export function hasUnseenMatchForProperty(propertyId: string): boolean {
+  const suffix = `::${propertyId}`;
+  return state.unseenMatchProperty.some((k) => k.endsWith(suffix));
+}
+
+export function firstUnseenMatchPropertyId(
+  customerId: string,
+  propertyIdsInOrder: string[]
+): string | null {
+  for (const pid of propertyIdsInOrder) {
+    if (isMatchUnseen(customerId, pid, "customer")) return pid;
+  }
+  return null;
+}
+
+export function firstUnseenMatchCustomerId(
+  propertyId: string,
+  customerIdsInOrder: string[]
+): string | null {
+  for (const cid of customerIdsInOrder) {
+    if (isMatchUnseen(cid, propertyId, "property")) return cid;
+  }
+  return null;
+}
+
+export function getAlertBadgeCounts(): {
+  customers: number;
+  properties: number;
+  navi: number;
+} {
+  return {
+    customers:
+      state.unseenShare.customers.length + state.unseenMatchCustomer.length,
+    properties:
+      state.unseenShare.properties.length + state.unseenMatchProperty.length,
+    navi: state.unseenShare.navi.length,
+  };
+}
+
+/** 리스트 카드 강조: 공유 미열람 또는 내부 신규 매칭 있음 */
+export function listCardHighlight(
+  tab: AlertTab,
+  id: string
+): "share" | null {
+  if (isShareUnseen(tab, id)) return "share";
+  if (tab === "customers" && hasUnseenMatchForCustomer(id)) return "share";
+  if (tab === "properties" && hasUnseenMatchForProperty(id)) return "share";
+  return null;
+}
+
+export function alertHighlightClass(
+  highlight: "share" | "match" | null | undefined,
+  done?: boolean
+): string {
+  if (done) {
+    return "!border-solid !bg-gray-200 !border-gray-300 text-gray-500";
+  }
+  if (highlight === "share") {
+    return "!border-solid !border-emerald-500 !bg-emerald-50";
+  }
+  if (highlight === "match") {
+    return "animate-border-sparkle";
+  }
+  return "!border-dashed !border-orange-300 !bg-[#FFF9F3]";
+}
+
+/**
+ * 데모 시드 직후 — 본인 생성 체험 카드도 공유·매칭 알람처럼 보이게 강제.
+ * (일반 팀 공유 규칙 예외, 테스트용)
+ */
+export function injectDemoTestAlerts(input: {
+  customerIds: string[];
+  propertyIds: string[];
+  scheduleIds: string[];
+  matchPairs: string[];
+}) {
+  if (!userId) return;
+
+  const merge = (prev: string[], add: string[]) =>
+    sortedUnique([...prev, ...add]);
+
+  state = {
+    ...state,
+    preserveDemoShareAlerts: true,
+    shareSeeded: {
+      customers: true,
+      properties: true,
+      navi: true,
+    },
+    matchSeeded: true,
+    knownShare: {
+      customers: merge(state.knownShare.customers, input.customerIds),
+      properties: merge(state.knownShare.properties, input.propertyIds),
+      navi: merge(state.knownShare.navi, input.scheduleIds),
+    },
+    unseenShare: {
+      customers: merge(state.unseenShare.customers, input.customerIds),
+      properties: merge(state.unseenShare.properties, input.propertyIds),
+      navi: merge(state.unseenShare.navi, input.scheduleIds),
+    },
+    knownMatch: merge(state.knownMatch, input.matchPairs),
+    unseenMatchCustomer: merge(
+      state.unseenMatchCustomer,
+      input.matchPairs
+    ),
+    unseenMatchProperty: merge(
+      state.unseenMatchProperty,
+      input.matchPairs
+    ),
+  };
+  persist();
+  notify();
+}

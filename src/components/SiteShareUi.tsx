@@ -6,6 +6,7 @@ import {
   SITE_SHARE_FORM_LABEL,
   SITE_SHARE_UI_ENABLED,
 } from "@/lib/siteShare";
+import { DetailHeaderButton } from "@/components/DetailHeaderButton";
 
 /** 개발중 표시 — 글자 중앙 취소선 */
 function DevStrikeLabel({
@@ -31,7 +32,7 @@ function DevStrikeLabel({
   );
 }
 
-/** 등록 폼용 — 개발중일 때 비활성 표시 */
+/** 등록 폼용 — 준비중일 때 비활성 표시 */
 export function SiteShareFormField({
   value,
   onChange,
@@ -46,7 +47,7 @@ export function SiteShareFormField({
           {SITE_SHARE_FORM_LABEL}
         </p>
         <div className="flex min-h-[44px] items-center justify-center rounded-xl bg-gray-100 px-3 text-[15px]">
-          <DevStrikeLabel text="개발중" className="text-[15px]" />
+          <span className="text-[15px] font-bold text-gray-400">준비중</span>
         </div>
       </div>
     );
@@ -96,26 +97,18 @@ export function TeamShareButton({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <DetailHeaderButton
+      tone={done ? "cancel" : active ? "teamOn" : "team"}
       disabled={done || disabled}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         onToggle();
       }}
-      className={[
-        "inline-flex shrink-0 items-center justify-center rounded-xl border-2 bg-white px-2.5 text-[13px] font-bold transition-colors active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-        done
-          ? "border-gray-300 text-gray-400"
-          : active
-            ? "border-violet-500 text-violet-600 hover:bg-violet-50"
-            : "border-gray-400 text-gray-600 hover:bg-gray-50",
-        className || "!min-h-[36px]",
-      ].join(" ")}
+      className={done ? `!border-gray-300 !text-gray-400 ${className}` : className}
     >
-      {active ? "팀 공유 중" : "팀 공유하기"}
-    </button>
+      {active ? "공유중" : "팀공유"}
+    </DetailHeaderButton>
   );
 }
 

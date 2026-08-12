@@ -23,6 +23,7 @@ interface DatePickerProps {
   /** 기본: 오늘. 이 날짜 이전은 선택 불가 */
   minDate?: string;
   placeholder?: string;
+  invalid?: boolean;
 }
 
 export function DatePicker({
@@ -33,6 +34,7 @@ export function DatePicker({
   hint,
   minDate = todayISO(),
   placeholder = "년월일 선택",
+  invalid,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const now = new Date();
@@ -70,10 +72,24 @@ export function DatePicker({
   return (
     <div className="space-y-1">
       {label ? (
-        <p className="text-[13px] font-semibold text-gray-600">
+        <p
+          className={[
+            "text-[13px] font-semibold",
+            invalid ? "text-red-600" : "text-gray-600",
+          ].join(" ")}
+        >
           {label}
-          {required && <span className="ml-0.5 text-[#3182F6]">*</span>}
+          {required && (
+            <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+              *
+            </span>
+          )}
         </p>
+      ) : null}
+      {invalid ? (
+        <p className="text-xs font-semibold text-red-500">미입력</p>
+      ) : hint ? (
+        <p className="text-xs text-gray-400">{hint}</p>
       ) : null}
       <button
         type="button"
@@ -81,9 +97,11 @@ export function DatePicker({
         className={[
           "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
           "active:scale-[0.99] transition-all duration-150",
-          value
-            ? "border-gray-200 bg-white text-gray-900"
-            : "border-gray-200 bg-gray-50 text-gray-400",
+          invalid
+            ? "border-red-500 bg-red-50 text-gray-900"
+            : value
+              ? "border-gray-200 bg-white text-gray-900"
+              : "border-gray-200 bg-gray-50 text-gray-400",
         ].join(" ")}
       >
         <span className="text-[16px] font-semibold">
@@ -93,7 +111,6 @@ export function DatePicker({
           <CalendarIcon />
         </span>
       </button>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
 
       <Modal
         open={open}

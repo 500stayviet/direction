@@ -6,6 +6,7 @@ import {
   formatDepositRent,
   formatMoney,
   formatMoveInRange,
+  isInsuranceJoined,
 } from "@/lib/format";
 import { formatDisplayTime } from "@/components/TimePicker";
 import { Card } from "@/components/ui/Card";
@@ -22,6 +23,10 @@ interface PropertyBriefProps {
   /** 순서 변경용 전체 매물 (2개 이상일 때 제목 탭) */
   allProperties?: Property[];
   onSwapWith?: (targetIndex: number) => void;
+  /** false면 「N번 매물」 제목 숨김 (매물 상세 등) */
+  showTitle?: boolean;
+  /** false면 방문 약속 칩 숨김 (매물 상세 등) */
+  showArriveTime?: boolean;
 }
 
 const chipBase =
@@ -52,16 +57,17 @@ export function PropertyBrief({
   property,
   allProperties,
   onSwapWith,
+  showTitle = true,
+  showArriveTime = true,
 }: PropertyBriefProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const canReorder = Boolean(onSwapWith);
-  const insuranceOn =
-    property.insuranceType === "유" ||
-    Boolean(
-      property.insuranceType &&
-        property.insuranceType !== "무" &&
-        property.insuranceType !== "미가입"
-    );
+  const insuranceOn = isInsuranceJoined(property.insuranceType);
+  const showResidentialExtras =
+    property.roomType !== "토지" &&
+    property.roomType !== "건물" &&
+    !skipsResidentialExtras(property.roomType);
+  const loanOn = property.loanAvailable === "유";
   const moveInLabel = formatMoveInRange(
     property.moveInFrom,
     property.moveInTo,
@@ -75,47 +81,53 @@ export function PropertyBrief({
       ? "매매"
       : property.dealType;
 
+  const showArriveChip = showArriveTime && Boolean(property.arriveTime);
+
   return (
     <div className="relative pt-3">
       <div className="pointer-events-none absolute inset-x-2 top-3 z-10 flex -translate-y-1/2 items-center gap-1 overflow-hidden">
-        {property.arriveTime ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#3182F6] px-2.5 py-1 text-[12px] font-extrabold text-white shadow-sm ring-2 ring-[#F9FAFB]">
-            <span className="text-white/80">방문 약속</span>
-            <span className="tabular-nums tracking-tight">
-              {formatDisplayTime(property.arriveTime)}
-            </span>
-          </span>
-        ) : null}
-        <div className="min-w-0 flex-1" />
         <ListEdgeChips
           placement="inline"
           roomType={property.roomType}
           buildingKind={property.buildingKind}
           dealType={dealLabel}
         />
+        <div className="min-w-0 flex-1" />
+        {showArriveChip ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#3182F6] px-2.5 py-1 text-[12px] font-extrabold text-white shadow-sm ring-2 ring-[#F9FAFB]">
+            <span className="text-white/80">방문 약속</span>
+            <span className="tabular-nums tracking-tight">
+              {formatDisplayTime(property.arriveTime!)}
+            </span>
+          </span>
+        ) : null}
       </div>
 
       <Card className="space-y-0 !overflow-visible !p-0">
-        <div className="relative z-10 px-4 pt-5">
-          {canReorder ? (
-            <button
-              type="button"
-              onClick={() => setMoveOpen(true)}
-              className="group flex min-h-[44px] min-w-0 items-center gap-1.5 text-left active:scale-[0.98] transition-transform"
-            >
-              <span className="truncate text-[22px] font-extrabold tracking-tight text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
+        {showTitle ? (
+          <div className="relative z-10 px-4 pt-5">
+            {canReorder ? (
+              <button
+                type="button"
+                onClick={() => setMoveOpen(true)}
+                className="group flex min-h-[44px] min-w-0 items-center gap-1.5 text-left active:scale-[0.98] transition-transform"
+              >
+                <span className="truncate text-[22px] font-extrabold tracking-tight text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
+                  {index + 1}번 매물
+                </span>
+                <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-[#3182F6]">
+                  순서 변경
+                </span>
+              </button>
+            ) : (
+              <p className="min-w-0 text-[22px] font-extrabold tracking-tight text-gray-900">
                 {index + 1}번 매물
-              </span>
-              <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-[#3182F6]">
-                순서 변경
-              </span>
-            </button>
-          ) : (
-            <p className="min-w-0 text-[22px] font-extrabold tracking-tight text-gray-900">
-              {index + 1}번 매물
-            </p>
-          )}
-        </div>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="relative z-10 pt-4" />
+        )}
 
         {canReorder ? (
           <SchedulePropertySwapModal
@@ -127,7 +139,12 @@ export function PropertyBrief({
           />
         ) : null}
 
-        <div className="space-y-3 px-4 pb-4 pt-3">
+        <div
+          className={[
+            "space-y-3 px-4 pb-4",
+            showTitle ? "pt-3" : "pt-2",
+          ].join(" ")}
+        >
         {/* 원터치 네비 — 블루 포인트 (탭 = 지번까지만 네비 전달) */}
         <div className="rounded-2xl bg-[#E8F3FF] px-3.5 py-3.5 ring-1 ring-inset ring-[#3182F6]/25">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -351,18 +368,16 @@ export function PropertyBrief({
         </div>
         )}
 
-        {/* 조건 칩 */}
+        {/* 조건 칩: 대출 → 보증보험 → 주차 → 엘리베이터 → 애완동물 */}
         <div className="flex flex-wrap gap-1.5">
-          {property.roomType !== "토지" && (
+          {showResidentialExtras && (
           <StatusChip
-            label="엘리베이터"
-            value={property.elevator ? "유" : "무"}
-            active={property.elevator}
+            label="대출"
+            value={loanOn ? "유" : "무"}
+            active={loanOn}
           />
           )}
-          {property.roomType !== "토지" &&
-            property.roomType !== "건물" &&
-            !skipsResidentialExtras(property.roomType) && (
+          {showResidentialExtras && (
           <StatusChip
             label="보증보험"
             value={
@@ -400,18 +415,22 @@ export function PropertyBrief({
                 : property.parkingType === "유"
             }
           />
-          )}          {property.roomType !== "토지" &&
-            property.roomType !== "건물" &&
-            !skipsResidentialExtras(property.roomType) && (
+          )}
+          {property.roomType !== "토지" && (
+          <StatusChip
+            label="엘리베이터"
+            value={property.elevator ? "유" : "무"}
+            active={property.elevator}
+          />
+          )}
+          {showResidentialExtras && (
           <StatusChip
             label="애완동물"
             value={property.petAllowed ?? "무"}
             active={property.petAllowed === "유"}
           />
           )}
-          {property.roomType !== "토지" &&
-            property.roomType !== "건물" &&
-            !skipsResidentialExtras(property.roomType) &&
+          {showResidentialExtras &&
             property.options.map((opt) => (
             <span key={opt} className={chipOption}>
               {opt}

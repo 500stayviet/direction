@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSessionUserId } from "@/lib/auth";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { getSessionUserId, peekCurrentUser } from "@/lib/auth";
 import {
   ensureEntityCacheUser,
   peekCustomers,
@@ -16,130 +23,109 @@ import {
 } from "@/lib/storage";
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 
-export function useCustomersList() {
-  const [items, setItems] = useState<Customer[]>(() => peekCustomers() ?? []);
-  const [loading, setLoading] = useState(() => peekCustomers() === null);
+/**
+ * sessionStorage/메모리 캐시는 클라이언트 전용.
+ * useSyncExternalStore의 getServerSnapshot=null 로 SSR·hydration을 맞추고,
+ * hydration 이후에만 캐시 스냅샷을 쓴다 (등록 N명 불일치 방지).
+ */
+function useEntityListState<T>(
+  peek: () => T[] | null,
+  loadFresh: () => Promise<T[]>
+) {
+  const cached = useSyncExternalStore(
+    subscribeEntityCache,
+    () => {
+      const userId = peekCurrentUser()?.id ?? null;
+      if (userId) ensureEntityCacheUser(userId);
+      return peek();
+    },
+    () => null
+  );
+
+  /** 낙관적 갱신용. null이면 캐시를 그대로 표시 */
+  const [override, setOverride] = useState<T[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const items = override ?? cached ?? [];
+
+  const setItems = useCallback<Dispatch<SetStateAction<T[]>>>(
+    (action) => {
+      setOverride((prev) => {
+        const base = prev ?? cached ?? [];
+        return typeof action === "function" ? action(base) : action;
+      });
+    },
+    [cached]
+  );
+
+  // 캐시가 바뀌면 override를 비워 캐시를 따름 (기존 subscribe → setItems(cached)와 동일)
+  useEffect(() => {
+    if (cached) {
+      setOverride(null);
+      setLoading(false);
+    }
+  }, [cached]);
 
   useEffect(() => {
     let cancelled = false;
-    const unsub = subscribeEntityCache(() => {
-      const cached = peekCustomers();
-      if (cached) setItems(cached);
-    });
-
     void (async () => {
       const userId = await getSessionUserId();
       ensureEntityCacheUser(userId);
       if (cancelled) return;
-      const cached = peekCustomers();
-      if (cached) {
-        setItems(cached);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
+      if (peek()) setLoading(false);
+      else setLoading(true);
       try {
-        const fresh = await getCustomers();
-        if (!cancelled) {
-          setItems(fresh);
-          setLoading(false);
-        }
+        await loadFresh();
+        if (!cancelled) setLoading(false);
       } catch {
         if (!cancelled) setLoading(false);
       }
     })();
-
     return () => {
       cancelled = true;
-      unsub();
     };
-  }, []);
+  }, [loadFresh, peek]);
+
+  // 화면·앱이 다시 보일 때 목록 갱신 (실시간 없이 동료 공유 반영에 가장 가까움)
+  useEffect(() => {
+    let lastAt = Date.now();
+    const MIN_GAP_MS = 2500;
+
+    const refresh = () => {
+      const now = Date.now();
+      if (now - lastAt < MIN_GAP_MS) return;
+      lastAt = now;
+      void loadFresh();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+    };
+  }, [loadFresh]);
 
   return { items, loading, setItems };
+}
+
+export function useCustomersList() {
+  return useEntityListState<Customer>(peekCustomers, getCustomers);
 }
 
 export function usePropertiesList() {
-  const [items, setItems] = useState<ListedProperty[]>(
-    () => peekProperties() ?? []
+  return useEntityListState<ListedProperty>(
+    peekProperties,
+    getListedProperties
   );
-  const [loading, setLoading] = useState(() => peekProperties() === null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const unsub = subscribeEntityCache(() => {
-      const cached = peekProperties();
-      if (cached) setItems(cached);
-    });
-
-    void (async () => {
-      const userId = await getSessionUserId();
-      ensureEntityCacheUser(userId);
-      if (cancelled) return;
-      const cached = peekProperties();
-      if (cached) {
-        setItems(cached);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
-      try {
-        const fresh = await getListedProperties();
-        if (!cancelled) {
-          setItems(fresh);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, []);
-
-  return { items, loading, setItems };
 }
 
 export function useSchedulesList() {
-  const [items, setItems] = useState<Schedule[]>(() => peekSchedules() ?? []);
-  const [loading, setLoading] = useState(() => peekSchedules() === null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const unsub = subscribeEntityCache(() => {
-      const cached = peekSchedules();
-      if (cached) setItems(cached);
-    });
-
-    void (async () => {
-      const userId = await getSessionUserId();
-      ensureEntityCacheUser(userId);
-      if (cancelled) return;
-      const cached = peekSchedules();
-      if (cached) {
-        setItems(cached);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
-      try {
-        const fresh = await getSchedules();
-        if (!cancelled) {
-          setItems(fresh);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, []);
-
-  return { items, loading, setItems };
+  return useEntityListState<Schedule>(peekSchedules, getSchedules);
 }

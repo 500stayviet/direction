@@ -1,6 +1,12 @@
 "use client";
 
 import { getAccessToken } from "@/lib/auth";
+import {
+  getCustomers,
+  getListedProperties,
+  getSchedules,
+  invalidateWorkspaceIdCache,
+} from "@/lib/storage";
 
 export type WorkspaceMemberInfo = {
   userId: string;
@@ -120,6 +126,7 @@ export async function createWorkspace(name?: string): Promise<
         message: body.message ?? "팀 공유 생성에 실패했습니다.",
       };
     }
+    invalidateWorkspaceIdCache();
     return { ok: true, workspace: body.workspace };
   } catch (e) {
     return {
@@ -146,6 +153,13 @@ export async function joinWorkspace(shareCode: string): Promise<
       if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
       return { ok: false, message: body.message ?? "팀 참여에 실패했습니다." };
     }
+    // 팀 참여 직후 캐시된 목록·업장 id를 버리고 고객·매물·일정 다시 받기
+    invalidateWorkspaceIdCache();
+    await Promise.all([
+      getCustomers(),
+      getListedProperties(),
+      getSchedules(),
+    ]);
     return { ok: true, workspace: body.workspace };
   } catch (e) {
     return {

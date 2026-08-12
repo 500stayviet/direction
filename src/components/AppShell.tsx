@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/AuthGate";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
+import { TeamAlertsSync } from "@/components/TeamAlertsSync";
 
 const AUTH_PATHS = ["/login", "/signup"];
 
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-[#F9FAFB] text-gray-900">
       <div className="relative mx-auto min-h-dvh w-full max-w-[430px] bg-[#F9FAFB] shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
         <AuthGate>
+          <TeamAlertsSync />
           <div
             className={[
               "min-h-dvh px-4 pt-[max(0.5rem,env(safe-area-inset-top))]",

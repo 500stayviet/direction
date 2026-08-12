@@ -63,6 +63,8 @@ type ListEdgeChipsProps = {
   /** 보증금·매가(만원) — 금액 칩 색 구간용 */
   depositMan?: number | null;
   done?: boolean;
+  /** 우측 끝 검은 뱃지 (협력 사무소명 등) */
+  agencyLabel?: string | null;
   right?: ReactNode;
   /** edge: 카드 테두리 위(기본) / inline: 카드 안 흐름 배치 */
   placement?: "edge" | "inline";
@@ -76,6 +78,7 @@ export function ListEdgeChips({
   moneyLabel,
   depositMan,
   done,
+  agencyLabel,
   right,
   placement = "edge",
 }: ListEdgeChipsProps) {
@@ -89,11 +92,15 @@ export function ListEdgeChips({
       ? moneyLabel.trim()
       : null;
 
-  if (!typeText && !dealText && !moneyText && !right) return null;
+  const agencyText = agencyLabel?.trim() || null;
+
+  if (!typeText && !dealText && !moneyText && !agencyText && !right) {
+    return null;
+  }
 
   const chips = (
     <>
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+      <div className="flex min-w-0 items-center gap-1 overflow-hidden">
         {typeText ? (
           <p
             className={[
@@ -123,8 +130,25 @@ export function ListEdgeChips({
           </p>
         ) : null}
       </div>
-      {right ? (
-        <div className="pointer-events-auto shrink-0 cursor-pointer">{right}</div>
+      {agencyText || right ? (
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1">
+          {agencyText ? (
+            <p
+              className={[
+                chipBase,
+                "max-w-[9.5rem]",
+                done ? "bg-gray-400" : "bg-gray-900",
+              ].join(" ")}
+            >
+              {agencyText}
+            </p>
+          ) : null}
+          {right ? (
+            <div className="pointer-events-auto shrink-0 cursor-pointer">
+              {right}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </>
   );

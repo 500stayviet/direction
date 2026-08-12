@@ -3,33 +3,82 @@ import { getAccessToken } from "@/lib/auth";
 import {
   DEMO_CORE_IDS,
   DEMO_SEED_VERSION,
-  buildDemoSeedData,
-  demoSeedBaseDate,
-  isDemoEntityId,
-  DEMO_GANGDONG_OFFICE_ADDRESS,
-  DEMO_TEST_PHONE,
+  isDemoSeedExpired,
 } from "@/lib/demoSeedPayload";
+import {
+  removeCustomerFromCache,
+  removePropertyFromCache,
+  removeScheduleFromCache,
+} from "@/lib/entityCache";
+import {
+  ensureTeamAlertsUser,
+  injectDemoTestAlerts,
+  matchPairKey,
+} from "@/lib/teamAlerts";
 
-export {
-  DEMO_SEED_VERSION,
-  DEMO_GANGDONG_OFFICE_ADDRESS,
-  DEMO_TEST_PHONE,
-  buildDemoSeedData,
-  isDemoEntityId,
-};
+function seedSkipKey(userId: string) {
+  return `realty_seed_done_${DEMO_SEED_VERSION}:${userId}`;
+}
 
-const SEED_SKIP_KEY = `realty_seed_skip_${DEMO_SEED_VERSION}`;
+function demoAlertsKey(userId: string) {
+  return `realty_demo_alerts_${DEMO_SEED_VERSION}:${userId}`;
+}
+
+function purgeExpiredDemoFromCache() {
+  const [custId, propId, schId] = DEMO_CORE_IDS;
+  removeCustomerFromCache(custId);
+  removePropertyFromCache(propId);
+  removeScheduleFromCache(schId);
+}
+
+function injectDemoAlertsOnce(userId: string) {
+  try {
+    if (localStorage.getItem(demoAlertsKey(userId)) === "1") return;
+  } catch {
+    /* ignore */
+  }
+
+  ensureTeamAlertsUser(userId);
+  const [custId, propId, schId] = DEMO_CORE_IDS;
+  injectDemoTestAlerts({
+    customerIds: [custId],
+    propertyIds: [propId],
+    scheduleIds: [schId],
+    matchPairs: [matchPairKey(custId, propId)],
+  });
+
+  try {
+    localStorage.setItem(demoAlertsKey(userId), "1");
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * 로그인 계정에 테스트용 고객·매물·방문일정 시드
  * - 서버(service_role) API로 심어 RLS/컬럼 이슈를 피함
- * - 데모 행이 없으면 같은 버전이라도 복구
+ * - 탭 세션(로그인)당 한 번만 시도
+ * - 이미 시드된 버전이면 삭제한 데모를 되살리지 않음
+ * - 시드 후 체험용 알람(공유·매칭)을 한 번 띄움
+ * - 가입일로부터 7일이 지나면 시드하지 않고 데모 카드를 만료 처리
  */
 export async function seedDemoDataIfNeeded(): Promise<void> {
   if (typeof window === "undefined") return;
 
+  const appAuth = loadAppAuth();
+  const userId = appAuth?.user?.id;
+  if (!userId) return;
+
+  if (isDemoSeedExpired(appAuth.user.createdAt)) {
+    purgeExpiredDemoFromCache();
+    return;
+  }
+
   try {
-    if (sessionStorage.getItem(SEED_SKIP_KEY)) return;
+    if (sessionStorage.getItem(seedSkipKey(userId))) {
+      injectDemoAlertsOnce(userId);
+      return;
+    }
   } catch {
     /* ignore */
   }
@@ -38,7 +87,6 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     const token = await getAccessToken();
     if (!token) return;
 
-    const appAuth = loadAppAuth();
     const res = await fetch("/api/demo/seed", {
       method: "POST",
       headers: {
@@ -46,42 +94,37 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        forceMissing: true,
+        forceMissing: false,
         createdAt: appAuth?.user?.createdAt ?? null,
       }),
     });
 
+    const body = (await res.json().catch(() => null)) as {
+      message?: string;
+      expired?: boolean;
+    } | null;
+
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string;
-      } | null;
       console.warn("[seedDemo] api failed:", body?.message ?? res.status);
-      try {
-        sessionStorage.setItem(SEED_SKIP_KEY, "1");
-      } catch {
-        /* ignore */
-      }
-      return;
+    }
+
+    if (body?.expired) {
+      purgeExpiredDemoFromCache();
+    } else {
+      injectDemoAlertsOnce(userId);
     }
 
     try {
-      sessionStorage.removeItem(SEED_SKIP_KEY);
+      sessionStorage.setItem(seedSkipKey(userId), "1");
     } catch {
       /* ignore */
     }
   } catch (e) {
     console.warn("[seedDemo] skipped:", e);
     try {
-      sessionStorage.setItem(SEED_SKIP_KEY, "1");
+      sessionStorage.setItem(seedSkipKey(userId), "1");
     } catch {
       /* ignore */
     }
   }
 }
-
-/** 로컬/테스트용 — 페이로드만 필요할 때 */
-export function peekDemoSeedData(baseDate?: Date) {
-  return buildDemoSeedData(demoSeedBaseDate(baseDate ?? null));
-}
-
-export { DEMO_CORE_IDS };

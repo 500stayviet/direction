@@ -141,7 +141,9 @@ export default function AccountPage() {
   const showActiveCodeUi = Boolean(workspace?.shareCode) && codeValid;
 
   const teammateCount = workspace?.memberCount ?? 0;
-  const showTeammateList = teammateCount >= 2;
+  /** 동료가 있을 때만 실제 팀. 혼자면 초대 코드만 있는 상태 */
+  const hasTeam = teammateCount >= 2;
+  const showTeammateList = hasTeam;
 
   const closeDelete = () => {
     if (busy) return;
@@ -177,7 +179,7 @@ export default function AccountPage() {
       setWorkspace(result.workspace);
       setCodeConsent(null);
       setWsMessage(
-        "팀 공유가 시작되었습니다. 공유 코드는 약 5분간만 사용할 수 있습니다."
+        "공유 코드가 발급되었습니다. 동료가 참여하면 팀이 됩니다. 코드는 약 5분간 유효합니다."
       );
     } finally {
       setWsBusy(false);
@@ -451,41 +453,28 @@ export default function AccountPage() {
             </Button>
           )}
 
-          {/* 참여 코드 입력 — 공간 유무와 관계없이 항상 표시 */}
-          <div className="space-y-1">
-            <div className="flex items-end gap-1.5">
-              <div className="min-w-0 flex-1">
-                <label className="mb-0.5 block text-[11px] font-semibold text-gray-500">
-                  공유 코드 입력
-                </label>
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="동료에게 받은 코드"
-                  autoComplete="off"
-                  disabled={Boolean(workspace) || wsBusy}
-                  className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-semibold tracking-wide text-gray-900 outline-none focus:border-[#3182F6] disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
-              <Button
-                variant="secondary"
-                disabled={Boolean(workspace) || wsBusy || !joinCode.trim()}
-                className="!h-9 !min-h-0 !rounded-lg !px-3 !text-[12px]"
-                onClick={() => void handleJoin()}
-              >
-                참여
-              </Button>
+          <div className="flex items-end gap-1.5">
+            <div className="min-w-0 flex-1">
+              <label className="mb-0.5 block text-[11px] font-semibold text-gray-500">
+                공유 코드 입력
+              </label>
+              <input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="동료에게 받은 코드"
+                autoComplete="off"
+                disabled={wsBusy}
+                className="h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] font-semibold tracking-wide text-gray-900 outline-none focus:border-[#3182F6] disabled:bg-gray-50 disabled:text-gray-400"
+              />
             </div>
-            {workspace ? (
-              <p className="px-0.5 text-[11px] leading-snug text-gray-400">
-                이미 팀에 참여 중입니다. 코드 입력은 아직 팀에 없는 계정에서
-                사용하세요.
-              </p>
-            ) : (
-              <p className="px-0.5 text-[11px] leading-snug text-gray-400">
-                공유 코드 생성 대신, 동료 코드를 입력해 참여할 수 있습니다.
-              </p>
-            )}
+            <Button
+              variant="secondary"
+              disabled={wsBusy || !joinCode.trim()}
+              className="!h-9 !min-h-0 !rounded-lg !px-3 !text-[12px]"
+              onClick={() => void handleJoin()}
+            >
+              참여
+            </Button>
           </div>
 
           {wsMessage ? (

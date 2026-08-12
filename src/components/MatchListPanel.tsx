@@ -1,30 +1,34 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { PropertyBrief } from "@/components/PropertyBrief";
-import { PhoneLink } from "@/components/PhoneLink";
-import {
-  displayRoomType,
-  needsRoomBathCounts,
-  normalizeRoomType,
-} from "@/lib/constants";
-import {
-  formatDepositRent,
-  getCustomerBudgetLabel,
-  getCustomerLoanLabel,
-  getCustomerMoveInLabel,
-  getCustomerParkingLabel,
-} from "@/lib/format";
+import { CustomerBrief } from "@/components/CustomerBrief";
+import { PropertyListCard } from "@/components/PropertyListCard";
+import { CustomerListCard } from "@/components/CustomerListCard";
 import { deleteCustomer, deleteListedProperty, getListedProperties } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
   foreignTeamDeleteMessage,
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
+import {
+  getTeamAlertsSnapshot,
+  isMatchUnseen,
+  markMatchSeen,
+  subscribeTeamAlerts,
+} from "@/lib/teamAlerts";
 import type { Customer, ListedProperty } from "@/lib/types";
+
+function useAlertsTick() {
+  return useSyncExternalStore(
+    subscribeTeamAlerts,
+    getTeamAlertsSnapshot,
+    getTeamAlertsSnapshot
+  );
+}
 
 function CloseXButton({ onClick }: { onClick: () => void }) {
   return (
@@ -36,77 +40,10 @@ function CloseXButton({ onClick }: { onClick: () => void }) {
         e.stopPropagation();
         onClick();
       }}
-      className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[15px] font-bold text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500"
+      className="absolute right-2 bottom-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[15px] font-bold text-gray-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500"
     >
       ×
     </button>
-  );
-}
-
-function CustomerDetailBody({ c }: { c: Customer }) {
-  return (
-    <div className="max-h-[60vh] space-y-0 overflow-y-auto">
-      <InfoRow label="고객명">{c.name}</InfoRow>
-      <InfoRow label="전화">
-        <PhoneLink phone={c.phone} />
-      </InfoRow>
-      <InfoRow label="매물 유형">
-        {displayRoomType(c.roomType, c.buildingKind)}
-      </InfoRow>
-      {needsRoomBathCounts(normalizeRoomType(c.roomType) ?? c.roomType) && (
-        <InfoRow label="방 · 화장실">
-          방{" "}
-          {(normalizeRoomType(c.roomType) ?? c.roomType) === "투룸"
-            ? 2
-            : c.roomCount ?? "-"}
-          개 · 화장실 {c.bathroomCount ?? 1}개
-        </InfoRow>
-      )}
-      <InfoRow label="희망거래">
-        {c.dealType}
-        {c.nonOccupancy ? " · 비입주" : ""}
-      </InfoRow>
-      <InfoRow label="금액">{getCustomerBudgetLabel(c)}</InfoRow>
-      <InfoRow label="입주">{getCustomerMoveInLabel(c)}</InfoRow>
-      {!(
-        c.roomType === "상가" ||
-        c.roomType === "사무실" ||
-        c.roomType === "토지" ||
-        c.roomType === "건물"
-      ) && <InfoRow label="대출">{getCustomerLoanLabel(c)}</InfoRow>}
-      {c.roomType !== "토지" && c.roomType !== "건물" && (
-        <InfoRow label="주차">{getCustomerParkingLabel(c)}</InfoRow>
-      )}
-      {c.roomType !== "토지" && c.roomType !== "건물" && (
-        <InfoRow label="애완동물">{c.petAllowed ?? "-"}</InfoRow>
-      )}
-      {c.notes ? (
-        <InfoRow label="메모">
-          <span className="whitespace-pre-wrap font-medium text-gray-800">
-            {c.notes}
-          </span>
-        </InfoRow>
-      ) : null}
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3 border-b border-gray-100 py-2.5 last:border-b-0">
-      <span className="w-[72px] shrink-0 pt-0.5 text-[13px] font-semibold text-gray-400">
-        {label}
-      </span>
-      <div className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-gray-900">
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -117,6 +54,7 @@ export function MatchingPropertiesSection({
   items,
   emptyText,
   onRemoved,
+  customerId,
 }: {
   title: string;
   listHint?: string;
@@ -124,7 +62,10 @@ export function MatchingPropertiesSection({
   items: ListedProperty[];
   emptyText: ReactNode;
   onRemoved: (id: string) => void;
+  /** 매칭 알람 앵커(고객 id) */
+  customerId?: string;
 }) {
+  useAlertsTick();
   const [preview, setPreview] = useState<ListedProperty | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ListedProperty | null>(
     null
@@ -152,6 +93,11 @@ export function MatchingPropertiesSection({
     }
   };
 
+  const openPreview = (p: ListedProperty) => {
+    if (customerId) markMatchSeen(customerId, p.id, "customer");
+    setPreview(p);
+  };
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 px-1">
@@ -168,37 +114,31 @@ export function MatchingPropertiesSection({
         </Card>
       ) : (
         items.map((p) => {
-          const address = p.address.trim() || "주소 미입력";
-          const room = p.roomNo.trim();
-          const money = formatDepositRent(p.dealType, p.deposit, p.monthlyRent);
+          const matchNew =
+            Boolean(customerId) && isMatchUnseen(customerId!, p.id, "customer");
           return (
-            <div key={p.id} className="relative mb-1.5">
+            <div
+              key={p.id}
+              id={customerId ? `match-property-${p.id}` : undefined}
+              className="relative"
+            >
               <CloseXButton onClick={() => setPendingDelete(p)} />
-              <button
-                type="button"
-                className="w-full text-left"
-                onClick={() => setPreview(p)}
-              >
-                <Card pressable className="!p-3 !pr-10">
-                  <p className="text-[12px] font-bold text-gray-400">
-                    {displayRoomType(p.roomType, p.buildingKind)} · {p.dealType}
-                    {p.hasPartnerAgency && p.partnerAgency?.name?.trim()
-                      ? ` · ${p.partnerAgency.name.trim()}`
-                      : ""}
-                  </p>
-                  <p className="mt-0.5 truncate text-[15px] font-bold text-gray-900">
-                    {address}
-                    {room ? (
-                      <span className="ml-1.5 text-[13px] font-semibold text-gray-400">
-                        {room}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-gray-600">
-                    {money}
-                  </p>
-                </Card>
-              </button>
+              <PropertyListCard
+                property={p}
+                className="!mb-1.5"
+                showSavedDate={false}
+                showAgencyBadge
+                alertHighlight={matchNew ? "match" : null}
+                renderCard={(card) => (
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer text-left transition-transform duration-150 active:scale-[0.98]"
+                    onClick={() => openPreview(p)}
+                  >
+                    {card}
+                  </button>
+                )}
+              />
             </div>
           );
         })
@@ -215,7 +155,12 @@ export function MatchingPropertiesSection({
       >
         {preview ? (
           <div className="max-h-[55vh] overflow-y-auto">
-            <PropertyBrief index={0} property={preview} />
+            <PropertyBrief
+              index={0}
+              property={preview}
+              showTitle={false}
+              showArriveTime={false}
+            />
           </div>
         ) : null}
       </Modal>
@@ -265,6 +210,7 @@ export function MatchingCustomersSection({
   items,
   emptyText,
   onRemoved,
+  propertyId,
 }: {
   title: string;
   listHint?: string;
@@ -272,7 +218,10 @@ export function MatchingCustomersSection({
   items: Customer[];
   emptyText: ReactNode;
   onRemoved: (id: string) => void;
+  /** 매칭 알람 앵커(매물 id) */
+  propertyId?: string;
 }) {
+  useAlertsTick();
   const [preview, setPreview] = useState<Customer | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
   const [busy, setBusy] = useState(false);
@@ -292,6 +241,11 @@ export function MatchingCustomersSection({
     }
   };
 
+  const openPreview = (c: Customer) => {
+    if (propertyId) markMatchSeen(c.id, propertyId, "property");
+    setPreview(c);
+  };
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 px-1">
@@ -307,37 +261,35 @@ export function MatchingCustomersSection({
           <div className="text-sm leading-relaxed text-gray-500">{emptyText}</div>
         </Card>
       ) : (
-        items.map((c) => (
-          <div key={c.id} className="relative mb-1.5">
-            <CloseXButton onClick={() => setPendingDelete(c)} />
-            <button
-              type="button"
-              className="w-full text-left"
-              onClick={() => setPreview(c)}
+        items.map((c) => {
+          const matchNew =
+            Boolean(propertyId) && isMatchUnseen(c.id, propertyId!, "property");
+          return (
+            <div
+              key={c.id}
+              id={propertyId ? `match-customer-${c.id}` : undefined}
+              className="relative"
             >
-              <Card pressable className="!p-3 !pr-10">
-                <p className="text-[12px] font-bold text-gray-400">
-                  {displayRoomType(c.roomType, c.buildingKind)} · {c.dealType}
-                  {needsRoomBathCounts(
-                    normalizeRoomType(c.roomType) ?? c.roomType
-                  )
-                    ? ` · 방 ${
-                        (normalizeRoomType(c.roomType) ?? c.roomType) === "투룸"
-                          ? 2
-                          : c.roomCount ?? "-"
-                      }`
-                    : ""}
-                </p>
-                <p className="mt-0.5 truncate text-[15px] font-bold text-gray-900">
-                  {c.name}
-                </p>
-                <p className="mt-0.5 text-[13px] font-semibold text-gray-600">
-                  {getCustomerBudgetLabel(c)} · 입주 {getCustomerMoveInLabel(c)}
-                </p>
-              </Card>
-            </button>
-          </div>
-        ))
+              <CloseXButton onClick={() => setPendingDelete(c)} />
+              <CustomerListCard
+                customer={c}
+                className="!mb-1.5"
+                showDeadline={false}
+                showSavedDate={false}
+                alertHighlight={matchNew ? "match" : null}
+                renderCard={(card) => (
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer text-left transition-transform duration-150 active:scale-[0.98]"
+                    onClick={() => openPreview(c)}
+                  >
+                    {card}
+                  </button>
+                )}
+              />
+            </div>
+          );
+        })
       )}
 
       <Modal
@@ -349,7 +301,11 @@ export function MatchingCustomersSection({
         showClose
         className="max-h-[85vh] overflow-hidden"
       >
-        {preview ? <CustomerDetailBody c={preview} /> : null}
+        {preview ? (
+          <div className="max-h-[55vh] overflow-y-auto">
+            <CustomerBrief customer={preview} />
+          </div>
+        ) : null}
       </Modal>
 
       <Modal

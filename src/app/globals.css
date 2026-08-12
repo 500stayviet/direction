@@ -76,6 +76,27 @@ main {
   }
 }
 
+@keyframes border-sparkle {
+  0%,
+  100% {
+    border-color: #fdba74; /* orange-300 */
+    border-style: dashed;
+    background-color: #fff9f3;
+  }
+  50% {
+    border-color: #34d399; /* emerald-400 — 연한 초록 */
+    border-style: solid;
+    background-color: #f0fdf4; /* green-50 */
+  }
+}
+
+.animate-border-sparkle {
+  border-color: #fdba74;
+  border-style: dashed;
+  background-color: #fff9f3;
+  animation: border-sparkle 2.4s ease-in-out infinite;
+}
+
 .animate-in {
   animation: slide-up 0.22s ease-out;
 }

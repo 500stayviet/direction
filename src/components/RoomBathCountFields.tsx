@@ -175,7 +175,7 @@ export function RoomBathCountFields({
         label="방 수"
         required
         disabled={fixedRooms}
-        invalid={!fixedRooms && (invalidRoomCount || rooms <= 0)}
+        invalid={!fixedRooms && Boolean(invalidRoomCount)}
         valueLabel={rooms > 0 ? `${rooms}개` : ""}
         options={roomOptions}
         selected={rooms > 0 ? String(rooms) : ""}

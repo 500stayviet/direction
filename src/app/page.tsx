@@ -14,7 +14,11 @@ import {
   getContractDeadlineLabel,
   isContractDeadlineActive,
 } from "@/lib/deadline";
-import { useCustomersList } from "@/hooks/useEntityList";
+import {
+  useCustomersList,
+  usePropertiesList,
+  useSchedulesList,
+} from "@/hooks/useEntityList";
 import type { User } from "@/lib/types";
 import { AdBanner } from "@/components/ads/AdBanner";
 
@@ -30,14 +34,14 @@ function usePeekedUser(): User | null {
 const menus = [
   {
     href: "/customers/new",
-    title: "고객 추가",
+    title: "고객 등록",
     description: "문의 고객 바로 등록",
     icon: "👤",
     accent: "bg-blue-50 text-[#3182F6]",
   },
   {
     href: "/properties/new",
-    title: "매물 추가",
+    title: "매물 등록",
     description: "매물 정보 바로 등록",
     icon: "🏢",
     accent: "bg-violet-50 text-violet-600",
@@ -72,7 +76,10 @@ export default function HomePage() {
     undefined
   );
   const user = userOverride === undefined ? peekedUser : userOverride;
+  // 홈에서 고객·매물·네비를 같이 워밍 — 리스트 진입 시 빈 화면 깜빡임 방지
   const { items: customers } = useCustomersList();
+  usePropertiesList();
+  useSchedulesList();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
   const [freeNoticeOpen, setFreeNoticeOpen] = useState(false);

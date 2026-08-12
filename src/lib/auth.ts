@@ -35,6 +35,9 @@ export function clearAuthRuntimeCache(): void {
   cachedUser = null;
   clearAppAuth();
   clearEntityCache();
+  void import("./storage")
+    .then((m) => m.invalidateWorkspaceIdCache())
+    .catch(() => undefined);
   if (typeof window === "undefined") return;
   try {
     const splashDone = sessionStorage.getItem(BOOT_SPLASH_DONE_KEY);
@@ -167,15 +170,42 @@ export function peekCurrentUser(): User | null {
   return null;
 }
 
-/** API 호출용 access token — 앱 백업 → 갱신 → Supabase 세션 순으로 확보 */
+/** access token이 이 시간보다 더 남았으면 refreshSession 생략 */
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
+
+function jwtExpiresAtMs(token: string): number | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const json = JSON.parse(
+      atob(part.replace(/-/g, "+").replace(/_/g, "/"))
+    ) as { exp?: number };
+    return typeof json.exp === "number" ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function accessTokenStillFresh(token: string): boolean {
+  const exp = jwtExpiresAtMs(token);
+  if (exp == null) return false;
+  return exp - Date.now() > ACCESS_TOKEN_REFRESH_SKEW_MS;
+}
+
+/** API 호출용 access token — 앱 백업 →(만료 임박 시) 갱신 → Supabase 세션 순으로 확보 */
 export async function getAccessToken(): Promise<string | null> {
   const appAuth = loadAppAuth();
   const fromApp = appAuth?.access_token?.trim() ?? "";
 
+  // 유효한 앱 토큰이면 네트워크 없이 바로 사용 (호출마다 refresh/setSession 하지 않음)
+  if (fromApp && accessTokenStillFresh(fromApp)) {
+    return fromApp;
+  }
+
   try {
     const supabase = createClient();
 
-    // 앱에 토큰이 있으면 세션에 먼저 올려 RLS가 anon으로 떨어지지 않게 함
+    // 만료·임박 시에만 세션 복구 후 refresh
     if (fromApp && appAuth?.refresh_token?.trim()) {
       try {
         await Promise.race([
@@ -188,27 +218,23 @@ export async function getAccessToken(): Promise<string | null> {
       } catch {
         /* refresh 시도 */
       }
-    }
 
-    if (fromApp) {
-      // 만료됐을 수 있어 refresh 한 번 시도
-      if (appAuth?.refresh_token?.trim()) {
-        const refreshed = await supabase.auth.refreshSession({
-          refresh_token: appAuth.refresh_token,
-        });
-        const session = refreshed.data.session;
-        if (session?.access_token && appAuth.user) {
-          saveAppAuth(
-            {
-              access_token: session.access_token,
-              refresh_token: session.refresh_token || appAuth.refresh_token,
-            },
-            appAuth.user
-          );
-          return session.access_token;
-        }
+      const refreshed = await supabase.auth.refreshSession({
+        refresh_token: appAuth.refresh_token,
+      });
+      const session = refreshed.data.session;
+      if (session?.access_token && appAuth.user) {
+        saveAppAuth(
+          {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token || appAuth.refresh_token,
+          },
+          appAuth.user
+        );
+        return session.access_token;
       }
-      return fromApp;
+      // refresh 실패해도 아직 쓸 수 있으면 반환
+      if (fromApp) return fromApp;
     }
 
     if (appAuth?.refresh_token?.trim()) {
@@ -255,7 +281,7 @@ export async function getAccessToken(): Promise<string | null> {
     /* ignore */
   }
 
-  return null;
+  return fromApp || null;
 }
 
 export async function getSessionUserId(): Promise<string | null> {

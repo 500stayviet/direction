@@ -16,10 +16,17 @@ import { Input } from "@/components/ui/Input";
 import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
 import { CustomerSearchInput } from "@/components/CustomerSearchInput";
+import { CustomerListCard } from "@/components/CustomerListCard";
+import { CustomerBrief } from "@/components/CustomerBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { createEmptyProperty } from "@/lib/constants";
+import { OptionToggle } from "@/components/OptionToggle";
+import { CircleCheck } from "@/components/ui/CircleCheck";
+import {
+  createEmptyProperty,
+  MAX_SCHEDULE_PROPERTIES,
+} from "@/lib/constants";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import { createId } from "@/lib/id";
 import {
@@ -27,12 +34,9 @@ import {
   touchRecentCustomer,
   upsertSchedule,
 } from "@/lib/storage";
-import { useCustomersList } from "@/hooks/useEntityList";
-import type { Customer, Property, Schedule } from "@/lib/types";
-import { PhoneLink } from "@/components/PhoneLink";
+import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
+import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 import {
-  formatPhone,
-  getCustomerBudgetLines,
   matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
@@ -42,6 +46,21 @@ import {
 } from "@/lib/propertyValidation";
 import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { Modal } from "@/components/ui/Modal";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
+import { MatchingPropertyPickModal } from "@/components/MatchingPropertyPickModal";
+import { listedToScheduleProperty } from "@/components/PropertyLoadPicker";
+
+type ScheduleFocus =
+  | { target: "customer"; message: string }
+  | { target: "guestName"; message: string }
+  | { target: "visitDate"; message: string }
+  | { target: "visitTime"; message: string }
+  | {
+      target: "property";
+      index: number;
+      focusField: PropertyFieldKey;
+      message: string;
+    };
 
 type CustomerMode = "search" | "guest" | "selected";
 
@@ -52,7 +71,9 @@ function ScheduleCreateInner() {
 
   const [query, setQuery] = useState("");
   const { items: customers } = useCustomersList();
+  const { items: listedProperties } = usePropertiesList();
   const [mode, setMode] = useState<CustomerMode>("search");
+  const [pickOpen, setPickOpen] = useState(false);
   const [selected, setSelected] = useState<Customer | null>(null);
   const [guestName, setGuestName] = useState("");
   const [visitDate, setVisitDate] = useState("");
@@ -61,13 +82,17 @@ function ScheduleCreateInner() {
     createEmptyProperty(),
     createEmptyProperty(),
   ]);
-  const [validationFocus, setValidationFocus] = useState<{
-    index: number;
-    focusField: PropertyFieldKey;
-    message: string;
-  } | null>(null);
+  const [workspaceShared, setWorkspaceShared] = useState(false);
+  const [validationFocus, setValidationFocus] = useState<ScheduleFocus | null>(
+    null
+  );
   const [warnOpen, setWarnOpen] = useState(false);
+  const [customerDetailOpen, setCustomerDetailOpen] = useState(false);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const customerRef = useRef<HTMLDivElement | null>(null);
+  const guestNameRef = useRef<HTMLDivElement | null>(null);
+  const visitDateRef = useRef<HTMLDivElement | null>(null);
+  const visitTimeRef = useRef<HTMLDivElement | null>(null);
 
   const applyCustomerDealType = (customer: Customer) => {
     setSelected(customer);
@@ -91,7 +116,9 @@ function ScheduleCreateInner() {
     if (!presetCustomerId) return;
     void (async () => {
       const found = await getCustomerById(presetCustomerId);
-      if (found) applyCustomerDealType(found);
+      if (!found) return;
+      applyCustomerDealType(found);
+      setPickOpen(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetCustomerId]);
@@ -139,8 +166,14 @@ function ScheduleCreateInner() {
     setProperties((prev) => swapPropertySlots(prev, fromIndex, toIndex));
   };
 
+  const applyPickedProperties = (picked: ListedProperty[]) => {
+    setPickOpen(false);
+    if (picked.length === 0) return;
+    setProperties(picked.map(listedToScheduleProperty));
+  };
+
   const addProperty = () => {
-    if (properties.length >= 6) return;
+    if (properties.length >= MAX_SCHEDULE_PROPERTIES) return;
     const empty = createEmptyProperty();
     const last = properties[properties.length - 1];
     const arriveTime = last?.arriveTime
@@ -171,11 +204,33 @@ function ScheduleCreateInner() {
     setProperties((prev) => prev.filter((_, i) => i !== index));
   };
 
+  useEffect(() => {
+    if (!validationFocus) return;
+    const el =
+      validationFocus.target === "customer"
+        ? customerRef.current
+        : validationFocus.target === "guestName"
+          ? guestNameRef.current
+          : validationFocus.target === "visitDate"
+            ? visitDateRef.current
+            : validationFocus.target === "visitTime"
+              ? visitTimeRef.current
+              : null;
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [validationFocus]);
+
+  const showWarn = (focus: ScheduleFocus) => {
+    setValidationFocus(focus);
+    if (warnTimer.current) clearTimeout(warnTimer.current);
+    warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
+  };
+
   const resetCustomer = () => {
     setSelected(null);
     setGuestName("");
     setMode("search");
     setQuery("");
+    setCustomerDetailOpen(false);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -183,32 +238,42 @@ function ScheduleCreateInner() {
 
     if (mode === "guest") {
       if (!guestName.trim()) {
-        alert("성함을 입력해 주세요.");
+        showWarn({
+          target: "guestName",
+          message: "성함을 입력해 주세요.",
+        });
         return;
       }
     } else if (!selected) {
-      alert("고객을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.");
+      showWarn({
+        target: "customer",
+        message: "고객을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.",
+      });
       return;
     }
 
     if (!visitDate) {
-      alert("방문 일자를 선택해 주세요.");
+      showWarn({
+        target: "visitDate",
+        message: "방문 일자를 선택해 주세요.",
+      });
       return;
     }
     if (!visitTime) {
-      alert("만나는 시간을 선택해 주세요.");
+      showWarn({
+        target: "visitTime",
+        message: "만나는 시간을 선택해 주세요.",
+      });
       return;
     }
     const propertyIssue = findPropertiesValidationIssue(properties);
     if (propertyIssue) {
-      setValidationFocus({
+      showWarn({
+        target: "property",
         index: propertyIssue.index,
         focusField: propertyIssue.focusField,
         message: propertyIssue.message,
       });
-      if (warnTimer.current) clearTimeout(warnTimer.current);
-      // 스크롤 후 경고 모달
-      warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
       return;
     }
     setValidationFocus(null);
@@ -223,6 +288,7 @@ function ScheduleCreateInner() {
       visitTime: visitTime || undefined,
       properties,
       routeSummary: buildRouteSummary(properties),
+      workspaceShared,
       createdAt: now,
       updatedAt: now,
     };
@@ -239,173 +305,147 @@ function ScheduleCreateInner() {
     <main className="relative">
       <PageHeader
         title="방문 일정 만들기"
-        backHref="/"
+        onBack={pickOpen ? () => setPickOpen(false) : undefined}
+        backHref={
+          presetCustomerId ? `/customers/${presetCustomerId}` : "/"
+        }
         subtitle="고객 선택 후 매물 동선을 구성하세요"
       />
 
       <form
         id="schedule-create-form"
+        noValidate
         onSubmit={handleSubmit}
         className="space-y-3 overscroll-y-contain pb-2"
       >
-        <Card className="space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-bold text-gray-900">고객 불러오기</p>
-            {mode === "selected" ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={resetCustomer}
-              >
-                변경하기
-              </Button>
-            ) : (
-              <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                <input
-                  type="checkbox"
-                  checked={mode === "guest"}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setMode("guest");
-                      setSelected(null);
-                      setQuery("");
-                    } else {
-                      resetCustomer();
-                    }
-                  }}
-                  className="h-5 w-5 accent-[#3182F6]"
-                />
-                <span className="text-[14px] font-semibold text-gray-700">
-                  고객없음
-                </span>
-              </label>
-            )}
-          </div>
-
-          {mode === "selected" && selected ? (
-            <div className="rounded-2xl border border-[#3182F6]/25 bg-blue-50/40 px-3.5 py-3 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate text-[17px] font-bold tracking-tight text-gray-900">
-                      {selected.name}
-                    </p>
-                    <span className="shrink-0 rounded-md bg-[#3182F6] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      선택됨
-                    </span>
-                  </div>
-                  <PhoneLink
-                    phone={selected.phone}
-                    className="mt-0.5 !text-[14px]"
-                    showIcon={false}
+        <div className="space-y-3">
+          <div ref={customerRef}>
+          <Card
+            className={[
+              "space-y-2.5 !overflow-visible",
+              validationFocus?.target === "customer"
+                ? "!border-red-500 !bg-red-50"
+                : "",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-bold text-gray-900">고객 불러오기</p>
+              {mode === "selected" ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={resetCustomer}
+                >
+                  변경하기
+                </Button>
+              ) : (
+                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <CircleCheck
+                    checked={mode === "guest"}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setMode("guest");
+                        setSelected(null);
+                        setQuery("");
+                      } else {
+                        resetCustomer();
+                      }
+                    }}
                   />
-                </div>
-                <div className="shrink-0 space-y-1 text-right">
-                  <p className="text-[17px] font-extrabold text-[#3182F6]">
-                    {selected.dealType}
-                  </p>
-                  <p className="text-[16px] font-bold text-emerald-600">
-                    {selected.roomType ?? "-"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-2.5 space-y-0.5 text-right">
-                {getCustomerBudgetLines(selected).map((line) => (
-                  <p
-                    key={line}
-                    className="text-[17px] font-extrabold tracking-tight text-gray-900"
-                  >
-                    {line.startsWith("월세") ? (
-                      <span className="text-orange-600">{line}</span>
-                    ) : (
-                      <span className="text-[#1a4fa0]">{line}</span>
-                    )}
-                  </p>
-                ))}
-              </div>
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    고객없음
+                  </span>
+                </label>
+              )}
             </div>
-          ) : mode === "guest" ? (
-            <Input
-              label="성함"
-              required
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="홍길동"
-            />
-          ) : (
-            <>
-              <CustomerSearchInput value={query} onChange={setQuery} />
-              <div className="space-y-1.5">
-                {!query.trim() ? (
-                  <p className="py-2 text-sm text-gray-500">
-                    성함 또는 전화번호를 검색하면 고객이 나타납니다.
-                  </p>
-                ) : filtered.length === 0 ? (
-                  <p className="py-2 text-sm text-gray-500">
+
+            {mode === "guest" ? (
+              <div ref={guestNameRef}>
+                <Input
+                  label="성함"
+                  required
+                  invalid={validationFocus?.target === "guestName"}
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="홍길동"
+                />
+              </div>
+            ) : mode !== "selected" ? (
+              <>
+                <CustomerSearchInput value={query} onChange={setQuery} />
+                {query.trim() && filtered.length === 0 ? (
+                  <p className="py-1 text-sm text-gray-500">
                     검색 결과가 없습니다. 고객없음을 체크하면 성함만 입력할 수
                     있어요.
                   </p>
-                ) : (
-                  filtered.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => applyCustomerDealType(c)}
-                      className="w-full rounded-2xl border border-gray-100 bg-white px-3.5 py-3 text-left shadow-sm active:scale-[0.99] transition-all duration-150 hover:border-blue-100"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[17px] font-bold tracking-tight text-gray-900">
-                            {c.name}
-                          </p>
-                          <p className="mt-0.5 text-[14px] font-semibold text-[#3182F6]">
-                            {formatPhone(c.phone)}
-                          </p>
-                        </div>
-                        <div className="shrink-0 space-y-1 text-right">
-                          <p className="text-[17px] font-extrabold text-[#3182F6]">
-                            {c.dealType}
-                          </p>
-                          <p className="text-[16px] font-bold text-emerald-600">
-                            {c.roomType ?? "-"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-2.5 space-y-0.5 text-right">
-                        {getCustomerBudgetLines(c).map((line) => (
-                          <p
-                            key={line}
-                            className="text-[17px] font-extrabold tracking-tight"
-                          >
-                            {line.startsWith("월세") ? (
-                              <span className="text-orange-600">{line}</span>
-                            ) : (
-                              <span className="text-[#1a4fa0]">{line}</span>
-                            )}
-                          </p>
-                        ))}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-          <div className="grid grid-cols-1 gap-2">
-            <DatePicker
-              label="방문 일자"
-              required
-              value={visitDate}
-              onChange={setVisitDate}
-            />
-            <TimePicker
-              label="만나는 시간"
-              required
-              value={visitTime}
-              onChange={setVisitTime}
-            />
+                ) : null}
+              </>
+            ) : null}
+          </Card>
           </div>
-        </Card>
+
+          {mode === "selected" && selected ? (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setCustomerDetailOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setCustomerDetailOpen(true);
+                }
+              }}
+              className="cursor-pointer overflow-visible pr-2 active:scale-[0.99] transition-all duration-150"
+            >
+              <CustomerListCard customer={selected} />
+            </div>
+          ) : null}
+
+          {mode === "search" && filtered.length > 0 ? (
+            <div className="space-y-2 overflow-visible pr-2">
+              {filtered.map((c) => (
+                <div
+                  key={c.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => applyCustomerDealType(c)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      applyCustomerDealType(c);
+                    }
+                  }}
+                  className="cursor-pointer active:scale-[0.99] transition-all duration-150"
+                >
+                  <CustomerListCard customer={c} />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <Card className="space-y-2.5">
+            <div className="grid grid-cols-1 gap-2">
+              <div ref={visitDateRef}>
+                <DatePicker
+                  label="방문 일자"
+                  required
+                  invalid={validationFocus?.target === "visitDate"}
+                  value={visitDate}
+                  onChange={setVisitDate}
+                />
+              </div>
+              <div ref={visitTimeRef}>
+                <TimePicker
+                  label="만나는 시간"
+                  required
+                  invalid={validationFocus?.target === "visitTime"}
+                  value={visitTime}
+                  onChange={setVisitTime}
+                />
+              </div>
+            </div>
+          </Card>
+        </div>
 
         <div className="space-y-6">
           {properties.map((property, index) => (
@@ -426,9 +466,14 @@ function ScheduleCreateInner() {
                 allProperties={properties}
                 onSwapWith={(target) => swapProperty(index, target)}
                 enableLoad
-                validationActive={validationFocus?.index === index}
+                showTeamShare={false}
+                validationActive={
+                  validationFocus?.target === "property" &&
+                  validationFocus.index === index
+                }
                 focusField={
-                  validationFocus?.index === index
+                  validationFocus?.target === "property" &&
+                  validationFocus.index === index
                     ? validationFocus.focusField
                     : undefined
                 }
@@ -454,42 +499,61 @@ function ScheduleCreateInner() {
           variant="outline"
           fullWidth
           onClick={addProperty}
-          disabled={properties.length >= 6}
+          disabled={properties.length >= MAX_SCHEDULE_PROPERTIES}
         >
           + 매물 추가
         </Button>
+
+        <Card className="space-y-2.5">
+          <OptionToggle
+            label="팀공유 유무"
+            hint="팀에 공유가 필요할 때 사용하세요"
+            columns={2}
+            value={workspaceShared ? "유" : "무"}
+            options={["유", "무"] as const}
+            onChange={(v) => setWorkspaceShared(v === "유")}
+          />
+        </Card>
       </form>
 
       <StickyActionBar aboveTab>
         <Button type="submit" form="schedule-create-form" fullWidth size="lg">
-          방문 일정 저장하기
+          방문일정 생성하기
         </Button>
       </StickyActionBar>
 
       <Modal
-        open={warnOpen}
-        onClose={() => setWarnOpen(false)}
-        position="center"
-        dense
-        title="필수 항목 미입력"
-        description={validationFocus?.message}
+        open={customerDetailOpen && Boolean(selected)}
+        onClose={() => setCustomerDetailOpen(false)}
+        title="고객 정보"
+        description="조회만 가능합니다"
+        showClose
+        className="max-h-[min(85vh,640px)] overflow-y-auto"
       >
-        <div className="rounded-2xl border-2 border-red-400 bg-red-50 px-4 py-3">
-          <p className="text-[15px] font-bold text-red-700">
-            빨간 테두리 칸을 입력해 주세요.
-          </p>
-          <p className="mt-1 text-[13px] font-medium text-red-600/90">
-            입력하면 테두리가 바로 사라집니다.
-          </p>
-        </div>
+        {selected ? <CustomerBrief customer={selected} /> : null}
         <Button
           fullWidth
-          className="mt-3 !bg-red-500 hover:!bg-red-600"
-          onClick={() => setWarnOpen(false)}
+          variant="secondary"
+          className="mt-4"
+          onClick={() => setCustomerDetailOpen(false)}
         >
-          확인
+          닫기
         </Button>
       </Modal>
+
+      <MatchingPropertyPickModal
+        open={pickOpen}
+        customer={selected}
+        properties={listedProperties}
+        onClose={() => setPickOpen(false)}
+        onConfirm={applyPickedProperties}
+      />
+
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={validationFocus?.message}
+        onClose={() => setWarnOpen(false)}
+      />
     </main>
   );
 }

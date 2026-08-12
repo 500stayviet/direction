@@ -2,6 +2,8 @@
 
 interface OptionToggleProps<T extends string> {
   label: string;
+  /** 라벨 옆 짧은 안내 */
+  hint?: string;
   required?: boolean;
   value: T;
   options: readonly T[] | T[];
@@ -14,6 +16,7 @@ interface OptionToggleProps<T extends string> {
 
 export function OptionToggle<T extends string>({
   label,
+  hint,
   required,
   value,
   options,
@@ -29,19 +32,30 @@ export function OptionToggle<T extends string>({
         invalid ? "border border-red-500 bg-red-50 p-2" : "",
       ].join(" ")}
     >
-      <p
-        className={[
-          "text-[13px] font-semibold",
-          invalid ? "text-red-600" : "text-gray-600",
-        ].join(" ")}
-      >
-        {label}
-        {required && (
-          <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
-            *
-          </span>
-        )}
-      </p>
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <p
+          className={[
+            "text-[13px] font-semibold",
+            invalid ? "text-red-600" : "text-gray-600",
+          ].join(" ")}
+        >
+          {label}
+          {required && (
+            <span
+              className={
+                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+              }
+            >
+              *
+            </span>
+          )}
+        </p>
+        {hint ? (
+          <p className="text-[11px] font-medium leading-snug text-gray-400">
+            {hint}
+          </p>
+        ) : null}
+      </div>
       {invalid && (
         <p className="text-xs font-semibold text-red-500">미입력</p>
       )}

@@ -5,8 +5,13 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { CircleCheck } from "@/components/ui/CircleCheck";
 import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
+import { CustomerSearchInput } from "@/components/CustomerSearchInput";
+import { CustomerListCard } from "@/components/CustomerListCard";
+import { CustomerBrief } from "@/components/CustomerBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
@@ -14,8 +19,11 @@ import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { ListEdgeChips } from "@/components/ListEdgeChips";
 import { Modal } from "@/components/ui/Modal";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
-import { createEmptyProperty } from "@/lib/constants";
+import { DetailHeaderButton } from "@/components/DetailHeaderButton";
+import { TeamShareButton } from "@/components/SiteShareUi";
+import { createEmptyProperty, MAX_SCHEDULE_PROPERTIES } from "@/lib/constants";
 import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
@@ -24,8 +32,10 @@ import {
   getCustomerById,
   getScheduleById,
   setScheduleWorkspaceShared,
+  touchRecentCustomer,
   upsertSchedule,
 } from "@/lib/storage";
+import { useCustomersList } from "@/hooks/useEntityList";
 import {
   confirmForeignTeamDelete,
   confirmForeignTeamEdit,
@@ -38,12 +48,29 @@ import {
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
+  yesNoLabel,
+  matchesBudgetSearch,
+  matchesPhoneSearch,
 } from "@/lib/format";
 import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
 import type { Customer, Property, Schedule, User } from "@/lib/types";
+
+type CustomerMode = "search" | "guest" | "selected";
+
+type ScheduleFocus =
+  | { target: "customer"; message: string }
+  | { target: "guestName"; message: string }
+  | { target: "visitDate"; message: string }
+  | { target: "visitTime"; message: string }
+  | {
+      target: "property";
+      index: number;
+      focusField: PropertyFieldKey;
+      message: string;
+    };
 
 /** 매물 1개 일정: 네비게이션 시작 후 이 시간이 지나면 완료 문구로 전환 */
 const SINGLE_NAV_DONE_MS = 30 * 60 * 1000;
@@ -79,16 +106,22 @@ function ScheduleDetailInner() {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [editing, setEditing] = useState(false);
+  const [customerMode, setCustomerMode] = useState<CustomerMode>("selected");
+  const [guestName, setGuestName] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const { items: customers } = useCustomersList();
   const [deleting, setDeleting] = useState(false);
   const [visitDate, setVisitDate] = useState("");
   const [visitTime, setVisitTime] = useState("");
   const [properties, setProperties] = useState<Property[]>([]);
-  const [validationFocus, setValidationFocus] = useState<{
-    index: number;
-    focusField: PropertyFieldKey;
-    message: string;
-  } | null>(null);
+  const [validationFocus, setValidationFocus] = useState<ScheduleFocus | null>(
+    null
+  );
   const [warnOpen, setWarnOpen] = useState(false);
+  const customerPickRef = useRef<HTMLDivElement | null>(null);
+  const guestNameRef = useRef<HTMLDivElement | null>(null);
+  const visitDateRef = useRef<HTMLDivElement | null>(null);
+  const visitTimeRef = useRef<HTMLDivElement | null>(null);
   const [customerDetailOpen, setCustomerDetailOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [hasTeammates, setHasTeammates] = useState(false);
@@ -206,6 +239,61 @@ function ScheduleDetailInner() {
     return editing || !schedule ? properties : schedule.properties;
   }, [editing, properties, schedule]);
 
+  const filteredCustomers = useMemo(() => {
+    const q = customerQuery.trim().toLowerCase();
+    if (!q) return [];
+    return customers
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          matchesPhoneSearch(c.phone, q) ||
+          matchesBudgetSearch(c, q)
+      )
+      .slice(0, 8);
+  }, [customers, customerQuery]);
+
+  const applyCustomer = (next: Customer) => {
+    setCustomer(next);
+    setCustomerMode("selected");
+    setGuestName("");
+    setProperties((prev) =>
+      prev.map((p) => ({
+        ...p,
+        dealType: next.dealType,
+        roomType: next.roomType ?? p.roomType ?? "원룸",
+        deposit: p.deposit || next.deposit || 0,
+        monthlyRent:
+          next.dealType === "매매"
+            ? undefined
+            : p.monthlyRent ?? next.monthlyRent,
+      }))
+    );
+  };
+
+  const resetCustomerPick = () => {
+    setCustomer(null);
+    setGuestName("");
+    setCustomerMode("search");
+    setCustomerQuery("");
+    setCustomerDetailOpen(false);
+  };
+
+  const restoreCustomerFromSchedule = (s: Schedule) => {
+    setGuestName(s.guestName ?? "");
+    setCustomerQuery("");
+    setCustomerDetailOpen(false);
+    if (s.customerId) {
+      setCustomerMode("selected");
+      void getCustomerById(s.customerId).then((found) => {
+        setCustomer(found ?? null);
+        setCustomerMode(found ? "selected" : s.guestName ? "guest" : "search");
+      });
+    } else {
+      setCustomer(null);
+      setCustomerMode(s.guestName ? "guest" : "search");
+    }
+  };
+
   /** 방문 약속 시간 순 매물 인덱스 */
   const navOrder = useMemo(() => {
     const list = schedule?.properties ?? [];
@@ -217,6 +305,27 @@ function ScheduleDetailInner() {
       .sort((a, b) => a.t.localeCompare(b.t))
       .map((x) => x.i);
   }, [schedule?.properties]);
+
+  useEffect(() => {
+    if (!validationFocus) return;
+    const el =
+      validationFocus.target === "customer"
+        ? customerPickRef.current
+        : validationFocus.target === "guestName"
+          ? guestNameRef.current
+          : validationFocus.target === "visitDate"
+            ? visitDateRef.current
+            : validationFocus.target === "visitTime"
+              ? visitTimeRef.current
+              : null;
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [validationFocus]);
+
+  const showWarn = (focus: ScheduleFocus) => {
+    setValidationFocus(focus);
+    if (warnTimer.current) clearTimeout(warnTimer.current);
+    warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
+  };
 
   if (!schedule) {
     return (
@@ -250,21 +359,51 @@ function ScheduleDetailInner() {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (customerMode === "guest") {
+      if (!guestName.trim()) {
+        showWarn({
+          target: "guestName",
+          message: "성함을 입력해 주세요.",
+        });
+        return;
+      }
+    } else if (!customer) {
+      showWarn({
+        target: "customer",
+        message: "고객을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.",
+      });
+      return;
+    }
+    if (!visitDate) {
+      showWarn({
+        target: "visitDate",
+        message: "방문 일자를 선택해 주세요.",
+      });
+      return;
+    }
+    if (!visitTime) {
+      showWarn({
+        target: "visitTime",
+        message: "만나는 시간을 선택해 주세요.",
+      });
+      return;
+    }
     const propertyIssue = findPropertiesValidationIssue(properties);
     if (propertyIssue) {
-      setValidationFocus({
+      showWarn({
+        target: "property",
         index: propertyIssue.index,
         focusField: propertyIssue.focusField,
         message: propertyIssue.message,
       });
-      if (warnTimer.current) clearTimeout(warnTimer.current);
-      warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
       return;
     }
     setValidationFocus(null);
     setWarnOpen(false);
     const next: Schedule = {
       ...schedule,
+      customerId: customerMode === "selected" ? customer?.id : undefined,
+      guestName: customerMode === "guest" ? guestName.trim() : undefined,
       visitDate,
       visitTime,
       properties,
@@ -272,6 +411,9 @@ function ScheduleDetailInner() {
       updatedAt: new Date().toISOString(),
     };
     await upsertSchedule(next);
+    if (customerMode === "selected" && customer) {
+      await touchRecentCustomer(customer.id);
+    }
     setSchedule(next);
     setEditing(false);
   };
@@ -302,6 +444,7 @@ function ScheduleDetailInner() {
     <main>
       <PageHeader
         title={editing ? "일정 수정" : "방문 일정"}
+        titlePlacement="below"
         backHref={
           fromNavi
             ? "/navi"
@@ -310,19 +453,20 @@ function ScheduleDetailInner() {
               : "/schedules/new"
         }
         right={
-          <div className="flex items-center gap-1.5">
+          <>
             {!editing &&
             (schedule.id.startsWith("demo_sch_") ||
               hasTeammates ||
               schedule.workspaceShared) ? (
-              <Button
+              <TeamShareButton
+                active={Boolean(schedule.workspaceShared)}
                 disabled={
                   workspaceShareBusy ||
                   (!schedule.id.startsWith("demo_sch_") &&
                     !hasTeammates &&
                     !schedule.workspaceShared)
                 }
-                onClick={() => {
+                onToggle={() => {
                   void (async () => {
                     if (!schedule || workspaceShareBusy) return;
                     const isDemo = schedule.id.startsWith("demo_sch_");
@@ -358,30 +502,24 @@ function ScheduleDetailInner() {
                     }
                   })();
                 }}
-                className={
-                  schedule?.workspaceShared
-                    ? "!border-2 !border-violet-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-violet-600 hover:!bg-violet-50"
-                    : "!border-2 !border-gray-400 !bg-white !px-2.5 !text-[13px] !font-bold !text-gray-600 hover:!bg-gray-50"
-                }
-              >
-                {schedule?.workspaceShared ? "팀 공유 중" : "팀 공유하기"}
-              </Button>
+              />
             ) : null}
             {!editing ? (
-              <Button
+              <DetailHeaderButton
+                tone="share"
                 onClick={() => setShareOpen(true)}
-                className="!border-2 !border-sky-400 !bg-white !px-2.5 !text-[13px] !font-bold !text-sky-600 hover:!bg-sky-50"
               >
                 공유하기
-              </Button>
+              </DetailHeaderButton>
             ) : null}
-            <Button
-              variant={editing ? "secondary" : "outline"}
+            <DetailHeaderButton
+              tone={editing ? "cancel" : "edit"}
               onClick={() => {
                 if (editing) {
                   setVisitDate(schedule.visitDate ?? "");
                   setVisitTime(schedule.visitTime ?? "");
                   setProperties(schedule.properties);
+                  restoreCustomerFromSchedule(schedule);
                   setEditing(false);
                   return;
                 }
@@ -392,26 +530,31 @@ function ScheduleDetailInner() {
                 ) {
                   return;
                 }
+                setGuestName(schedule.guestName ?? "");
+                setCustomerQuery("");
+                setCustomerDetailOpen(false);
+                setCustomerMode(
+                  customer
+                    ? "selected"
+                    : schedule.guestName
+                      ? "guest"
+                      : "search"
+                );
                 setEditing(true);
               }}
-              className={
-                editing
-                  ? "!px-2.5 !text-[13px]"
-                  : "!border-2 !border-emerald-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-emerald-600 hover:!bg-emerald-50"
-              }
             >
               {editing ? "취소" : "수정"}
-            </Button>
+            </DetailHeaderButton>
             {!editing ? (
-              <Button
+              <DetailHeaderButton
+                tone="delete"
                 disabled={deleting}
                 onClick={handleDelete}
-                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
               >
                 {deleting ? "삭제 중…" : "삭제"}
-              </Button>
+              </DetailHeaderButton>
             ) : null}
-          </div>
+          </>
         }
       />
 
@@ -419,20 +562,135 @@ function ScheduleDetailInner() {
         <>
           <form
             id="schedule-edit-form"
+            noValidate
             onSubmit={handleSave}
             className="space-y-4 pb-2"
           >
+            <div ref={customerPickRef}>
+            <Card
+              className={[
+                "space-y-2.5 !overflow-visible",
+                validationFocus?.target === "customer"
+                  ? "!border-red-500 !bg-red-50"
+                  : "",
+              ].join(" ")}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-bold text-gray-900">고객 불러오기</p>
+                {customerMode === "selected" ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={resetCustomerPick}
+                  >
+                    변경하기
+                  </Button>
+                ) : (
+                  <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                    <CircleCheck
+                      checked={customerMode === "guest"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCustomerMode("guest");
+                          setCustomer(null);
+                          setCustomerQuery("");
+                        } else {
+                          resetCustomerPick();
+                        }
+                      }}
+                    />
+                    <span className="text-[14px] font-semibold text-gray-700">
+                      고객없음
+                    </span>
+                  </label>
+                )}
+              </div>
+              {customerMode === "guest" ? (
+                <div ref={guestNameRef}>
+                  <Input
+                    label="성함"
+                    required
+                    invalid={validationFocus?.target === "guestName"}
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="홍길동"
+                  />
+                </div>
+              ) : customerMode !== "selected" ? (
+                <>
+                  <CustomerSearchInput
+                    value={customerQuery}
+                    onChange={setCustomerQuery}
+                  />
+                  {customerQuery.trim() && filteredCustomers.length === 0 ? (
+                    <p className="py-1 text-sm text-gray-500">
+                      검색 결과가 없습니다. 고객없음을 체크하면 성함만 입력할 수
+                      있어요.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+            </Card>
+            </div>
+
+            {customerMode === "selected" && customer ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setCustomerDetailOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setCustomerDetailOpen(true);
+                  }
+                }}
+                className="cursor-pointer overflow-visible pr-2 active:scale-[0.99] transition-all duration-150"
+              >
+                <CustomerListCard customer={customer} />
+              </div>
+            ) : null}
+
+            {customerMode === "search" && filteredCustomers.length > 0 ? (
+              <div className="space-y-2 overflow-visible pr-2">
+                {filteredCustomers.map((c) => (
+                  <div
+                    key={c.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => applyCustomer(c)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        applyCustomer(c);
+                      }
+                    }}
+                    className="cursor-pointer active:scale-[0.99] transition-all duration-150"
+                  >
+                    <CustomerListCard customer={c} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <Card className="space-y-2">
-              <DatePicker
-                label="방문 일자"
-                value={visitDate}
-                onChange={setVisitDate}
-              />
-              <TimePicker
-                label="만나는 시간"
-                value={visitTime}
-                onChange={setVisitTime}
-              />
+              <div ref={visitDateRef}>
+                <DatePicker
+                  label="방문 일자"
+                  required
+                  invalid={validationFocus?.target === "visitDate"}
+                  value={visitDate}
+                  onChange={setVisitDate}
+                />
+              </div>
+              <div ref={visitTimeRef}>
+                <TimePicker
+                  label="만나는 시간"
+                  required
+                  invalid={validationFocus?.target === "visitTime"}
+                  value={visitTime}
+                  onChange={setVisitTime}
+                />
+              </div>
             </Card>
             <div className="space-y-6">
               {properties.map((property, index) => (
@@ -481,9 +739,13 @@ function ScheduleDetailInner() {
                         swapPropertySlots(prev, index, target)
                       )
                     }
-                    validationActive={validationFocus?.index === index}
+                    validationActive={
+                      validationFocus?.target === "property" &&
+                      validationFocus.index === index
+                    }
                     focusField={
-                      validationFocus?.index === index
+                      validationFocus?.target === "property" &&
+                      validationFocus.index === index
                         ? validationFocus.focusField
                         : undefined
                     }
@@ -508,6 +770,7 @@ function ScheduleDetailInner() {
               fullWidth
               onClick={() =>
                 setProperties((prev) => {
+                  if (prev.length >= MAX_SCHEDULE_PROPERTIES) return prev;
                   const last = prev[prev.length - 1];
                   const arriveTime = last?.arriveTime
                     ? addMinutesToHHmm(last.arriveTime, 30)
@@ -518,7 +781,7 @@ function ScheduleDetailInner() {
                   ];
                 })
               }
-              disabled={properties.length >= 6}
+              disabled={properties.length >= MAX_SCHEDULE_PROPERTIES}
             >
               + 매물 추가
             </Button>
@@ -583,7 +846,7 @@ function ScheduleDetailInner() {
                       aria-expanded={customerDetailOpen}
                     >
                       <span className="text-[13px] font-bold text-gray-600">
-                        입주·대출·주차 등
+                        입주희망·대출·보증보험·주차 등
                       </span>
                       <span className="text-[12px] font-bold text-[#3182F6]">
                         {customerDetailOpen
@@ -594,21 +857,50 @@ function ScheduleDetailInner() {
                     {customerDetailOpen ? (
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-gray-100 px-3 py-2.5">
                         <CustomerMeta
-                          label="입주"
+                          label="입주희망"
                           value={getCustomerMoveInLabel(customer)}
                         />
-                        <CustomerMeta
-                          label="대출"
-                          value={getCustomerLoanLabel(customer)}
-                        />
-                        <CustomerMeta
-                          label="주차"
-                          value={getCustomerParkingLabel(customer)}
-                        />
-                        <CustomerMeta
-                          label="애완동물"
-                          value={customer.petAllowed ?? "-"}
-                        />
+                        {!(
+                          customer.roomType === "상가" ||
+                          customer.roomType === "사무실" ||
+                          customer.roomType === "토지" ||
+                          customer.roomType === "건물"
+                        ) ? (
+                          <>
+                            <CustomerMeta
+                              label="대출"
+                              value={getCustomerLoanLabel(customer)}
+                            />
+                            <CustomerMeta
+                              label="보증보험"
+                              value={yesNoLabel(customer.insuranceNeeded)}
+                            />
+                          </>
+                        ) : null}
+                        {customer.roomType !== "토지" &&
+                        customer.roomType !== "건물" ? (
+                          <CustomerMeta
+                            label="주차"
+                            value={getCustomerParkingLabel(customer)}
+                          />
+                        ) : null}
+                        {customer.roomType !== "토지" ? (
+                          <CustomerMeta
+                            label="엘리베이터"
+                            value={yesNoLabel(customer.elevatorNeeded)}
+                          />
+                        ) : null}
+                        {!(
+                          customer.roomType === "상가" ||
+                          customer.roomType === "사무실" ||
+                          customer.roomType === "토지" ||
+                          customer.roomType === "건물"
+                        ) ? (
+                          <CustomerMeta
+                            label="애완동물"
+                            value={customer.petAllowed ?? "-"}
+                          />
+                        ) : null}
                         {customer.notes?.trim() ? (
                           <div className="col-span-2 min-w-0">
                             <p className="text-[11px] font-semibold leading-none text-gray-400">
@@ -763,29 +1055,29 @@ function ScheduleDetailInner() {
       </Modal>
 
       <Modal
-        open={warnOpen}
-        onClose={() => setWarnOpen(false)}
-        position="center"
-        dense
-        title="필수 항목 미입력"
-        description={validationFocus?.message}
+        open={editing && customerDetailOpen && Boolean(customer)}
+        onClose={() => setCustomerDetailOpen(false)}
+        title="고객 정보"
+        description="조회만 가능합니다"
+        showClose
+        className="max-h-[min(85vh,640px)] overflow-y-auto"
       >
-        <div className="rounded-2xl border-2 border-red-400 bg-red-50 px-4 py-3">
-          <p className="text-[15px] font-bold text-red-700">
-            빨간 테두리 칸을 입력해 주세요.
-          </p>
-          <p className="mt-1 text-[13px] font-medium text-red-600/90">
-            입력하면 테두리가 바로 사라집니다.
-          </p>
-        </div>
+        {customer ? <CustomerBrief customer={customer} /> : null}
         <Button
           fullWidth
-          className="mt-3 !bg-red-500 hover:!bg-red-600"
-          onClick={() => setWarnOpen(false)}
+          variant="secondary"
+          className="mt-4"
+          onClick={() => setCustomerDetailOpen(false)}
         >
-          확인
+          닫기
         </Button>
       </Modal>
+
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={validationFocus?.message}
+        onClose={() => setWarnOpen(false)}
+      />
 
       <SharePropertyModal
         open={shareOpen}

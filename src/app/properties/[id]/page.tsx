@@ -1,18 +1,28 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
-import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
+import { DetailHeaderButton } from "@/components/DetailHeaderButton";
+import {
+  SiteShareMatchingEmpty,
+  TeamShareButton,
+} from "@/components/SiteShareUi";
 import { MatchingCustomersSection } from "@/components/MatchListPanel";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
-import { getPropertyValidationError } from "@/lib/propertyValidation";
+import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
+import {
+  getMissingRequiredFields,
+  getFieldErrorMessage,
+  type PropertyFieldKey,
+} from "@/lib/propertyValidation";
+import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
 import { findMatchingCustomersGrouped } from "@/lib/matchCustomerProperty";
 import {
   deleteListedProperty,
@@ -24,15 +34,27 @@ import {
   confirmForeignTeamEdit,
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
-import { useCustomersList } from "@/hooks/useEntityList";
+import {
+  firstUnseenMatchCustomerId,
+  markShareSeen,
+} from "@/lib/teamAlerts";
+import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
 import type { ListedProperty, User } from "@/lib/types";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [property, setProperty] = useState<ListedProperty | null>(null);
   const { items: customers, setItems: setCustomers } = useCustomersList();
+  const { items: listed } = usePropertiesList();
   const [editing, setEditing] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
+  const [validationActive, setValidationActive] = useState(false);
+  const [focusField, setFocusField] = useState<PropertyFieldKey | undefined>();
+  const [warnOpen, setWarnOpen] = useState(false);
+  const [warnMessage, setWarnMessage] = useState("");
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [agent, setAgent] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -51,6 +73,7 @@ export default function PropertyDetailPage() {
         return;
       }
       setProperty(found);
+      markShareSeen("properties", found.id);
       setAgent(me);
     })();
     return () => {
@@ -66,6 +89,24 @@ export default function PropertyDetailPage() {
     [property, customers]
   );
 
+  useEffect(() => {
+    if (!property || editing) return;
+    const wantScroll = searchParams.get("scrollMatch") === "1";
+    const firstId = firstUnseenMatchCustomerId(
+      property.id,
+      matches.own.map((c) => c.id)
+    );
+    if (!wantScroll && !firstId) return;
+    const targetId = firstId ?? matches.own[0]?.id;
+    if (!targetId) return;
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`match-customer-${targetId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [property, editing, matches.own, searchParams]);
+
   if (!property) {
     return (
       <main className="py-20 text-center text-gray-500">불러오는 중...</main>
@@ -75,13 +116,7 @@ export default function PropertyDetailPage() {
   const myId = peekCurrentUser()?.id ?? agent?.id;
   const isForeign = isForeignTeamItem(property.createdBy, myId);
 
-  const handleSave = async (e: FormEvent) => {
-    e.preventDefault();
-    const error = getPropertyValidationError(property);
-    if (error) {
-      alert(error);
-      return;
-    }
+  const saveProperty = async () => {
     const next: ListedProperty = {
       ...property,
       address: property.address.trim(),
@@ -90,6 +125,34 @@ export default function PropertyDetailPage() {
     await upsertListedProperty(next);
     setProperty(next);
     setEditing(false);
+  };
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    const missing = getMissingRequiredFields(property);
+    if (missing.length > 0) {
+      const field = missing[0];
+      setValidationActive(true);
+      setFocusField(field);
+      setWarnMessage(getFieldErrorMessage(field, property));
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+      warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
+      return;
+    }
+    setValidationActive(false);
+    setWarnOpen(false);
+    if (
+      findPropertyBySameAddressRoom(
+        property.address,
+        property.roomNo ?? "",
+        listed,
+        property.id
+      )
+    ) {
+      setDupOpen(true);
+      return;
+    }
+    await saveProperty();
   };
 
   const handleDelete = () => {
@@ -142,7 +205,7 @@ export default function PropertyDetailPage() {
     <main>
       <PageHeader
         title={editing ? "매물 정보 수정" : "매물 정보"}
-        titleAlign="left"
+        titlePlacement="below"
         backHref={editing ? undefined : "/properties"}
         onBack={
           editing
@@ -152,7 +215,7 @@ export default function PropertyDetailPage() {
             : undefined
         }
         right={
-          <div className="flex items-center gap-1.5">
+          <>
             {!editing ? (
               <TeamShareButton
                 active={teamOn}
@@ -161,15 +224,15 @@ export default function PropertyDetailPage() {
               />
             ) : null}
             {!editing ? (
-              <Button
+              <DetailHeaderButton
+                tone="share"
                 onClick={() => setShareOpen(true)}
-                className="!border-2 !border-sky-400 !bg-white !px-2.5 !text-[13px] !font-bold !text-sky-600 hover:!bg-sky-50"
               >
                 공유하기
-              </Button>
+              </DetailHeaderButton>
             ) : null}
-            <Button
-              variant={editing ? "secondary" : "outline"}
+            <DetailHeaderButton
+              tone={editing ? "cancel" : "edit"}
               onClick={() => {
                 if (editing) {
                   cancelEditing();
@@ -177,35 +240,37 @@ export default function PropertyDetailPage() {
                   startEditing();
                 }
               }}
-              className={
-                editing
-                  ? "!px-2.5 !text-[13px]"
-                  : "!border-2 !border-emerald-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-emerald-600 hover:!bg-emerald-50"
-              }
             >
               {editing ? "취소" : "수정"}
-            </Button>
+            </DetailHeaderButton>
             {!editing ? (
-              <Button
+              <DetailHeaderButton
+                tone="delete"
                 disabled={deleting}
                 onClick={handleDelete}
-                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
               >
                 {deleting ? "삭제 중…" : "삭제"}
-              </Button>
+              </DetailHeaderButton>
             ) : null}
-          </div>
+          </>
         }
       />
 
       {editing ? (
         <>
-          <form id="property-edit-form" onSubmit={handleSave} className="pb-2">
+          <form
+            id="property-edit-form"
+            noValidate
+            onSubmit={handleSave}
+            className="pb-2"
+          >
             <PropertyEditor
               index={0}
               showTitle={false}
               showArriveTime={false}
               property={property}
+              validationActive={validationActive}
+              focusField={focusField}
               onChange={(next) =>
                 setProperty({
                   ...property,
@@ -224,7 +289,12 @@ export default function PropertyDetailPage() {
         </>
       ) : (
         <div className="space-y-3 pb-4">
-          <PropertyBrief index={0} property={property} />
+          <PropertyBrief
+            index={0}
+            property={property}
+            showTitle={false}
+            showArriveTime={false}
+          />
 
           <div className="space-y-3">
             <p className="px-1 text-sm font-bold text-gray-800">
@@ -232,8 +302,9 @@ export default function PropertyDetailPage() {
             </p>
             <MatchingCustomersSection
               title="내 고객"
-              listHint="(내 고객리스트 내)"
+              listHint="(내 고객리스트)"
               items={matches.own}
+              propertyId={property.id}
               emptyText="조건에 맞는 내 고객이 없습니다."
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))
@@ -241,20 +312,13 @@ export default function PropertyDetailPage() {
             />
             <MatchingCustomersSection
               title="현장동선내 공유 고객"
-              titleRight={<SiteShareDevMark />}
               items={matches.partner}
+              propertyId={property.id}
               emptyText={<SiteShareMatchingEmpty kind="customer" />}
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))
               }
             />
-            {matches.own.length === 0 ? (
-              <Link href="/customers/new" className="inline-block px-1">
-                <span className="text-[13px] font-bold text-[#3182F6]">
-                  고객 추가하기 →
-                </span>
-              </Link>
-            ) : null}
           </div>
         </div>
       )}
@@ -264,6 +328,20 @@ export default function PropertyDetailPage() {
         properties={[property]}
         agent={agent}
         onClose={() => setShareOpen(false)}
+      />
+
+      <DuplicatePropertyModal
+        open={dupOpen}
+        onCancel={() => setDupOpen(false)}
+        onConfirm={() => {
+          setDupOpen(false);
+          void saveProperty();
+        }}
+      />
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={warnMessage}
+        onClose={() => setWarnOpen(false)}
       />
     </main>
   );

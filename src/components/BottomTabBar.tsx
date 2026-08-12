@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
+import { useAlertBadgeCounts } from "@/components/TeamAlertsSync";
 import { getCachedUser } from "@/lib/auth";
 
 const tabs = [
@@ -14,6 +15,7 @@ const tabs = [
     icon: "👤",
     match: (p: string) => p.startsWith("/customers"),
     public: false,
+    badgeKey: "customers" as const,
   },
   {
     href: "/properties",
@@ -21,6 +23,7 @@ const tabs = [
     icon: "🏢",
     match: (p: string) => p.startsWith("/properties"),
     public: false,
+    badgeKey: "properties" as const,
   },
   {
     href: "/navi",
@@ -28,6 +31,7 @@ const tabs = [
     icon: "🧭",
     match: (p: string) => p.startsWith("/navi"),
     public: false,
+    badgeKey: "navi" as const,
   },
 ] as const;
 
@@ -35,6 +39,7 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const badges = useAlertBadgeCounts();
 
   // 현장 리드 중에는 하단 CTA만 남김
   if (pathname.startsWith("/navi/") && pathname !== "/navi") {
@@ -64,16 +69,32 @@ export function BottomTabBar() {
           <div className="grid grid-cols-4 px-2 pt-1">
             {tabs.map((tab) => {
               const active = tab.match(pathname);
+              const badgeCount =
+                "badgeKey" in tab ? badges[tab.badgeKey] : 0;
               const className = [
                 "flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-semibold",
                 "active:scale-95 transition-all duration-150",
                 active ? "text-[#3182F6]" : "text-gray-400",
               ].join(" ");
 
+              const icon = (
+                <span className="relative inline-flex text-xl leading-none">
+                  <span aria-hidden>{tab.icon}</span>
+                  {badgeCount > 0 ? (
+                    <span
+                      className="absolute -right-2.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[9px] font-extrabold leading-none text-white ring-2 ring-white"
+                      aria-label={`새 알림 ${badgeCount}건`}
+                    >
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  ) : null}
+                </span>
+              );
+
               if (tab.public) {
                 return (
                   <Link key={tab.href} href={tab.href} className={className}>
-                    <span className="text-xl leading-none">{tab.icon}</span>
+                    {icon}
                     <span>{tab.label}</span>
                   </Link>
                 );
@@ -86,7 +107,7 @@ export function BottomTabBar() {
                   onClick={() => handleTab(tab.href, tab.public)}
                   className={className}
                 >
-                  <span className="text-xl leading-none">{tab.icon}</span>
+                  {icon}
                   <span>{tab.label}</span>
                 </button>
               );

@@ -35,16 +35,49 @@ function notify() {
   });
 }
 
+type StoredCache = {
+  customers?: Customer[] | null;
+  properties?: ListedProperty[] | null;
+  schedules?: Schedule[] | null;
+  updatedAt?: Partial<Record<EntityBucket, number>>;
+};
+
+function readStored(userId: string): StoredCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`${STORAGE_KEY}:${userId}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredCache;
+  } catch {
+    return null;
+  }
+}
+
 function persist() {
   if (typeof window === "undefined" || !state.userId) return;
   try {
+    // null 버킷은 기존 session 값을 유지 — 고객만 갱신해도 매물·네비 캐시가 지워지지 않게
+    const prev = readStored(state.userId) ?? {};
     sessionStorage.setItem(
       `${STORAGE_KEY}:${state.userId}`,
       JSON.stringify({
-        customers: state.customers,
-        properties: state.properties,
-        schedules: state.schedules,
-        updatedAt: state.updatedAt,
+        customers: state.customers ?? prev.customers ?? null,
+        properties: state.properties ?? prev.properties ?? null,
+        schedules: state.schedules ?? prev.schedules ?? null,
+        updatedAt: {
+          customers:
+            state.customers !== null
+              ? state.updatedAt.customers
+              : (prev.updatedAt?.customers ?? 0),
+          properties:
+            state.properties !== null
+              ? state.updatedAt.properties
+              : (prev.updatedAt?.properties ?? 0),
+          schedules:
+            state.schedules !== null
+              ? state.updatedAt.schedules
+              : (prev.updatedAt?.schedules ?? 0),
+        },
       })
     );
   } catch {
@@ -52,14 +85,12 @@ function persist() {
   }
 }
 
-function hydrate(userId: string) {
-  if (typeof window === "undefined") return;
-  if (state.userId === userId && (state.customers || state.properties || state.schedules)) {
-    return;
-  }
-  try {
-    const raw = sessionStorage.getItem(`${STORAGE_KEY}:${userId}`);
-    if (!raw) {
+/** sessionStorage에서 아직 비어 있는 버킷만 채움 */
+function fillMissingFromSession(userId: string) {
+  if (typeof window === "undefined") return false;
+  const parsed = readStored(userId);
+  if (!parsed) {
+    if (state.userId !== userId) {
       state = {
         userId,
         customers: null,
@@ -67,34 +98,41 @@ function hydrate(userId: string) {
         schedules: null,
         updatedAt: { customers: 0, properties: 0, schedules: 0 },
       };
-      return;
+      return true;
     }
-    const parsed = JSON.parse(raw) as {
-      customers?: Customer[] | null;
-      properties?: ListedProperty[] | null;
-      schedules?: Schedule[] | null;
-      updatedAt?: Partial<Record<EntityBucket, number>>;
-    };
-    state = {
-      userId,
-      customers: parsed.customers ?? null,
-      properties: parsed.properties ?? null,
-      schedules: parsed.schedules ?? null,
-      updatedAt: {
-        customers: parsed.updatedAt?.customers ?? 0,
-        properties: parsed.updatedAt?.properties ?? 0,
-        schedules: parsed.updatedAt?.schedules ?? 0,
-      },
-    };
-  } catch {
-    state = {
-      userId,
-      customers: null,
-      properties: null,
-      schedules: null,
-      updatedAt: { customers: 0, properties: 0, schedules: 0 },
-    };
+    return false;
   }
+
+  let changed = state.userId !== userId;
+  const next: CacheState = {
+    userId,
+    customers: state.userId === userId ? state.customers : null,
+    properties: state.userId === userId ? state.properties : null,
+    schedules: state.userId === userId ? state.schedules : null,
+    updatedAt:
+      state.userId === userId
+        ? { ...state.updatedAt }
+        : { customers: 0, properties: 0, schedules: 0 },
+  };
+
+  if (next.customers === null && parsed.customers) {
+    next.customers = parsed.customers;
+    next.updatedAt.customers = parsed.updatedAt?.customers ?? 0;
+    changed = true;
+  }
+  if (next.properties === null && parsed.properties) {
+    next.properties = parsed.properties;
+    next.updatedAt.properties = parsed.updatedAt?.properties ?? 0;
+    changed = true;
+  }
+  if (next.schedules === null && parsed.schedules) {
+    next.schedules = parsed.schedules;
+    next.updatedAt.schedules = parsed.updatedAt?.schedules ?? 0;
+    changed = true;
+  }
+
+  if (changed) state = next;
+  return changed;
 }
 
 export function ensureEntityCacheUser(userId: string | null) {
@@ -102,8 +140,7 @@ export function ensureEntityCacheUser(userId: string | null) {
     clearEntityCache();
     return;
   }
-  if (state.userId !== userId) {
-    hydrate(userId);
+  if (fillMissingFromSession(userId)) {
     notify();
   }
 }
@@ -147,8 +184,7 @@ export function setSchedulesCache(list: Schedule[]) {
 }
 
 export function upsertCustomerInCache(customer: Customer) {
-  if (state.customers === null) return;
-  const prev = state.customers;
+  const prev = state.customers ?? [];
   const idx = prev.findIndex((c) => c.id === customer.id);
   const next =
     idx >= 0
@@ -166,8 +202,7 @@ export function removeCustomerFromCache(id: string) {
 }
 
 export function upsertPropertyInCache(property: ListedProperty) {
-  if (state.properties === null) return;
-  const prev = state.properties;
+  const prev = state.properties ?? [];
   const idx = prev.findIndex((p) => p.id === property.id);
   const next =
     idx >= 0
@@ -182,8 +217,7 @@ export function removePropertyFromCache(id: string) {
 }
 
 export function upsertScheduleInCache(schedule: Schedule) {
-  if (state.schedules === null) return;
-  const prev = state.schedules;
+  const prev = state.schedules ?? [];
   const idx = prev.findIndex((s) => s.id === schedule.id);
   const next =
     idx >= 0

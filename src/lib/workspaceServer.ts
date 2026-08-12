@@ -168,6 +168,87 @@ export async function listWorkspaceMembers(
   });
 }
 
+/**
+ * 동료가 없는 초대용 공간(1명)은 아직 팀이 아님.
+ * 다른 팀 코드로 참여할 때 이 공간을 해제한 뒤 진행한다.
+ */
+export async function dissolveSoloPendingWorkspace(
+  admin: Admin,
+  userId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const membership = await getMembership(admin, userId);
+  if (!membership) return { ok: true };
+
+  const members = await listWorkspaceMembers(admin, membership.workspaceId);
+  if (members.length >= 2) {
+    return { ok: false, message: "이미 다른 팀에 속한 계정입니다." };
+  }
+
+  const tables = ["customers", "listed_properties", "schedules"] as const;
+  for (const table of tables) {
+    await admin
+      .from(table)
+      .update({ workspace_id: null, workspace_shared: false })
+      .eq("user_id", userId)
+      .eq("workspace_id", membership.workspaceId);
+  }
+
+  await admin
+    .from("workspace_members")
+    .delete()
+    .eq("workspace_id", membership.workspaceId)
+    .eq("user_id", userId);
+
+  const remaining = await listWorkspaceMembers(admin, membership.workspaceId);
+  if (remaining.length === 0) {
+    await admin.from("workspaces").delete().eq("id", membership.workspaceId);
+  }
+
+  await writeAuditLog(admin, {
+    workspaceId: membership.workspaceId,
+    actorUserId: userId,
+    action: "workspace_dissolve_solo",
+    entityType: "workspace",
+    entityId: membership.workspaceId,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * 계정삭제: 팀은 유지하고 멤버십만 제거.
+ * 공유 자료는 그대로 두고, 주인이 나가면 남은 팀원 중 가장 먼저 합류한 사람에게 역할만 넘긴다.
+ */
+export async function removeMemberKeepSharedData(
+  admin: Admin,
+  userId: string
+): Promise<void> {
+  const membership = await getMembership(admin, userId);
+  if (!membership) return;
+
+  if (membership.role === "owner") {
+    const members = await listWorkspaceMembers(admin, membership.workspaceId);
+    const next = members.find((m) => m.userId !== userId);
+    if (next) {
+      await admin
+        .from("workspace_members")
+        .update({ role: "owner" })
+        .eq("workspace_id", membership.workspaceId)
+        .eq("user_id", next.userId);
+    }
+  }
+
+  await admin.from("workspace_members").delete().eq("user_id", userId);
+
+  await writeAuditLog(admin, {
+    workspaceId: membership.workspaceId,
+    actorUserId: userId,
+    action: "workspace_leave_on_account_delete",
+    entityType: "workspace",
+    entityId: membership.workspaceId,
+  });
+}
+
 export async function buildWorkspaceInfo(admin: Admin, userId: string) {
   await unlinkDemoFromWorkspace(admin, userId);
   const membership = await getMembership(admin, userId);

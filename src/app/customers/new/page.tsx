@@ -22,11 +22,11 @@ export default function NewCustomerPage() {
   return (
     <main>
       <PageHeader
-        title="고객 추가"
+        title="고객 등록"
         backHref="/customers"
         subtitle="고객 DB에 바로 등록"
       />
-      <CustomerForm onSubmit={handleSubmit} submitLabel="고객 저장하기" />
+      <CustomerForm onSubmit={handleSubmit} submitLabel="고객등록하기" />
     </main>
   );
 }

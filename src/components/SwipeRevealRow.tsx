@@ -15,10 +15,12 @@ type Props = {
   hintNudge?: boolean;
   /** 짧은 탭(드래그 없음) — 상세 이동 등 */
   onTap?: () => void;
-  /** 우→좌 스와이프 (카드가 왼쪽으로 밀림) → 종료 */
+  /** 우→좌 스와이프 (카드가 왼쪽으로 밀림) → 종료/계약완료 */
   onSwipeLeft: () => void;
   /** 좌→우 스와이프 (카드가 오른쪽으로 밀림) → 삭제 */
   onSwipeRight: () => void;
+  /** 왼쪽 밀기 때 보이는 문구. 기본 종료(네비). 고객·매물은 계약완료 */
+  leftActionLabel?: string;
 };
 
 function isInteractiveTarget(target: EventTarget | null) {
@@ -33,6 +35,7 @@ export function SwipeRevealRow({
   onTap,
   onSwipeLeft,
   onSwipeRight,
+  leftActionLabel = "종료",
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
@@ -234,7 +237,7 @@ export function SwipeRevealRow({
         className="pointer-events-none absolute inset-y-0 right-0 flex w-24 items-center justify-center bg-emerald-500 text-[13px] font-extrabold text-white"
         aria-hidden
       >
-        종료
+        {leftActionLabel}
       </div>
       <div
         ref={rootRef}

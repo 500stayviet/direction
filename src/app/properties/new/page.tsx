@@ -1,27 +1,36 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyEditor } from "@/components/PropertyEditor";
+import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { createEmptyProperty } from "@/lib/constants";
-import { getPropertyValidationError } from "@/lib/propertyValidation";
+import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
+import {
+  getMissingRequiredFields,
+  getFieldErrorMessage,
+  type PropertyFieldKey,
+} from "@/lib/propertyValidation";
 import { upsertListedProperty } from "@/lib/storage";
+import { usePropertiesList } from "@/hooks/useEntityList";
 import type { ListedProperty, Property } from "@/lib/types";
 
 export default function NewPropertyPage() {
   const router = useRouter();
+  const { items: listed } = usePropertiesList();
   const [property, setProperty] = useState<Property>(() => createEmptyProperty());
+  const [dupOpen, setDupOpen] = useState(false);
+  const [validationActive, setValidationActive] = useState(false);
+  const [focusField, setFocusField] = useState<PropertyFieldKey | undefined>();
+  const [warnOpen, setWarnOpen] = useState(false);
+  const [warnMessage, setWarnMessage] = useState("");
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    const error = getPropertyValidationError(property);
-    if (error) {
-      alert(error);
-      return;
-    }
+  const saveProperty = async () => {
     const now = new Date().toISOString();
     const saved: ListedProperty = {
       ...property,
@@ -37,16 +46,45 @@ export default function NewPropertyPage() {
     }
   };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const missing = getMissingRequiredFields(property);
+    if (missing.length > 0) {
+      const field = missing[0];
+      setValidationActive(true);
+      setFocusField(field);
+      setWarnMessage(getFieldErrorMessage(field, property));
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+      warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
+      return;
+    }
+    setValidationActive(false);
+    setWarnOpen(false);
+    if (
+      findPropertyBySameAddressRoom(
+        property.address,
+        property.roomNo ?? "",
+        listed,
+        property.id
+      )
+    ) {
+      setDupOpen(true);
+      return;
+    }
+    await saveProperty();
+  };
+
   return (
     <main>
       <PageHeader
-        title="매물 추가"
+        title="매물 등록"
         backHref="/properties"
         subtitle="방문 일정과 같은 매물 정보로 등록해요"
       />
 
       <form
         id="property-create-form"
+        noValidate
         onSubmit={handleSubmit}
         className="space-y-3 pb-2"
       >
@@ -57,14 +95,30 @@ export default function NewPropertyPage() {
           onChange={setProperty}
           showTitle={false}
           showArriveTime={false}
+          validationActive={validationActive}
+          focusField={focusField}
         />
       </form>
 
       <StickyActionBar>
         <Button type="submit" form="property-create-form" fullWidth size="lg">
-          등록하기
+          매물등록하기
         </Button>
       </StickyActionBar>
+
+      <DuplicatePropertyModal
+        open={dupOpen}
+        onCancel={() => setDupOpen(false)}
+        onConfirm={() => {
+          setDupOpen(false);
+          void saveProperty();
+        }}
+      />
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={warnMessage}
+        onClose={() => setWarnOpen(false)}
+      />
     </main>
   );
 }

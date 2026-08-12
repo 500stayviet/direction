@@ -26,6 +26,7 @@ interface TimePickerProps {
   minHour?: number;
   /** 24시 기준 최대 시 (포함). 기본 23 (오후 11시) */
   maxHour?: number;
+  invalid?: boolean;
 }
 
 const ITEM_H = 48;
@@ -220,6 +221,7 @@ export function TimePicker({
   timeFormat = "ampm",
   minHour = 8,
   maxHour = 23,
+  invalid,
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -290,19 +292,33 @@ export function TimePicker({
     <div className="space-y-1">
       {timeFormat === "hhmm" ? (
         <div className="space-y-1">
-          <p className="text-[13px] font-semibold text-gray-600">
+          <p
+            className={[
+              "text-[13px] font-semibold",
+              invalid ? "text-red-600" : "text-gray-600",
+            ].join(" ")}
+          >
             {label}
-            {required && <span className="ml-0.5 text-[#3182F6]">*</span>}
+            {required && (
+              <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+                *
+              </span>
+            )}
           </p>
+          {invalid ? (
+            <p className="text-xs font-semibold text-red-500">미입력</p>
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen(true)}
             className={[
               "inline-flex items-center gap-2 rounded-xl border px-2.5 py-1.5",
               "active:scale-[0.98] transition-all duration-150",
-              value
-                ? "border-gray-200 bg-white text-gray-900"
-                : "border-gray-200 bg-gray-50 text-gray-400",
+              invalid
+                ? "border-red-500 bg-red-50 text-gray-900"
+                : value
+                  ? "border-gray-200 bg-white text-gray-900"
+                  : "border-gray-200 bg-gray-50 text-gray-400",
             ].join(" ")}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#3182F6]">
@@ -315,19 +331,33 @@ export function TimePicker({
         </div>
       ) : (
         <>
-          <p className="text-[13px] font-semibold text-gray-600">
+          <p
+            className={[
+              "text-[13px] font-semibold",
+              invalid ? "text-red-600" : "text-gray-600",
+            ].join(" ")}
+          >
             {label}
-            {required && <span className="ml-0.5 text-[#3182F6]">*</span>}
+            {required && (
+              <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+                *
+              </span>
+            )}
           </p>
+          {invalid ? (
+            <p className="text-xs font-semibold text-red-500">미입력</p>
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen(true)}
             className={[
               "flex min-h-[48px] w-full items-center gap-3 rounded-xl border px-3.5",
               "active:scale-[0.99] transition-all duration-150",
-              value
-                ? "border-gray-200 bg-white text-gray-900"
-                : "border-gray-200 bg-gray-50 text-gray-400",
+              invalid
+                ? "border-red-500 bg-red-50 text-gray-900"
+                : value
+                  ? "border-gray-200 bg-white text-gray-900"
+                  : "border-gray-200 bg-gray-50 text-gray-400",
             ].join(" ")}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#3182F6]">

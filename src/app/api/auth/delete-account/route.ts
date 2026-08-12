@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername } from "@/lib/supabase/email";
+import { removeMemberKeepSharedData } from "@/lib/workspaceServer";
 
 const CONFIRM_PHRASE = "계정삭제에 동의합니다";
 /** ~100년 — 로그인 불가 처리 (하드 삭제하지 않음) */
@@ -86,15 +87,21 @@ export async function POST(request: Request) {
       await Promise.all([
         admin
           .from("customers")
-          .select("id, payload, created_at, updated_at")
+          .select(
+            "id, payload, created_at, updated_at, workspace_id, workspace_shared, deleted_at"
+          )
           .eq("user_id", userId),
         admin
           .from("listed_properties")
-          .select("id, payload, created_at, updated_at")
+          .select(
+            "id, payload, created_at, updated_at, workspace_id, workspace_shared, deleted_at"
+          )
           .eq("user_id", userId),
         admin
           .from("schedules")
-          .select("id, payload, created_at, updated_at")
+          .select(
+            "id, payload, created_at, updated_at, workspace_id, workspace_shared, deleted_at"
+          )
           .eq("user_id", userId),
       ]);
 
@@ -145,7 +152,51 @@ export async function POST(request: Request) {
       );
     }
 
-    // 하드 삭제하지 않음 — 보관·복구용으로 원본 유지, 로그인만 차단
+    // 비공유만 소프트삭제. 공유된 고객·매물·일정은 팀에 남겨 동기화 유지
+    const now = archive.deleted_at;
+    const unsharedTables = [
+      "customers",
+      "listed_properties",
+      "schedules",
+    ] as const;
+    for (const table of unsharedTables) {
+      const { error: softError } = await admin
+        .from(table)
+        .update({
+          deleted_at: now,
+          deleted_by: userId,
+          updated_at: now,
+        })
+        .eq("user_id", userId)
+        .is("deleted_at", null)
+        .or("workspace_shared.eq.false,workspace_id.is.null");
+      if (softError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `비공유 자료 정리에 실패했습니다. ${softError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    try {
+      await removeMemberKeepSharedData(admin, userId);
+    } catch (e) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            e instanceof Error
+              ? `팀 멤버 정리에 실패했습니다. ${e.message}`
+              : "팀 멤버 정리에 실패했습니다.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // 하드 삭제하지 않음 — 공유 자료·보관을 남기고 로그인만 차단
     const { error: banError } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: BAN_DURATION,
       user_metadata: {

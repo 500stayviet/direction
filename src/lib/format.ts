@@ -353,3 +353,13 @@ export function getCustomerParkingLabel(customer: {
   const car = (customer.carType ?? "").trim();
   return car ? `유 · ${car}` : "유";
 }
+
+export function isInsuranceJoined(insuranceType?: string): boolean {
+  if (!insuranceType) return false;
+  return insuranceType !== "무" && insuranceType !== "미가입";
+}
+
+export function yesNoLabel(value?: string | boolean | null): string {
+  if (value === true || value === "유") return "유";
+  return "무";
+}

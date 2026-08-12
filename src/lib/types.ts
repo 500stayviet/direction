@@ -121,6 +121,10 @@ export interface Customer extends SharedMeta {
   loanNeeded?: ParkingType;
   /** 대출 종류 (loanNeeded=유 일 때 기록). 매칭에는 사용하지 않음 */
   loanType?: string;
+  /** 전세보증보험 가입 가능 매물 희망 */
+  insuranceNeeded?: ParkingType;
+  /** 엘리베이터 유무 희망 */
+  elevatorNeeded?: ParkingType;
   /** 고객 희망 주차 조건 */
   parkingType: ParkingType;
   /** 주차 유일 때 차종 */
@@ -173,6 +177,8 @@ export interface Property extends SharedMeta {
   parkingType: ParkingType;
   parkingFeeType: ParkingFeeType;
   parkingFee?: number;
+  /** 대출 가능 여부. 미입력이면 매칭 통과 */
+  loanAvailable?: ParkingType;
   /** 애완동물 유무(가능 여부) */
   petAllowed: PetAllowed;
   elevator: boolean;

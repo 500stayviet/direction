@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BuildingKind,
   CarType,
@@ -19,7 +19,6 @@ import {
   normalizeBuildingKind,
   normalizeRoomType,
 } from "@/lib/constants";
-import { SITE_SHARE_UI_ENABLED } from "@/lib/siteShare";
 import { createId } from "@/lib/id";
 import {
   formatDepositRent,
@@ -28,10 +27,16 @@ import {
   resolveCustomerLoanNeeded,
 } from "@/lib/format";
 import { findCustomerBySamePhone } from "@/lib/duplicateEntity";
+import {
+  getCustomerFieldMessage,
+  getMissingCustomerFields,
+  type CustomerFieldKey,
+} from "@/lib/customerValidation";
 import { useCustomersList } from "@/hooks/useEntityList";
 import { Input, Select, TextArea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { SiteShareFormField } from "@/components/SiteShareUi";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
@@ -145,6 +150,12 @@ export function CustomerForm({
   const [carType, setCarType] = useState<CarType>(
     () => (initial?.carType === "SUV" ? "SUV" : "세단")
   );
+  const [insuranceNeeded, setInsuranceNeeded] = useState<"유" | "무">(
+    initial?.insuranceNeeded === "유" ? "유" : "무"
+  );
+  const [elevatorNeeded, setElevatorNeeded] = useState<"유" | "무">(
+    initial?.elevatorNeeded === "유" ? "유" : "무"
+  );
   const [petAllowed, setPetAllowed] = useState<PetAllowed>(
     initial?.petAllowed ?? "무"
   );
@@ -152,7 +163,12 @@ export function CustomerForm({
   const [workspaceShared, setWorkspaceShared] = useState(
     initial?.workspaceShared === true
   );
-  const [siteShared, setSiteShared] = useState(initial?.siteShared === true);
+  const [validationActive, setValidationActive] = useState(false);
+  const [focusField, setFocusField] = useState<CustomerFieldKey | null>(null);
+  const [warnOpen, setWarnOpen] = useState(false);
+  const [warnMessage, setWarnMessage] = useState("");
+  const fieldRefs = useRef<Partial<Record<CustomerFieldKey, HTMLDivElement | null>>>({});
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const duplicateCustomer = useMemo(
     () => findCustomerBySamePhone(phone, customers, initial?.id),
@@ -171,71 +187,65 @@ export function CustomerForm({
     }
   };
 
+  const customerInput = {
+    name,
+    phone,
+    roomType,
+    buildingKind,
+    roomCount,
+    dealType: effectiveDealType,
+    deposit,
+    depositTo,
+    depositSingle,
+    monthlyRent,
+    monthlyRentTo,
+    monthlyRentSingle,
+    nonOccupancy,
+    moveInFrom,
+    moveInTo,
+    moveInSingle,
+    parkingType,
+    carType,
+  };
+
+  const missingFields = validationActive
+    ? getMissingCustomerFields(customerInput)
+    : [];
+  const isInvalid = (key: CustomerFieldKey) => missingFields.includes(key);
+
+  useEffect(() => {
+    if (!validationActive || !focusField) return;
+    fieldRefs.current[focusField]?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [validationActive, focusField]);
+
+  const setFieldRef =
+    (key: CustomerFieldKey) => (node: HTMLDivElement | null) => {
+      fieldRefs.current[key] = node;
+    };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const savedDealType: DealType = isLandOrBuilding ? "매매" : dealType;
     const isNonOccupancy = savedDealType === "매매" && nonOccupancy;
     const toDate = moveInSingle ? moveInFrom : moveInTo;
-    if (roomType === "건물" && !buildingKind) {
-      alert("건물 종류를 선택해 주세요.");
+    const missing = getMissingCustomerFields({
+      ...customerInput,
+      dealType: savedDealType,
+    });
+    if (missing.length > 0) {
+      const field = missing[0];
+      setValidationActive(true);
+      setFocusField(field);
+      setWarnMessage(getCustomerFieldMessage(field, savedDealType));
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+      warnTimer.current = setTimeout(() => setWarnOpen(true), 350);
       return;
     }
-    if (needsRoomBathCounts(roomType)) {
-      const rooms = roomType === "투룸" ? 2 : roomCount;
-      const min = roomType === "3룸+" ? 3 : 1;
-      if (!rooms || rooms < min) {
-        alert("방 수를 선택해 주세요.");
-        return;
-      }
-    }
-    if (!deposit || deposit <= 0) {
-      alert(
-        savedDealType === "매매"
-          ? "매가를 입력해 주세요."
-          : "보증금을 입력해 주세요."
-      );
-      return;
-    }
-    if (!depositSingle) {
-      if (!depositTo || depositTo <= 0) {
-        alert(
-          savedDealType === "매매"
-            ? "매가 종료 금액을 입력해 주세요."
-            : "보증금 종료 금액을 입력해 주세요."
-        );
-        return;
-      }
-      if (depositTo < deposit) {
-        alert("종료 금액은 시작 금액 이상으로 입력해 주세요.");
-        return;
-      }
-    }
-    if (savedDealType === "월세") {
-      if (!monthlyRent || monthlyRent <= 0) {
-        alert("월세를 입력해 주세요.");
-        return;
-      }
-      if (!monthlyRentSingle) {
-        if (!monthlyRentTo || monthlyRentTo <= 0) {
-          alert("월세 종료 금액을 입력해 주세요.");
-          return;
-        }
-        if (monthlyRentTo < monthlyRent) {
-          alert("월세 종료 금액은 시작 금액 이상으로 입력해 주세요.");
-          return;
-        }
-      }
-    }
-    if (!isNonOccupancy) {
-      if (!moveInFrom || (!moveInSingle && !moveInTo)) {
-        alert("희망 입주일을 선택해 주세요.");
-        return;
-      }
-      if (!moveInSingle && moveInTo < moveInFrom) {
-        alert("종료일은 시작일 이후로 선택해 주세요.");
-        return;
-      }
-    }
+    setValidationActive(false);
+    setWarnOpen(false);
     const now = new Date().toISOString();
     const rent =
       savedDealType === "월세" ? monthlyRent || undefined : undefined;
@@ -294,16 +304,28 @@ export function CustomerForm({
         loanNeeded === "무"
           ? "해당없음"
           : loanType,
+      insuranceNeeded:
+        roomType === "상가" ||
+        roomType === "사무실" ||
+        isLandOrBuilding
+          ? "무"
+          : insuranceNeeded,
+      elevatorNeeded: roomType === "토지" ? "무" : elevatorNeeded,
       parkingType:
         roomType === "토지" || roomType === "건물" ? "무" : parkingType,
       carType:
         roomType === "토지" || roomType === "건물" || parkingType === "무"
           ? undefined
           : carType,
-      petAllowed,
+      petAllowed:
+        roomType === "상가" ||
+        roomType === "사무실" ||
+        isLandOrBuilding
+          ? "무"
+          : petAllowed,
       notes: notes.trim(),
       workspaceShared,
-      siteShared: SITE_SHARE_UI_ENABLED ? siteShared : false,
+      siteShared: initial?.siteShared === true,
       contractCompleted: initial?.contractCompleted,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
@@ -312,25 +334,37 @@ export function CustomerForm({
 
   return (
     <>
-      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-3 pb-2">
+      <form
+        id={FORM_ID}
+        noValidate
+        onSubmit={handleSubmit}
+        className="space-y-3 pb-2"
+      >
         <Card className="space-y-2.5">
-          <Input
-            label="고객명 또는 명칭"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동"
-          />
-          <PhoneInput
-            label="전화번호"
-            required
-            value={phone}
-            onChange={setPhone}
-            labelRight={
-              duplicateCustomer ? "동일 고객이 존재합니다" : undefined
-            }
-            hint="숫자만 입력해도 - 가 자동으로 붙어요 · 저장 후 원클릭 전화"
-          />
+          <div ref={setFieldRef("name")}>
+            <Input
+              label="고객명 또는 명칭"
+              required
+              invalid={isInvalid("name")}
+              hint={isInvalid("name") ? "미입력" : undefined}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="홍길동"
+            />
+          </div>
+          <div ref={setFieldRef("phone")}>
+            <PhoneInput
+              label="전화번호"
+              required
+              invalid={isInvalid("phone")}
+              value={phone}
+              onChange={setPhone}
+              labelRight={
+                duplicateCustomer ? "동일 고객이 존재합니다" : undefined
+              }
+              hint="숫자만 입력해도 - 가 자동으로 붙어요 · 저장 후 원클릭 전화"
+            />
+          </div>
           <OptionToggle
             label="매물 유형"
             required
@@ -371,25 +405,31 @@ export function CustomerForm({
           />
 
           {roomType === "건물" ? (
-            <OptionToggle
-              label="건물 종류"
-              required
-              value={buildingKind || ("—" as BuildingKind)}
-              options={BUILDING_KINDS}
-              fit
-              onChange={setBuildingKind}
-            />
+            <div ref={setFieldRef("buildingKind")}>
+              <OptionToggle
+                label="건물 종류"
+                required
+                invalid={isInvalid("buildingKind")}
+                value={buildingKind || ("—" as BuildingKind)}
+                options={BUILDING_KINDS}
+                fit
+                onChange={setBuildingKind}
+              />
+            </div>
           ) : null}
 
-          <RoomBathCountFields
-            roomType={roomType}
-            roomCount={roomCount}
-            bathroomCount={bathroomCount}
-            onChange={({ roomCount: nextRooms, bathroomCount: nextBaths }) => {
-              setRoomCount(nextRooms);
-              setBathroomCount(nextBaths);
-            }}
-          />
+          <div ref={setFieldRef("roomCount")}>
+            <RoomBathCountFields
+              roomType={roomType}
+              roomCount={roomCount}
+              bathroomCount={bathroomCount}
+              invalidRoomCount={isInvalid("roomCount")}
+              onChange={({ roomCount: nextRooms, bathroomCount: nextBaths }) => {
+                setRoomCount(nextRooms);
+                setBathroomCount(nextBaths);
+              }}
+            />
+          </div>
 
           <DealTypeToggle
             label="희망거래"
@@ -432,49 +472,58 @@ export function CustomerForm({
                 </label>
               </div>
               {depositSingle ? (
-                <Input
-                  label=""
-                  required
-                  type="number"
-                  inputMode="numeric"
-                  value={deposit || ""}
-                  onChange={(e) => {
-                    const next = Number(e.target.value) || 0;
-                    setDeposit(next);
-                    setDepositTo(next);
-                  }}
-                  placeholder={
-                    effectiveDealType === "매매" ? "50000" : "10000"
-                  }
-                />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
+                <div ref={setFieldRef("deposit")}>
                   <Input
-                    label="부터"
+                    label=""
                     required
+                    invalid={isInvalid("deposit")}
                     type="number"
                     inputMode="numeric"
                     value={deposit || ""}
-                    onChange={(e) =>
-                      setDeposit(Number(e.target.value) || 0)
-                    }
-                    placeholder={
-                      effectiveDealType === "매매" ? "40000" : "8000"
-                    }
-                  />
-                  <Input
-                    label="까지"
-                    required
-                    type="number"
-                    inputMode="numeric"
-                    value={depositTo || ""}
-                    onChange={(e) =>
-                      setDepositTo(Number(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const next = Number(e.target.value) || 0;
+                      setDeposit(next);
+                      setDepositTo(next);
+                    }}
                     placeholder={
                       effectiveDealType === "매매" ? "50000" : "10000"
                     }
                   />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div ref={setFieldRef("deposit")}>
+                    <Input
+                      label="부터"
+                      required
+                      invalid={isInvalid("deposit")}
+                      type="number"
+                      inputMode="numeric"
+                      value={deposit || ""}
+                      onChange={(e) =>
+                        setDeposit(Number(e.target.value) || 0)
+                      }
+                      placeholder={
+                        effectiveDealType === "매매" ? "40000" : "8000"
+                      }
+                    />
+                  </div>
+                  <div ref={setFieldRef("depositTo")}>
+                    <Input
+                      label="까지"
+                      required
+                      invalid={isInvalid("depositTo")}
+                      type="number"
+                      inputMode="numeric"
+                      value={depositTo || ""}
+                      onChange={(e) =>
+                        setDepositTo(Number(e.target.value) || 0)
+                      }
+                      placeholder={
+                        effectiveDealType === "매매" ? "50000" : "10000"
+                      }
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -503,43 +552,52 @@ export function CustomerForm({
                   </label>
                 </div>
                 {monthlyRentSingle ? (
-                  <Input
-                    label=""
-                    required
-                    type="number"
-                    inputMode="numeric"
-                    value={monthlyRent || ""}
-                    onChange={(e) => {
-                      const next = Number(e.target.value) || 0;
-                      setMonthlyRent(next);
-                      setMonthlyRentTo(next);
-                    }}
-                    placeholder="50"
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div ref={setFieldRef("monthlyRent")}>
                     <Input
-                      label="부터"
+                      label=""
                       required
+                      invalid={isInvalid("monthlyRent")}
                       type="number"
                       inputMode="numeric"
                       value={monthlyRent || ""}
-                      onChange={(e) =>
-                        setMonthlyRent(Number(e.target.value) || 0)
-                      }
-                      placeholder="40"
+                      onChange={(e) => {
+                        const next = Number(e.target.value) || 0;
+                        setMonthlyRent(next);
+                        setMonthlyRentTo(next);
+                      }}
+                      placeholder="50"
                     />
-                    <Input
-                      label="까지"
-                      required
-                      type="number"
-                      inputMode="numeric"
-                      value={monthlyRentTo || ""}
-                      onChange={(e) =>
-                        setMonthlyRentTo(Number(e.target.value) || 0)
-                      }
-                      placeholder="60"
-                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div ref={setFieldRef("monthlyRent")}>
+                      <Input
+                        label="부터"
+                        required
+                        invalid={isInvalid("monthlyRent")}
+                        type="number"
+                        inputMode="numeric"
+                        value={monthlyRent || ""}
+                        onChange={(e) =>
+                          setMonthlyRent(Number(e.target.value) || 0)
+                        }
+                        placeholder="40"
+                      />
+                    </div>
+                    <div ref={setFieldRef("monthlyRentTo")}>
+                      <Input
+                        label="까지"
+                        required
+                        invalid={isInvalid("monthlyRentTo")}
+                        type="number"
+                        inputMode="numeric"
+                        value={monthlyRentTo || ""}
+                        onChange={(e) =>
+                          setMonthlyRentTo(Number(e.target.value) || 0)
+                        }
+                        placeholder="60"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -564,7 +622,7 @@ export function CustomerForm({
           </div>
 
           {!(effectiveDealType === "매매" && nonOccupancy) && (
-            <div className="space-y-1">
+            <div ref={setFieldRef("moveIn")} className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[13px] font-semibold text-gray-600">
                   희망 입주일
@@ -590,6 +648,7 @@ export function CustomerForm({
                 <DatePicker
                   label=""
                   required
+                  invalid={isInvalid("moveIn")}
                   value={moveInFrom}
                   onChange={(next) => {
                     setMoveInFrom(next);
@@ -601,6 +660,7 @@ export function CustomerForm({
                 <DateRangePicker
                   label=""
                   required
+                  invalid={isInvalid("moveIn")}
                   from={moveInFrom}
                   to={moveInTo}
                   onChange={({ from, to }) => {
@@ -647,6 +707,13 @@ export function CustomerForm({
                   ))}
                 </Select>
               ) : null}
+              <OptionToggle
+                label="전세보증보험 가입 가능 여부"
+                columns={2}
+                value={insuranceNeeded}
+                options={["유", "무"] as const}
+                onChange={setInsuranceNeeded}
+              />
             </>
           )}
           {!(roomType === "토지" || roomType === "건물") && (
@@ -659,23 +726,42 @@ export function CustomerForm({
                 onChange={setParkingType}
               />
               {parkingType === "유" ? (
-                <OptionToggle
-                  label="차종"
-                  required
-                  columns={2}
-                  value={carType}
-                  options={["세단", "SUV"] as const}
-                  onChange={setCarType}
-                />
+                <div ref={setFieldRef("carType")}>
+                  <OptionToggle
+                    label="차종"
+                    required
+                    invalid={isInvalid("carType")}
+                    columns={2}
+                    value={carType}
+                    options={["세단", "SUV"] as const}
+                    onChange={setCarType}
+                  />
+                </div>
               ) : null}
-              <OptionToggle
-                label="애완동물 유무"
-                columns={2}
-                value={petAllowed}
-                options={["유", "무"] as const}
-                onChange={setPetAllowed}
-              />
             </>
+          )}
+          {roomType !== "토지" && (
+            <OptionToggle
+              label="엘리베이터 유무"
+              columns={2}
+              value={elevatorNeeded}
+              options={["유", "무"] as const}
+              onChange={setElevatorNeeded}
+            />
+          )}
+          {!(
+            roomType === "상가" ||
+            roomType === "사무실" ||
+            roomType === "토지" ||
+            roomType === "건물"
+          ) && (
+            <OptionToggle
+              label="애완동물 유무"
+              columns={2}
+              value={petAllowed}
+              options={["유", "무"] as const}
+              onChange={setPetAllowed}
+            />
           )}
           <TextArea
             label="메모 / 특이사항"
@@ -689,14 +775,15 @@ export function CustomerForm({
           />
           <OptionToggle
             label="팀공유 유무"
+            hint="팀에 공유가 필요할 때 사용하세요"
             columns={2}
             value={workspaceShared ? "유" : "무"}
             options={["유", "무"] as const}
             onChange={(v) => setWorkspaceShared(v === "유")}
           />
           <SiteShareFormField
-            value={siteShared}
-            onChange={setSiteShared}
+            value={false}
+            onChange={() => {}}
           />
         </Card>
       </form>
@@ -706,6 +793,12 @@ export function CustomerForm({
           {submitLabel}
         </Button>
       </StickyActionBar>
+
+      <RequiredFieldWarnModal
+        open={warnOpen}
+        message={warnMessage}
+        onClose={() => setWarnOpen(false)}
+      />
     </>
   );
 }

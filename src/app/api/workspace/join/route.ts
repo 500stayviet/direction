@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthUserFromToken, getBearerToken } from "@/lib/serverAuth";
 import {
   buildWorkspaceInfo,
+  dissolveSoloPendingWorkspace,
   getMembership,
   migrateUserDataToWorkspace,
   writeAuditLog,
@@ -22,20 +23,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = await getMembership(auth.admin, auth.user.id);
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, message: "이미 팀 공유에 참여 중입니다." },
-        { status: 400 }
-      );
-    }
-
     const code = (body.shareCode ?? "").trim().toUpperCase();
     if (code.length < 4) {
       return NextResponse.json(
         { ok: false, message: "공유 코드를 입력해 주세요." },
         { status: 400 }
       );
+    }
+
+    const existing = await getMembership(auth.admin, auth.user.id);
+    if (existing) {
+      if (existing.shareCode && existing.shareCode.toUpperCase() === code) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "본인이 만든 공유 코드로는 참여할 수 없습니다.",
+          },
+          { status: 400 }
+        );
+      }
+      // 동료 없는 초대용 공간만 해제 후 참여 (2명 이상이면 이미 팀)
+      const dissolved = await dissolveSoloPendingWorkspace(
+        auth.admin,
+        auth.user.id
+      );
+      if (!dissolved.ok) {
+        return NextResponse.json(
+          { ok: false, message: dissolved.message },
+          { status: 400 }
+        );
+      }
     }
 
     const { data: ws } = await auth.admin

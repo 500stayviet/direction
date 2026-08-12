@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Property } from "@/lib/types";
 import {
   INSURANCE_TYPES,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
 import { OptionToggle } from "@/components/OptionToggle";
-import { SiteShareFormField } from "@/components/SiteShareUi";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimePicker } from "@/components/TimePicker";
@@ -25,12 +24,11 @@ import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
-import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
-import { usePropertiesList } from "@/hooks/useEntityList";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
 } from "@/components/PropertyLoadPicker";
+import { SiteShareFormField } from "@/components/SiteShareUi";
 import {
   getMissingRequiredFields,
   type PropertyFieldKey,
@@ -71,6 +69,8 @@ interface PropertyEditorProps {
   allProperties?: Property[];
   /** N번 매물 제목으로 다른 슬롯과 맞바꿀 때 */
   onSwapWith?: (targetIndex: number) => void;
+  /** false면 팀공유 유무 숨김 (방문 일정 — 일정 단위로 공유) */
+  showTeamShare?: boolean;
 }
 
 function ChipToggle({
@@ -107,6 +107,7 @@ export function PropertyEditor({
   enableLoad = false,
   showTitle = true,
   showArriveTime = true,
+  showTeamShare = true,
   validationActive = false,
   focusField,
   requireDong = true,
@@ -114,7 +115,6 @@ export function PropertyEditor({
   allProperties,
   onSwapWith,
 }: PropertyEditorProps) {
-  const { items: listedProperties } = usePropertiesList();
   const fieldRefs = useRef<Partial<Record<PropertyFieldKey, HTMLDivElement | null>>>(
     {}
   );
@@ -128,17 +128,6 @@ export function PropertyEditor({
 
   const reorderList = allProperties ?? [];
   const canReorder = Boolean(onSwapWith);
-
-  const duplicateProperty = useMemo(
-    () =>
-      findPropertyBySameAddressRoom(
-        property.address,
-        property.roomNo ?? "",
-        listedProperties,
-        property.id
-      ),
-    [property.address, property.roomNo, property.id, listedProperties]
-  );
 
   const update = (patch: Partial<Property>) => {
     const next: Property = { ...property, ...patch };
@@ -237,6 +226,7 @@ export function PropertyEditor({
       patch.options = [];
       patch.petAllowed = "무";
       patch.insuranceType = "무";
+      patch.loanAvailable = "무";
     }
     if (roomType === "토지") {
       patch.dealType = "매매";
@@ -272,7 +262,13 @@ export function PropertyEditor({
       {enableLoad && (
         <PropertyLoadPicker
           onSelect={(listed) =>
-            onChange(applyListedToProperty(property.id, listed))
+            onChange(
+              applyListedToProperty(
+                property.id,
+                listed,
+                property.arriveTime ?? ""
+              )
+            )
           }
         />
       )}
@@ -662,9 +658,6 @@ export function PropertyEditor({
             invalid={isInvalid("address")}
             value={property.address}
             onChange={(address) => update({ address })}
-            labelRight={
-              duplicateProperty ? "동일 매물이 존재합니다" : undefined
-            }
             onDongChange={(dong) => {
               updateAgency({
                 dong: property.partnerAgency.dong || dong,
@@ -682,9 +675,6 @@ export function PropertyEditor({
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             placeholder="101동 1203호"
-            labelRight={
-              duplicateProperty ? "동일 매물이 존재합니다" : undefined
-            }
           />
         )}
         {!isLand && (
@@ -739,17 +729,22 @@ export function PropertyEditor({
               onChange={(e) => update({ notes: e.target.value })}
               placeholder="위반건축물, 건물현황, 향, 특이사항 등"
             />
-            <OptionToggle
-              label="팀공유 유무"
-              columns={2}
-              value={property.workspaceShared === true ? "유" : "무"}
-              options={["유", "무"] as const}
-              onChange={(v) => update({ workspaceShared: v === "유" })}
-            />
-            <SiteShareFormField
-              value={property.partnerAgencyShared === true}
-              onChange={(on) => update({ partnerAgencyShared: on })}
-            />
+            {showTeamShare ? (
+              <>
+                <OptionToggle
+                  label="팀공유 유무"
+                  hint="팀에 공유가 필요할 때 사용하세요"
+                  columns={2}
+                  value={property.workspaceShared === true ? "유" : "무"}
+                  options={["유", "무"] as const}
+                  onChange={(v) => update({ workspaceShared: v === "유" })}
+                />
+                <SiteShareFormField
+                  value={false}
+                  onChange={() => {}}
+                />
+              </>
+            ) : null}
           </div>
         </div>
       )}
@@ -768,17 +763,22 @@ export function PropertyEditor({
               onChange={(e) => update({ notes: e.target.value })}
               placeholder="위반건축물, 건물현황, 향, 특이사항 등"
             />
-            <OptionToggle
-              label="팀공유 유무"
-              columns={2}
-              value={property.workspaceShared === true ? "유" : "무"}
-              options={["유", "무"] as const}
-              onChange={(v) => update({ workspaceShared: v === "유" })}
-            />
-            <SiteShareFormField
-              value={property.partnerAgencyShared === true}
-              onChange={(on) => update({ partnerAgencyShared: on })}
-            />
+            {showTeamShare ? (
+              <>
+                <OptionToggle
+                  label="팀공유 유무"
+                  hint="팀에 공유가 필요할 때 사용하세요"
+                  columns={2}
+                  value={property.workspaceShared === true ? "유" : "무"}
+                  options={["유", "무"] as const}
+                  onChange={(v) => update({ workspaceShared: v === "유" })}
+                />
+                <SiteShareFormField
+                  value={false}
+                  onChange={() => {}}
+                />
+              </>
+            ) : null}
           </div>
         </div>
       )}
@@ -786,6 +786,24 @@ export function PropertyEditor({
       {!isLand && !isBuilding && (
         <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
           <p className="text-sm font-bold text-gray-800">기타</p>
+          {!hideResidentialExtras && (
+            <OptionToggle
+              label="대출 유무"
+              columns={2}
+              value={property.loanAvailable === "유" ? "유" : "무"}
+              options={["유", "무"] as const}
+              onChange={(loanAvailable) => update({ loanAvailable })}
+            />
+          )}
+          {!hideResidentialExtras && (
+            <OptionToggle
+              label="전세보증보험 가입 가능 여부"
+              columns={2}
+              value={insuranceJoined}
+              options={INSURANCE_TYPES}
+              onChange={(insuranceType) => update({ insuranceType })}
+            />
+          )}
           <div ref={setFieldRef("parking")}>
             <OptionToggle
               label="주차 유무"
@@ -820,15 +838,6 @@ export function PropertyEditor({
               placeholder="5"
             />
           )}
-          {!hideResidentialExtras && (
-            <OptionToggle
-              label="애완동물 유무"
-              columns={2}
-              value={property.petAllowed ?? "무"}
-              options={["유", "무"] as const}
-              onChange={(petAllowed) => update({ petAllowed })}
-            />
-          )}
           <OptionToggle
             label="엘리베이터 유무"
             columns={2}
@@ -838,11 +847,11 @@ export function PropertyEditor({
           />
           {!hideResidentialExtras && (
             <OptionToggle
-              label="전세보증보험 가입 가능 여부"
+              label="애완동물 유무"
               columns={2}
-              value={insuranceJoined}
-              options={INSURANCE_TYPES}
-              onChange={(insuranceType) => update({ insuranceType })}
+              value={property.petAllowed ?? "무"}
+              options={["유", "무"] as const}
+              onChange={(petAllowed) => update({ petAllowed })}
             />
           )}
           {!hideResidentialExtras && (
@@ -874,17 +883,22 @@ export function PropertyEditor({
                   : "위반건축물, 건물현황, 향, 특이사항 등"
             }
           />
-          <OptionToggle
-            label="팀공유 유무"
-            columns={2}
-            value={property.workspaceShared === true ? "유" : "무"}
-            options={["유", "무"] as const}
-            onChange={(v) => update({ workspaceShared: v === "유" })}
-          />
-          <SiteShareFormField
-            value={property.partnerAgencyShared === true}
-            onChange={(on) => update({ partnerAgencyShared: on })}
-          />
+          {showTeamShare ? (
+            <>
+              <OptionToggle
+                label="팀공유 유무"
+                hint="팀에 공유가 필요할 때 사용하세요"
+                columns={2}
+                value={property.workspaceShared === true ? "유" : "무"}
+                options={["유", "무"] as const}
+                onChange={(v) => update({ workspaceShared: v === "유" })}
+              />
+              <SiteShareFormField
+                value={false}
+                onChange={() => {}}
+              />
+            </>
+          ) : null}
         </div>
       )}
     </Card>

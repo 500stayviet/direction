@@ -9,13 +9,25 @@ import type {
   User,
 } from "./types";
 import { createClient } from "./supabase/client";
-import { getCachedUser, getCurrentUser, getSessionUserId } from "./auth";
-import { isDemoEntityId } from "./seedDemo";
+import {
+  getCachedUser,
+  getCurrentUser,
+  getSessionUserId,
+  peekCurrentUser,
+} from "./auth";
+import { isDemoEntityId, isDemoSeedExpired } from "./demoSeedPayload";
+import {
+  applyCustomerDueComplete,
+  applyPropertyDueComplete,
+} from "./contractAutoComplete";
 import {
   ensureEntityCacheUser,
   findCustomerInCache,
   findPropertyInCache,
   findScheduleInCache,
+  peekCustomers,
+  peekProperties,
+  peekSchedules,
   removeCustomerFromCache,
   removePropertyFromCache,
   removeScheduleFromCache,
@@ -68,7 +80,26 @@ async function resolveActor(): Promise<{ userId: string; name: string }> {
   return { userId, name };
 }
 
+/** 업장 조회는 화면 이동·저장마다 치지 않도록 짧게 캐시 */
+let workspaceIdCache: {
+  userId: string;
+  workspaceId: string | null;
+  at: number;
+} | null = null;
+const WORKSPACE_ID_TTL_MS = 5 * 60 * 1000;
+
+export function invalidateWorkspaceIdCache(): void {
+  workspaceIdCache = null;
+}
+
 async function getWorkspaceId(userId: string): Promise<string | null> {
+  if (
+    workspaceIdCache &&
+    workspaceIdCache.userId === userId &&
+    Date.now() - workspaceIdCache.at < WORKSPACE_ID_TTL_MS
+  ) {
+    return workspaceIdCache.workspaceId;
+  }
   try {
     const supabase = createClient();
     const { data } = await supabase
@@ -76,7 +107,9 @@ async function getWorkspaceId(userId: string): Promise<string | null> {
       .select("workspace_id")
       .eq("user_id", userId)
       .maybeSingle();
-    return (data?.workspace_id as string | undefined) ?? null;
+    const workspaceId = (data?.workspace_id as string | undefined) ?? null;
+    workspaceIdCache = { userId, workspaceId, at: Date.now() };
+    return workspaceId;
   } catch {
     return null;
   }
@@ -208,15 +241,20 @@ async function softDeleteRow(
   }
 }
 
+type ListFetchResult<T> =
+  | { ok: true; items: T[] }
+  | { ok: false };
+
 async function listActivePayloads<T>(
   table: EntityTable,
   mapRow: (row: RowMeta) => T
-): Promise<T[]> {
+): Promise<ListFetchResult<T>> {
   try {
     // anon 폴백 방지 — 토큰을 세션에 올린 뒤 조회
     const { getAccessToken } = await import("./auth");
     const token = await getAccessToken();
-    if (!token) return [];
+    // 토큰·네트워크 실패 시 빈 배열로 덮어쓰지 않음 (호출부에서 이전 캐시 유지)
+    if (!token) return { ok: false };
 
     const userId = await requireUserId();
     const workspaceId = await getWorkspaceId(userId);
@@ -241,7 +279,7 @@ async function listActivePayloads<T>(
     ) {
       ({ data, error } = await selectOwn(false));
     }
-    if (error || !data) return [];
+    if (error || !data) return { ok: false };
 
     const ownRows = data as unknown as RowMeta[];
     const byId = new Map(ownRows.map((r) => [r.id, r]));
@@ -263,14 +301,16 @@ async function listActivePayloads<T>(
       }
     }
 
+    const demoExpired = isDemoSeedExpired(peekCurrentUser()?.createdAt);
     const rows = [...byId.values()].filter((row) => {
       if (!isDemoEntityId(row.id)) return true;
+      if (demoExpired) return false;
       return row.user_id === userId;
     });
 
-    return rows.map(mapRow);
+    return { ok: true, items: rows.map(mapRow) };
   } catch {
-    return [];
+    return { ok: false };
   }
 }
 
@@ -313,12 +353,41 @@ function enrichSchedule(row: RowMeta): Schedule {
   };
 }
 
+function persistDueCustomers(original: Customer[], next: Customer[]) {
+  const changed = next.filter(
+    (c, i) => c.contractCompleted && !original[i]?.contractCompleted
+  );
+  if (changed.length === 0) return;
+  void Promise.all(
+    changed.map((c) => upsertCustomer(c).catch(() => undefined))
+  );
+}
+
+function persistDueProperties(
+  original: ListedProperty[],
+  next: ListedProperty[]
+) {
+  const changed = next.filter(
+    (p, i) => p.contractCompleted && !original[i]?.contractCompleted
+  );
+  if (changed.length === 0) return;
+  void Promise.all(
+    changed.map((p) => upsertListedProperty(p).catch(() => undefined))
+  );
+}
+
 export async function getCustomers(): Promise<Customer[]> {
   const userId = await getSessionUserId();
   ensureEntityCacheUser(userId);
-  const list = await listActivePayloads("customers", enrichCustomer);
-  setCustomersCache(list);
-  return list;
+  const result = await listActivePayloads("customers", enrichCustomer);
+  if (!result.ok) {
+    const cached = peekCustomers() ?? [];
+    return cached.map(applyCustomerDueComplete);
+  }
+  const next = result.items.map(applyCustomerDueComplete);
+  persistDueCustomers(result.items, next);
+  setCustomersCache(next);
+  return next;
 }
 
 export async function saveCustomers(customers: Customer[]): Promise<void> {
@@ -396,12 +465,14 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
       .upsert(withoutShared, { onConflict: "user_id,id" }));
   }
   throwIfError(error, "고객 저장 실패");
-  upsertCustomerInCache({
+  const saved: Customer = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
     workspaceShared: shared,
-  });
-  return getCustomers();
+  };
+  // 방금 쓴 값만 캐시에 반영 — 저장 직후 전체 재조회 생략
+  upsertCustomerInCache(saved);
+  return peekCustomers() ?? [saved];
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
@@ -452,12 +523,16 @@ export async function getCustomerById(
             return;
           }
         }
-        upsertCustomerInCache(enrichCustomer(row));
+        const item = applyCustomerDueComplete(enrichCustomer(row));
+        upsertCustomerInCache(item);
+        if (item.contractCompleted && !cached.contractCompleted) {
+          void upsertCustomer(item).catch(() => undefined);
+        }
       } catch {
         /* ignore background refresh */
       }
     })();
-    return cached;
+    return applyCustomerDueComplete(cached);
   }
   try {
     const row = await findRow("customers", id);
@@ -466,8 +541,11 @@ export async function getCustomerById(
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;
     }
-    const item = enrichCustomer(row);
+    const item = applyCustomerDueComplete(enrichCustomer(row));
     upsertCustomerInCache(item);
+    if (item.contractCompleted && !(row.payload as Customer).contractCompleted) {
+      void upsertCustomer(item).catch(() => undefined);
+    }
     return item;
   } catch {
     return undefined;
@@ -477,9 +555,18 @@ export async function getCustomerById(
 export async function getListedProperties(): Promise<ListedProperty[]> {
   const userId = await getSessionUserId();
   ensureEntityCacheUser(userId);
-  const list = await listActivePayloads("listed_properties", enrichProperty);
-  setPropertiesCache(list);
-  return list;
+  const result = await listActivePayloads(
+    "listed_properties",
+    enrichProperty
+  );
+  if (!result.ok) {
+    const cached = peekProperties() ?? [];
+    return cached.map(applyPropertyDueComplete);
+  }
+  const next = result.items.map(applyPropertyDueComplete);
+  persistDueProperties(result.items, next);
+  setPropertiesCache(next);
+  return next;
 }
 
 export async function saveListedProperties(
@@ -556,12 +643,13 @@ export async function upsertListedProperty(
       .upsert(withoutShared, { onConflict: "user_id,id" }));
   }
   throwIfError(error, "매물 저장 실패");
-  upsertPropertyInCache({
+  const saved: ListedProperty = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
     workspaceShared: shared,
-  });
-  return getListedProperties();
+  };
+  upsertPropertyInCache(saved);
+  return peekProperties() ?? [saved];
 }
 
 export async function deleteListedProperty(id: string): Promise<void> {
@@ -588,12 +676,16 @@ export async function getListedPropertyById(
             return;
           }
         }
-        upsertPropertyInCache(enrichProperty(row));
+        const item = applyPropertyDueComplete(enrichProperty(row));
+        upsertPropertyInCache(item);
+        if (item.contractCompleted && !cached.contractCompleted) {
+          void upsertListedProperty(item).catch(() => undefined);
+        }
       } catch {
         /* ignore */
       }
     })();
-    return cached;
+    return applyPropertyDueComplete(cached);
   }
   try {
     const row = await findRow("listed_properties", id);
@@ -602,8 +694,14 @@ export async function getListedPropertyById(
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;
     }
-    const item = enrichProperty(row);
+    const item = applyPropertyDueComplete(enrichProperty(row));
     upsertPropertyInCache(item);
+    if (
+      item.contractCompleted &&
+      !(row.payload as ListedProperty).contractCompleted
+    ) {
+      void upsertListedProperty(item).catch(() => undefined);
+    }
     return item;
   } catch {
     return undefined;
@@ -613,9 +711,10 @@ export async function getListedPropertyById(
 export async function getSchedules(): Promise<Schedule[]> {
   const userId = await getSessionUserId();
   ensureEntityCacheUser(userId);
-  const list = await listActivePayloads("schedules", enrichSchedule);
-  setSchedulesCache(list);
-  return list;
+  const result = await listActivePayloads("schedules", enrichSchedule);
+  if (!result.ok) return peekSchedules() ?? [];
+  setSchedulesCache(result.items);
+  return result.items;
 }
 
 export async function saveSchedules(schedules: Schedule[]): Promise<void> {
@@ -680,16 +779,17 @@ export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
     { onConflict: "user_id,id" }
   );
   throwIfError(error, "일정 저장 실패");
-  upsertScheduleInCache({
+  const saved: Schedule = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
-  });
-  return getSchedules();
+  };
+  upsertScheduleInCache(saved);
+  return peekSchedules() ?? [saved];
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
-  removeScheduleFromCache(id);
   await softDeleteRow("schedules", id, "일정");
+  removeScheduleFromCache(id);
 }
 
 export async function getScheduleById(

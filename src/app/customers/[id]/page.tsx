@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { CustomerForm } from "@/components/CustomerForm";
-import { PhoneLink } from "@/components/PhoneLink";
+import { CustomerBrief } from "@/components/CustomerBrief";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { SiteShareDevMark, SiteShareMatchingEmpty, TeamShareButton } from "@/components/SiteShareUi";
+import { DetailHeaderButton } from "@/components/DetailHeaderButton";
+import {
+  SiteShareMatchingEmpty,
+  TeamShareButton,
+} from "@/components/SiteShareUi";
 import { MatchingPropertiesSection } from "@/components/MatchListPanel";
 import {
   confirmForeignTeamDelete,
@@ -24,42 +27,17 @@ import {
   upsertCustomer,
 } from "@/lib/storage";
 import { usePropertiesList } from "@/hooks/useEntityList";
-import {
-  getCustomerBudgetLabel,
-  getCustomerLoanLabel,
-  getCustomerMoveInLabel,
-  getCustomerParkingLabel,
-} from "@/lib/format";
-import {
-  displayRoomType,
-  needsRoomBathCounts,
-  normalizeRoomType,
-} from "@/lib/constants";
 import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import {
+  firstUnseenMatchPropertyId,
+  markShareSeen,
+} from "@/lib/teamAlerts";
 import type { Customer } from "@/lib/types";
-
-function InfoRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3 border-b border-gray-100 py-2.5 last:border-b-0">
-      <span className="w-[72px] shrink-0 pt-0.5 text-[13px] font-semibold text-gray-400">
-        {label}
-      </span>
-      <div className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-gray-900">
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { items: properties, setItems: setProperties } = usePropertiesList();
   const [editing, setEditing] = useState(false);
@@ -76,6 +54,7 @@ export default function CustomerDetailPage() {
         return;
       }
       setCustomer(found);
+      markShareSeen("customers", found.id);
       void touchRecentCustomer(found.id);
     })();
     return () => {
@@ -90,6 +69,24 @@ export default function CustomerDetailPage() {
         : { own: [], partner: [] },
     [customer, properties]
   );
+
+  useEffect(() => {
+    if (!customer || editing) return;
+    const wantScroll = searchParams.get("scrollMatch") === "1";
+    const firstId = firstUnseenMatchPropertyId(
+      customer.id,
+      matches.own.map((p) => p.id)
+    );
+    if (!wantScroll && !firstId) return;
+    const targetId = firstId ?? matches.own[0]?.id;
+    if (!targetId) return;
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`match-property-${targetId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [customer, editing, matches.own, searchParams]);
 
   if (!customer) {
     return (
@@ -147,10 +144,10 @@ export default function CustomerDetailPage() {
     <main>
       <PageHeader
         title={editing ? "고객 정보 수정" : "고객 정보"}
-        titleAlign="left"
+        titlePlacement="below"
         backHref="/customers"
         right={
-          <div className="flex items-center gap-1.5">
+          <>
             {!editing ? (
               <TeamShareButton
                 active={customer.workspaceShared === true}
@@ -158,30 +155,25 @@ export default function CustomerDetailPage() {
                 onToggle={() => void toggleTeamShare()}
               />
             ) : null}
-            <Button
-              variant={editing ? "secondary" : "outline"}
+            <DetailHeaderButton
+              tone={editing ? "cancel" : "edit"}
               onClick={() => {
                 if (editing) setEditing(false);
                 else startEditing();
               }}
-              className={
-                editing
-                  ? "!px-2.5 !text-[13px]"
-                  : "!border-2 !border-emerald-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-emerald-600 hover:!bg-emerald-50"
-              }
             >
               {editing ? "취소" : "수정"}
-            </Button>
+            </DetailHeaderButton>
             {!editing ? (
-              <Button
+              <DetailHeaderButton
+                tone="delete"
                 disabled={deleting}
                 onClick={handleDelete}
-                className="!border-2 !border-red-500 !bg-white !px-2.5 !text-[13px] !font-bold !text-red-600 hover:!bg-red-50"
               >
                 {deleting ? "삭제 중…" : "삭제"}
-              </Button>
+              </DetailHeaderButton>
             ) : null}
-          </div>
+          </>
         }
       />
 
@@ -198,65 +190,8 @@ export default function CustomerDetailPage() {
         />
       ) : (
         <>
-          <div className="space-y-2.5 pb-4">
-            <Card className="!p-3">
-              <InfoRow label="고객명">{customer.name}</InfoRow>
-              <InfoRow label="전화">
-                <PhoneLink phone={customer.phone} />
-              </InfoRow>
-              <InfoRow label="매물 유형">
-                {displayRoomType(customer.roomType, customer.buildingKind)}
-              </InfoRow>
-              {needsRoomBathCounts(
-                normalizeRoomType(customer.roomType) ?? customer.roomType
-              ) && (
-                <InfoRow label="방 · 화장실">
-                  방{" "}
-                  {(normalizeRoomType(customer.roomType) ??
-                    customer.roomType) === "투룸"
-                    ? 2
-                    : customer.roomCount ?? "-"}
-                  개 · 화장실 {customer.bathroomCount ?? 1}개
-                </InfoRow>
-              )}
-              <InfoRow label="희망거래">
-                {customer.dealType}
-                {customer.nonOccupancy ? " · 비입주" : ""}
-              </InfoRow>
-              <InfoRow label="금액">
-                {getCustomerBudgetLabel(customer)}
-              </InfoRow>
-              <InfoRow label="입주">
-                {getCustomerMoveInLabel(customer)}
-              </InfoRow>
-              {!(
-                customer.roomType === "상가" ||
-                customer.roomType === "사무실" ||
-                customer.roomType === "토지" ||
-                customer.roomType === "건물"
-              ) && (
-                <InfoRow label="대출">{getCustomerLoanLabel(customer)}</InfoRow>
-              )}
-              {customer.roomType !== "토지" &&
-                customer.roomType !== "건물" && (
-                  <InfoRow label="주차">
-                    {getCustomerParkingLabel(customer)}
-                  </InfoRow>
-                )}
-              {customer.roomType !== "토지" &&
-                customer.roomType !== "건물" && (
-                  <InfoRow label="애완동물">
-                    {customer.petAllowed ?? "-"}
-                  </InfoRow>
-                )}
-              {customer.notes && (
-                <InfoRow label="메모">
-                  <span className="whitespace-pre-wrap font-medium text-gray-800">
-                    {customer.notes}
-                  </span>
-                </InfoRow>
-              )}
-            </Card>
+          <div className="space-y-3 pb-4">
+            <CustomerBrief customer={customer} />
 
             <div className="space-y-3">
               <p className="px-1 text-sm font-bold text-gray-800">
@@ -264,8 +199,9 @@ export default function CustomerDetailPage() {
               </p>
               <MatchingPropertiesSection
                 title="내 매물"
-                listHint="(내 매물리스트내)"
+                listHint="(내 매물리스트)"
                 items={matches.own}
+                customerId={customer.id}
                 emptyText="조건에 맞는 내 매물이 없습니다."
                 onRemoved={(id) =>
                   setProperties((prev) => prev.filter((p) => p.id !== id))
@@ -273,20 +209,13 @@ export default function CustomerDetailPage() {
               />
               <MatchingPropertiesSection
                 title="현장동선내 공유 매물"
-                titleRight={<SiteShareDevMark />}
                 items={matches.partner}
+                customerId={customer.id}
                 emptyText={<SiteShareMatchingEmpty kind="property" />}
                 onRemoved={(id) =>
                   setProperties((prev) => prev.filter((p) => p.id !== id))
                 }
               />
-              {matches.own.length === 0 ? (
-                <Link href="/properties/new" className="inline-block px-1">
-                  <span className="text-[13px] font-bold text-[#3182F6]">
-                    매물 추가하기 →
-                  </span>
-                </Link>
-              ) : null}
             </div>
           </div>
 

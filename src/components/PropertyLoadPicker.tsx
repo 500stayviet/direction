@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { PropertyListCard } from "@/components/PropertyListCard";
+import { createId } from "@/lib/id";
 import { getListedProperties } from "@/lib/storage";
-import { formatDepositRent } from "@/lib/format";
-import type { ListedProperty } from "@/lib/types";
+import type { ListedProperty, Property } from "@/lib/types";
 
 interface PropertyLoadPickerProps {
   onSelect: (property: ListedProperty) => void;
@@ -18,7 +19,9 @@ function matchesProperty(p: ListedProperty, q: string): boolean {
     p.address.toLowerCase().includes(needle) ||
     p.roomNo.toLowerCase().includes(needle) ||
     (p.partnerAgency?.name ?? "").toLowerCase().includes(needle) ||
-    (p.partnerAgency?.dong ?? "").toLowerCase().includes(needle)
+    (p.partnerAgency?.dong ?? "").toLowerCase().includes(needle) ||
+    (p.roomType ?? "").toLowerCase().includes(needle) ||
+    (p.dealType ?? "").toLowerCase().includes(needle)
   );
 }
 
@@ -73,7 +76,7 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
           className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-[15px] font-medium text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
         />
 
-        <div className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
+        <div className="mt-3 max-h-[min(60vh,28rem)] space-y-0 overflow-y-auto overflow-x-visible pr-1 pt-1">
           {all.length === 0 ? (
             <p className="py-4 text-center text-sm text-gray-500">
               저장된 매물이 없습니다. 홈에서 매물을 먼저 등록해 주세요.
@@ -84,30 +87,25 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
             </p>
           ) : (
             filtered.map((p) => (
-              <button
+              <div
                 key={p.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   onSelect(p);
                   close();
                 }}
-                className="w-full rounded-xl border border-gray-100 bg-white px-3 py-2.5 text-left shadow-sm active:scale-[0.99] transition-all duration-150"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(p);
+                    close();
+                  }
+                }}
+                className="cursor-pointer active:scale-[0.99] transition-all duration-150"
               >
-                <p className="truncate text-[15px] font-bold text-gray-900">
-                  {p.address || "주소 미입력"}
-                </p>
-                <p className="mt-0.5 truncate text-[12px] text-gray-500">
-                  {p.roomNo || "호실 미입력"}
-                  {p.partnerAgency?.name ? ` · ${p.partnerAgency.name}` : ""}
-                </p>
-                <p className="mt-1 truncate text-[12px] font-medium text-gray-600">
-                  {p.roomType === "건물" && p.buildingKind
-                    ? `건물 · ${p.buildingKind}`
-                    : p.roomType ?? "-"}{" "}
-                  · {p.dealType} ·{" "}
-                  {formatDepositRent(p.dealType, p.deposit, p.monthlyRent)}
-                </p>
-              </button>
+                <PropertyListCard property={p} />
+              </div>
             ))
           )}
         </div>
@@ -120,14 +118,26 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
   );
 }
 
-/** 리스트 매물 → 일정 매물 슬롯에 복사 (슬롯 id 유지) */
+/** 리스트 매물 → 일정 매물 슬롯에 복사 (슬롯 id·방문 약속 시간은 유지) */
 export function applyListedToProperty(
   currentId: string,
-  listed: ListedProperty
-) {
-  const { createdAt: _c, updatedAt: _u, ...rest } = listed;
+  listed: ListedProperty,
+  arriveTime = ""
+): Property {
+  const {
+    createdAt: _c,
+    updatedAt: _u,
+    contractCompleted: _done,
+    ...rest
+  } = listed;
   return {
     ...rest,
     id: currentId,
+    arriveTime,
   };
+}
+
+/** 리스트 매물 → 새 일정 칸 (방문 약속 시간은 일정에서 따로) */
+export function listedToScheduleProperty(listed: ListedProperty): Property {
+  return applyListedToProperty(createId("prop"), listed, "");
 }
