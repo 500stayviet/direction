@@ -42,12 +42,12 @@ export default function SignupPage() {
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState("");
   const fieldRefs = useRef<
-    Partial<Record<SignupFieldKey, HTMLDivElement | null>>
+    Partial<Record<SignupFieldKey, HTMLElement | null>>
   >({});
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setFieldRef =
-    (key: SignupFieldKey) => (node: HTMLDivElement | null) => {
+    (key: SignupFieldKey) => (node: HTMLElement | null) => {
       fieldRefs.current[key] = node;
     };
 

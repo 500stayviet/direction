@@ -19,6 +19,7 @@ import { isDemoEntityId, isDemoSeedExpired } from "./demoSeedPayload";
 import {
   applyCustomerDueComplete,
   applyPropertyDueComplete,
+  applyScheduleDueComplete,
 } from "./contractAutoComplete";
 import {
   ensureEntityCacheUser,
@@ -708,13 +709,28 @@ export async function getListedPropertyById(
   }
 }
 
+function persistDueSchedules(original: Schedule[], next: Schedule[]) {
+  const changed = next.filter(
+    (s, i) => s.visitCompleted && !original[i]?.visitCompleted
+  );
+  if (changed.length === 0) return;
+  void Promise.all(
+    changed.map((s) => upsertSchedule(s).catch(() => undefined))
+  );
+}
+
 export async function getSchedules(): Promise<Schedule[]> {
   const userId = await getSessionUserId();
   ensureEntityCacheUser(userId);
   const result = await listActivePayloads("schedules", enrichSchedule);
-  if (!result.ok) return peekSchedules() ?? [];
-  setSchedulesCache(result.items);
-  return result.items;
+  if (!result.ok) {
+    const cached = peekSchedules() ?? [];
+    return cached.map(applyScheduleDueComplete);
+  }
+  const next = result.items.map(applyScheduleDueComplete);
+  persistDueSchedules(result.items, next);
+  setSchedulesCache(next);
+  return next;
 }
 
 export async function saveSchedules(schedules: Schedule[]): Promise<void> {
@@ -811,12 +827,16 @@ export async function getScheduleById(
             return;
           }
         }
-        upsertScheduleInCache(enrichSchedule(row));
+        const item = applyScheduleDueComplete(enrichSchedule(row));
+        upsertScheduleInCache(item);
+        if (item.visitCompleted && !cached.visitCompleted) {
+          void upsertSchedule(item).catch(() => undefined);
+        }
       } catch {
         /* ignore */
       }
     })();
-    return cached;
+    return applyScheduleDueComplete(cached);
   }
   try {
     const row = await findRow("schedules", id);
@@ -825,8 +845,11 @@ export async function getScheduleById(
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;
     }
-    const item = enrichSchedule(row);
+    const item = applyScheduleDueComplete(enrichSchedule(row));
     upsertScheduleInCache(item);
+    if (item.visitCompleted && !(row.payload as Schedule).visitCompleted) {
+      void upsertSchedule(item).catch(() => undefined);
+    }
     return item;
   } catch {
     return undefined;
