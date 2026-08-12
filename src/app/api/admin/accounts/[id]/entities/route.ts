@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
+import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -65,6 +66,7 @@ export async function GET(request: Request, { params }: Params) {
         { count: "exact" }
       )
       .eq("user_id", userId)
+      .not("id", "like", DEMO_ENTITY_ID_LIKE)
       .order("updated_at", { ascending: false })
       .range(fetchOffset, fetchOffset + fetchLimit - 1);
 

@@ -345,6 +345,23 @@ export default function SignupPage() {
               }
             />
           </div>
+          <div className="space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-3 py-3">
+            <p className="text-[12px] font-bold text-gray-500">이벤트 (준비 중)</p>
+            <Input
+              label="추천인 아이디"
+              value=""
+              disabled
+              placeholder="@추천인아이디"
+              hint="이벤트 준비 중 · 적용 안 됨"
+            />
+            <Input
+              label="프로모 코드"
+              value=""
+              disabled
+              placeholder="프로모 코드 입력"
+              hint="이벤트 준비 중 · 적용 안 됨"
+            />
+          </div>
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
               {error}

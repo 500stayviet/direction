@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 interface ModalProps {
   open: boolean;
@@ -18,6 +18,8 @@ interface ModalProps {
   showClose?: boolean;
   /** 타이틀 행 우측 액션 (작은 버튼 등) */
   headerRight?: React.ReactNode;
+  /** 본문과 겹치지 않게 하단에 고정 */
+  footer?: ReactNode;
 }
 
 export function Modal({
@@ -31,6 +33,7 @@ export function Modal({
   className = "",
   showClose = false,
   headerRight,
+  footer,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -64,15 +67,21 @@ export function Modal({
       />
       <div
         className={[
-          "relative w-full max-w-[430px] bg-white shadow-xl animate-in",
-          dense ? "p-4" : "p-5",
+          "relative flex w-full max-w-[430px] flex-col bg-white shadow-xl animate-in",
+          dense ? "px-4 pt-4" : "px-5 pt-5",
+          footer ? (dense ? "pb-3" : "pb-4") : dense ? "pb-4" : "pb-5",
           centered ? "rounded-3xl" : "rounded-t-3xl",
+          footer || centered ? "max-h-[min(90vh,720px)]" : "",
           className,
         ].join(" ")}
         style={
           centered
             ? undefined
-            : { paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }
+            : {
+                paddingBottom: footer
+                  ? "calc(0.75rem + env(safe-area-inset-bottom))"
+                  : "calc(1.25rem + env(safe-area-inset-bottom))",
+              }
         }
       >
         {showClose ? (
@@ -86,12 +95,12 @@ export function Modal({
           </button>
         ) : null}
         {!centered && (
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
+          <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-gray-200" />
         )}
         {title || headerRight ? (
           <div
             className={[
-              "flex items-start gap-2",
+              "flex shrink-0 items-start gap-2",
               showClose ? "pr-10" : "",
             ].join(" ")}
           >
@@ -113,11 +122,21 @@ export function Modal({
           </div>
         ) : null}
         {description && (
-          <p className="mt-1 text-sm text-gray-500">{description}</p>
+          <p className="mt-1 shrink-0 text-sm text-gray-500">{description}</p>
         )}
-        <div className={title || description ? (dense ? "mt-3" : "mt-5") : ""}>
+        <div
+          className={[
+            title || description ? (dense ? "mt-3" : "mt-5") : "",
+            footer ? "min-h-0 flex-1 overflow-y-auto" : "",
+          ].join(" ")}
+        >
           {children}
         </div>
+        {footer ? (
+          <div className="shrink-0 border-t border-gray-100 pt-3">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -64,7 +64,9 @@ type RowMeta = {
 async function requireUserId(): Promise<string> {
   const id = await getSessionUserId();
   if (!id) {
-    throw new Error("로그인이 필요합니다. 다시 로그인해 주세요.");
+    const { forceRelogin } = await import("./auth");
+    forceRelogin();
+    throw new Error("로그인이 필요합니다.");
   }
   return id;
 }

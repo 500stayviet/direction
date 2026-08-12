@@ -6,12 +6,20 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { formatSeoulDateTime } from "@/lib/date";
+import { formatSeoulDateTime, todayISO, toISODate } from "@/lib/date";
+import { planDisplayForUser } from "@/lib/planDisplay";
+import { PlanBadge } from "@/components/PlanBadge";
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return toISODate(d);
+}
 
 const AUTH_STORAGE = "realty_admin_session_v2";
 
 type AdminRole = "super" | "staff";
-type Tab = "accounts" | "search" | "teams" | "deleted" | "staff" | "logs";
+type Tab = "accounts" | "properties" | "search" | "teams" | "deleted" | "staff" | "events" | "logs";
 
 type Session = {
   id: string;
@@ -45,6 +53,19 @@ type AccountListItem = {
   createdAt: string;
 };
 
+type PropertyListItem = {
+  id: string;
+  userId: string;
+  roomType: string;
+  dealType: string;
+  money: string;
+  address: string;
+  createdByName: string;
+  username: string;
+  shopName: string;
+  createdAt: string;
+};
+
 type AccountDetail = {
   id: string;
   username: string;
@@ -56,6 +77,9 @@ type AccountDetail = {
   status?: "active" | "suspended" | "deleted";
   suspendedAt?: string | null;
   suspendedReason?: string | null;
+  planTier?: string;
+  matchingEnabled?: boolean;
+  promoSource?: string | null;
   counts: {
     customersActive: number;
     customersDeleted: number;
@@ -103,6 +127,14 @@ type EntityItemDetail = {
   createdByName?: string;
   updatedAt?: string;
   createdAt?: string;
+  owner?: {
+    id: string;
+    username: string;
+    shopName: string;
+    name: string;
+    phone: string;
+    createdAt: string;
+  } | null;
 };
 
 function resolveDetailField(
@@ -154,6 +186,30 @@ type DeletedRow = {
   } | null;
 };
 
+type PromoCodeRow = {
+  id: string;
+  code: string;
+  benefit: string;
+  startsDate: string;
+  endsDate: string;
+  maxUses: number | null;
+  useCount: number;
+  active: boolean;
+  memo: string;
+  createdByName: string;
+  createdAt: string;
+};
+
+type EarlyBirdCampaign = {
+  id: string;
+  slug: string;
+  benefit: string;
+  startsDate: string;
+  endsDate: string;
+  active: boolean;
+  memo: string;
+};
+
 function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
@@ -184,6 +240,9 @@ export default function AdminPage() {
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [accountsHasMore, setAccountsHasMore] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  const [properties, setProperties] = useState<PropertyListItem[]>([]);
+  const [propertiesHasMore, setPropertiesHasMore] = useState(false);
+  const [propertyQ, setPropertyQ] = useState("");
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [entityKind, setEntityKind] = useState<EntityKind>("customers");
   const [entityScope, setEntityScope] = useState<EntityScope>("active");
@@ -194,6 +253,10 @@ export default function AdminPage() {
   const [entityLoading, setEntityLoading] = useState(false);
   const [entityItem, setEntityItem] = useState<EntityItemDetail | null>(null);
   const [entityReveal, setEntityReveal] = useState(false);
+  const [entityOwnerOpen, setEntityOwnerOpen] = useState(false);
+  /** 올린 사람 → 가입자 상세에서 뒤로 시 복원할 매물/고객/네비 상세 */
+  const [returnEntityItem, setReturnEntityItem] =
+    useState<EntityItemDetail | null>(null);
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [suspendPreset, setSuspendPreset] = useState<string>(SUSPEND_PRESETS[0]);
   const [suspendCustom, setSuspendCustom] = useState("");
@@ -244,6 +307,29 @@ export default function AdminPage() {
     }[]
   >([]);
   const [auditQ, setAuditQ] = useState("");
+  const [auditFrom, setAuditFrom] = useState(() => daysAgoISO(30));
+  const [auditTo, setAuditTo] = useState(() => todayISO());
+
+  const [promoCodes, setPromoCodes] = useState<PromoCodeRow[]>([]);
+  const [earlyBird, setEarlyBird] = useState<EarlyBirdCampaign | null>(null);
+  const [earlyBirdOpen, setEarlyBirdOpen] = useState(false);
+  const [earlyBirdForm, setEarlyBirdForm] = useState({
+    startsDate: todayISO(),
+    endsDate: "",
+    active: true,
+    memo: "가입 기간 자동 평생 무료(기본)",
+  });
+  const [promoCreate, setPromoCreate] = useState({
+    code: "",
+    autoGenerate: true,
+    startsDate: todayISO(),
+    endsDate: "",
+    maxUses: "",
+    memo: "",
+  });
+  const [promoEdits, setPromoEdits] = useState<
+    Record<string, { startsDate: string; endsDate: string }>
+  >({});
 
   const isSuper = session?.role === "super";
 
@@ -294,6 +380,33 @@ export default function AdminPage() {
         offset > 0 ? [...prev, ...(body.accounts ?? [])] : body.accounts ?? []
       );
       setAccountsHasMore(Boolean(body.hasMore));
+    },
+    [clearSession]
+  );
+
+  const loadProperties = useCallback(
+    async (token: string, q = "", offset = 0) => {
+      const res = await fetch(
+        `/api/admin/properties?q=${encodeURIComponent(q)}&limit=20&offset=${offset}`,
+        { headers: authHeaders(token) }
+      );
+      if (checkAdminUnauthorized(res)) {
+        clearSession();
+        return;
+      }
+      const body = (await res.json()) as {
+        ok?: boolean;
+        properties?: PropertyListItem[];
+        hasMore?: boolean;
+        message?: string;
+      };
+      if (!res.ok || !body.ok) throw new Error(body.message ?? "매물 조회 실패");
+      setProperties((prev) =>
+        offset > 0
+          ? [...prev, ...(body.properties ?? [])]
+          : body.properties ?? []
+      );
+      setPropertiesHasMore(Boolean(body.hasMore));
     },
     [clearSession]
   );
@@ -384,23 +497,79 @@ export default function AdminPage() {
     setStaffList(body.staff ?? []);
   }, [clearSession]);
 
-  const loadAuditLogs = useCallback(async (token: string, q = "") => {
-    const res = await fetch(
-      `/api/admin/audit-logs?q=${encodeURIComponent(q)}&limit=30`,
-      { headers: authHeaders(token) }
-    );
-    if (checkAdminUnauthorized(res)) {
-      clearSession();
-      return;
-    }
-    const body = (await res.json()) as {
-      ok?: boolean;
-      rows?: typeof auditLogs;
-      message?: string;
-    };
-    if (!res.ok || !body.ok) throw new Error(body.message ?? "로그 조회 실패");
-    setAuditLogs(body.rows ?? []);
-  }, [clearSession]);
+  const loadAuditLogs = useCallback(
+    async (token: string, q = "", from = auditFrom, to = auditTo) => {
+      const params = new URLSearchParams({ limit: "30" });
+      if (q) params.set("q", q);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const res = await fetch(`/api/admin/audit-logs?${params}`, {
+        headers: authHeaders(token),
+      });
+      if (checkAdminUnauthorized(res)) {
+        clearSession();
+        return;
+      }
+      const body = (await res.json()) as {
+        ok?: boolean;
+        rows?: typeof auditLogs;
+        message?: string;
+      };
+      if (!res.ok || !body.ok) throw new Error(body.message ?? "로그 조회 실패");
+      setAuditLogs(body.rows ?? []);
+    },
+    [auditFrom, auditTo, clearSession]
+  );
+
+  const loadPromoEvents = useCallback(
+    async (token: string) => {
+      const [codesRes, campaignRes] = await Promise.all([
+        fetch("/api/admin/promo-codes", { headers: authHeaders(token) }),
+        fetch("/api/admin/promo-campaigns", { headers: authHeaders(token) }),
+      ]);
+      if (checkAdminUnauthorized(codesRes) || checkAdminUnauthorized(campaignRes)) {
+        clearSession();
+        return;
+      }
+      const codesBody = (await codesRes.json()) as {
+        ok?: boolean;
+        codes?: PromoCodeRow[];
+        message?: string;
+      };
+      const campaignBody = (await campaignRes.json()) as {
+        ok?: boolean;
+        campaign?: EarlyBirdCampaign | null;
+        message?: string;
+      };
+      if (!codesRes.ok || !codesBody.ok) {
+        throw new Error(codesBody.message ?? "프로모 코드 조회 실패");
+      }
+      if (!campaignRes.ok || !campaignBody.ok) {
+        throw new Error(campaignBody.message ?? "캠페인 조회 실패");
+      }
+      const rows = codesBody.codes ?? [];
+      setPromoCodes(rows);
+      setPromoEdits(
+        Object.fromEntries(
+          rows.map((row) => [
+            row.id,
+            { startsDate: row.startsDate, endsDate: row.endsDate },
+          ])
+        )
+      );
+      const campaign = campaignBody.campaign ?? null;
+      setEarlyBird(campaign);
+      if (campaign) {
+        setEarlyBirdForm({
+          startsDate: campaign.startsDate,
+          endsDate: campaign.endsDate,
+          active: campaign.active,
+          memo: campaign.memo,
+        });
+      }
+    },
+    [clearSession]
+  );
 
   useEffect(() => {
     try {
@@ -454,8 +623,16 @@ export default function AdminPage() {
     }
   };
 
-  const openAccount = async (id: string) => {
+  const openAccount = async (
+    id: string,
+    opts?: { returnToEntity?: EntityItemDetail }
+  ) => {
     if (!session) return;
+    if (opts?.returnToEntity) {
+      setReturnEntityItem(opts.returnToEntity);
+    } else {
+      setReturnEntityItem(null);
+    }
     setBusy(true);
     setEntityKind("customers");
     setEntityScope("active");
@@ -465,6 +642,7 @@ export default function AdminPage() {
     setEntityHasMore(false);
     setEntityItem(null);
     setEntityReveal(false);
+    setEntityOwnerOpen(false);
     try {
       const res = await fetch(`/api/admin/accounts/${id}`, {
         headers: authHeaders(session.token),
@@ -483,6 +661,25 @@ export default function AdminPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const closeAccountDetail = () => {
+    if (returnEntityItem) {
+      const back = returnEntityItem;
+      setReturnEntityItem(null);
+      setDetail(null);
+      setEntityRows([]);
+      setEntityTotal(0);
+      setEntityHasMore(false);
+      setEntityItem(back);
+      setEntityReveal(false);
+      setEntityOwnerOpen(false);
+      return;
+    }
+    setDetail(null);
+    setEntityItem(null);
+    setEntityReveal(false);
+    setEntityOwnerOpen(false);
   };
 
   const loadAccountEntities = async (
@@ -523,6 +720,7 @@ export default function AdminPage() {
   const openEntityItem = async (userId: string, kind: EntityKind, rowId: string) => {
     if (!session) return;
     setEntityReveal(false);
+    setEntityOwnerOpen(false);
     try {
       const res = await fetch(
         `/api/admin/accounts/${userId}/entities/${rowId}?type=${kind}`,
@@ -550,6 +748,7 @@ export default function AdminPage() {
     setBusy(true);
     try {
       if (next === "accounts") await loadAccounts(session.token, searchQ);
+      if (next === "properties") await loadProperties(session.token, propertyQ);
       if (next === "search") await loadAccounts(session.token, searchQ);
       if (next === "teams") await loadTeams(session.token, teamQ);
       if (next === "deleted") {
@@ -559,8 +758,11 @@ export default function AdminPage() {
       if (next === "staff" && session.role === "super") {
         await loadStaff(session.token);
       }
+      if (next === "events" && session.role === "super") {
+        await loadPromoEvents(session.token);
+      }
       if (next === "logs" && session.role === "super") {
-        await loadAuditLogs(session.token, auditQ);
+        await loadAuditLogs(session.token, auditQ, auditFrom, auditTo);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "불러오기 실패");
@@ -572,7 +774,7 @@ export default function AdminPage() {
   if (!session) {
     return (
       <main>
-        <PageHeader title="관리자" />
+        <PageHeader title="관리자" titleAlign="left" />
         <Card className="relative overflow-hidden space-y-3 !p-5">
           <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#3182F6]/10" />
           <p className="text-[18px] font-extrabold tracking-tight text-gray-900">
@@ -611,9 +813,13 @@ export default function AdminPage() {
     );
   }
 
-  const tabs: { id: Exclude<Tab, "staff">; label: string }[] = [
+  const tabs: {
+    id: Exclude<Tab, "staff" | "events" | "logs">;
+    label: string;
+  }[] = [
     { id: "accounts", label: "가입자" },
-    { id: "search", label: "검색" },
+    { id: "properties", label: "매물" },
+    { id: "search", label: "회원" },
     { id: "teams", label: "팀" },
     { id: "deleted", label: "삭제" },
   ];
@@ -622,14 +828,25 @@ export default function AdminPage() {
     <main>
       <PageHeader
         title="관리자"
+        titleAlign="left"
         right={
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             {isSuper ? (
               <>
                 <button
                   type="button"
                   className={[
-                    "text-[12px] font-bold",
+                    "text-[12px] font-bold whitespace-nowrap",
+                    tab === "events" ? "text-[#3182F6]" : "text-gray-500",
+                  ].join(" ")}
+                  onClick={() => void switchTab("events")}
+                >
+                  이벤트
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    "text-[12px] font-bold whitespace-nowrap",
                     tab === "logs" ? "text-[#3182F6]" : "text-gray-500",
                   ].join(" ")}
                   onClick={() => void switchTab("logs")}
@@ -639,7 +856,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className={[
-                    "text-[12px] font-bold",
+                    "text-[12px] font-bold whitespace-nowrap",
                     tab === "staff" ? "text-[#3182F6]" : "text-gray-500",
                   ].join(" ")}
                   onClick={() => void switchTab("staff")}
@@ -650,7 +867,7 @@ export default function AdminPage() {
             ) : null}
             <button
               type="button"
-              className="text-[12px] font-bold text-gray-500"
+              className="text-[12px] font-bold whitespace-nowrap text-gray-500"
               onClick={() => {
                 sessionStorage.removeItem(AUTH_STORAGE);
                 setSession(null);
@@ -684,7 +901,7 @@ export default function AdminPage() {
           ) : null}
         </Card>
 
-        <div className="grid grid-cols-4 gap-1 rounded-xl bg-gray-100 p-1">
+        <div className="grid grid-cols-5 gap-1 rounded-xl bg-gray-100 p-1">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -710,10 +927,12 @@ export default function AdminPage() {
           <Card className="space-y-2.5 !p-3">
             <div>
               <p className="text-[14px] font-bold">
-                {tab === "search" ? "회원 검색" : "가입자"}
+                {tab === "search" ? "회원" : "가입자"}
               </p>
               <p className="mt-0.5 text-[11px] text-gray-500">
-                최근 20건 · 더 보기로 추가 · 아이디·이름·상호·전화 검색
+                {tab === "search"
+                  ? "아이디·이름·상호·전화 검색"
+                  : "최근 20건 · 더 보기로 추가 · 아이디·이름·상호·전화 검색"}
               </p>
             </div>
             <div className="flex gap-1.5">
@@ -789,6 +1008,94 @@ export default function AdminPage() {
               ) : accounts.length > 0 ? (
                 <p className="pt-1 text-center text-[10px] text-gray-400">
                   {searchQ.trim() ? "검색 결과 끝" : "더 이상 없음"}
+                </p>
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
+
+        {tab === "properties" ? (
+          <Card className="space-y-2.5 !p-3">
+            <div>
+              <p className="text-[14px] font-bold">매물</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                신규 등록순 · 20건씩 · 유형·거래·금액·주소·등록자 검색
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                value={propertyQ}
+                onChange={(e) => setPropertyQ(e.target.value)}
+                placeholder="원룸·전세·주소·등록자"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 text-[13px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    void loadProperties(session.token, propertyQ).catch((err) =>
+                      setError(
+                        err instanceof Error ? err.message : "검색 실패"
+                      )
+                    );
+                  }
+                }}
+              />
+              <Button
+                className="!min-h-[36px] !px-2.5 !text-[12px]"
+                disabled={busy}
+                onClick={() =>
+                  void loadProperties(session.token, propertyQ).catch((e) =>
+                    setError(e instanceof Error ? e.message : "검색 실패")
+                  )
+                }
+              >
+                검색
+              </Button>
+            </div>
+            <div className="space-y-0.5 text-[12px]">
+              {properties.map((p) => (
+                <button
+                  key={`${p.userId}:${p.id}`}
+                  type="button"
+                  onClick={() =>
+                    void openEntityItem(p.userId, "properties", p.id)
+                  }
+                  className="flex w-full items-baseline justify-between gap-2 border-b border-gray-50 py-2 text-left active:bg-gray-50"
+                >
+                  <span className="min-w-0 truncate font-semibold text-gray-900">
+                    {p.roomType} · {p.dealType} · {p.money}
+                  </span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-gray-500">
+                    {formatSeoulDateTime(p.createdAt)}
+                  </span>
+                </button>
+              ))}
+              {properties.length === 0 ? (
+                <p className="py-3 text-center text-gray-400">
+                  {propertyQ.trim()
+                    ? "검색 결과가 없습니다."
+                    : "등록된 매물이 없습니다."}
+                </p>
+              ) : null}
+              {propertiesHasMore ? (
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className="!min-h-[36px] !text-[12px]"
+                  disabled={busy}
+                  onClick={() =>
+                    void loadProperties(
+                      session.token,
+                      propertyQ,
+                      properties.length
+                    ).catch((e) =>
+                      setError(e instanceof Error ? e.message : "불러오기 실패")
+                    )
+                  }
+                >
+                  더 보기 (20건씩)
+                </Button>
+              ) : properties.length > 0 ? (
+                <p className="pt-1 text-center text-[10px] text-gray-400">
+                  {propertyQ.trim() ? "검색 결과 끝" : "더 이상 없음"}
                 </p>
               ) : null}
             </div>
@@ -974,7 +1281,13 @@ export default function AdminPage() {
                     key={`${row.user_id}:${row.id}`}
                     className="flex items-center gap-2 border-b border-gray-50 py-2"
                   >
-                    <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left active:opacity-70"
+                      onClick={() =>
+                        void openEntityItem(row.user_id, delType, row.id)
+                      }
+                    >
                       <p className="truncate font-semibold text-gray-900">
                         {row.title}
                       </p>
@@ -985,14 +1298,16 @@ export default function AdminPage() {
                         {" · "}
                         {row.ageDays ?? "-"}일
                         {row.within30Days ? "" : "+"}
+                        {" · 상세 보기"}
                       </p>
-                    </div>
+                    </button>
                     {isSuper ? (
                       <button
                         type="button"
                         disabled={busy}
                         className="shrink-0 rounded-md bg-[#3182F6]/10 px-2.5 py-1 text-[11px] font-bold text-[#3182F6] disabled:opacity-50"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setRestoreRow(row);
                           setRestoreToUsername("");
                         }}
@@ -1010,7 +1325,7 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <p className="pt-1 text-center text-[10px] text-gray-400">
-                    최대 3건 표시 · 더 찾으려면 검색
+                    행을 누르면 삭제 시점 상세 · 최대 3건 · 더 찾으려면 검색
                   </p>
                 )}
               </div>
@@ -1327,13 +1642,460 @@ export default function AdminPage() {
           </Card>
         ) : null}
 
+        {tab === "events" && isSuper ? (
+          <Card className="space-y-3 !p-3">
+            <div>
+              <p className="text-[14px] font-bold">이벤트 · 프로모</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                얼리버드 기간·프로모 코드 생성·기간 수정·비활성화
+              </p>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50/80">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-2.5 text-left"
+                onClick={() => setEarlyBirdOpen((v) => !v)}
+                aria-expanded={earlyBirdOpen}
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-gray-800">
+                    얼리버드 캠페인
+                  </p>
+                  {!earlyBirdOpen ? (
+                    <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                      {earlyBird
+                        ? `${earlyBird.startsDate} ~ ${earlyBird.endsDate}${earlyBird.active ? " · 활성" : " · 비활성"}`
+                        : "일시 이벤트 · 탭하여 설정"}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  className={[
+                    "shrink-0 text-[12px] font-bold text-gray-400 transition-transform",
+                    earlyBirdOpen ? "rotate-180" : "",
+                  ].join(" ")}
+                  aria-hidden
+                >
+                  ▼
+                </span>
+              </button>
+              {earlyBirdOpen ? (
+                <div className="space-y-2 border-t border-gray-100 px-2.5 pb-2.5 pt-2">
+                  <p className="text-[11px] text-gray-500">
+                    기간 내 <span className="font-semibold text-gray-600">신규 가입만</span>{" "}
+                    기본 평생 무료(매칭 제외) 적용. 기존 회원·저장 시점
+                    일괄 부여는 하지 않습니다. 한 번 부여된 혜택은 종료 후에도
+                    유지됩니다.
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="block text-[11px] text-gray-500">
+                      시작
+                      <input
+                        type="date"
+                        value={earlyBirdForm.startsDate}
+                        onChange={(e) =>
+                          setEarlyBirdForm((f) => ({
+                            ...f,
+                            startsDate: e.target.value,
+                          }))
+                        }
+                        className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                      />
+                    </label>
+                    <label className="block text-[11px] text-gray-500">
+                      종료
+                      <input
+                        type="date"
+                        value={earlyBirdForm.endsDate}
+                        onChange={(e) =>
+                          setEarlyBirdForm((f) => ({
+                            ...f,
+                            endsDate: e.target.value,
+                          }))
+                        }
+                        className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                      />
+                    </label>
+                  </div>
+                  <label className="flex items-center gap-2 text-[12px] text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={earlyBirdForm.active}
+                      onChange={(e) =>
+                        setEarlyBirdForm((f) => ({
+                          ...f,
+                          active: e.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 rounded border-gray-300 accent-[#3182F6]"
+                    />
+                    활성
+                    {earlyBird ? (
+                      <span className="text-[11px] text-gray-400">· 저장됨</span>
+                    ) : null}
+                  </label>
+                  <Button
+                    fullWidth
+                    className="!min-h-[36px] !text-[12px]"
+                    disabled={
+                      busy ||
+                      !earlyBirdForm.startsDate ||
+                      !earlyBirdForm.endsDate
+                    }
+                    onClick={() => {
+                      void (async () => {
+                        setBusy(true);
+                        try {
+                          const res = await fetch("/api/admin/promo-campaigns", {
+                            method: "PUT",
+                            headers: {
+                              ...authHeaders(session.token),
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify(earlyBirdForm),
+                          });
+                          if (checkAdminUnauthorized(res)) {
+                            clearSession();
+                            return;
+                          }
+                          const body = (await res.json()) as {
+                            ok?: boolean;
+                            message?: string;
+                          };
+                          if (!res.ok || !body.ok) {
+                            alert(body.message ?? "저장 실패");
+                            return;
+                          }
+                          await loadPromoEvents(session.token);
+                        } finally {
+                          setBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    얼리버드 저장
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-gray-100 p-2.5">
+              <p className="text-[13px] font-bold text-gray-800">프로모 코드 생성</p>
+              <label className="flex items-center gap-2 text-[12px] text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={promoCreate.autoGenerate}
+                  onChange={(e) =>
+                    setPromoCreate((f) => ({
+                      ...f,
+                      autoGenerate: e.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-gray-300 accent-[#3182F6]"
+                />
+                코드 자동 생성
+              </label>
+              {!promoCreate.autoGenerate ? (
+                <input
+                  value={promoCreate.code}
+                  onChange={(e) =>
+                    setPromoCreate((f) => ({ ...f, code: e.target.value }))
+                  }
+                  placeholder="수동 코드 (영문·숫자)"
+                  className="h-9 w-full rounded-lg border border-gray-200 px-2.5 text-[13px] uppercase"
+                />
+              ) : null}
+              <div className="grid grid-cols-2 gap-1.5">
+                <label className="block text-[11px] text-gray-500">
+                  시작
+                  <input
+                    type="date"
+                    value={promoCreate.startsDate}
+                    onChange={(e) =>
+                      setPromoCreate((f) => ({
+                        ...f,
+                        startsDate: e.target.value,
+                      }))
+                    }
+                    className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                  />
+                </label>
+                <label className="block text-[11px] text-gray-500">
+                  종료
+                  <input
+                    type="date"
+                    value={promoCreate.endsDate}
+                    onChange={(e) =>
+                      setPromoCreate((f) => ({
+                        ...f,
+                        endsDate: e.target.value,
+                      }))
+                    }
+                    className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                  />
+                </label>
+              </div>
+              <input
+                value={promoCreate.maxUses}
+                onChange={(e) =>
+                  setPromoCreate((f) => ({ ...f, maxUses: e.target.value }))
+                }
+                placeholder="최대 사용 횟수 (비우면 무제한)"
+                className="h-9 w-full rounded-lg border border-gray-200 px-2.5 text-[13px]"
+              />
+              <input
+                value={promoCreate.memo}
+                onChange={(e) =>
+                  setPromoCreate((f) => ({ ...f, memo: e.target.value }))
+                }
+                placeholder="메모 (선택)"
+                className="h-9 w-full rounded-lg border border-gray-200 px-2.5 text-[13px]"
+              />
+              <Button
+                fullWidth
+                variant="secondary"
+                className="!min-h-[36px] !text-[12px]"
+                disabled={
+                  busy ||
+                  !promoCreate.startsDate ||
+                  !promoCreate.endsDate ||
+                  (!promoCreate.autoGenerate && !promoCreate.code.trim())
+                }
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true);
+                    try {
+                      const res = await fetch("/api/admin/promo-codes", {
+                        method: "POST",
+                        headers: {
+                          ...authHeaders(session.token),
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          autoGenerate: promoCreate.autoGenerate,
+                          code: promoCreate.code,
+                          startsDate: promoCreate.startsDate,
+                          endsDate: promoCreate.endsDate,
+                          maxUses: promoCreate.maxUses.trim()
+                            ? Number(promoCreate.maxUses)
+                            : null,
+                          memo: promoCreate.memo,
+                        }),
+                      });
+                      if (checkAdminUnauthorized(res)) {
+                        clearSession();
+                        return;
+                      }
+                      const body = (await res.json()) as {
+                        ok?: boolean;
+                        message?: string;
+                      };
+                      if (!res.ok || !body.ok) {
+                        alert(body.message ?? "생성 실패");
+                        return;
+                      }
+                      setPromoCreate((f) => ({
+                        ...f,
+                        code: "",
+                        endsDate: "",
+                        maxUses: "",
+                        memo: "",
+                      }));
+                      await loadPromoEvents(session.token);
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                프로모 코드 생성
+              </Button>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[12px] font-bold text-gray-700">
+                프로모 코드 ({promoCodes.filter((c) => c.active).length}개 활성)
+              </p>
+              {promoCodes.length === 0 ? (
+                <p className="py-4 text-center text-[12px] text-gray-400">
+                  등록된 코드가 없습니다.
+                </p>
+              ) : (
+                promoCodes.map((row) => {
+                  const edit = promoEdits[row.id] ?? {
+                    startsDate: row.startsDate,
+                    endsDate: row.endsDate,
+                  };
+                  return (
+                    <div
+                      key={row.id}
+                      className={[
+                        "flex flex-wrap items-center gap-1.5 border-b border-gray-50 py-2 text-[12px]",
+                        row.active ? "" : "opacity-50",
+                      ].join(" ")}
+                    >
+                      <span className="min-w-[72px] font-mono font-bold text-gray-900">
+                        {row.code}
+                      </span>
+                      <input
+                        type="date"
+                        value={edit.startsDate}
+                        disabled={!row.active}
+                        onChange={(e) =>
+                          setPromoEdits((prev) => ({
+                            ...prev,
+                            [row.id]: {
+                              ...edit,
+                              startsDate: e.target.value,
+                            },
+                          }))
+                        }
+                        className="h-8 min-w-0 flex-1 rounded border border-gray-200 px-1 text-[11px]"
+                      />
+                      <input
+                        type="date"
+                        value={edit.endsDate}
+                        disabled={!row.active}
+                        onChange={(e) =>
+                          setPromoEdits((prev) => ({
+                            ...prev,
+                            [row.id]: {
+                              ...edit,
+                              endsDate: e.target.value,
+                            },
+                          }))
+                        }
+                        className="h-8 min-w-0 flex-1 rounded border border-gray-200 px-1 text-[11px]"
+                      />
+                      <span className="shrink-0 text-[11px] text-gray-400">
+                        {row.useCount}
+                        {row.maxUses != null ? `/${row.maxUses}` : ""}회
+                      </span>
+                      {row.active ? (
+                        <>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-lg bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600"
+                            disabled={busy}
+                            onClick={() => {
+                              void (async () => {
+                                setBusy(true);
+                                try {
+                                  const res = await fetch(
+                                    `/api/admin/promo-codes/${row.id}`,
+                                    {
+                                      method: "PATCH",
+                                      headers: {
+                                        ...authHeaders(session.token),
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify(edit),
+                                    }
+                                  );
+                                  if (checkAdminUnauthorized(res)) {
+                                    clearSession();
+                                    return;
+                                  }
+                                  const body = (await res.json()) as {
+                                    ok?: boolean;
+                                    message?: string;
+                                  };
+                                  if (!res.ok || !body.ok) {
+                                    alert(body.message ?? "수정 실패");
+                                    return;
+                                  }
+                                  await loadPromoEvents(session.token);
+                                } finally {
+                                  setBusy(false);
+                                }
+                              })();
+                            }}
+                          >
+                            저장
+                          </button>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-[11px] font-bold text-red-500"
+                            disabled={busy}
+                            onClick={() => {
+                              if (
+                                !confirm(
+                                  `${row.code} 코드를 비활성화(삭제)할까요?`
+                                )
+                              ) {
+                                return;
+                              }
+                              void (async () => {
+                                setBusy(true);
+                                try {
+                                  const res = await fetch(
+                                    `/api/admin/promo-codes/${row.id}`,
+                                    {
+                                      method: "DELETE",
+                                      headers: authHeaders(session.token),
+                                    }
+                                  );
+                                  if (checkAdminUnauthorized(res)) {
+                                    clearSession();
+                                    return;
+                                  }
+                                  const body = (await res.json()) as {
+                                    ok?: boolean;
+                                    message?: string;
+                                  };
+                                  if (!res.ok || !body.ok) {
+                                    alert(body.message ?? "삭제 실패");
+                                    return;
+                                  }
+                                  await loadPromoEvents(session.token);
+                                } finally {
+                                  setBusy(false);
+                                }
+                              })();
+                            }}
+                          >
+                            삭제
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">비활성</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        ) : null}
+
         {tab === "logs" && isSuper ? (
           <Card className="space-y-2.5 !p-3">
             <div>
               <p className="text-[14px] font-bold">감사 로그</p>
               <p className="mt-0.5 text-[11px] text-gray-500">
-                로그인·정지·복원·직원·PII 열람 (최근 30건)
+                기간 선택 후 조회·CSV 다운로드 (최대 1만 건·366일)
               </p>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="block text-[11px] text-gray-500">
+                시작
+                <input
+                  type="date"
+                  value={auditFrom}
+                  onChange={(e) => setAuditFrom(e.target.value)}
+                  className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                />
+              </label>
+              <label className="block text-[11px] text-gray-500">
+                종료
+                <input
+                  type="date"
+                  value={auditTo}
+                  onChange={(e) => setAuditTo(e.target.value)}
+                  className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                />
+              </label>
             </div>
             <div className="flex gap-1.5">
               <input
@@ -1343,7 +2105,12 @@ export default function AdminPage() {
                 className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 text-[13px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    void loadAuditLogs(session.token, auditQ).catch((err) =>
+                    void loadAuditLogs(
+                      session.token,
+                      auditQ,
+                      auditFrom,
+                      auditTo
+                    ).catch((err) =>
                       setError(
                         err instanceof Error ? err.message : "로그 조회 실패"
                       )
@@ -1355,14 +2122,63 @@ export default function AdminPage() {
                 className="!min-h-[36px] !px-2.5 !text-[12px]"
                 disabled={busy}
                 onClick={() =>
-                  void loadAuditLogs(session.token, auditQ).catch((e) =>
+                  void loadAuditLogs(
+                    session.token,
+                    auditQ,
+                    auditFrom,
+                    auditTo
+                  ).catch((e) =>
                     setError(e instanceof Error ? e.message : "로그 조회 실패")
                   )
                 }
               >
-                검색
+                조회
               </Button>
             </div>
+            <Button
+              fullWidth
+              variant="secondary"
+              className="!min-h-[36px] !text-[12px]"
+              disabled={busy || !auditFrom || !auditTo}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true);
+                  try {
+                    const params = new URLSearchParams({
+                      from: auditFrom,
+                      to: auditTo,
+                    });
+                    if (auditQ.trim()) params.set("q", auditQ.trim());
+                    const res = await fetch(
+                      `/api/admin/audit-logs/export?${params}`,
+                      { headers: authHeaders(session.token) }
+                    );
+                    if (checkAdminUnauthorized(res)) {
+                      clearSession();
+                      return;
+                    }
+                    if (!res.ok) {
+                      const body = (await res.json()) as { message?: string };
+                      alert(body.message ?? "다운로드 실패");
+                      return;
+                    }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `audit-logs_${auditFrom}_${auditTo}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              CSV 다운로드
+            </Button>
             <div className="space-y-1 text-[12px]">
               {auditLogs.map((row) => (
                 <div
@@ -1388,17 +2204,17 @@ export default function AdminPage() {
 
       <Modal
         open={Boolean(detail)}
-        onClose={() => {
-          if (entityItem) {
-            setEntityItem(null);
-            setEntityReveal(false);
-            return;
-          }
-          setDetail(null);
-        }}
+        onClose={closeAccountDetail}
         title="계정 상세"
         description={detail ? `@${detail.username}` : undefined}
         dense
+        footer={
+          detail ? (
+            <Button fullWidth variant="secondary" onClick={closeAccountDetail}>
+              {returnEntityItem ? "뒤로" : "닫기"}
+            </Button>
+          ) : null
+        }
         headerRight={
           detail && detail.status !== "deleted" ? (
             detail.status === "suspended" ? (
@@ -1463,7 +2279,21 @@ export default function AdminPage() {
         }
       >
         {detail ? (
-          <div className="max-h-[65vh] space-y-3 overflow-y-auto text-[13px]">
+          <div className="space-y-3 text-[13px]">
+            {(() => {
+              const plan = planDisplayForUser({
+                planTier: detail.planTier,
+                matchingEnabled: detail.matchingEnabled,
+                promoSource: detail.promoSource,
+              });
+              if (!plan) return null;
+              return (
+                <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2">
+                  <span className="text-[12px] text-gray-400">이용 요금</span>
+                  <PlanBadge plan={plan} />
+                </div>
+              );
+            })()}
             <div className="space-y-1 rounded-xl bg-gray-50 px-3 py-2">
               <p>
                 <span className="text-gray-400">업장</span> {detail.shopName}
@@ -1686,18 +2516,6 @@ export default function AdminPage() {
                 </Button>
               ) : null}
             </div>
-
-            <Button
-              fullWidth
-              variant="secondary"
-              onClick={() => {
-                setDetail(null);
-                setEntityItem(null);
-                setEntityReveal(false);
-              }}
-            >
-              닫기
-            </Button>
           </div>
         ) : null}
       </Modal>
@@ -1707,16 +2525,38 @@ export default function AdminPage() {
         onClose={() => {
           setEntityItem(null);
           setEntityReveal(false);
+          setEntityOwnerOpen(false);
         }}
         title={
           entityItem?.kind === "customers"
-            ? "고객 상세"
+            ? entityItem.deleted
+              ? "삭제된 고객 상세"
+              : "고객 상세"
             : entityItem?.kind === "properties"
-              ? "매물 상세"
-              : "네비 상세"
+              ? entityItem.deleted
+                ? "삭제된 매물 상세"
+                : "매물 상세"
+              : entityItem?.deleted
+                ? "삭제된 네비 상세"
+                : "네비 상세"
         }
         description={entityItem?.title}
         dense
+        footer={
+          entityItem ? (
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => {
+                setEntityItem(null);
+                setEntityReveal(false);
+                setEntityOwnerOpen(false);
+              }}
+            >
+              닫기
+            </Button>
+          ) : null
+        }
         headerRight={
           isSuper && entityItem?.secrets && Object.keys(entityItem.secrets).length > 0 ? (
             <button
@@ -1749,7 +2589,81 @@ export default function AdminPage() {
         }
       >
         {entityItem ? (
-          <div className="max-h-[60vh] space-y-3 overflow-y-auto text-[13px]">
+          <div className="space-y-3 text-[13px]">
+            {entityItem.owner ? (
+              <div className="overflow-hidden rounded-xl border border-gray-100">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left"
+                  onClick={() => setEntityOwnerOpen((v) => !v)}
+                  aria-expanded={entityOwnerOpen}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-bold text-gray-800">
+                      올린 사람
+                    </p>
+                    {!entityOwnerOpen ? (
+                      <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                        {entityItem.owner.name || "-"} · @
+                        {entityItem.owner.username}
+                        {entityItem.owner.shopName
+                          ? ` · ${entityItem.owner.shopName}`
+                          : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span
+                    className={[
+                      "shrink-0 text-[11px] font-bold text-gray-400 transition-transform",
+                      entityOwnerOpen ? "rotate-180" : "",
+                    ].join(" ")}
+                    aria-hidden
+                  >
+                    ▼
+                  </span>
+                </button>
+                {entityOwnerOpen ? (
+                  <div className="space-y-1 border-t border-gray-50 px-2.5 py-2 text-[12px]">
+                    <p>
+                      <span className="text-gray-400">업장</span>{" "}
+                      {entityItem.owner.shopName || "-"}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">이름</span>{" "}
+                      {entityItem.owner.name || "-"}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">아이디</span> @
+                      {entityItem.owner.username}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">전화</span>{" "}
+                      {entityItem.owner.phone || "-"}
+                    </p>
+                    {entityItem.owner.createdAt ? (
+                      <p>
+                        <span className="text-gray-400">가입</span>{" "}
+                        {formatSeoulDateTime(entityItem.owner.createdAt)}
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="pt-0.5 text-[11px] font-bold text-[#3182F6]"
+                      onClick={() => {
+                        const ownerId = entityItem.owner?.id;
+                        if (!ownerId) return;
+                        void openAccount(ownerId, {
+                          returnToEntity: entityItem,
+                        });
+                      }}
+                    >
+                      가입자 상세 보기
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
               {entityItem.fields.map((field) => (
                 <p key={`${field.label}-${field.secretKey ?? field.value}`}>
@@ -1810,16 +2724,6 @@ export default function AdminPage() {
                 전화·호실·비밀번호는 마스킹됩니다. (슈퍼만 상세에서 해제)
               </p>
             ) : null}
-            <Button
-              fullWidth
-              variant="secondary"
-              onClick={() => {
-                setEntityItem(null);
-                setEntityReveal(false);
-              }}
-            >
-              닫기
-            </Button>
           </div>
         ) : null}
       </Modal>

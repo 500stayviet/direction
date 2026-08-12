@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
+import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
 import { writeAuditLog } from "@/lib/workspaceServer";
 
 type Params = { params: Promise<{ id: string }> };
@@ -26,7 +27,7 @@ export async function GET(request: Request, { params }: Params) {
     const { data: profile, error } = await auth.admin
       .from("profiles")
       .select(
-        "id, username, shop_name, display_name, phone, password_hint, created_at"
+        "id, username, shop_name, display_name, phone, password_hint, created_at, plan_tier, matching_enabled, promo_source"
       )
       .eq("id", userId)
       .maybeSingle();
@@ -50,32 +51,38 @@ export async function GET(request: Request, { params }: Params) {
         .from("customers")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("customers")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("listed_properties")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("listed_properties")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("schedules")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("schedules")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("workspace_members")
         .select("workspace_id, role")
@@ -151,6 +158,11 @@ export async function GET(request: Request, { params }: Params) {
           : null,
         suspendedReason: meta.account_suspended_reason
           ? String(meta.account_suspended_reason)
+          : null,
+        planTier: profile.plan_tier ? String(profile.plan_tier) : "free",
+        matchingEnabled: profile.matching_enabled !== false,
+        promoSource: profile.promo_source
+          ? String(profile.promo_source)
           : null,
         counts: {
           customersActive: customersActive ?? 0,

@@ -23,6 +23,12 @@ export async function GET(request: Request) {
       .update({ last_seen_at: now })
       .eq("id", auth.user.id);
 
+    const { data: profile } = await auth.admin
+      .from("profiles")
+      .select("matching_enabled, plan_tier, promo_source")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+
     const { data, error } = await auth.admin.auth.admin.getUserById(
       auth.user.id
     );
@@ -41,10 +47,18 @@ export async function GET(request: Request) {
     }
 
     const suspended = meta.account_suspended === true;
+    const matchingEnabled = profile?.matching_enabled !== false;
+    const planTier = profile?.plan_tier ? String(profile.plan_tier) : "free";
+    const promoSource = profile?.promo_source
+      ? String(profile.promo_source)
+      : null;
     return NextResponse.json({
       ok: true,
       suspended,
       deleted: false,
+      matchingEnabled,
+      planTier,
+      promoSource,
       reason: suspended
         ? String(meta.account_suspended_reason ?? "관리자 정지")
         : null,

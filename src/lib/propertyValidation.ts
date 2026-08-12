@@ -1,5 +1,6 @@
 import { onlyDigits } from "@/lib/format";
 import { parseJibunDetail, parseSeoulAddress } from "@/lib/seoulRegions";
+import { isBuildingType, isLandType, skipsResidentialExtras } from "@/lib/constants";
 import type { Property } from "@/lib/types";
 
 export type PropertyFieldKey =
@@ -13,6 +14,8 @@ export type PropertyFieldKey =
   | "buildingKind"
   | "dealType"
   | "deposit"
+  | "loan"
+  | "insurance"
   | "parking";
 
 export interface ValidationOptions {
@@ -52,6 +55,8 @@ const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
   dealType: () => "희망거래를 선택해 주세요.",
   deposit: (p) =>
     p.dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",
+  loan: () => "대출 유무를 선택해 주세요.",
+  insurance: () => "전세보증보험 가입 가능 여부를 선택해 주세요.",
   parking: () => "주차 유무를 선택해 주세요.",
 };
 
@@ -102,10 +107,23 @@ export function getMissingRequiredFields(
 
   if (!property.deposit || property.deposit <= 0) missing.push("deposit");
 
-  if (property.roomType === "건물" || property.roomType === "토지") {
-    // 건물: 주차대수 / 토지: 주차 없음
-  } else if (property.parkingType !== "유" && property.parkingType !== "무") {
-    missing.push("parking");
+  const isLand = isLandType(property.roomType);
+  const isBuilding = isBuildingType(property.roomType);
+  if (!isLand && !isBuilding) {
+    if (!skipsResidentialExtras(property.roomType)) {
+      if (property.loanAvailable !== "유" && property.loanAvailable !== "무") {
+        missing.push("loan");
+      }
+      if (
+        property.insuranceType !== "유" &&
+        property.insuranceType !== "무"
+      ) {
+        missing.push("insurance");
+      }
+    }
+    if (property.parkingType !== "유" && property.parkingType !== "무") {
+      missing.push("parking");
+    }
   }
 
   return missing;

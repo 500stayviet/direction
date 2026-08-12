@@ -13,7 +13,7 @@ import {
   SiteShareMatchingEmpty,
   TeamShareButton,
 } from "@/components/SiteShareUi";
-import { MatchingCustomersSection } from "@/components/MatchListPanel";
+import { MatchingCustomersSection, MatchingGate } from "@/components/MatchListPanel";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
 import { SaveCompleteModal } from "@/components/SaveCompleteModal";
@@ -304,25 +304,27 @@ export default function PropertyDetailPage() {
             <p className="px-1 text-sm font-bold text-gray-800">
               조건에 맞는 고객
             </p>
-            <MatchingCustomersSection
-              title="내 고객"
-              listHint="(내 고객리스트)"
-              items={matches.own}
-              propertyId={property.id}
-              emptyText="조건에 맞는 내 고객이 없습니다."
-              onRemoved={(id) =>
-                setCustomers((prev) => prev.filter((c) => c.id !== id))
-              }
-            />
-            <MatchingCustomersSection
-              title="현장동선내 공유 고객"
-              items={matches.partner}
-              propertyId={property.id}
-              emptyText={<SiteShareMatchingEmpty kind="customer" />}
-              onRemoved={(id) =>
-                setCustomers((prev) => prev.filter((c) => c.id !== id))
-              }
-            />
+            <MatchingGate>
+              <MatchingCustomersSection
+                title="내 고객"
+                listHint="(내 고객리스트)"
+                items={matches.own}
+                propertyId={property.id}
+                emptyText="조건에 맞는 내 고객이 없습니다."
+                onRemoved={(id) =>
+                  setCustomers((prev) => prev.filter((c) => c.id !== id))
+                }
+              />
+              <MatchingCustomersSection
+                title="현장동선내 공유 고객"
+                items={matches.partner}
+                propertyId={property.id}
+                emptyText={<SiteShareMatchingEmpty kind="customer" />}
+                onRemoved={(id) =>
+                  setCustomers((prev) => prev.filter((c) => c.id !== id))
+                }
+              />
+            </MatchingGate>
           </div>
         </div>
       )}

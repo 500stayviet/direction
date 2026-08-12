@@ -33,6 +33,9 @@ export function isDemoEntityId(id: string): boolean {
   );
 }
 
+/** 관리자 집계·목록에서 체험 시드(demo_*) 제외용 PostgREST 패턴 */
+export const DEMO_ENTITY_ID_LIKE = "demo_%";
+
 /** 가입일 다음날부터 세어 7일째(가입일+7일 00:00)부터 데모 카드 만료 */
 export const DEMO_SEED_TTL_DAYS = 7;
 

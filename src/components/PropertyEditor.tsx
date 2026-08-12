@@ -195,13 +195,6 @@ export function PropertyEditor({
         property.moveInTo &&
         property.moveInFrom === property.moveInTo
     );
-  const insuranceJoined =
-    property.insuranceType === "유" ||
-    (Boolean(property.insuranceType) &&
-      property.insuranceType !== "무" &&
-      property.insuranceType !== "미가입")
-      ? "유"
-      : "무";
 
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
@@ -225,8 +218,8 @@ export function PropertyEditor({
       patch.maintenanceIncludes = [];
       patch.options = [];
       patch.petAllowed = "무";
-      patch.insuranceType = "무";
-      patch.loanAvailable = "무";
+      patch.loanAvailable = undefined;
+      patch.insuranceType = undefined;
     }
     if (roomType === "토지") {
       patch.dealType = "매매";
@@ -787,22 +780,42 @@ export function PropertyEditor({
         <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
           <p className="text-sm font-bold text-gray-800">기타</p>
           {!hideResidentialExtras && (
-            <OptionToggle
-              label="대출 유무"
-              columns={2}
-              value={property.loanAvailable === "유" ? "유" : "무"}
-              options={["유", "무"] as const}
-              onChange={(loanAvailable) => update({ loanAvailable })}
-            />
+            <div ref={setFieldRef("loan")}>
+              <OptionToggle
+                label="대출 유무"
+                required
+                invalid={isInvalid("loan")}
+                columns={2}
+                value={
+                  property.loanAvailable === "유"
+                    ? "유"
+                    : property.loanAvailable === "무"
+                      ? "무"
+                      : undefined
+                }
+                options={["유", "무"] as const}
+                onChange={(loanAvailable) => update({ loanAvailable })}
+              />
+            </div>
           )}
           {!hideResidentialExtras && (
-            <OptionToggle
-              label="전세보증보험 가입 가능 여부"
-              columns={2}
-              value={insuranceJoined}
-              options={INSURANCE_TYPES}
-              onChange={(insuranceType) => update({ insuranceType })}
-            />
+            <div ref={setFieldRef("insurance")}>
+              <OptionToggle
+                label="전세보증보험 가입 가능 여부"
+                required
+                invalid={isInvalid("insurance")}
+                columns={2}
+                value={
+                  property.insuranceType === "유"
+                    ? "유"
+                    : property.insuranceType === "무"
+                      ? "무"
+                      : undefined
+                }
+                options={INSURANCE_TYPES}
+                onChange={(insuranceType) => update({ insuranceType })}
+              />
+            </div>
           )}
           <div ref={setFieldRef("parking")}>
             <OptionToggle
@@ -810,14 +823,20 @@ export function PropertyEditor({
               required
               invalid={isInvalid("parking")}
               columns={2}
-              value={property.parkingType === "유" ? "유" : "무"}
+              value={
+                property.parkingType === "유"
+                  ? "유"
+                  : property.parkingType === "무"
+                    ? "무"
+                    : undefined
+              }
               options={["유", "무"] as const}
               onChange={(parkingType) =>
                 update({
                   parkingType,
                   parkingFeeType: "별도",
                   parkingFee:
-                    parkingType === "유" ? property.parkingFee : undefined,
+                    parkingType === "유" ? (property.parkingFee ?? 0) : undefined,
                 })
               }
             />
@@ -827,15 +846,15 @@ export function PropertyEditor({
               label="주차비 (만원/월)"
               type="number"
               inputMode="numeric"
-              value={property.parkingFee ?? ""}
+              value={property.parkingFee ?? 0}
               onChange={(e) => {
                 const raw = e.target.value;
                 update({
                   parkingFeeType: "별도",
-                  parkingFee: raw === "" ? undefined : Number(raw) || 0,
+                  parkingFee: raw === "" ? 0 : Number(raw) || 0,
                 });
               }}
-              placeholder="5"
+              placeholder="0"
             />
           )}
           <OptionToggle

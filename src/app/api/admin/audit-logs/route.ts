@@ -3,6 +3,7 @@ import {
   requireAdminSession,
   requireSuper,
 } from "@/lib/adminAuth";
+import { fetchAdminAuditLogs } from "@/lib/adminAuditLogsQuery";
 
 /** 슈퍼: 관리자·운영 감사 로그 조회 */
 export async function GET(request: Request) {
@@ -23,37 +24,23 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const rawQ = (url.searchParams.get("q") ?? "").trim();
-  const safeQ = rawQ.replace(/[%_,]/g, "").trim();
+  const from = (url.searchParams.get("from") ?? "").trim();
+  const to = (url.searchParams.get("to") ?? "").trim();
   const limit = Math.min(
-    50,
+    100,
     Math.max(1, Number(url.searchParams.get("limit") ?? 30) || 30)
   );
 
   try {
-    let query = auth.admin
-      .from("audit_logs")
-      .select(
-        "id, actor_name, action, entity_type, entity_id, detail, created_at",
-        { count: "exact" }
-      )
-      .like("action", "admin_%")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (safeQ) {
-      query = query.or(
-        [
-          `actor_name.ilike.%${safeQ}%`,
-          `action.ilike.%${safeQ}%`,
-          `entity_id.ilike.%${safeQ}%`,
-        ].join(",")
-      );
-    }
-
-    const { data, error, count } = await query;
+    const { rows, error } = await fetchAdminAuditLogs(auth.admin, {
+      q: rawQ,
+      from: from || undefined,
+      to: to || undefined,
+      limit,
+    });
     if (error) {
       return NextResponse.json(
-        { ok: false, message: error.message },
+        { ok: false, message: error },
         { status: 500 }
       );
     }
@@ -61,16 +48,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       q: rawQ,
-      total: count ?? data?.length ?? 0,
-      rows: (data ?? []).map((row) => ({
-        id: row.id,
-        actorName: row.actor_name,
-        action: row.action,
-        entityType: row.entity_type,
-        entityId: row.entity_id,
-        detail: row.detail ?? {},
-        createdAt: row.created_at,
-      })),
+      from: from || null,
+      to: to || null,
+      total: rows.length,
+      rows,
     });
   } catch (e) {
     return NextResponse.json(

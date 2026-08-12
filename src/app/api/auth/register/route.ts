@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usernameToEmail, validateUsernameFormat } from "@/lib/supabase/email";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
+import {
+  applySignupPromotions,
+  isPromoSignupEnabled,
+  validatePromoCode,
+  validateReferrerUsername,
+} from "@/lib/promoCodes";
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +19,8 @@ export async function POST(request: Request) {
       passwordConfirm?: string;
       phone?: string;
       passwordHint?: string;
+      referrerUsername?: string;
+      promoCode?: string;
     };
 
     const usernameCheck = validateUsernameFormat(body.username ?? "");
@@ -93,6 +101,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const promoEnabled = isPromoSignupEnabled();
+    if (promoEnabled) {
+      if (body.promoCode?.trim()) {
+        const promo = await validatePromoCode(admin, body.promoCode);
+        if (!promo.ok) {
+          return NextResponse.json(
+            { ok: false, message: promo.message },
+            { status: 400 }
+          );
+        }
+      }
+      if (body.referrerUsername?.trim()) {
+        const ref = await validateReferrerUsername(
+          admin,
+          body.referrerUsername
+        );
+        if (!ref.ok) {
+          return NextResponse.json(
+            { ok: false, message: ref.message },
+            { status: 400 }
+          );
+        }
+        if (ref.username === username) {
+          return NextResponse.json(
+            { ok: false, message: "본인 아이디는 추천인으로 등록할 수 없습니다." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Auth 메타데이터에 프로필 저장 (profiles 테이블 GRANT 없어도 가입·로그인 가능)
     const { data: created, error: createError } =
       await admin.auth.admin.createUser({
@@ -157,6 +196,21 @@ export async function POST(request: Request) {
         p_display_name: name,
         p_phone: phone,
         p_password_hint: passwordHint,
+      });
+    }
+
+    if (promoEnabled) {
+      await applySignupPromotions(admin, {
+        userId,
+        newUsername: username,
+        referrerUsername: body.referrerUsername,
+        promoCode: body.promoCode,
+      });
+    } else {
+      // 얼리버드 캠페인은 이벤트 기간 자동 적용 (프로모·추천인 코드는 PROMO_SIGNUP_ENABLED 시만)
+      await applySignupPromotions(admin, {
+        userId,
+        newUsername: username,
       });
     }
 

@@ -5,7 +5,7 @@ interface OptionToggleProps<T extends string> {
   /** 라벨 옆 짧은 안내 */
   hint?: string;
   required?: boolean;
-  value: T;
+  value?: T;
   options: readonly T[] | T[];
   onChange: (value: T) => void;
   columns?: 1 | 2 | 3 | 4;
@@ -73,7 +73,7 @@ export function OptionToggle<T extends string>({
         }
       >
         {options.map((option) => {
-          const active = value === option;
+          const active = value != null && value === option;
           return (
             <button
               key={option}

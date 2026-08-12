@@ -11,9 +11,12 @@ import { Modal } from "@/components/ui/Modal";
 import {
   DELETE_CONFIRM_PHRASE,
   deleteAccount,
+  getAccessToken,
   getCurrentUser,
   hardRedirectHome,
   logoutUser,
+  peekCurrentUser,
+  refreshSuspendedFromServer,
 } from "@/lib/auth";
 import { PasswordReveal } from "@/components/PasswordReveal";
 import { formatPhone } from "@/lib/format";
@@ -25,6 +28,8 @@ import {
   type WorkspaceInfo,
 } from "@/lib/workspace";
 import type { User } from "@/lib/types";
+import { planDisplayForUser } from "@/lib/planDisplay";
+import { PlanBadge } from "@/components/PlanBadge";
 
 function formatRemain(expiresAt: string | null | undefined): string {
   if (!expiresAt) return "만료됨";
@@ -67,7 +72,7 @@ export default function AccountPage() {
       if (cancelled) return;
       if (status.ok) {
         setWorkspace(status.workspace);
-      } else {
+      } else if (status.message) {
         setWsMessage(status.message);
       }
     };
@@ -80,6 +85,15 @@ export default function AccountPage() {
         return;
       }
       setUser(u);
+
+      // 요금·얼리버드 배지: localStorage 캐시에 planTier가 없을 수 있어 서버 동기화
+      const token = await getAccessToken();
+      if (token && !cancelled) {
+        await refreshSuspendedFromServer(token);
+        const synced = peekCurrentUser();
+        if (!cancelled && synced) setUser({ ...synced });
+      }
+
       await loadWorkspace();
     })();
 
@@ -247,6 +261,8 @@ export default function AccountPage() {
     );
   }
 
+  const planDisplay = planDisplayForUser(user);
+
   return (
     <main>
       <PageHeader title="내정보" backHref="/" />
@@ -254,7 +270,10 @@ export default function AccountPage() {
       <div className="space-y-3 pb-8">
         <Card className="!p-0 overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-            <p className="text-[14px] font-bold text-gray-900">계정 정보</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="text-[14px] font-bold text-gray-900">계정 정보</p>
+              {planDisplay ? <PlanBadge plan={planDisplay} tip={false} /> : null}
+            </div>
             <Link
               href="/account/edit"
               className="shrink-0 text-[13px] font-semibold text-[#3182F6] active:opacity-70"
@@ -263,6 +282,14 @@ export default function AccountPage() {
             </Link>
           </div>
           <dl className="border-t border-gray-100">
+            {planDisplay ? (
+              <div className="flex items-center justify-between gap-3 border-b border-gray-50 px-3.5 py-2">
+                <dt className="shrink-0 text-[12px] text-gray-400">이용 요금</dt>
+                <dd className="min-w-0">
+                  <PlanBadge plan={planDisplay} />
+                </dd>
+              </div>
+            ) : null}
             {(
               [
                 ["업장명", user.shopName?.trim() || "-"],

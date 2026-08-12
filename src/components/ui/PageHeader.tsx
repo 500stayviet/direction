@@ -60,7 +60,7 @@ export function PageHeader({
     <Link href={backHref} className={backClass} aria-label="뒤로">
       ←
     </Link>
-  ) : (
+  ) : leftTitle ? null : (
     <div className="w-11 shrink-0" />
   );
 

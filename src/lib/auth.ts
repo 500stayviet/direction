@@ -88,6 +88,30 @@ export function hardRedirectLogin(opts?: {
   window.location.replace(qs ? `/login?${qs}` : "/login");
 }
 
+let forceReloginStarted = false;
+
+/**
+ * 세션이 더 이상 유효하지 않을 때 — 안내 문구 대신 로그인 화면으로 보냄.
+ * (이미 /login 이면 무시)
+ */
+export function forceRelogin(): void {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (
+    path === "/login" ||
+    path.startsWith("/login/") ||
+    path === "/signup" ||
+    path.startsWith("/signup/") ||
+    path.startsWith("/admin")
+  ) {
+    return;
+  }
+  if (forceReloginStarted) return;
+  forceReloginStarted = true;
+  clearAuthRuntimeCache();
+  hardRedirectLogin();
+}
+
 function rowToUser(row: {
   id: string;
   username: string;
@@ -96,6 +120,9 @@ function rowToUser(row: {
   phone: string;
   password_hint: string;
   created_at: string;
+  matching_enabled?: boolean | null;
+  plan_tier?: string | null;
+  promo_source?: string | null;
 }): User {
   const raw = String(row.shop_name ?? "")
     .trim()
@@ -110,6 +137,9 @@ function rowToUser(row: {
     phone: row.phone,
     passwordHint: row.password_hint,
     createdAt: row.created_at,
+    matchingEnabled: row.matching_enabled === false ? false : undefined,
+    planTier: row.plan_tier ? String(row.plan_tier) : undefined,
+    promoSource: row.promo_source ? String(row.promo_source) : undefined,
   };
 }
 
@@ -182,6 +212,9 @@ export async function refreshSuspendedFromServer(
       ok?: boolean;
       suspended?: boolean;
       reason?: string | null;
+      matchingEnabled?: boolean;
+      planTier?: string;
+      promoSource?: string | null;
     };
     if (!res.ok || !body.ok) {
       // 401 등은 콘솔 노이즈만 만들지 않고 로컬 상태로 폴백
@@ -193,12 +226,18 @@ export async function refreshSuspendedFromServer(
     }
     const suspended = Boolean(body.suspended);
     const reason = suspended ? String(body.reason ?? "관리자 정지") : "";
+    const matchingEnabled = body.matchingEnabled !== false;
+    const planTier = body.planTier ? String(body.planTier) : undefined;
+    const promoSource = body.promoSource ? String(body.promoSource) : undefined;
     const current = peekCurrentUser();
     if (current) {
       const next: User = {
         ...current,
         suspended: suspended || undefined,
         suspendedReason: suspended ? reason : undefined,
+        matchingEnabled: matchingEnabled ? undefined : false,
+        planTier: planTier && planTier !== "free" ? planTier : undefined,
+        promoSource,
       };
       cachedUser = next;
       const app = loadAppAuth();
@@ -263,8 +302,9 @@ export async function getAccessToken(): Promise<string | null> {
 
   const refresh = appAuth?.refresh_token?.trim() ?? "";
   if (!refresh) {
-    // 만료 access만 있어도 일시적으로 반환(호출측이 401 처리)
-    return fromApp || null;
+    // access만 남고 갱신 불가 → 만료면 null (호출측이 로그인으로 보냄)
+    if (fromApp && accessTokenStillFresh(fromApp)) return fromApp;
+    return null;
   }
 
   try {
@@ -287,15 +327,10 @@ export async function getAccessToken(): Promise<string | null> {
       return session.access_token;
     }
 
-    // refresh 실패(만료·폐기): 죽은 refresh로 재시도하지 않도록 비움
-    if (appAuth?.user && refreshed.error) {
-      saveAppAuth(
-        {
-          access_token: fromApp,
-          refresh_token: "",
-        },
-        appAuth.user
-      );
+    // refresh 실패(만료·폐기): 세션 정리 — 죽은 토큰으로 401 알림만 뜨지 않게
+    if (refreshed.error) {
+      clearAuthRuntimeCache();
+      return null;
     }
 
     const {
@@ -307,7 +342,7 @@ export async function getAccessToken(): Promise<string | null> {
       ),
     ]);
 
-    if (existing?.access_token) {
+    if (existing?.access_token && accessTokenStillFresh(existing.access_token)) {
       const user = appAuth?.user ?? cachedUser;
       if (user) {
         saveAppAuth(
@@ -325,7 +360,8 @@ export async function getAccessToken(): Promise<string | null> {
     /* ignore */
   }
 
-  return fromApp || null;
+  if (fromApp && accessTokenStillFresh(fromApp)) return fromApp;
+  return null;
 }
 
 export async function getSessionUserId(): Promise<string | null> {
@@ -421,7 +457,7 @@ export async function getCurrentUser(): Promise<User | null> {
         const { data, error } = await supabase
           .from("profiles")
           .select(
-            "id, username, shop_name, display_name, phone, password_hint, created_at"
+            "id, username, shop_name, display_name, phone, password_hint, created_at, matching_enabled, plan_tier, promo_source"
           )
           .eq("id", session.user.id)
           .maybeSingle();
@@ -694,13 +730,10 @@ export async function updateProfile(
   }
 
   try {
-    const appAuth = loadAppAuth();
-    const accessToken = appAuth?.access_token?.trim() ?? "";
+    const accessToken = await getAccessToken();
     if (!accessToken) {
-      return {
-        ok: false,
-        message: "로그인이 필요합니다. 다시 로그인해 주세요.",
-      };
+      forceRelogin();
+      return { ok: false, message: "로그인이 필요합니다." };
     }
 
     const res = await fetch("/api/auth/update-profile", {
@@ -724,6 +757,10 @@ export async function updateProfile(
     };
 
     if (!res.ok || !body.ok || !body.user) {
+      if (res.status === 401) {
+        forceRelogin();
+        return { ok: false, message: "로그인이 필요합니다." };
+      }
       return {
         ok: false,
         message: body.message ?? "정보 수정에 실패했습니다.",
@@ -732,15 +769,14 @@ export async function updateProfile(
 
     const nextUser = body.user;
     cachedUser = nextUser;
-    if (appAuth?.refresh_token) {
-      saveAppAuth(
-        {
-          access_token: appAuth.access_token,
-          refresh_token: appAuth.refresh_token,
-        },
-        nextUser
-      );
-    }
+    const appAuth = loadAppAuth();
+    saveAppAuth(
+      {
+        access_token: accessToken,
+        refresh_token: appAuth?.refresh_token || "",
+      },
+      nextUser
+    );
     patchCreatedByNameInCache(nextUser.id, nextUser.name);
 
     return { ok: true, user: nextUser };
@@ -764,13 +800,10 @@ export async function deleteAccount(
   }
 
   try {
-    const appAuth = loadAppAuth();
-    const accessToken = appAuth?.access_token?.trim() ?? "";
+    const accessToken = await getAccessToken();
     if (!accessToken) {
-      return {
-        ok: false,
-        message: "로그인이 필요합니다. 다시 로그인해 주세요.",
-      };
+      forceRelogin();
+      return { ok: false, message: "로그인이 필요합니다." };
     }
 
     const res = await fetch("/api/auth/delete-account", {
@@ -787,9 +820,13 @@ export async function deleteAccount(
     const body = (await res.json()) as { ok?: boolean; message?: string };
 
     if (!res.ok || !body.ok) {
+      if (res.status === 401) {
+        forceRelogin();
+        return { ok: false, message: "로그인이 필요합니다." };
+      }
       return {
         ok: false,
-        message: body.message ?? "회원 탈퇴에 실패했습니다.",
+        message: body.message ?? "계정 삭제에 실패했습니다.",
       };
     }
 

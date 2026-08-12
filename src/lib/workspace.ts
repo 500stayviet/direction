@@ -1,6 +1,6 @@
 "use client";
 
-import { getAccessToken } from "@/lib/auth";
+import { forceRelogin, getAccessToken } from "@/lib/auth";
 import {
   invalidateWorkspaceIdCache,
   refreshAllEntityLists,
@@ -34,7 +34,6 @@ async function authHeaders(): Promise<HeadersInit> {
   };
 }
 
-const LOGIN_AGAIN = "로그인이 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.";
 const NETWORK_FAIL =
   "네트워크 연결을 확인해 주세요. 잠시 후 다시 시도해 주세요.";
 
@@ -44,6 +43,12 @@ function isNetworkError(e: unknown): boolean {
     (e instanceof Error &&
       /failed to fetch|networkerror|load failed/i.test(e.message))
   );
+}
+
+/** 세션 없음/401 → 로그인 화면으로 (문구 대신) */
+function handleAuthExpired(): { ok: false; message: string } {
+  forceRelogin();
+  return { ok: false, message: "" };
 }
 
 async function safeFetch(
@@ -79,7 +84,7 @@ export async function fetchWorkspaceStatus(): Promise<
 > {
   const token = await getAccessToken();
   if (!token) {
-    return { ok: false, message: LOGIN_AGAIN };
+    return handleAuthExpired();
   }
   try {
     const res = await safeFetch("/api/workspace/status", {
@@ -89,7 +94,7 @@ export async function fetchWorkspaceStatus(): Promise<
     });
     const body = await parseJson<{ workspace?: WorkspaceInfo | null }>(res);
     if (!res.ok) {
-      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      if (res.status === 401) return handleAuthExpired();
       return {
         ok: false,
         message: body.message ?? "팀 공유 상태를 불러오지 못했습니다.",
@@ -108,7 +113,7 @@ export async function createWorkspace(name?: string): Promise<
   { ok: true; workspace: WorkspaceInfo } | { ok: false; message: string }
 > {
   const token = await getAccessToken();
-  if (!token) return { ok: false, message: LOGIN_AGAIN };
+  if (!token) return handleAuthExpired();
 
   try {
     const res = await safeFetch("/api/workspace/create", {
@@ -118,7 +123,7 @@ export async function createWorkspace(name?: string): Promise<
     });
     const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
     if (!res.ok || !body.workspace) {
-      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      if (res.status === 401) return handleAuthExpired();
       return {
         ok: false,
         message: body.message ?? "팀 공유 생성에 실패했습니다.",
@@ -138,7 +143,7 @@ export async function joinWorkspace(shareCode: string): Promise<
   { ok: true; workspace: WorkspaceInfo } | { ok: false; message: string }
 > {
   const token = await getAccessToken();
-  if (!token) return { ok: false, message: LOGIN_AGAIN };
+  if (!token) return handleAuthExpired();
 
   try {
     const res = await safeFetch("/api/workspace/join", {
@@ -148,7 +153,7 @@ export async function joinWorkspace(shareCode: string): Promise<
     });
     const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
     if (!res.ok || !body.workspace) {
-      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      if (res.status === 401) return handleAuthExpired();
       return { ok: false, message: body.message ?? "팀 참여에 실패했습니다." };
     }
     // 팀 참여 직후 캐시된 목록·업장 id를 버리고 고객·매물·일정 다시 받기
@@ -167,7 +172,7 @@ export async function reissueShareCode(): Promise<
   { ok: true; workspace: WorkspaceInfo } | { ok: false; message: string }
 > {
   const token = await getAccessToken();
-  if (!token) return { ok: false, message: LOGIN_AGAIN };
+  if (!token) return handleAuthExpired();
 
   try {
     const res = await safeFetch("/api/workspace/reissue", {
@@ -177,7 +182,7 @@ export async function reissueShareCode(): Promise<
     });
     const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
     if (!res.ok || !body.workspace) {
-      if (res.status === 401) return { ok: false, message: LOGIN_AGAIN };
+      if (res.status === 401) return handleAuthExpired();
       return {
         ok: false,
         message: body.message ?? "코드 재발급에 실패했습니다.",

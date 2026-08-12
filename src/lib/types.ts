@@ -65,6 +65,11 @@ export interface User {
   suspended?: boolean;
   /** 정지 사유 (사용자에게 표시) */
   suspendedReason?: string;
+  /** 조건 매칭·사이트 매칭 (미설정 시 true) */
+  matchingEnabled?: boolean;
+  /** free | basic_lifetime | pro */
+  planTier?: string;
+  promoSource?: string | null;
 }
 
 /** 공통: 업장 공유·등록자 표시용 */
@@ -178,7 +183,7 @@ export interface Property extends SharedMeta {
   monthlyRent?: number;
   maintenanceFee: number;
   maintenanceIncludes: string[];
-  parkingType: ParkingType;
+  parkingType?: ParkingType;
   parkingFeeType: ParkingFeeType;
   parkingFee?: number;
   /** 대출 가능 여부. 미입력이면 매칭 통과 */

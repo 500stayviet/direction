@@ -13,7 +13,7 @@ import {
   SiteShareMatchingEmpty,
   TeamShareButton,
 } from "@/components/SiteShareUi";
-import { MatchingPropertiesSection } from "@/components/MatchListPanel";
+import { MatchingPropertiesSection, MatchingGate } from "@/components/MatchListPanel";
 import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import {
   confirmForeignTeamDelete,
@@ -207,25 +207,27 @@ export default function CustomerDetailPage() {
               <p className="px-1 text-sm font-bold text-gray-800">
                 조건에 맞는 매물
               </p>
-              <MatchingPropertiesSection
-                title="내 매물"
-                listHint="(내 매물리스트)"
-                items={matches.own}
-                customerId={customer.id}
-                emptyText="조건에 맞는 내 매물이 없습니다."
-                onRemoved={(id) =>
-                  setProperties((prev) => prev.filter((p) => p.id !== id))
-                }
-              />
-              <MatchingPropertiesSection
-                title="현장동선내 공유 매물"
-                items={matches.partner}
-                customerId={customer.id}
-                emptyText={<SiteShareMatchingEmpty kind="property" />}
-                onRemoved={(id) =>
-                  setProperties((prev) => prev.filter((p) => p.id !== id))
-                }
-              />
+              <MatchingGate>
+                <MatchingPropertiesSection
+                  title="내 매물"
+                  listHint="(내 매물리스트)"
+                  items={matches.own}
+                  customerId={customer.id}
+                  emptyText="조건에 맞는 내 매물이 없습니다."
+                  onRemoved={(id) =>
+                    setProperties((prev) => prev.filter((p) => p.id !== id))
+                  }
+                />
+                <MatchingPropertiesSection
+                  title="현장동선내 공유 매물"
+                  items={matches.partner}
+                  customerId={customer.id}
+                  emptyText={<SiteShareMatchingEmpty kind="property" />}
+                  onRemoved={(id) =>
+                    setProperties((prev) => prev.filter((p) => p.id !== id))
+                  }
+                />
+              </MatchingGate>
             </div>
           </div>
 

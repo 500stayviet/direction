@@ -76,11 +76,28 @@ export async function GET(request: Request, { params }: Params) {
           ? buildAdminPropertyDetail(meta)
           : buildAdminScheduleDetail(meta);
 
+    const { data: profile } = await auth.admin
+      .from("profiles")
+      .select("id, username, shop_name, display_name, phone, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const owner = profile
+      ? {
+          id: String(profile.id),
+          username: String(profile.username ?? ""),
+          shopName: String(profile.shop_name ?? ""),
+          name: String(profile.display_name ?? ""),
+          phone: String(profile.phone ?? ""),
+          createdAt: String(profile.created_at ?? ""),
+        }
+      : null;
+
     return NextResponse.json({
       ok: true,
       type,
       canReveal,
-      item,
+      item: { ...item, owner },
     });
   } catch (e) {
     return NextResponse.json(

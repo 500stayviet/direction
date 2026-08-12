@@ -19,8 +19,8 @@ function writeUserCookie(user: User): void {
   if (typeof document === "undefined") return;
   try {
     const value = encodeURIComponent(JSON.stringify(user));
-    // 화면 로그인 상태용 (토큰은 localStorage). 7일
-    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${cookieSecureSuffix()}`;
+    // 화면 로그인 상태용 (토큰은 localStorage). 약 2주 — 주 단위 재로그인 여유
+    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 14}; SameSite=Lax${cookieSecureSuffix()}`;
   } catch {
     /* ignore */
   }

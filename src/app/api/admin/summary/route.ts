@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
+import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
 
 /** Asia/Seoul 기준 오늘 0시 (UTC ISO) */
 function startOfTodayKstIso(): string {
@@ -42,27 +43,33 @@ export async function GET(request: Request) {
       auth.admin
         .from("customers")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("customers")
         .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("listed_properties")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("listed_properties")
         .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("schedules")
         .select("*", { count: "exact", head: true })
-        .is("deleted_at", null),
+        .is("deleted_at", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("schedules")
         .select("*", { count: "exact", head: true })
-        .not("deleted_at", "is", null),
+        .not("deleted_at", "is", null)
+        .not("id", "like", DEMO_ENTITY_ID_LIKE),
       auth.admin
         .from("deleted_accounts")
         .select("*", { count: "exact", head: true }),
