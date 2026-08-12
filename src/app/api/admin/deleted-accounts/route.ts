@@ -4,9 +4,10 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { writeAuditLog } from "@/lib/workspaceServer";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** 탈퇴 계정 목록 + 슈퍼만 복구(밴 해제, deleted_accounts 제거, 동일 아이디 유지) */
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -188,3 +189,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const POST = withApiErrorLog(__POST_handler);

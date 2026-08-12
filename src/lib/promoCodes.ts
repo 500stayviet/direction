@@ -132,6 +132,37 @@ export async function validatePromoCode(
   };
 }
 
+/**
+ * 가입 한 칸 입력: 프로모 코드 우선, 아니면 추천인 아이디로 해석.
+ */
+export async function resolveSignupEventCode(
+  admin: Admin,
+  raw: string
+): Promise<
+  | { ok: true; promoCode?: string; referrerUsername?: string }
+  | { ok: false; message: string }
+> {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { ok: true };
+  }
+
+  const promo = await validatePromoCode(admin, trimmed);
+  if (promo.ok) {
+    return { ok: true, promoCode: promo.code };
+  }
+
+  const ref = await validateReferrerUsername(admin, trimmed);
+  if (ref.ok) {
+    return { ok: true, referrerUsername: ref.username };
+  }
+
+  return {
+    ok: false,
+    message: "추천인 아이디 또는 프로모 코드를 확인해 주세요.",
+  };
+}
+
 function entitlementsForBenefit(benefit: PromoBenefit): {
   planTier: string;
   matchingEnabled: boolean;

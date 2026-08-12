@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SITE, siteMailtoHref } from "@/lib/constants/site";
 
 type Tab = "service" | "privacy" | "ads" | "disclaimer";
 
@@ -14,6 +16,31 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const REVISION = "시행일 2026. 8. 1. · 개정 2026. 8. 12.";
+
+function BusinessOperatorBlock() {
+  return (
+    <div className="rounded-2xl bg-gray-50 px-4 py-3 text-[12px] leading-relaxed text-gray-600">
+      <p className="font-bold text-gray-800">사업자 정보</p>
+      <ul className="mt-1.5 space-y-0.5">
+        <li>
+          서비스명 {SITE.serviceName} · 상호 {SITE.companyName}
+        </li>
+        <li>대표자 {SITE.representative}</li>
+        <li>사업자등록번호 {SITE.businessNumber}</li>
+        <li>사업장 주소 {SITE.address}</li>
+        <li>
+          고객센터{" "}
+          <a
+            href={siteMailtoHref()}
+            className="font-semibold text-[#3182F6] underline-offset-2 hover:underline"
+          >
+            {SITE.contactEmail}
+          </a>
+        </li>
+      </ul>
+    </div>
+  );
+}
 
 export default function TermsPage() {
   const [tab, setTab] = useState<Tab>("service");
@@ -83,6 +110,8 @@ export default function TermsPage() {
           로그인
         </Link>
       </div>
+
+      <SiteFooter showNavLinks={false} className="mt-6" />
     </main>
   );
 }
@@ -108,14 +137,17 @@ function ServiceTerms() {
   return (
     <>
       <p className="text-[12px] font-semibold text-gray-400">{REVISION}</p>
+      <BusinessOperatorBlock />
       <Section title="1. 서비스 성격">
         <p>
-          현장동선(이하 “본 서비스”)은 부동산 중개 현장 업무를 돕는{" "}
+          {SITE.serviceName}(이하 “본 서비스”)은 부동산 중개 현장 업무를 돕는{" "}
           <strong className="font-bold text-gray-800">업무 편의 도구</strong>
           (모바일 웹)입니다. 고객·매물·방문 일정(네비)·전화·길안내 연결·조건
           매칭·팀 공유를 정리하는 선택적 도구이며, 누구나 의무적으로 써야 하는
           서비스가 아닙니다. 서비스 운영을 위해 광고가 표시될 수 있으며, 향후
-          유료 요금제·부가 기능이 도입될 수 있습니다.
+          유료 요금제·부가 기능이 도입될 수 있습니다. 본 서비스는{" "}
+          <strong className="font-bold text-gray-800">{SITE.companyName}</strong>
+          (대표 {SITE.representative})가 제공합니다.
         </p>
       </Section>
       <Section title="2. 이용 자격 및 동의">
@@ -229,7 +261,7 @@ function ServiceTerms() {
           기간·대출·보증보험·주차·엘리베이터·애완 등 입력된 조건을 바탕으로
           후보를 보여 주는 편의 기능입니다. 매칭 결과의 완전성·정확성을
           보증하지 않으며, 최종 등록·선택·계약 판단은 이용자 책임입니다.
-          「현장동선내(사이트) 공유」 매칭 등 일부 기능은{" "}
+          「{SITE.serviceName}내(사이트) 공유」 매칭 등 일부 기능은{" "}
           <strong className="font-bold text-gray-800">준비 중</strong>일 수
           있습니다.
         </p>
@@ -345,7 +377,24 @@ function PrivacyTerms() {
   return (
     <>
       <p className="text-[12px] font-semibold text-gray-400">{REVISION}</p>
-      <Section title="1. 저장·처리 방식">
+      <BusinessOperatorBlock />
+      <Section title="1. 개인정보 처리자">
+        <p>
+          개인정보 처리자는 상호{" "}
+          <strong className="font-bold text-gray-800">{SITE.companyName}</strong>
+          , 대표자 {SITE.representative}, 사업자등록번호 {SITE.businessNumber},
+          사업장 주소 {SITE.address}입니다. 문의는{" "}
+          <a
+            href={siteMailtoHref()}
+            className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
+          >
+            {SITE.contactEmail}
+          </a>
+          로 할 수 있습니다. {SITE.serviceName} 서비스의 개인정보는 아래와 같이
+          처리됩니다.
+        </p>
+      </Section>
+      <Section title="2. 저장·처리 방식">
         <p>
           계정 인증 및 고객·매물·일정 등 업무 데이터는{" "}
           <strong className="font-bold text-gray-800">
@@ -361,7 +410,7 @@ function PrivacyTerms() {
           항목 공유를 켜지 않은 데이터는 기본적으로 계정별로 분리됩니다.
         </p>
       </Section>
-      <Section title="2. 수집·이용 항목">
+      <Section title="3. 수집·이용 항목">
         <p>
           본 서비스는{" "}
           <strong className="font-bold text-gray-800">
@@ -408,7 +457,7 @@ function PrivacyTerms() {
           입력하지 않은 정보는 저장되지 않습니다.
         </p>
       </Section>
-      <Section title="3. 이용 목적">
+      <Section title="4. 이용 목적">
         <p>수집·저장된 정보는 다음 목적에 이용됩니다.</p>
         <ul className="list-disc space-y-1 pl-4">
           <li>회원 식별·로그인·비밀번호 힌트 확인·탈퇴 아이디 재사용 차단</li>
@@ -422,7 +471,7 @@ function PrivacyTerms() {
           <li>광고 게재 시 광고·측정(「광고」 탭)</li>
         </ul>
       </Section>
-      <Section title="4. 팀 공유·탈퇴·삭제·정지 시 처리">
+      <Section title="5. 팀 공유·탈퇴·삭제·정지 시 처리">
         <p>
           팀 공유 공간의 데이터는 업장 업무 자산으로 취급될 수 있으며, 회원
           탈퇴 후에도 공유 공간·운영상 보관(복구·분쟁·법령 대응) 목적 범위에서
@@ -449,7 +498,7 @@ function PrivacyTerms() {
           절차에 따릅니다.
         </p>
       </Section>
-      <Section title="5. 운영자(관리자) 접근">
+      <Section title="6. 운영자(관리자) 접근">
         <p>
           서비스 운영을 위해 슈퍼관리자·직원 계정이 별도로 둘 수 있습니다.
           운영자는 회원 목록·계정 상세·팀 구성·소프트 삭제·탈퇴 기록 등을
@@ -462,7 +511,7 @@ function PrivacyTerms() {
           업무 데이터를 판매하지 않습니다.
         </p>
       </Section>
-      <Section title="6. 유출·관리 책임">
+      <Section title="7. 유출·관리 책임">
         <p>
           비밀번호·기기·계정 공유, 화면 캡처, 메신저 전달, 팀 멤버·공유 코드
           전달 오류 등 이용자 측 관리로 인한 유출·노출은{" "}
@@ -474,7 +523,7 @@ function PrivacyTerms() {
           백업을 보장하지 않습니다.
         </p>
       </Section>
-      <Section title="7. 제3자 제공·처리">
+      <Section title="8. 제3자 제공·처리">
         <p>
           운영자가 이용자 업무 데이터를 판매하지 않습니다. 다만 서비스 제공에
           필요한 범위에서 제3자가 관여할 수 있습니다.
@@ -498,7 +547,7 @@ function PrivacyTerms() {
           </li>
         </ul>
       </Section>
-      <Section title="8. 쿠키·로컬 저장">
+      <Section title="9. 쿠키·로컬 저장">
         <p>
           로그인 유지, 화면 로그인 상태, 목록 캐시, 알림·숨김의 임시 캐시,
           스플래시·안내 닫기, (광고 사용 시) 광고·트래픽 측정 목적으로 쿠키
@@ -507,14 +556,14 @@ function PrivacyTerms() {
           있으나 일부 기능이 제한될 수 있습니다.
         </p>
       </Section>
-      <Section title="9. 문의">
+      <Section title="10. 문의">
         <p>
           계정·데이터·개인정보·팀 나가기·정지 관련 문의는 서비스 내 안내 메일(
           <a
-            href="mailto:bek94900@gmail.com"
+            href={siteMailtoHref()}
             className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
           >
-            bek94900@gmail.com
+            {SITE.contactEmail}
           </a>
           ) 또는 운영 채널을 통해 요청할 수 있습니다.
         </p>

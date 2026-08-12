@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   requireAdminSession,
   requireSuper,
 } from "@/lib/adminAuth";
@@ -7,7 +8,7 @@ import {
 const TEST_OWNER_NOTE = "관리자 소프트삭제 테스트";
 
 /** 관리자: 소프트삭제 목록·복원 테스트용 행 생성 (슈퍼만) */
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -226,3 +227,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

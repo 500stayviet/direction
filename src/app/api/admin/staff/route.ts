@@ -5,8 +5,9 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ ok: true, staff: data ?? [] });
 }
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -138,3 +139,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const POST = withApiErrorLog(__POST_handler);

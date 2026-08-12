@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUserFromToken, getBearerToken } from "@/lib/serverAuth";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   buildWorkspaceInfo,
   dissolveSoloPendingWorkspace,
   getMembership,
@@ -8,7 +9,7 @@ import {
   writeAuditLog,
 } from "@/lib/workspaceServer";
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       shareCode?: string;
@@ -133,3 +134,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

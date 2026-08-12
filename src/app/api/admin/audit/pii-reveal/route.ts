@@ -4,9 +4,10 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** 슈퍼: PII 열람(전화·호실 등) 기록 */
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -50,3 +51,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

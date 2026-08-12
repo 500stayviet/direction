@@ -15,10 +15,19 @@ function cookieSecureSuffix(): string {
   return window.location.protocol === "https:" ? "; Secure" : "";
 }
 
+function publicUserForCookie(user: User): Omit<User, "passwordHint"> & {
+  passwordHint: "";
+} {
+  return { ...user, passwordHint: "" };
+}
+
 function writeUserCookie(user: User): void {
   if (typeof document === "undefined") return;
   try {
-    const value = encodeURIComponent(JSON.stringify(user));
+    // 힌트는 쿠키에 넣지 않음 (XSS·문서 접근 시 탈취 면적 축소)
+    const value = encodeURIComponent(
+      JSON.stringify(publicUserForCookie(user))
+    );
     // 화면 로그인 상태용 (토큰은 localStorage). 약 2주 — 주 단위 재로그인 여유
     document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 14}; SameSite=Lax${cookieSecureSuffix()}`;
   } catch {

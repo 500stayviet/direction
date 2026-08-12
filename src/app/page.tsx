@@ -22,6 +22,7 @@ import {
 } from "@/hooks/useEntityList";
 import type { User } from "@/lib/types";
 import { AdBanner } from "@/components/ads/AdBanner";
+import { SiteFooter } from "@/components/SiteFooter";
 
 function subscribeNoop() {
   return () => {};
@@ -305,38 +306,7 @@ export default function HomePage() {
 
       <AdBanner slot="home" className="mt-3" />
 
-      <footer className="mt-5 space-y-2 px-1 pb-2 text-center text-[12px] text-gray-400">
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <Link
-            href="/about"
-            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
-          >
-            서비스 소개
-          </Link>
-          <Link
-            href="/about#guide"
-            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
-          >
-            사용설명
-          </Link>
-          <Link
-            href="/terms"
-            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
-          >
-            약관·개인정보·광고
-          </Link>
-        </div>
-        <p>업무 편의 도구 · 필요한 분만 이용</p>
-        <p>
-          문의{" "}
-          <a
-            href="mailto:bek94900@gmail.com"
-            className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
-          >
-            bek94900@gmail.com
-          </a>
-        </p>
-      </footer>
+      <SiteFooter />
 
       <RequireAuthModal
         open={authModalOpen}

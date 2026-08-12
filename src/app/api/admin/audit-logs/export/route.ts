@@ -5,6 +5,7 @@ import {
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   auditLogsToCsv,
   fetchAdminAuditLogs,
   parseAuditLogDateRange,
@@ -20,7 +21,7 @@ function daysBetween(from: string, to: string): number {
 }
 
 /** 슈퍼: 기간별 감사 로그 CSV 다운로드 */
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -107,3 +108,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

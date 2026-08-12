@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -11,7 +12,7 @@ const TABLES = {
 } as const;
 
 /** 계정별 고객·매물·네비 전체 조회 (검색·활성/삭제) */
-export async function GET(request: Request, { params }: Params) {
+async function __GET_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -176,3 +177,5 @@ export async function GET(request: Request, { params }: Params) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

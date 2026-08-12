@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
 import { writeAuditLog } from "@/lib/workspaceServer";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(request: Request, { params }: Params) {
+async function __GET_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -188,7 +189,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 /** 계정 정지 / 정지 해제 (슈퍼·직원) */
-export async function POST(request: Request, { params }: Params) {
+async function __POST_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -322,3 +323,6 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const POST = withApiErrorLog(__POST_handler);

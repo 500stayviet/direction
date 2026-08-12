@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getClientIp, loginAdmin } from "@/lib/adminAuth";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       username?: string;
@@ -30,3 +31,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

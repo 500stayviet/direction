@@ -23,6 +23,9 @@ type UsernameCheck =
   | { status: "taken"; username: string; message: string }
   | { status: "error"; message: string };
 
+/** false면 「이벤트」접기 헤더만 보이고 펼칠 수 없음 (준비 중) */
+const SIGNUP_EVENT_SECTION_UNLOCKED = false;
+
 export default function SignupPage() {
   const [shopName, setShopName] = useState("");
   const [name, setName] = useState("");
@@ -31,6 +34,9 @@ export default function SignupPage() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [phone, setPhone] = useState("");
   const [passwordHint, setPasswordHint] = useState("");
+  const [eventCode, setEventCode] = useState("");
+  /** 이벤트 섹션: 기본 닫힘. 준비 중에는 펼침 잠금 */
+  const [eventOpen, setEventOpen] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [usernameCheck, setUsernameCheck] = useState<UsernameCheck>({
@@ -178,6 +184,9 @@ export default function SignupPage() {
         passwordConfirm,
         phone,
         passwordHint,
+        eventCode: SIGNUP_EVENT_SECTION_UNLOCKED
+          ? eventCode.trim() || undefined
+          : undefined,
       });
       if (!result.ok) {
         setError(result.message);
@@ -345,22 +354,44 @@ export default function SignupPage() {
               }
             />
           </div>
-          <div className="space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-3 py-3">
-            <p className="text-[12px] font-bold text-gray-500">이벤트 (준비 중)</p>
-            <Input
-              label="추천인 아이디"
-              value=""
-              disabled
-              placeholder="@추천인아이디"
-              hint="이벤트 준비 중 · 적용 안 됨"
-            />
-            <Input
-              label="프로모 코드"
-              value=""
-              disabled
-              placeholder="프로모 코드 입력"
-              hint="이벤트 준비 중 · 적용 안 됨"
-            />
+          <div className="overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50/80">
+            <button
+              type="button"
+              disabled={!SIGNUP_EVENT_SECTION_UNLOCKED}
+              aria-expanded={eventOpen}
+              onClick={() => {
+                if (!SIGNUP_EVENT_SECTION_UNLOCKED) return;
+                setEventOpen((v) => !v);
+              }}
+              className={[
+                "flex w-full items-center justify-between gap-2 px-3 py-3 text-left",
+                SIGNUP_EVENT_SECTION_UNLOCKED
+                  ? "active:bg-gray-100/80"
+                  : "cursor-default opacity-90",
+              ].join(" ")}
+            >
+              <span className="text-[12px] font-bold text-gray-500">
+                이벤트
+              </span>
+              <span className="text-[11px] font-semibold text-gray-400">
+                {SIGNUP_EVENT_SECTION_UNLOCKED
+                  ? eventOpen
+                    ? "접기"
+                    : "펼치기"
+                  : "준비 중"}
+              </span>
+            </button>
+            {SIGNUP_EVENT_SECTION_UNLOCKED && eventOpen ? (
+              <div className="space-y-2 border-t border-dashed border-gray-200 px-3 py-3">
+                <Input
+                  label="추천인 아이디 · 프로모 코드"
+                  value={eventCode}
+                  onChange={(e) => setEventCode(e.target.value)}
+                  placeholder="추천인 아이디 또는 프로모 코드"
+                  hint="둘 중 하나만 입력하면 됩니다"
+                />
+              </div>
+            ) : null}
           </div>
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">

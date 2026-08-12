@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername } from "@/lib/supabase/email";
 import { removeMemberKeepSharedData } from "@/lib/workspaceServer";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 const CONFIRM_PHRASE = "계정삭제에 동의합니다";
 /** ~100년 — 로그인 불가 처리 (하드 삭제하지 않음) */
 const BAN_DURATION = "876000h";
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       confirmPhrase?: string;
@@ -232,3 +233,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

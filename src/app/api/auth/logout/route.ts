@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** 서버에서 로그인 쿠키를 확실히 만료 */
-export async function POST() {
+async function __POST_handler() {
   const res = NextResponse.json({ ok: true });
   res.cookies.set("realty_app_user_v1", "", {
     path: "/",
@@ -12,3 +13,5 @@ export async function POST() {
   });
   return res;
 }
+
+export const POST = withApiErrorLog(__POST_handler);

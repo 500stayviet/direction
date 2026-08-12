@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   buildAdminCustomerDetail,
   buildAdminPropertyDetail,
   buildAdminScheduleDetail,
@@ -15,7 +16,7 @@ const TABLES = {
 } as const;
 
 /** 계정 자료 한 건 상세 — 리스트는 마스킹, 원문은 슈퍼만 */
-export async function GET(request: Request, { params }: Params) {
+async function __GET_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -109,3 +110,5 @@ export async function GET(request: Request, { params }: Params) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

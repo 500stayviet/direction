@@ -5,10 +5,11 @@ import {
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
 import { promoRangeFromDateInputs } from "@/lib/promoCodes";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function PATCH(request: Request, { params }: Params) {
+async function __PATCH_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -102,7 +103,7 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 /** soft delete — active=false */
-export async function DELETE(request: Request, { params }: Params) {
+async function __DELETE_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -154,3 +155,6 @@ export async function DELETE(request: Request, { params }: Params) {
     );
   }
 }
+
+export const PATCH = withApiErrorLog(__PATCH_handler);
+export const DELETE = withApiErrorLog(__DELETE_handler);

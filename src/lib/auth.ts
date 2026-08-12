@@ -515,6 +515,8 @@ export type RegisterInput = {
   passwordConfirm: string;
   phone?: string;
   passwordHint: string;
+  /** 추천인 아이디 또는 프로모 코드 */
+  eventCode?: string;
 };
 
 export type AuthResult =
@@ -630,9 +632,31 @@ export async function loginUser(
           shop_name: body.user.shopName,
           display_name: body.user.name,
           phone: body.user.phone,
-          password_hint: body.user.passwordHint,
+          // password_hint / entitlement 컬럼은 서버만 관리 — 빈 값으로 덮어쓰지 않음
         })
         .then(() => undefined);
+
+      // 로그인 응답에는 힌트가 없음 → 본인 계정 화면용으로 프로필에서만 보강
+      void supabase
+        .from("profiles")
+        .select("password_hint, matching_enabled, plan_tier, promo_source")
+        .eq("id", body.user.id)
+        .maybeSingle()
+        .then(({ data: prof }) => {
+          if (!prof || !cachedUser) return;
+          const next = {
+            ...cachedUser,
+            passwordHint: String(prof.password_hint ?? ""),
+            matchingEnabled:
+              prof.matching_enabled === false ? false : undefined,
+            planTier: prof.plan_tier ? String(prof.plan_tier) : undefined,
+            promoSource: prof.promo_source
+              ? String(prof.promo_source)
+              : undefined,
+          };
+          cachedUser = next;
+          saveAppAuth(body.session!, next);
+        });
     } catch {
       /* appAuth 백업으로 충분 — 홈에서 로그인 상태로 표시됨 */
     }

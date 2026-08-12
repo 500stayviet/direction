@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 export type GeocodeResult = {
   lat: number;
@@ -168,7 +169,7 @@ async function geocodeNominatim(query: string): Promise<GeocodeResult | null> {
   };
 }
 
-export async function GET(req: NextRequest) {
+async function __GET_handler(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") || "").trim();
   if (!q) {
     return NextResponse.json({ error: "q required" }, { status: 400 });
@@ -188,3 +189,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "geocode failed" }, { status: 502 });
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

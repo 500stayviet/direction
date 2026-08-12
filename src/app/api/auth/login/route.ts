@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
 import { backfillShopName } from "@/lib/format";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       username?: string;
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
     const { data: profile } = await admin
       .from("profiles")
       .select(
-        "shop_name, display_name, phone, password_hint, username, created_at"
+        "shop_name, display_name, phone, username, created_at, matching_enabled, plan_tier, promo_source"
       )
       .eq("id", data.user.id)
       .maybeSingle();
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
       }
     }
 
+    // passwordHint는 로그인 응답·쿠키에 넣지 않음 (재설정 탈취 면적 축소)
     const user = {
       id: data.user.id,
       username: String(profile?.username ?? meta.username ?? username),
@@ -141,12 +143,17 @@ export async function POST(request: Request) {
         profile?.display_name ?? meta.display_name ?? meta.username ?? username
       ),
       phone: String(profile?.phone ?? meta.phone ?? ""),
-      passwordHint: String(profile?.password_hint ?? meta.password_hint ?? ""),
+      passwordHint: "",
       createdAt: String(
         profile?.created_at ?? data.user.created_at ?? new Date().toISOString()
       ),
       suspended: suspended || undefined,
       suspendedReason,
+      matchingEnabled: profile?.matching_enabled === false ? false : undefined,
+      planTier: profile?.plan_tier ? String(profile.plan_tier) : undefined,
+      promoSource: profile?.promo_source
+        ? String(profile.promo_source)
+        : undefined,
     };
 
     const res = NextResponse.json({
@@ -158,14 +165,18 @@ export async function POST(request: Request) {
       user,
     });
 
-    // 화면 로그인 상태용 쿠키 (토큰은 클라이언트가 localStorage에 저장)
-    res.cookies.set("realty_app_user_v1", JSON.stringify(user), {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: "lax",
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-    });
+    // 화면 로그인 상태용 쿠키 (힌트 제외 · 토큰은 클라이언트가 localStorage에 저장)
+    res.cookies.set(
+      "realty_app_user_v1",
+      JSON.stringify({ ...user, passwordHint: "" }),
+      {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+        sameSite: "lax",
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+      }
+    );
 
     return res;
   } catch {
@@ -175,3 +186,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

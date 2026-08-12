@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   getAuthUserFromToken,
   getBearerToken,
 } from "@/lib/serverAuth";
 
 /** 로그인 유지 중 정지 여부 최신 확인 + last_seen 갱신 */
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const token = getBearerToken(request);
   if (!token) {
     return NextResponse.json({ ok: false, suspended: false }, { status: 401 });
@@ -70,3 +71,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

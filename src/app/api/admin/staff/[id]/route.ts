@@ -4,11 +4,12 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 type Params = { params: Promise<{ id: string }> };
 
 /** 슈퍼: 관리자 계정 비활성/재활성 */
-export async function PATCH(request: Request, { params }: Params) {
+async function __PATCH_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -103,3 +104,5 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 }
+
+export const PATCH = withApiErrorLog(__PATCH_handler);

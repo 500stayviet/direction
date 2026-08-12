@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   adminRemoveWorkspaceMember,
   listWorkspaceMembers,
 } from "@/lib/workspaceServer";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+async function __GET_handler(_request: Request, { params }: Params) {
   const auth = await requireAdminSession(_request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -56,7 +57,7 @@ export async function GET(_request: Request, { params }: Params) {
   });
 }
 
-export async function POST(request: Request, { params }: Params) {
+async function __POST_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -108,3 +109,6 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const POST = withApiErrorLog(__POST_handler);

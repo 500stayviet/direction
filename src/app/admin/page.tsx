@@ -17,9 +17,28 @@ function daysAgoISO(days: number): string {
 }
 
 const AUTH_STORAGE = "realty_admin_session_v2";
+const ERROR_SEEN_STORAGE = "realty_admin_error_seen_at_v1";
+
+function readErrorSeenAt(): string | null {
+  try {
+    const raw = sessionStorage.getItem(ERROR_SEEN_STORAGE);
+    if (!raw) return null;
+    return Number.isNaN(Date.parse(raw)) ? null : raw;
+  } catch {
+    return null;
+  }
+}
+
+function writeErrorSeenAt(iso: string) {
+  try {
+    sessionStorage.setItem(ERROR_SEEN_STORAGE, iso);
+  } catch {
+    /* ignore */
+  }
+}
 
 type AdminRole = "super" | "staff";
-type Tab = "accounts" | "properties" | "search" | "teams" | "deleted" | "staff" | "events" | "logs";
+type Tab = "accounts" | "properties" | "search" | "teams" | "deleted" | "staff" | "events" | "errors" | "logs";
 
 type Session = {
   id: string;
@@ -310,6 +329,25 @@ export default function AdminPage() {
   const [auditFrom, setAuditFrom] = useState(() => daysAgoISO(30));
   const [auditTo, setAuditTo] = useState(() => todayISO());
 
+  const [errorLogs, setErrorLogs] = useState<
+    {
+      id: string;
+      createdAt: string;
+      status: number;
+      method: string;
+      path: string;
+      message: string;
+      reportText: string;
+    }[]
+  >([]);
+  const [errorLogQ, setErrorLogQ] = useState("");
+  const [errorLogStatus, setErrorLogStatus] = useState<"all" | "4xx" | "5xx">(
+    "all"
+  );
+  const [copiedErrorId, setCopiedErrorId] = useState<string | null>(null);
+  const [errorBadge, setErrorBadge] = useState(0);
+  const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
+
   const [promoCodes, setPromoCodes] = useState<PromoCodeRow[]>([]);
   const [earlyBird, setEarlyBird] = useState<EarlyBirdCampaign | null>(null);
   const [earlyBirdOpen, setEarlyBirdOpen] = useState(false);
@@ -521,6 +559,72 @@ export default function AdminPage() {
     [auditFrom, auditTo, clearSession]
   );
 
+  const loadErrorLogs = useCallback(
+    async (
+      token: string,
+      q = "",
+      status: "all" | "4xx" | "5xx" = "all"
+    ) => {
+      const params = new URLSearchParams({ limit: "40" });
+      if (q.trim()) params.set("q", q.trim());
+      if (status !== "all") params.set("status", status);
+      const res = await fetch(`/api/admin/error-logs?${params}`, {
+        headers: authHeaders(token),
+      });
+      if (checkAdminUnauthorized(res)) {
+        clearSession();
+        return;
+      }
+      const body = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        rows?: typeof errorLogs;
+      };
+      if (!res.ok || !body.ok) {
+        throw new Error(body.message ?? "에러 로그 조회 실패");
+      }
+      setErrorLogs(body.rows ?? []);
+    },
+    [clearSession]
+  );
+
+  const loadErrorBadge = useCallback(
+    async (token: string) => {
+      const params = new URLSearchParams({ count: "1" });
+      const seen = readErrorSeenAt();
+      if (seen) params.set("since", seen);
+      const res = await fetch(`/api/admin/error-logs?${params}`, {
+        headers: authHeaders(token),
+      });
+      if (checkAdminUnauthorized(res)) {
+        clearSession();
+        return;
+      }
+      const body = (await res.json()) as {
+        ok?: boolean;
+        count?: number;
+      };
+      if (!res.ok || !body.ok) return;
+      setErrorBadge(Math.max(0, Number(body.count ?? 0)));
+    },
+    [clearSession]
+  );
+
+  const markErrorsSeenOnLeave = useCallback(() => {
+    writeErrorSeenAt(new Date().toISOString());
+    setErrorBadge(0);
+  }, []);
+
+  const copyErrorReport = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedErrorId(id);
+      window.setTimeout(() => setCopiedErrorId(null), 1500);
+    } catch {
+      setError("클립보드 복사에 실패했습니다.");
+    }
+  };
+
   const loadPromoEvents = useCallback(
     async (token: string) => {
       const [codesRes, campaignRes] = await Promise.all([
@@ -582,6 +686,9 @@ export default function AdminPage() {
         try {
           await loadSummary(saved.token);
           await loadAccounts(saved.token);
+          if (saved.role === "super") {
+            await loadErrorBadge(saved.token);
+          }
         } catch {
           sessionStorage.removeItem(AUTH_STORAGE);
           setSession(null);
@@ -590,7 +697,15 @@ export default function AdminPage() {
     } catch {
       /* ignore */
     }
-  }, [loadAccounts, loadSummary]);
+  }, [loadAccounts, loadErrorBadge, loadSummary]);
+
+  useEffect(() => {
+    if (!session || session.role !== "super") return;
+    const tick = window.setInterval(() => {
+      void loadErrorBadge(session.token);
+    }, 60_000);
+    return () => window.clearInterval(tick);
+  }, [session, loadErrorBadge]);
 
   const login = async () => {
     setError("");
@@ -616,6 +731,9 @@ export default function AdminPage() {
       setSession(next);
       await loadSummary(next.token);
       await loadAccounts(next.token);
+      if (next.role === "super") {
+        await loadErrorBadge(next.token);
+      }
     } catch {
       setError("서버에 연결할 수 없습니다.");
     } finally {
@@ -743,6 +861,9 @@ export default function AdminPage() {
 
   const switchTab = async (next: Tab) => {
     if (!session) return;
+    if (tab === "errors" && next !== "errors") {
+      markErrorsSeenOnLeave();
+    }
     setTab(next);
     setError("");
     setBusy(true);
@@ -760,6 +881,10 @@ export default function AdminPage() {
       }
       if (next === "events" && session.role === "super") {
         await loadPromoEvents(session.token);
+      }
+      if (next === "errors" && session.role === "super") {
+        await loadErrorLogs(session.token, errorLogQ, errorLogStatus);
+        await loadErrorBadge(session.token);
       }
       if (next === "logs" && session.role === "super") {
         await loadAuditLogs(session.token, auditQ, auditFrom, auditTo);
@@ -814,7 +939,7 @@ export default function AdminPage() {
   }
 
   const tabs: {
-    id: Exclude<Tab, "staff" | "events" | "logs">;
+    id: Exclude<Tab, "staff" | "events" | "errors" | "logs">;
     label: string;
   }[] = [
     { id: "accounts", label: "가입자" },
@@ -830,13 +955,13 @@ export default function AdminPage() {
         title="관리자"
         titleAlign="left"
         right={
-          <div className="flex items-center gap-4">
+          <div className="flex max-w-[min(100vw-5.5rem,100%)] flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
             {isSuper ? (
               <>
                 <button
                   type="button"
                   className={[
-                    "text-[12px] font-bold whitespace-nowrap",
+                    "text-[11px] font-bold whitespace-nowrap sm:text-[12px]",
                     tab === "events" ? "text-[#3182F6]" : "text-gray-500",
                   ].join(" ")}
                   onClick={() => void switchTab("events")}
@@ -846,7 +971,22 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className={[
-                    "text-[12px] font-bold whitespace-nowrap",
+                    "inline-flex items-center gap-0.5 text-[11px] font-bold whitespace-nowrap sm:text-[12px]",
+                    tab === "errors" ? "text-[#3182F6]" : "text-gray-500",
+                  ].join(" ")}
+                  onClick={() => void switchTab("errors")}
+                >
+                  에러
+                  {errorBadge > 0 ? (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold leading-none text-white">
+                      {errorBadge > 99 ? "99+" : errorBadge}
+                    </span>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    "text-[11px] font-bold whitespace-nowrap sm:text-[12px]",
                     tab === "logs" ? "text-[#3182F6]" : "text-gray-500",
                   ].join(" ")}
                   onClick={() => void switchTab("logs")}
@@ -856,7 +996,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className={[
-                    "text-[12px] font-bold whitespace-nowrap",
+                    "text-[11px] font-bold whitespace-nowrap sm:text-[12px]",
                     tab === "staff" ? "text-[#3182F6]" : "text-gray-500",
                   ].join(" ")}
                   onClick={() => void switchTab("staff")}
@@ -867,7 +1007,7 @@ export default function AdminPage() {
             ) : null}
             <button
               type="button"
-              className="text-[12px] font-bold whitespace-nowrap text-gray-500"
+              className="text-[11px] font-bold whitespace-nowrap text-gray-500 sm:text-[12px]"
               onClick={() => {
                 sessionStorage.removeItem(AUTH_STORAGE);
                 setSession(null);
@@ -894,9 +1034,6 @@ export default function AdminPage() {
               <p>고객 {summary.customersActive}</p>
               <p>매물 {summary.propertiesActive}</p>
               <p>네비 {summary.schedulesActive}</p>
-              <p className="col-span-2 text-[10px] text-gray-400">
-                오늘 접속 = 앱 열림(last_seen)
-              </p>
             </div>
           ) : null}
         </Card>
@@ -2065,6 +2202,145 @@ export default function AdminPage() {
                   );
                 })
               )}
+            </div>
+          </Card>
+        ) : null}
+
+        {tab === "errors" && isSuper ? (
+          <Card className="space-y-2.5 !p-3">
+            <div>
+              <p className="text-[14px] font-bold">API 에러</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                400·500대 · 「복사」후 Cursor에 붙여넣기 · 다른 탭으로 나가면
+                알림 숫자 초기화
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(
+                [
+                  ["all", "전체"],
+                  ["4xx", "400대"],
+                  ["5xx", "500대"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={[
+                    "rounded-lg px-2.5 py-1.5 text-[11px] font-bold",
+                    errorLogStatus === id
+                      ? "bg-[#3182F6] text-white"
+                      : "bg-gray-100 text-gray-600",
+                  ].join(" ")}
+                  onClick={() => {
+                    setErrorLogStatus(id);
+                    if (!session) return;
+                    void loadErrorLogs(session.token, errorLogQ, id).catch(
+                      (e) =>
+                        setError(
+                          e instanceof Error ? e.message : "에러 로그 조회 실패"
+                        )
+                    );
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                value={errorLogQ}
+                onChange={(e) => setErrorLogQ(e.target.value)}
+                placeholder="경로·메시지 검색"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 text-[13px]"
+              />
+              <Button
+                type="button"
+                className="!min-h-[36px] shrink-0 !px-2.5 !text-[12px]"
+                disabled={busy || !session}
+                onClick={() => {
+                  if (!session) return;
+                  setBusy(true);
+                  void loadErrorLogs(session.token, errorLogQ, errorLogStatus)
+                    .catch((e) =>
+                      setError(
+                        e instanceof Error ? e.message : "에러 로그 조회 실패"
+                      )
+                    )
+                    .finally(() => setBusy(false));
+                }}
+              >
+                조회
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-red-100">
+              {errorLogs.map((row, idx) => {
+                const when = new Intl.DateTimeFormat("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                }).format(new Date(row.createdAt));
+                const open = expandedErrorId === row.id;
+                return (
+                  <div
+                    key={row.id}
+                    className={[
+                      "space-y-1.5 px-2.5 py-2.5",
+                      idx > 0 ? "border-t border-red-100" : "",
+                      row.status >= 500 ? "bg-red-50" : "bg-red-50/70",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] text-red-400/90">{when}</p>
+                        <p className="mt-0.5 break-all text-[12px] font-bold leading-snug text-gray-900">
+                          <span className="text-red-600">{row.status}</span>{" "}
+                          {row.method} {row.path}
+                        </p>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-600">
+                          {row.message || "(메시지 없음)"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                          type="button"
+                          className="rounded-lg bg-white/80 px-2 py-1 text-[11px] font-bold text-gray-700 ring-1 ring-red-100"
+                          onClick={() =>
+                            void copyErrorReport(row.id, row.reportText)
+                          }
+                        >
+                          {copiedErrorId === row.id ? "복사됨" : "복사"}
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg bg-white/80 px-2 py-1 text-[11px] font-bold text-gray-500 ring-1 ring-red-100"
+                          onClick={() =>
+                            setExpandedErrorId((cur) =>
+                              cur === row.id ? null : row.id
+                            )
+                          }
+                        >
+                          {open ? "접기" : "상세"}
+                        </button>
+                      </div>
+                    </div>
+                    {open ? (
+                      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-white/90 p-2 text-[10px] leading-relaxed text-gray-600 ring-1 ring-red-100">
+                        {row.reportText}
+                      </pre>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {errorLogs.length === 0 ? (
+                <p className="bg-white py-3 text-center text-gray-400">
+                  기록된 에러가 없습니다.
+                </p>
+              ) : null}
             </div>
           </Card>
         ) : null}

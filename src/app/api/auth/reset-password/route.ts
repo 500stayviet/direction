@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
+import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
+  checkResetLock,
+  clearResetFailures,
+  getClientIp,
+  recordResetFailure,
+} from "@/lib/authResetAttempts";
 
 async function findAuthUserByUsername(
   admin: ReturnType<typeof createAdminClient>,
@@ -26,7 +33,7 @@ async function findAuthUserByUsername(
   }
 }
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       username?: string;
@@ -37,6 +44,7 @@ export async function POST(request: Request) {
     const username = normalizeUsername(body.username ?? "");
     const hint = (body.hint ?? "").trim();
     const newPassword = (body.newPassword ?? "").normalize("NFKC").trim();
+    const ip = getClientIp(request);
 
     if (!username) {
       return NextResponse.json(
@@ -71,12 +79,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const lock = await checkResetLock(admin, username, ip);
+    if (lock.locked) {
+      return NextResponse.json(
+        { ok: false, message: lock.message },
+        { status: 429 }
+      );
+    }
+
     const { data: deletedAccount } = await admin
       .from("deleted_accounts")
       .select("username")
       .eq("username", username)
       .maybeSingle();
     if (deletedAccount) {
+      await recordResetFailure(admin, username, ip);
       return NextResponse.json(
         { ok: false, message: "아이디 또는 힌트가 올바르지 않습니다." },
         { status: 400 }
@@ -93,8 +110,9 @@ export async function POST(request: Request) {
     const authUser = await findAuthUserByUsername(admin, username);
     const userId = (profile?.id as string | undefined) ?? authUser?.id;
     if (!userId) {
+      await recordResetFailure(admin, username, ip);
       return NextResponse.json(
-        { ok: false, message: "아이디를 찾을 수 없습니다." },
+        { ok: false, message: "아이디 또는 힌트가 올바르지 않습니다." },
         { status: 404 }
       );
     }
@@ -106,6 +124,7 @@ export async function POST(request: Request) {
 
     const hintOk = hints.some((h) => h === hint);
     if (!hintOk) {
+      await recordResetFailure(admin, username, ip);
       return NextResponse.json(
         {
           ok: false,
@@ -128,6 +147,7 @@ export async function POST(request: Request) {
       );
     }
 
+    await clearResetFailures(admin, username, ip);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(
@@ -136,3 +156,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

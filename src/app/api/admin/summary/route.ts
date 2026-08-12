@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** Asia/Seoul 기준 오늘 0시 (UTC ISO) */
 function startOfTodayKstIso(): string {
@@ -13,7 +14,7 @@ function startOfTodayKstIso(): string {
   return new Date(`${day}T00:00:00+09:00`).toISOString();
 }
 
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -110,3 +111,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

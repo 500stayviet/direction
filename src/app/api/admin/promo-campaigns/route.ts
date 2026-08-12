@@ -5,6 +5,7 @@ import {
 } from "@/lib/adminAuth";
 import { writeAdminAudit } from "@/lib/adminAudit";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   promoDateInputFromIso,
   promoRangeFromDateInputs,
 } from "@/lib/promoCodes";
@@ -26,7 +27,7 @@ function mapCampaign(row: Record<string, unknown> | null) {
   };
 }
 
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+async function __PUT_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -163,7 +164,7 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function __DELETE_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -208,3 +209,7 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const PUT = withApiErrorLog(__PUT_handler);
+export const DELETE = withApiErrorLog(__DELETE_handler);

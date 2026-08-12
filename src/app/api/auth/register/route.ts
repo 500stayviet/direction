@@ -3,13 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { usernameToEmail, validateUsernameFormat } from "@/lib/supabase/email";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   applySignupPromotions,
   isPromoSignupEnabled,
-  validatePromoCode,
-  validateReferrerUsername,
+  resolveSignupEventCode,
 } from "@/lib/promoCodes";
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       shopName?: string;
@@ -19,6 +19,8 @@ export async function POST(request: Request) {
       passwordConfirm?: string;
       phone?: string;
       passwordHint?: string;
+      /** 추천인 아이디 또는 프로모 코드 (한 칸) */
+      eventCode?: string;
       referrerUsername?: string;
       promoCode?: string;
     };
@@ -102,34 +104,34 @@ export async function POST(request: Request) {
     }
 
     const promoEnabled = isPromoSignupEnabled();
+    let resolvedPromoCode = (body.promoCode ?? "").trim() || undefined;
+    let resolvedReferrer = (body.referrerUsername ?? "").trim() || undefined;
+
     if (promoEnabled) {
-      if (body.promoCode?.trim()) {
-        const promo = await validatePromoCode(admin, body.promoCode);
-        if (!promo.ok) {
+      const eventRaw = (body.eventCode ?? "").trim();
+      if (eventRaw) {
+        const resolved = await resolveSignupEventCode(admin, eventRaw);
+        if (!resolved.ok) {
           return NextResponse.json(
-            { ok: false, message: promo.message },
+            { ok: false, message: resolved.message },
             { status: 400 }
           );
         }
+        if (resolved.promoCode) resolvedPromoCode = resolved.promoCode;
+        if (resolved.referrerUsername) {
+          resolvedReferrer = resolved.referrerUsername;
+        }
       }
-      if (body.referrerUsername?.trim()) {
-        const ref = await validateReferrerUsername(
-          admin,
-          body.referrerUsername
+
+      if (resolvedReferrer && resolvedReferrer === username) {
+        return NextResponse.json(
+          { ok: false, message: "본인 아이디는 추천인으로 등록할 수 없습니다." },
+          { status: 400 }
         );
-        if (!ref.ok) {
-          return NextResponse.json(
-            { ok: false, message: ref.message },
-            { status: 400 }
-          );
-        }
-        if (ref.username === username) {
-          return NextResponse.json(
-            { ok: false, message: "본인 아이디는 추천인으로 등록할 수 없습니다." },
-            { status: 400 }
-          );
-        }
       }
+    } else {
+      resolvedPromoCode = undefined;
+      resolvedReferrer = undefined;
     }
 
     // Auth 메타데이터에 프로필 저장 (profiles 테이블 GRANT 없어도 가입·로그인 가능)
@@ -203,8 +205,8 @@ export async function POST(request: Request) {
       await applySignupPromotions(admin, {
         userId,
         newUsername: username,
-        referrerUsername: body.referrerUsername,
-        promoCode: body.promoCode,
+        referrerUsername: resolvedReferrer,
+        promoCode: resolvedPromoCode,
       });
     } else {
       // 얼리버드 캠페인은 이벤트 기간 자동 적용 (프로모·추천인 코드는 PROMO_SIGNUP_ENABLED 시만)
@@ -233,3 +235,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

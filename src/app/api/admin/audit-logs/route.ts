@@ -4,9 +4,10 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { fetchAdminAuditLogs } from "@/lib/adminAuditLogsQuery";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** 슈퍼: 관리자·운영 감사 로그 조회 */
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -63,3 +64,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

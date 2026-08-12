@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -26,7 +27,7 @@ async function syncCreatorDisplayName(
     .eq("user_id", userId);
 }
 
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json()) as {
       shopName?: string;
@@ -168,3 +169,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

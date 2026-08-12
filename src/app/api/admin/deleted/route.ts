@@ -4,6 +4,7 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { writeAuditLog } from "@/lib/workspaceServer";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 const TABLES = {
   customers: "customers",
@@ -11,7 +12,7 @@ const TABLES = {
   schedules: "schedules",
 } as const;
 
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -225,7 +226,7 @@ export async function GET(request: Request) {
 }
 
 /** 슈퍼만: 원래 계정 또는 다른 계정으로 복원 */
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
     return NextResponse.json(
@@ -373,3 +374,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);
+export const POST = withApiErrorLog(__POST_handler);

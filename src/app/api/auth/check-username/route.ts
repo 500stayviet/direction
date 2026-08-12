@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateUsernameFormat } from "@/lib/supabase/email";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
 /** 회원가입용 아이디 중복 확인 */
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       username?: string;
@@ -76,3 +77,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);

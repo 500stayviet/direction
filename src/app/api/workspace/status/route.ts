@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAuthUserFromToken, getBearerToken } from "@/lib/serverAuth";
 import { buildWorkspaceInfo } from "@/lib/workspaceServer";
+import { withApiErrorLog } from "@/lib/appErrorLog";
 
-export async function GET(request: Request) {
+async function __GET_handler(request: Request) {
   try {
     const auth = await getAuthUserFromToken(getBearerToken(request));
     if (!auth) {
@@ -24,3 +25,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiErrorLog(__GET_handler);

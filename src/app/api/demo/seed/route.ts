@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPhoneInput } from "@/lib/format";
 import {
+import { withApiErrorLog } from "@/lib/appErrorLog";
   DEMO_CORE_IDS,
   DEMO_SEED_VERSION,
   buildDemoSeedData,
@@ -39,7 +40,7 @@ async function expireDemoRows(
  * 로그인 사용자에게 체험용 고객·매물·네비를 service_role로 심음.
  * 클라이언트 RLS/anon 토큰 문제를 우회한다.
  */
-export async function POST(request: Request) {
+async function __POST_handler(request: Request) {
   try {
     const auth = request.headers.get("authorization") ?? "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
@@ -309,3 +310,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message }, { status: 500 });
   }
 }
+
+export const POST = withApiErrorLog(__POST_handler);
