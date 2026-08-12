@@ -35,6 +35,7 @@ import {
 } from "@/lib/teamAlerts";
 import { useCustomersList } from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/demoSeedPayload";
+import { TeamShareChip } from "@/components/SiteShareUi";
 import type { Customer } from "@/lib/types";
 
 type PendingAction = {
@@ -99,8 +100,11 @@ export default function CustomerListPage() {
     router.push(`/customers/${c.id}${scroll}`);
   };
 
+  const myId = peekCurrentUser()?.id;
+
   const toggleWorkspaceShare = async (c: Customer) => {
     if (busy) return;
+    if (isForeignTeamItem(c.createdBy, myId)) return;
     const prevShared = Boolean(c.workspaceShared);
     const optimistic: Customer = {
       ...c,
@@ -190,6 +194,7 @@ export default function CustomerListPage() {
               const showTeamChip =
                 Boolean(c.workspaceId) || isDemoEntityId(c.id);
               const shared = Boolean(c.workspaceShared);
+              const foreign = isForeignTeamItem(c.createdBy, myId);
 
               return (
                 <CustomerListCard
@@ -198,25 +203,13 @@ export default function CustomerListPage() {
                   alertHighlight={listCardHighlight("customers", c.id)}
                   right={
                     showTeamChip ? (
-                      <button
-                        type="button"
+                      <TeamShareChip
+                        shared={shared}
+                        done={done}
                         disabled={busy}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void toggleWorkspaceShare(c);
-                        }}
-                        className={[
-                          "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-                          done
-                            ? "bg-gray-400"
-                            : shared
-                              ? "bg-emerald-500"
-                              : "bg-gray-500",
-                        ].join(" ")}
-                      >
-                        {shared ? "팀 공유 중" : "팀 공유하기"}
-                      </button>
+                        locked={foreign}
+                        onToggle={() => void toggleWorkspaceShare(c)}
+                      />
                     ) : null
                   }
                   renderCard={(card) => (

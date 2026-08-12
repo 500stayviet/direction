@@ -72,7 +72,7 @@ export default function AccountEditPage() {
     <main>
       <PageHeader title="내정보수정" backHref="/account" />
 
-      <form id="account-edit-form" onSubmit={handleSubmit} className="pb-4">
+      <form id="account-edit-form" onSubmit={handleSubmit} className="pb-8">
         <Card className="space-y-2.5">
           <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
             업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락

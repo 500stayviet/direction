@@ -2,10 +2,8 @@
 
 import { getAccessToken } from "@/lib/auth";
 import {
-  getCustomers,
-  getListedProperties,
-  getSchedules,
   invalidateWorkspaceIdCache,
+  refreshAllEntityLists,
 } from "@/lib/storage";
 
 export type WorkspaceMemberInfo = {
@@ -155,11 +153,7 @@ export async function joinWorkspace(shareCode: string): Promise<
     }
     // 팀 참여 직후 캐시된 목록·업장 id를 버리고 고객·매물·일정 다시 받기
     invalidateWorkspaceIdCache();
-    await Promise.all([
-      getCustomers(),
-      getListedProperties(),
-      getSchedules(),
-    ]);
+    await refreshAllEntityLists();
     return { ok: true, workspace: body.workspace };
   } catch (e) {
     return {

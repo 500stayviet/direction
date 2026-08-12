@@ -25,10 +25,10 @@ export function teamSharerLabel(
 export function foreignTeamDeleteMessage(kind: TeamOwnedKind): string {
   return [
     `다른 팀원이 등록한 ${kind}입니다.`,
-    "타인의 업무 정보를 삭제합니다.",
-    "삭제된 항목은 관리자 페이지에서만 복원할 수 있습니다.",
+    "내 목록에서만 사라집니다. 올린 사람의 목록은 그대로입니다.",
+    "상대가 공유를 껐다 다시 켜면 다시 보일 수 있습니다.",
     "",
-    "내용을 확인했고, 삭제를 진행할까요?",
+    "내 목록에서 빼시겠습니까?",
   ].join("\n");
 }
 

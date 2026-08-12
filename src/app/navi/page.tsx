@@ -37,6 +37,7 @@ import {
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
 import { useCustomersList, useSchedulesList } from "@/hooks/useEntityList";
+import { TeamShareChip } from "@/components/SiteShareUi";
 import type { Customer, Schedule } from "@/lib/types";
 
 type SortMode = "created" | "visit";
@@ -162,8 +163,11 @@ export default function NaviEntryPage() {
     setPending(null);
   };
 
+  const myId = peekCurrentUser()?.id;
+
   const toggleTeamShare = async (s: Schedule) => {
     if (busy) return;
+    if (isForeignTeamItem(s.createdBy, myId)) return;
     const prevShared = Boolean(s.workspaceShared);
     const nextShared = !prevShared;
     setSchedules((prev) =>
@@ -307,25 +311,13 @@ export default function NaviEntryPage() {
                   }
                   done={done}
                   right={
-                    <button
-                      type="button"
+                    <TeamShareChip
+                      shared={Boolean(s.workspaceShared)}
+                      done={done}
                       disabled={busy}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void toggleTeamShare(s);
-                      }}
-                      className={[
-                        "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-                        done
-                          ? "bg-gray-400"
-                          : s.workspaceShared
-                            ? "bg-emerald-500"
-                            : "bg-gray-500",
-                      ].join(" ")}
-                    >
-                      {s.workspaceShared ? "팀 공유 중" : "팀 공유하기"}
-                    </button>
+                      locked={isForeignTeamItem(s.createdBy, myId)}
+                      onToggle={() => void toggleTeamShare(s)}
+                    />
                   }
                 />
 

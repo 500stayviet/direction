@@ -72,8 +72,11 @@ function useEntityListState<T>(
       const userId = await getSessionUserId();
       ensureEntityCacheUser(userId);
       if (cancelled) return;
-      if (peek()) setLoading(false);
-      else setLoading(true);
+      if (peek()) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
         await loadFresh();
         if (!cancelled) setLoading(false);
@@ -85,32 +88,6 @@ function useEntityListState<T>(
       cancelled = true;
     };
   }, [loadFresh, peek]);
-
-  // 화면·앱이 다시 보일 때 목록 갱신 (실시간 없이 동료 공유 반영에 가장 가까움)
-  useEffect(() => {
-    let lastAt = Date.now();
-    const MIN_GAP_MS = 2500;
-
-    const refresh = () => {
-      const now = Date.now();
-      if (now - lastAt < MIN_GAP_MS) return;
-      lastAt = now;
-      void loadFresh();
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("pageshow", refresh);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("pageshow", refresh);
-    };
-  }, [loadFresh]);
 
   return { items, loading, setItems };
 }

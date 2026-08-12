@@ -39,6 +39,14 @@ import {
   upsertPropertyInCache,
   upsertScheduleInCache,
 } from "./entityCache";
+import {
+  ensureTeamShareHidesUser,
+  hideBucketForTable,
+  hideSharedEntity,
+  isSharedEntityHidden,
+  pruneHiddenToLiveIds,
+  unhideSharedEntity,
+} from "./teamShareHides";
 
 type EntityTable = "customers" | "listed_properties" | "schedules";
 
@@ -88,9 +96,28 @@ let workspaceIdCache: {
   at: number;
 } | null = null;
 const WORKSPACE_ID_TTL_MS = 5 * 60 * 1000;
+const workspaceIdListeners = new Set<() => void>();
+
+export function subscribeWorkspaceIdCache(listener: () => void): () => void {
+  workspaceIdListeners.add(listener);
+  return () => workspaceIdListeners.delete(listener);
+}
 
 export function invalidateWorkspaceIdCache(): void {
   workspaceIdCache = null;
+  workspaceIdListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+export async function getMyWorkspaceId(): Promise<string | null> {
+  const userId = await getSessionUserId();
+  if (!userId) return null;
+  return getWorkspaceId(userId);
 }
 
 async function getWorkspaceId(userId: string): Promise<string | null> {
@@ -191,6 +218,43 @@ async function findRow(
   return row;
 }
 
+/**
+ * 기존 행은 UPDATE만 (팀원 수정 시 upsert INSERT RLS를 피함).
+ * 등록자·소속 팀은 바꾸지 않음 (013 트리거).
+ */
+async function writeEntityRow(
+  table: EntityTable,
+  existing: RowMeta | null,
+  rowBody: Record<string, unknown>,
+  label: string
+) {
+  const supabase = createClient();
+  const run = async (body: Record<string, unknown>) => {
+    if (existing) {
+      const {
+        user_id: _userId,
+        id: _id,
+        workspace_id: _workspaceId,
+        created_at: _createdAt,
+        ...patch
+      } = body;
+      return supabase
+        .from(table)
+        .update(patch)
+        .eq("user_id", existing.user_id)
+        .eq("id", existing.id);
+    }
+    return supabase.from(table).insert(body);
+  };
+
+  let { error } = await run(rowBody);
+  if (error && isMissingWorkspaceSharedColumn(error)) {
+    const { workspace_shared: _ignored, ...withoutShared } = rowBody;
+    ({ error } = await run(withoutShared));
+  }
+  throwIfError(error, label);
+}
+
 /** 본인 행이거나, 같은 팀 + 팀 공유 켠 행만 접근 허용 */
 async function canAccessEntityRow(row: RowMeta): Promise<boolean> {
   try {
@@ -240,6 +304,22 @@ async function softDeleteRow(
   if (!data) {
     throw new Error(`${entityLabel} 삭제 권한이 없거나 이미 삭제되었습니다.`);
   }
+}
+
+/** 팀원 공유 건 삭제 = 원본은 두고 내 목록에서만 숨김 */
+async function hideForeignSharedRow(
+  table: EntityTable,
+  id: string
+): Promise<boolean> {
+  const actor = await resolveActor();
+  const row = await findRow(table, id);
+  if (!row || row.user_id === actor.userId) return false;
+  ensureTeamShareHidesUser(actor.userId);
+  hideSharedEntity(hideBucketForTable(table), id);
+  if (table === "customers") removeCustomerFromCache(id);
+  else if (table === "listed_properties") removePropertyFromCache(id);
+  else removeScheduleFromCache(id);
+  return true;
 }
 
 type ListFetchResult<T> =
@@ -309,7 +389,18 @@ async function listActivePayloads<T>(
       return row.user_id === userId;
     });
 
-    return { ok: true, items: rows.map(mapRow) };
+    ensureTeamShareHidesUser(userId);
+    const bucket = hideBucketForTable(table);
+    const liveForeignIds = rows
+      .filter((row) => row.user_id !== userId)
+      .map((row) => row.id);
+    pruneHiddenToLiveIds(bucket, liveForeignIds);
+    const visible = rows.filter(
+      (row) =>
+        row.user_id === userId || !isSharedEntityHidden(bucket, row.id)
+    );
+
+    return { ok: true, items: visible.map(mapRow) };
   } catch {
     return { ok: false };
   }
@@ -377,18 +468,26 @@ function persistDueProperties(
   );
 }
 
+let customersInflight: Promise<Customer[]> | null = null;
+
 export async function getCustomers(): Promise<Customer[]> {
-  const userId = await getSessionUserId();
-  ensureEntityCacheUser(userId);
-  const result = await listActivePayloads("customers", enrichCustomer);
-  if (!result.ok) {
-    const cached = peekCustomers() ?? [];
-    return cached.map(applyCustomerDueComplete);
-  }
-  const next = result.items.map(applyCustomerDueComplete);
-  persistDueCustomers(result.items, next);
-  setCustomersCache(next);
-  return next;
+  if (customersInflight) return customersInflight;
+  customersInflight = (async () => {
+    const userId = await getSessionUserId();
+    ensureEntityCacheUser(userId);
+    const result = await listActivePayloads("customers", enrichCustomer);
+    if (!result.ok) {
+      const cached = peekCustomers() ?? [];
+      return cached.map(applyCustomerDueComplete);
+    }
+    const next = result.items.map(applyCustomerDueComplete);
+    persistDueCustomers(result.items, next);
+    setCustomersCache(next);
+    return next;
+  })().finally(() => {
+    customersInflight = null;
+  });
+  return customersInflight;
 }
 
 export async function saveCustomers(customers: Customer[]): Promise<void> {
@@ -443,11 +542,10 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
       : undefined
   );
 
-  const supabase = createClient();
   const rowBody = {
     id: payload.id,
     user_id: ownerId,
-    workspace_id: boundWorkspace,
+    workspace_id: existing?.workspace_id || boundWorkspace,
     created_by: payload.createdBy,
     created_by_name: payload.createdByName,
     workspace_shared: shared,
@@ -456,16 +554,7 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
     updated_at: payload.updatedAt,
     deleted_at: null,
   };
-  let { error } = await supabase
-    .from("customers")
-    .upsert(rowBody, { onConflict: "user_id,id" });
-  if (error && isMissingWorkspaceSharedColumn(error)) {
-    const { workspace_shared: _ignored, ...withoutShared } = rowBody;
-    ({ error } = await supabase
-      .from("customers")
-      .upsert(withoutShared, { onConflict: "user_id,id" }));
-  }
-  throwIfError(error, "고객 저장 실패");
+  await writeEntityRow("customers", existing, rowBody, "고객 저장 실패");
   const saved: Customer = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
@@ -477,6 +566,7 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
+  if (await hideForeignSharedRow("customers", id)) return;
   const related = await getSchedulesByCustomer(id);
   for (const s of related) {
     await softDeleteRow("schedules", s.id, "일정");
@@ -505,10 +595,21 @@ export async function deleteCustomer(id: string): Promise<void> {
   }
 }
 
+function isHiddenFromMe(table: EntityTable, id: string, ownerUserId?: string | null) {
+  const myId = peekCurrentUser()?.id;
+  if (!myId || !ownerUserId || ownerUserId === myId) return false;
+  ensureTeamShareHidesUser(myId);
+  return isSharedEntityHidden(hideBucketForTable(table), id);
+}
+
 export async function getCustomerById(
   id: string
 ): Promise<Customer | undefined> {
   const cached = findCustomerInCache(id);
+  if (cached && isHiddenFromMe("customers", id, cached.createdBy)) {
+    removeCustomerFromCache(id);
+    return undefined;
+  }
   if (cached) {
     void (async () => {
       try {
@@ -538,6 +639,7 @@ export async function getCustomerById(
   try {
     const row = await findRow("customers", id);
     if (!row || row.deleted_at) return undefined;
+    if (isHiddenFromMe("customers", id, row.user_id)) return undefined;
     if (isDemoEntityId(id)) {
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;
@@ -553,21 +655,29 @@ export async function getCustomerById(
   }
 }
 
+let propertiesInflight: Promise<ListedProperty[]> | null = null;
+
 export async function getListedProperties(): Promise<ListedProperty[]> {
-  const userId = await getSessionUserId();
-  ensureEntityCacheUser(userId);
-  const result = await listActivePayloads(
-    "listed_properties",
-    enrichProperty
-  );
-  if (!result.ok) {
-    const cached = peekProperties() ?? [];
-    return cached.map(applyPropertyDueComplete);
-  }
-  const next = result.items.map(applyPropertyDueComplete);
-  persistDueProperties(result.items, next);
-  setPropertiesCache(next);
-  return next;
+  if (propertiesInflight) return propertiesInflight;
+  propertiesInflight = (async () => {
+    const userId = await getSessionUserId();
+    ensureEntityCacheUser(userId);
+    const result = await listActivePayloads(
+      "listed_properties",
+      enrichProperty
+    );
+    if (!result.ok) {
+      const cached = peekProperties() ?? [];
+      return cached.map(applyPropertyDueComplete);
+    }
+    const next = result.items.map(applyPropertyDueComplete);
+    persistDueProperties(result.items, next);
+    setPropertiesCache(next);
+    return next;
+  })().finally(() => {
+    propertiesInflight = null;
+  });
+  return propertiesInflight;
 }
 
 export async function saveListedProperties(
@@ -621,11 +731,10 @@ export async function upsertListedProperty(
       : undefined
   );
 
-  const supabase = createClient();
   const rowBody = {
     id: payload.id,
     user_id: ownerId,
-    workspace_id: boundWorkspace,
+    workspace_id: existing?.workspace_id || boundWorkspace,
     created_by: payload.createdBy,
     created_by_name: payload.createdByName,
     workspace_shared: shared,
@@ -634,16 +743,12 @@ export async function upsertListedProperty(
     updated_at: payload.updatedAt,
     deleted_at: null,
   };
-  let { error } = await supabase
-    .from("listed_properties")
-    .upsert(rowBody, { onConflict: "user_id,id" });
-  if (error && isMissingWorkspaceSharedColumn(error)) {
-    const { workspace_shared: _ignored, ...withoutShared } = rowBody;
-    ({ error } = await supabase
-      .from("listed_properties")
-      .upsert(withoutShared, { onConflict: "user_id,id" }));
-  }
-  throwIfError(error, "매물 저장 실패");
+  await writeEntityRow(
+    "listed_properties",
+    existing,
+    rowBody,
+    "매물 저장 실패"
+  );
   const saved: ListedProperty = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
@@ -654,6 +759,7 @@ export async function upsertListedProperty(
 }
 
 export async function deleteListedProperty(id: string): Promise<void> {
+  if (await hideForeignSharedRow("listed_properties", id)) return;
   await softDeleteRow("listed_properties", id, "매물");
   removePropertyFromCache(id);
 }
@@ -662,6 +768,10 @@ export async function getListedPropertyById(
   id: string
 ): Promise<ListedProperty | undefined> {
   const cached = findPropertyInCache(id);
+  if (cached && isHiddenFromMe("listed_properties", id, cached.createdBy)) {
+    removePropertyFromCache(id);
+    return undefined;
+  }
   if (cached) {
     void (async () => {
       try {
@@ -691,6 +801,7 @@ export async function getListedPropertyById(
   try {
     const row = await findRow("listed_properties", id);
     if (!row || row.deleted_at) return undefined;
+    if (isHiddenFromMe("listed_properties", id, row.user_id)) return undefined;
     if (isDemoEntityId(id)) {
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;
@@ -719,18 +830,132 @@ function persistDueSchedules(original: Schedule[], next: Schedule[]) {
   );
 }
 
+let schedulesInflight: Promise<Schedule[]> | null = null;
+
 export async function getSchedules(): Promise<Schedule[]> {
-  const userId = await getSessionUserId();
-  ensureEntityCacheUser(userId);
-  const result = await listActivePayloads("schedules", enrichSchedule);
-  if (!result.ok) {
-    const cached = peekSchedules() ?? [];
-    return cached.map(applyScheduleDueComplete);
+  if (schedulesInflight) return schedulesInflight;
+  schedulesInflight = (async () => {
+    const userId = await getSessionUserId();
+    ensureEntityCacheUser(userId);
+    const result = await listActivePayloads("schedules", enrichSchedule);
+    if (!result.ok) {
+      const cached = peekSchedules() ?? [];
+      return cached.map(applyScheduleDueComplete);
+    }
+    const next = result.items.map(applyScheduleDueComplete);
+    persistDueSchedules(result.items, next);
+    setSchedulesCache(next);
+    return next;
+  })().finally(() => {
+    schedulesInflight = null;
+  });
+  return schedulesInflight;
+}
+
+export async function refreshAllEntityLists(): Promise<void> {
+  await Promise.all([getCustomers(), getListedProperties(), getSchedules()]);
+}
+
+function asRealtimeRow(
+  record: Record<string, unknown> | null | undefined
+): RowMeta | null {
+  if (!record || typeof record.id !== "string" || !record.id) return null;
+  return {
+    id: record.id,
+    user_id: String(record.user_id ?? ""),
+    workspace_id: (record.workspace_id as string | null) ?? null,
+    created_by: (record.created_by as string | null) ?? null,
+    created_by_name: String(record.created_by_name ?? ""),
+    deleted_at: (record.deleted_at as string | null) ?? null,
+    workspace_shared: Boolean(record.workspace_shared),
+    payload: record.payload,
+  };
+}
+
+function removeRealtimeId(table: EntityTable, id: string) {
+  if (table === "customers") removeCustomerFromCache(id);
+  else if (table === "listed_properties") removePropertyFromCache(id);
+  else removeScheduleFromCache(id);
+}
+
+/** 실시간 행 변경 → entityCache만 고침 (화면별 재조회 없음) */
+export async function applyRealtimeEntityChange(input: {
+  table: string;
+  eventType: string;
+  newRecord?: Record<string, unknown> | null;
+  oldRecord?: Record<string, unknown> | null;
+}): Promise<void> {
+  const table = input.table as EntityTable;
+  if (
+    table !== "customers" &&
+    table !== "listed_properties" &&
+    table !== "schedules"
+  ) {
+    return;
   }
-  const next = result.items.map(applyScheduleDueComplete);
-  persistDueSchedules(result.items, next);
-  setSchedulesCache(next);
-  return next;
+
+  const event = input.eventType.toUpperCase();
+  const id =
+    (typeof input.newRecord?.id === "string" && input.newRecord.id) ||
+    (typeof input.oldRecord?.id === "string" && input.oldRecord.id) ||
+    "";
+  if (!id) return;
+
+  if (event === "DELETE") {
+    unhideSharedEntity(hideBucketForTable(table), id);
+    removeRealtimeId(table, id);
+    return;
+  }
+
+  const row = asRealtimeRow(input.newRecord);
+  if (!row) {
+    removeRealtimeId(table, id);
+    return;
+  }
+
+  if (row.deleted_at) {
+    unhideSharedEntity(hideBucketForTable(table), id);
+    removeRealtimeId(table, id);
+    return;
+  }
+
+  if (isDemoEntityId(row.id)) {
+    const userId = await getSessionUserId();
+    if (
+      !userId ||
+      row.user_id !== userId ||
+      isDemoSeedExpired(peekCurrentUser()?.createdAt)
+    ) {
+      removeRealtimeId(table, id);
+      return;
+    }
+  }
+
+  if (!(await canAccessEntityRow(row))) {
+    unhideSharedEntity(hideBucketForTable(table), id);
+    removeRealtimeId(table, id);
+    return;
+  }
+
+  const viewerId = await getSessionUserId();
+  if (
+    viewerId &&
+    row.user_id !== viewerId &&
+    isSharedEntityHidden(hideBucketForTable(table), id)
+  ) {
+    removeRealtimeId(table, id);
+    return;
+  }
+
+  if (!row.payload || typeof row.payload !== "object") return;
+
+  if (table === "customers") {
+    upsertCustomerInCache(applyCustomerDueComplete(enrichCustomer(row)));
+  } else if (table === "listed_properties") {
+    upsertPropertyInCache(applyPropertyDueComplete(enrichProperty(row)));
+  } else {
+    upsertScheduleInCache(applyScheduleDueComplete(enrichSchedule(row)));
+  }
 }
 
 export async function saveSchedules(schedules: Schedule[]): Promise<void> {
@@ -778,23 +1003,19 @@ export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
       : undefined
   );
 
-  const supabase = createClient();
-  const { error } = await supabase.from("schedules").upsert(
-    {
-      id: payload.id,
-      user_id: ownerId,
-      workspace_id: boundWorkspace,
-      created_by: payload.createdBy,
-      created_by_name: payload.createdByName,
-      workspace_shared: Boolean(payload.workspaceShared),
-      payload,
-      created_at: payload.createdAt,
-      updated_at: payload.updatedAt,
-      deleted_at: null,
-    },
-    { onConflict: "user_id,id" }
-  );
-  throwIfError(error, "일정 저장 실패");
+  const rowBody = {
+    id: payload.id,
+    user_id: ownerId,
+    workspace_id: existing?.workspace_id || boundWorkspace,
+    created_by: payload.createdBy,
+    created_by_name: payload.createdByName,
+    workspace_shared: Boolean(payload.workspaceShared),
+    payload,
+    created_at: payload.createdAt,
+    updated_at: payload.updatedAt,
+    deleted_at: null,
+  };
+  await writeEntityRow("schedules", existing, rowBody, "일정 저장 실패");
   const saved: Schedule = {
     ...payload,
     workspaceId: boundWorkspace || undefined,
@@ -804,6 +1025,7 @@ export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
 }
 
 export async function deleteSchedule(id: string): Promise<void> {
+  if (await hideForeignSharedRow("schedules", id)) return;
   await softDeleteRow("schedules", id, "일정");
   removeScheduleFromCache(id);
 }
@@ -812,6 +1034,10 @@ export async function getScheduleById(
   id: string
 ): Promise<Schedule | undefined> {
   const cached = findScheduleInCache(id);
+  if (cached && isHiddenFromMe("schedules", id, cached.createdBy)) {
+    removeScheduleFromCache(id);
+    return undefined;
+  }
   if (cached) {
     void (async () => {
       try {
@@ -841,6 +1067,7 @@ export async function getScheduleById(
   try {
     const row = await findRow("schedules", id);
     if (!row || row.deleted_at) return undefined;
+    if (isHiddenFromMe("schedules", id, row.user_id)) return undefined;
     if (isDemoEntityId(id)) {
       const userId = await requireUserId();
       if (row.user_id !== userId) return undefined;

@@ -48,6 +48,7 @@ export default function AccountPage() {
   const [membersOpen, setMembersOpen] = useState(false);
   /** 이 방문에서 유효 코드를 본 뒤에만 만료 빨간 UI 표시 (재진입 시 초기화) */
   const sawValidCodeThisVisit = useRef(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmPhrase, setConfirmPhrase] = useState("");
   const [busy, setBusy] = useState(false);
@@ -330,29 +331,44 @@ export default function AccountPage() {
                   </button>
                   {membersOpen ? (
                     <div className="mt-1.5 space-y-1">
-                      {(workspace.members ?? []).map((m) => (
-                        <div
-                          key={m.userId}
-                          className="rounded-md border border-gray-100 bg-white px-2 py-1.5 text-[12px] leading-snug text-gray-700"
-                        >
-                          <span className="font-semibold text-gray-900">
-                            {m.shopName}
-                          </span>
-                          <span className="text-gray-300"> · </span>
-                          <span className="font-semibold text-gray-800">
-                            {m.name}
-                          </span>
-                          <span className="text-gray-300"> · </span>
-                          <span className="font-mono text-[11px] text-gray-500">
-                            {m.username}
-                          </span>
-                          {m.role === "owner" ? (
-                            <span className="ml-1 text-[10px] font-bold text-[#3182F6]">
-                              생성자
-                            </span>
-                          ) : null}
-                        </div>
-                      ))}
+                      {(workspace.members ?? []).map((m) => {
+                        const isSelf =
+                          m.userId === user.id || m.username === user.username;
+                        return (
+                          <div
+                            key={m.userId}
+                            className="flex items-center gap-2 rounded-md border border-gray-100 bg-white px-2 py-1.5 text-[12px] leading-snug text-gray-700"
+                          >
+                            <p className="min-w-0 flex-1 truncate">
+                              <span className="font-semibold text-gray-900">
+                                {m.shopName}
+                              </span>
+                              <span className="text-gray-300"> · </span>
+                              <span className="font-semibold text-gray-800">
+                                {m.name}
+                              </span>
+                              <span className="text-gray-300"> · </span>
+                              <span className="font-mono text-[11px] text-gray-500">
+                                {m.username}
+                              </span>
+                              {m.role === "owner" ? (
+                                <span className="ml-1 text-[10px] font-bold text-[#3182F6]">
+                                  생성자
+                                </span>
+                              ) : null}
+                            </p>
+                            {isSelf ? (
+                              <button
+                                type="button"
+                                onClick={() => setLeaveOpen(true)}
+                                className="shrink-0 text-[11px] font-bold text-red-500 active:opacity-70"
+                              >
+                                나가기
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                       {(workspace.members ?? []).length === 0 ? (
                         <p className="px-1 text-[11px] text-gray-400">
                           팀원 정보를 불러오지 못했습니다.
@@ -515,6 +531,17 @@ export default function AccountPage() {
           회원탈퇴
         </Button>
       </div>
+
+      <Modal
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        title="공유 공간 나가기"
+        description="바로 나갈 수 없습니다. 이메일로 문의해 주시길 바랍니다. bek94900@gmail.com"
+      >
+        <Button fullWidth onClick={() => setLeaveOpen(false)}>
+          확인
+        </Button>
+      </Modal>
 
       <Modal
         open={codeConsent !== null}

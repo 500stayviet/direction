@@ -5,6 +5,12 @@ import { peekCurrentUser } from "@/lib/auth";
 import { isForeignTeamItem } from "@/lib/teamActionGuard";
 import { findMatchingProperties } from "@/lib/matchCustomerProperty";
 import {
+  peekCustomers,
+  peekProperties,
+  peekSchedules,
+  subscribeEntityCache,
+} from "@/lib/entityCache";
+import {
   ensureTeamAlertsUser,
   getAlertBadgeCounts,
   getTeamAlertsSnapshot,
@@ -13,17 +19,41 @@ import {
   syncMatchPairs,
   syncShareIds,
 } from "@/lib/teamAlerts";
-import {
-  useCustomersList,
-  usePropertiesList,
-  useSchedulesList,
-} from "@/hooks/useEntityList";
+import type { Customer, ListedProperty, Schedule } from "@/lib/types";
+
+const EMPTY_CUSTOMERS: Customer[] = [];
+const EMPTY_PROPERTIES: ListedProperty[] = [];
+const EMPTY_SCHEDULES: Schedule[] = [];
 
 function useTeamAlertsState() {
   return useSyncExternalStore(
     subscribeTeamAlerts,
     getTeamAlertsSnapshot,
     getTeamAlertsSnapshot
+  );
+}
+
+function useCachedCustomers() {
+  return useSyncExternalStore(
+    subscribeEntityCache,
+    () => peekCustomers() ?? EMPTY_CUSTOMERS,
+    () => EMPTY_CUSTOMERS
+  );
+}
+
+function useCachedProperties() {
+  return useSyncExternalStore(
+    subscribeEntityCache,
+    () => peekProperties() ?? EMPTY_PROPERTIES,
+    () => EMPTY_PROPERTIES
+  );
+}
+
+function useCachedSchedules() {
+  return useSyncExternalStore(
+    subscribeEntityCache,
+    () => peekSchedules() ?? EMPTY_SCHEDULES,
+    () => EMPTY_SCHEDULES
   );
 }
 
@@ -35,10 +65,9 @@ export function useAlertBadgeCounts() {
 /** 로그인 후 리스트 기준으로 공유·매칭 알람 동기화 */
 export function TeamAlertsSync() {
   const userId = peekCurrentUser()?.id ?? null;
-  const { items: customers } = useCustomersList();
-  const { items: properties } = usePropertiesList();
-  const { items: schedules } = useSchedulesList();
-  useTeamAlertsState();
+  const customers = useCachedCustomers();
+  const properties = useCachedProperties();
+  const schedules = useCachedSchedules();
 
   useEffect(() => {
     ensureTeamAlertsUser(userId);

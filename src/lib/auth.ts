@@ -4,7 +4,7 @@ import type { User } from "./types";
 import { createClient, resetBrowserClient } from "./supabase/client";
 import { normalizeUsername } from "./supabase/email";
 import { clearAppAuth, loadAppAuth, saveAppAuth } from "./supabase/appAuth";
-import { clearEntityCache } from "./entityCache";
+import { clearEntityCache, patchCreatedByNameInCache } from "./entityCache";
 import { backfillShopName } from "./format";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
@@ -693,6 +693,7 @@ export async function updateProfile(
         nextUser
       );
     }
+    patchCreatedByNameInCache(nextUser.id, nextUser.name);
 
     return { ok: true, user: nextUser };
   } catch (e) {

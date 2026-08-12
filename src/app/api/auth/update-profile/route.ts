@@ -2,6 +2,30 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function syncCreatorDisplayName(
+  admin: AdminClient,
+  userId: string,
+  displayName: string
+) {
+  const tables = ["customers", "listed_properties", "schedules"] as const;
+  for (const table of tables) {
+    await admin
+      .from(table)
+      .update({ created_by_name: displayName })
+      .eq("user_id", userId);
+    await admin
+      .from(table)
+      .update({ created_by_name: displayName })
+      .eq("created_by", userId);
+  }
+  await admin
+    .from("workspace_members")
+    .update({ display_name: displayName })
+    .eq("user_id", userId);
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
@@ -114,6 +138,12 @@ export async function POST(request: Request) {
         p_phone: phone,
         p_password_hint: passwordHint,
       });
+    }
+
+    try {
+      await syncCreatorDisplayName(admin, userId, name);
+    } catch {
+      /* 프로필은 저장됨. 공유자 표시 동기화 실패는 다음 저장·조회에서 보정 */
     }
 
     return NextResponse.json({

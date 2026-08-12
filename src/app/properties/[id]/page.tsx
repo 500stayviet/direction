@@ -16,6 +16,7 @@ import {
 import { MatchingCustomersSection } from "@/components/MatchListPanel";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
+import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import {
   getMissingRequiredFields,
@@ -59,6 +60,7 @@ export default function PropertyDetailPage() {
   const [agent, setAgent] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +127,7 @@ export default function PropertyDetailPage() {
     await upsertListedProperty(next);
     setProperty(next);
     setEditing(false);
+    setSavedOpen(true);
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -180,7 +183,7 @@ export default function PropertyDetailPage() {
   };
 
   const toggleTeamShare = async () => {
-    if (!property || shareBusy) return;
+    if (!property || shareBusy || isForeign) return;
     const prevShared = Boolean(property.workspaceShared);
     const next = {
       ...property,
@@ -220,6 +223,7 @@ export default function PropertyDetailPage() {
               <TeamShareButton
                 active={teamOn}
                 disabled={shareBusy}
+                locked={isForeign}
                 onToggle={() => void toggleTeamShare()}
               />
             ) : null}
@@ -342,6 +346,10 @@ export default function PropertyDetailPage() {
         open={warnOpen}
         message={warnMessage}
         onClose={() => setWarnOpen(false)}
+      />
+      <SaveCompleteModal
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
       />
     </main>
   );

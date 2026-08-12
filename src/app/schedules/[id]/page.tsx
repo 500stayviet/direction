@@ -20,6 +20,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { ListEdgeChips } from "@/components/ListEdgeChips";
 import { Modal } from "@/components/ui/Modal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
+import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { DetailHeaderButton } from "@/components/DetailHeaderButton";
 import { TeamShareButton } from "@/components/SiteShareUi";
@@ -126,6 +127,7 @@ function ScheduleDetailInner() {
   const [shareOpen, setShareOpen] = useState(false);
   const [hasTeammates, setHasTeammates] = useState(false);
   const [workspaceShareBusy, setWorkspaceShareBusy] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
   const [agent, setAgent] = useState<User | null>(null);
   /** -1: 시작 전, 0..n-1: 현재 포커스 매물(시간순) */
   const [navStep, setNavStep] = useState(-1);
@@ -333,13 +335,12 @@ function ScheduleDetailInner() {
     );
   }
 
+  const myId = peekCurrentUser()?.id ?? agent?.id;
+  const isForeign = isForeignTeamItem(schedule.createdBy, myId);
+
   const handleDelete = () => {
     if (!window.confirm("이 방문 일정을 삭제할까요?")) return;
-    const myId = peekCurrentUser()?.id ?? agent?.id;
-    if (
-      isForeignTeamItem(schedule.createdBy, myId) &&
-      !confirmForeignTeamDelete("네비")
-    ) {
+    if (isForeign && !confirmForeignTeamDelete("네비")) {
       return;
     }
     setDeleting(true);
@@ -416,6 +417,7 @@ function ScheduleDetailInner() {
     }
     setSchedule(next);
     setEditing(false);
+    setSavedOpen(true);
   };
 
   const handleViewSwap = async (fromIndex: number, toIndex: number) => {
@@ -466,9 +468,10 @@ function ScheduleDetailInner() {
                     !hasTeammates &&
                     !schedule.workspaceShared)
                 }
+                locked={isForeign}
                 onToggle={() => {
                   void (async () => {
-                    if (!schedule || workspaceShareBusy) return;
+                    if (!schedule || workspaceShareBusy || isForeign) return;
                     const isDemo = schedule.id.startsWith("demo_sch_");
                     if (!isDemo && !hasTeammates && !schedule.workspaceShared) {
                       return;
@@ -1084,6 +1087,10 @@ function ScheduleDetailInner() {
         properties={shareProperties}
         agent={agent}
         onClose={() => setShareOpen(false)}
+      />
+      <SaveCompleteModal
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
       />
     </main>
   );

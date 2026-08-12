@@ -260,3 +260,30 @@ export function findPropertyInCache(id: string): ListedProperty | undefined {
 export function findScheduleInCache(id: string): Schedule | undefined {
   return state.schedules?.find((s) => s.id === id);
 }
+
+/** 내정보 이름 변경 시 캐시에 찍힌 공유자 이름도 맞춤 */
+export function patchCreatedByNameInCache(ownerUserId: string, name: string) {
+  const next = name.trim();
+  if (!ownerUserId || !next) return;
+  if (state.customers) {
+    setCustomersCache(
+      state.customers.map((c) =>
+        c.createdBy === ownerUserId ? { ...c, createdByName: next } : c
+      )
+    );
+  }
+  if (state.properties) {
+    setPropertiesCache(
+      state.properties.map((p) =>
+        p.createdBy === ownerUserId ? { ...p, createdByName: next } : p
+      )
+    );
+  }
+  if (state.schedules) {
+    setSchedulesCache(
+      state.schedules.map((s) =>
+        s.createdBy === ownerUserId ? { ...s, createdByName: next } : s
+      )
+    );
+  }
+}

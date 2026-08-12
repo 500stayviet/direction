@@ -1,12 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import {
   SITE_SHARE_CARD_BADGE_ENABLED,
   SITE_SHARE_DEV_LABEL,
   SITE_SHARE_FORM_LABEL,
   SITE_SHARE_UI_ENABLED,
 } from "@/lib/siteShare";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { DetailHeaderButton } from "@/components/DetailHeaderButton";
+
+function ForeignShareHintModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      position="center"
+      dense
+      title="공유 중단"
+      description="공유한 분만 끌 수 있습니다. 목록에서 빼려면 삭제해 주세요."
+    >
+      <Button type="button" fullWidth onClick={onClose}>
+        확인
+      </Button>
+    </Modal>
+  );
+}
 
 /** 개발중 표시 — 글자 중앙 취소선 */
 function DevStrikeLabel({
@@ -82,33 +108,91 @@ export function SiteShareFormField({
   );
 }
 
+/** 리스트 카드용 — 본인만 켜고 끔. 팀원 건은 누르면 안내 */
+export function TeamShareChip({
+  shared,
+  done,
+  disabled,
+  locked,
+  onToggle,
+}: {
+  shared: boolean;
+  done?: boolean;
+  disabled?: boolean;
+  locked?: boolean;
+  onToggle: () => void;
+}) {
+  const [hintOpen, setHintOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (disabled) return;
+          if (locked) {
+            setHintOpen(true);
+            return;
+          }
+          onToggle();
+        }}
+        className={[
+          "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+          done ? "bg-gray-400" : shared ? "bg-emerald-500" : "bg-gray-500",
+        ].join(" ")}
+      >
+        {shared ? "팀 공유 중" : "팀 공유하기"}
+      </button>
+      <ForeignShareHintModal
+        open={hintOpen}
+        onClose={() => setHintOpen(false)}
+      />
+    </>
+  );
+}
+
 /** 상세 헤더용 — 수정/삭제와 같은 아웃라인 버튼 스타일 */
 export function TeamShareButton({
   active,
   done,
   disabled,
+  locked,
   onToggle,
   className = "",
 }: {
   active: boolean;
   done?: boolean;
   disabled?: boolean;
+  locked?: boolean;
   onToggle: () => void;
   className?: string;
 }) {
+  const [hintOpen, setHintOpen] = useState(false);
   return (
-    <DetailHeaderButton
-      tone={done ? "cancel" : active ? "teamOn" : "team"}
-      disabled={done || disabled}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onToggle();
-      }}
-      className={done ? `!border-gray-300 !text-gray-400 ${className}` : className}
-    >
-      {active ? "공유중" : "팀공유"}
-    </DetailHeaderButton>
+    <>
+      <DetailHeaderButton
+        tone={done ? "cancel" : active ? "teamOn" : "team"}
+        disabled={done || disabled}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (locked) {
+            setHintOpen(true);
+            return;
+          }
+          onToggle();
+        }}
+        className={done ? `!border-gray-300 !text-gray-400 ${className}` : className}
+      >
+        {active ? "공유중" : "팀공유"}
+      </DetailHeaderButton>
+      <ForeignShareHintModal
+        open={hintOpen}
+        onClose={() => setHintOpen(false)}
+      />
+    </>
   );
 }
 

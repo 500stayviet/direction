@@ -14,6 +14,7 @@ import {
   TeamShareButton,
 } from "@/components/SiteShareUi";
 import { MatchingPropertiesSection } from "@/components/MatchListPanel";
+import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import {
   confirmForeignTeamDelete,
   confirmForeignTeamEdit,
@@ -43,6 +44,7 @@ export default function CustomerDetailPage() {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,7 +123,7 @@ export default function CustomerDetailPage() {
   };
 
   const toggleTeamShare = async () => {
-    if (!customer || shareBusy) return;
+    if (!customer || shareBusy || isForeign) return;
     const prevShared = Boolean(customer.workspaceShared);
     const next = {
       ...customer,
@@ -152,6 +154,7 @@ export default function CustomerDetailPage() {
               <TeamShareButton
                 active={customer.workspaceShared === true}
                 disabled={shareBusy}
+                locked={isForeign}
                 onToggle={() => void toggleTeamShare()}
               />
             ) : null}
@@ -182,10 +185,17 @@ export default function CustomerDetailPage() {
           initial={customer}
           submitLabel="변경사항 저장"
           onSubmit={(next) => {
-            void upsertCustomer(next).then(() => {
-              setCustomer(next);
-              setEditing(false);
-            });
+            void upsertCustomer(next)
+              .then(() => {
+                setCustomer(next);
+                setEditing(false);
+                setSavedOpen(true);
+              })
+              .catch((err: unknown) => {
+                alert(
+                  err instanceof Error ? err.message : "저장에 실패했습니다."
+                );
+              });
           }}
         />
       ) : (
@@ -228,6 +238,11 @@ export default function CustomerDetailPage() {
           </StickyActionBar>
         </>
       )}
+
+      <SaveCompleteModal
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
+      />
     </main>
   );
 }

@@ -30,6 +30,7 @@ import {
 } from "@/lib/teamAlerts";
 import { usePropertiesList } from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/demoSeedPayload";
+import { TeamShareChip } from "@/components/SiteShareUi";
 import type { ListedProperty } from "@/lib/types";
 
 type PendingAction = {
@@ -95,8 +96,11 @@ export default function PropertyListPage() {
     router.push(`/properties/${p.id}${scroll}`);
   };
 
+  const myId = peekCurrentUser()?.id;
+
   const toggleTeamShare = async (p: ListedProperty) => {
     if (busy) return;
+    if (isForeignTeamItem(p.createdBy, myId)) return;
     const prevShared = Boolean(p.workspaceShared);
     const optimistic: ListedProperty = {
       ...p,
@@ -195,6 +199,7 @@ export default function PropertyListPage() {
               const showTeamChip =
                 Boolean(p.workspaceId) || isDemoEntityId(p.id);
               const teamOn = Boolean(p.workspaceShared);
+              const foreign = isForeignTeamItem(p.createdBy, myId);
 
               return (
                 <PropertyListCard
@@ -203,25 +208,13 @@ export default function PropertyListPage() {
                   alertHighlight={listCardHighlight("properties", p.id)}
                   right={
                     showTeamChip ? (
-                      <button
-                        type="button"
+                      <TeamShareChip
+                        shared={teamOn}
+                        done={done}
                         disabled={busy}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void toggleTeamShare(p);
-                        }}
-                        className={[
-                          "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-                          done
-                            ? "bg-gray-400"
-                            : teamOn
-                              ? "bg-emerald-500"
-                              : "bg-gray-500",
-                        ].join(" ")}
-                      >
-                        {teamOn ? "팀 공유 중" : "팀 공유하기"}
-                      </button>
+                        locked={foreign}
+                        onToggle={() => void toggleTeamShare(p)}
+                      />
                     ) : null
                   }
                   renderCard={(card) => (
