@@ -91,8 +91,10 @@ export function PreferredLocationPicker({
   );
 
   const activeGu = boxGu || DEFAULT_PREFERRED_GU;
-  const guButtonLabel = boxGu || "선택구";
-  const dongButtonLabel = "선택동";
+  const guButtonLabel = boxGu || "";
+  const dongButtonLabel = "";
+  const guComplete = Boolean(boxGu);
+  const dongComplete = false;
   const dongList = SEOUL_DONG_BY_GU[activeGu] ?? [];
 
   const pickGu = (gu: string) => {
@@ -164,15 +166,26 @@ export function PreferredLocationPicker({
     setBoxGu(nextDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU);
   };
 
-  const boxClass = [
-    "flex min-h-[48px] w-full items-center justify-center rounded-xl border px-3 active:scale-[0.99] transition-all duration-150",
-    invalid
-      ? "border-red-500 bg-red-50"
-      : "border-[#3182F6] bg-[#3182F6]",
-  ].join(" ");
-  const boxTextClass = [
-    "truncate text-[15px] font-semibold",
-    invalid ? "text-red-600" : "text-white",
+  const fieldBoxClass = (complete: boolean) =>
+    [
+      "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
+      "active:scale-[0.99] transition-all duration-150",
+      invalid
+        ? "border-red-500 bg-red-50"
+        : complete
+          ? "border-[#3182F6]/55 bg-gray-50"
+          : "border-gray-200 bg-gray-50",
+    ].join(" ");
+
+  const fieldTextClass = (hasValue: boolean) =>
+    [
+      "truncate text-[16px] font-semibold",
+      hasValue ? "text-gray-900" : "text-gray-400",
+    ].join(" ");
+
+  const chevronClass = [
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
+    invalid ? "bg-red-100 text-red-600" : "bg-blue-50 text-[#3182F6]",
   ].join(" ");
 
   return (
@@ -189,12 +202,60 @@ export function PreferredLocationPicker({
         </span>
       </p>
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setGuOpen(true)} className={boxClass}>
-          <span className={boxTextClass}>{guButtonLabel}</span>
-        </button>
-        <button type="button" onClick={openDongModal} className={boxClass}>
-          <span className={boxTextClass}>{dongButtonLabel}</span>
-        </button>
+        <div className="space-y-1">
+          <p
+            className={[
+              "text-[13px] font-semibold",
+              invalid ? "text-red-600" : "text-gray-600",
+            ].join(" ")}
+          >
+            구
+            <span
+              className={
+                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+              }
+            >
+              *
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setGuOpen(true)}
+            className={fieldBoxClass(guComplete)}
+          >
+            <span className={fieldTextClass(Boolean(guButtonLabel))}>
+              {guButtonLabel || "선택구"}
+            </span>
+            <span className={chevronClass}>▾</span>
+          </button>
+        </div>
+        <div className="space-y-1">
+          <p
+            className={[
+              "text-[13px] font-semibold",
+              invalid ? "text-red-600" : "text-gray-600",
+            ].join(" ")}
+          >
+            동
+            <span
+              className={
+                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+              }
+            >
+              *
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={openDongModal}
+            className={fieldBoxClass(dongComplete)}
+          >
+            <span className={fieldTextClass(Boolean(dongButtonLabel))}>
+              {dongButtonLabel || "선택동"}
+            </span>
+            <span className={chevronClass}>▾</span>
+          </button>
+        </div>
       </div>
       {invalid ? (
         <p className="text-[11px] font-semibold text-red-500">
