@@ -182,12 +182,17 @@ export function PropertyBrief({
           property.landlordPhone ||
           property.hasPartnerAgency) && (
           <div className="rounded-2xl bg-[#E8F8F1] px-3 py-2.5 ring-1 ring-inset ring-[#03B26C]/25">
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#03B26C] text-[11px] text-white">
-                ☎
-              </span>
-              <p className="text-[13px] font-extrabold text-[#03B26C]">
-                원터치 전화
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#03B26C] text-[11px] text-white">
+                  ☎
+                </span>
+                <p className="text-[13px] font-extrabold text-[#03B26C]">
+                  원터치 전화
+                </p>
+              </div>
+              <p className="shrink-0 text-right text-[10px] font-medium leading-none text-[#03B26C]/70">
+                탭하면 전화앱으로 연결됩니다
               </p>
             </div>
             <div className="space-y-1.5">

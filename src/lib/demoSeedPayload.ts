@@ -5,7 +5,7 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v19";
+export const DEMO_SEED_VERSION = "demo_v20";
 
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
