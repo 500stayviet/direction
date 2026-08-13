@@ -234,7 +234,7 @@ export function PropertyEditor({
   return (
     <Card
       className={[
-        "space-y-2",
+        "space-y-2 !p-3",
         showTitle
           ? "border-2 border-gray-200 shadow-md"
           : "",
@@ -265,7 +265,7 @@ export function PropertyEditor({
                   e.stopPropagation();
                   setMoveOpen(true);
                 }}
-                className="group relative z-10 flex min-h-[44px] items-center gap-1.5 rounded-xl px-1 py-1 text-left active:scale-[0.98] transition-transform"
+                className="group relative z-10 flex min-h-[40px] items-center gap-1.5 rounded-xl px-1 py-0.5 text-left active:scale-[0.98] transition-transform"
               >
                 <span className="text-lg font-bold text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
                   {index + 1}번 매물
@@ -500,7 +500,7 @@ export function PropertyEditor({
         </>
       )}
 
-      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>
         <div ref={setFieldRef("dealType")}>
           <DealTypeToggle
@@ -640,7 +640,7 @@ export function PropertyEditor({
         )}
       </div>
 
-      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
         <div ref={setFieldRef("address")}>
           <SeoulAddressField
@@ -699,7 +699,7 @@ export function PropertyEditor({
       {isBuilding && (
         <div
           ref={setFieldRef("buildingKind")}
-          className="mt-2 space-y-1.5 border-t border-gray-200 pt-4"
+          className="mt-2 space-y-1.5 border-t border-gray-200 pt-3"
         >
           <BuildingLandFields
             property={property}
@@ -741,7 +741,7 @@ export function PropertyEditor({
       )}
 
       {isLand && (
-        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
           <BuildingLandFields
             property={property}
             onChange={update}
@@ -775,7 +775,7 @@ export function PropertyEditor({
       )}
 
       {!isLand && !isBuilding && (
-        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
+        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
           <p className="text-sm font-bold text-gray-800">기타</p>
           {!hideResidentialExtras && (
             <div ref={setFieldRef("loan")}>

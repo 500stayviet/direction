@@ -1,31 +1,46 @@
 import type { NaviApp } from "./types";
 
+/** false면 「항상 이 앱으로 열기」는 보이되 비활성·자동실행 끔 (모달에서 매번 선택). true면 다시 사용 */
+export const NAVI_REMEMBER_ENABLED = false;
+
 export const NAVI_APPS: {
   id: NaviApp;
   label: string;
   description: string;
+  /** 선택 버튼 배경 이미지 */
+  image: string;
+  /** 이미지와 맞출 버튼 배경색 */
+  buttonBg: string;
   /** true면 선택·실행 불가 */
   disabled?: boolean;
 }[] = [
   {
     id: "tmap",
-    label: "Tmap (추천)",
+    label: "티맵",
     description: "",
+    image: "/navi/tmap.png?v=4",
+    buttonBg: "#FFFFFF",
   },
   {
     id: "navermap",
     label: "네이버 지도",
     description: "",
+    image: "/navi/navermap.png?v=4",
+    buttonBg: "#FFFFFF",
   },
   {
     id: "kakaomap",
     label: "카카오맵",
     description: "",
+    image: "/navi/kakaomap.png?v=4",
+    buttonBg: "#FADB05",
   },
   {
     id: "kakaonavi",
-    label: "카카오내비 (수리중)",
+    label: "카카오내비",
     description: "",
+    image: "/navi/kakaonavi.png?v=4",
+    buttonBg: "#35373D",
     disabled: true,
   },
 ];

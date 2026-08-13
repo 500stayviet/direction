@@ -30,7 +30,7 @@ interface PropertyBriefProps {
 }
 
 const chipBase =
-  "inline-flex items-center rounded-full px-3.5 py-2 text-[14px] font-bold leading-none tracking-tight";
+  "inline-flex items-center rounded-full px-3 py-1.5 text-[14px] font-bold leading-none tracking-tight";
 /** 유·입주·옵션: 브랜드 블루 톤 / 무: 중립 회색 */
 const chipOn = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
 const chipOff = `${chipBase} bg-[#F2F4F6] text-gray-500`;
@@ -84,8 +84,8 @@ export function PropertyBrief({
   const showArriveChip = showArriveTime && Boolean(property.arriveTime);
 
   return (
-    <div className="relative pt-3">
-      <div className="pointer-events-none absolute inset-x-2 top-3 z-10 flex -translate-y-1/2 items-center gap-1 overflow-hidden">
+    <div className="relative pt-2">
+      <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex -translate-y-1/2 items-center gap-1 overflow-hidden">
         <ListEdgeChips
           placement="inline"
           roomType={property.roomType}
@@ -105,12 +105,12 @@ export function PropertyBrief({
 
       <Card className="space-y-0 !overflow-visible !p-0">
         {showTitle ? (
-          <div className="relative z-10 px-4 pt-5">
+          <div className="relative z-10 px-3 pt-3.5">
             {canReorder ? (
               <button
                 type="button"
                 onClick={() => setMoveOpen(true)}
-                className="group flex min-h-[44px] min-w-0 items-center gap-1.5 text-left active:scale-[0.98] transition-transform"
+                className="group flex min-h-[40px] min-w-0 items-center gap-1.5 text-left active:scale-[0.98] transition-transform"
               >
                 <span className="truncate text-[22px] font-extrabold tracking-tight text-gray-900 underline decoration-gray-300 underline-offset-4 group-hover:decoration-[#3182F6]">
                   {index + 1}번 매물
@@ -126,7 +126,7 @@ export function PropertyBrief({
             )}
           </div>
         ) : (
-          <div className="relative z-10 pt-4" />
+          <div className="relative z-10 pt-3" />
         )}
 
         {canReorder ? (
@@ -141,15 +141,15 @@ export function PropertyBrief({
 
         <div
           className={[
-            "space-y-3 px-4 pb-4",
-            showTitle ? "pt-3" : "pt-2",
+            "space-y-2 px-3 pb-3",
+            showTitle ? "pt-2" : "pt-1.5",
           ].join(" ")}
         >
         {/* 원터치 네비 — 블루 포인트 (탭 = 지번까지만 네비 전달) */}
-        <div className="rounded-2xl bg-[#E8F3FF] px-3.5 py-3.5 ring-1 ring-inset ring-[#3182F6]/25">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="rounded-2xl bg-[#E8F3FF] px-3 py-2.5 ring-1 ring-inset ring-[#3182F6]/25">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#3182F6] text-[12px] text-white">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#3182F6] text-[11px] text-white">
                 ▶
               </span>
               <p className="text-[13px] font-extrabold text-[#3182F6]">
@@ -162,13 +162,15 @@ export function PropertyBrief({
           </div>
           <AddressLink
             address={property.address}
-            className="items-center rounded-xl bg-white px-3 py-3.5 text-[16px] font-extrabold leading-snug text-[#1B64DA] shadow-sm"
+            className="items-start rounded-xl bg-white px-2.5 py-2 text-left text-[#1B64DA] shadow-sm"
           >
-            <span className="break-words text-[16px] font-extrabold leading-snug">
-              {property.address || "주소 없음"}
+            <span className="flex min-w-0 flex-col text-left">
+              <span className="text-[14px] font-bold leading-snug break-words">
+                {property.address || "주소 없음"}
+              </span>
               {property.roomNo?.trim() ? (
-                <span className="ml-2.5 text-[16px] font-extrabold text-gray-700">
-                  {property.roomNo?.trim()}
+                <span className="mt-0.5 text-[12px] font-semibold leading-snug text-gray-600">
+                  {property.roomNo.trim()}
                 </span>
               ) : null}
             </span>
@@ -179,18 +181,18 @@ export function PropertyBrief({
         {(property.tenantPhone ||
           property.landlordPhone ||
           property.hasPartnerAgency) && (
-          <div className="rounded-2xl bg-[#E8F8F1] px-3.5 py-3.5 ring-1 ring-inset ring-[#03B26C]/25">
-            <div className="mb-2.5 flex items-center gap-1.5">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#03B26C] text-[12px] text-white">
+          <div className="rounded-2xl bg-[#E8F8F1] px-3 py-2.5 ring-1 ring-inset ring-[#03B26C]/25">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#03B26C] text-[11px] text-white">
                 ☎
               </span>
               <p className="text-[13px] font-extrabold text-[#03B26C]">
                 원터치 전화
               </p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {property.hasPartnerAgency ? (
-                <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                <div className="rounded-xl bg-white px-2.5 py-2 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-[14px] font-bold text-gray-700">
                       {partnerLabel}
@@ -215,7 +217,7 @@ export function PropertyBrief({
               ) : (
                 <>
                   {property.tenantPhone ? (
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-2.5 py-2 shadow-sm">
                       <span className="shrink-0 text-[14px] font-bold text-gray-700">
                         임차인
                       </span>
@@ -226,7 +228,7 @@ export function PropertyBrief({
                     </div>
                   ) : null}
                   {property.landlordPhone ? (
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-2.5 py-2 shadow-sm">
                       <span className="shrink-0 text-[14px] font-bold text-gray-700">
                         임대인
                       </span>
@@ -243,8 +245,8 @@ export function PropertyBrief({
         )}
 
         {/* 금액 · 관리비 · 입주 */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
             <p className="text-[11px] font-bold leading-none text-gray-400">
               금액
             </p>
@@ -259,7 +261,7 @@ export function PropertyBrief({
             </p>
           </div>
           {property.roomType === "토지" ? (
-            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 대지면적
                 {property.landCategory?.trim() ? " · 지목" : ""}
@@ -276,7 +278,7 @@ export function PropertyBrief({
               </p>
             </div>
           ) : property.roomType === "건물" ? (
-            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 층수 · 주차
               </p>
@@ -295,7 +297,7 @@ export function PropertyBrief({
               </p>
             </div>
           ) : (
-            <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 관리비
               </p>
@@ -311,7 +313,7 @@ export function PropertyBrief({
             </div>
           )}
           {property.roomType === "건물" && property.unitCounts ? (
-            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 방 · 상가수
               </p>
@@ -331,7 +333,7 @@ export function PropertyBrief({
             </div>
           ) : null}
           {needsRoomBathCounts(property.roomType) ? (
-            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 방 · 화장실
               </p>
@@ -343,7 +345,7 @@ export function PropertyBrief({
             </div>
           ) : null}
           {property.roomType !== "토지" && property.roomType !== "건물" ? (
-            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 입주 가능
               </p>

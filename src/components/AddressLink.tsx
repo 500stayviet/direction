@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getNaviPreference } from "@/lib/storage";
-import { isNaviAppDisabled, openNavi, toNaviAddress } from "@/lib/navi";
+import { NAVI_REMEMBER_ENABLED, isNaviAppDisabled, openNavi, toNaviAddress } from "@/lib/navi";
 import { NaviAppModal } from "@/components/NaviAppModal";
 
 interface AddressLinkProps {
@@ -26,6 +26,10 @@ export function AddressLink({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (!NAVI_REMEMBER_ENABLED) {
+      setModalOpen(true);
+      return;
+    }
     void getNaviPreference().then((pref) => {
       if (pref?.remember && pref.app && !isNaviAppDisabled(pref.app)) {
         void openNavi(pref.app, naviAddress);

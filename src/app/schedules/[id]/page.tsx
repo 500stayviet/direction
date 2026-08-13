@@ -576,7 +576,7 @@ function ScheduleDetailInner() {
             id="schedule-edit-form"
             noValidate
             onSubmit={handleSave}
-            className="space-y-4 pb-2"
+            className="space-y-3 pb-2"
           >
             <div ref={customerPickRef}>
             <Card
@@ -704,9 +704,9 @@ function ScheduleDetailInner() {
                 />
               </div>
             </Card>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {properties.map((property, index) => (
-                <div key={property.id} className="space-y-3">
+                <div key={property.id} className="space-y-2">
                   {index > 0 && (
                     <div
                       className="mx-1 border-t-2 border-dashed border-gray-200"
@@ -810,17 +810,17 @@ function ScheduleDetailInner() {
           </StickyActionBar>
         </>
       ) : (
-        <div className="space-y-3">
-          <div className="relative pt-3">
-            <div className="absolute inset-x-4 top-3 z-10 -translate-y-1/2">
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1.5 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
+        <div className="space-y-2.5">
+          <div className="relative pt-2">
+            <div className="absolute inset-x-4 top-2 z-10 -translate-y-1/2">
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
                 <span className="shrink-0 text-white/80">방문 시간</span>
                 <span className="truncate tracking-tight">
                   {formatVisitDateTime(schedule.visitDate, schedule.visitTime)}
                 </span>
               </span>
             </div>
-            <Card className="!overflow-visible space-y-2.5 pt-5">
+            <Card className="!overflow-visible space-y-2 !px-3 !pb-3 !pt-4">
               {customer ? (
                 <>
                   <ListEdgeChips
@@ -853,7 +853,7 @@ function ScheduleDetailInner() {
                   {(customer.preferredDongs?.length ?? 0) > 0 ||
                   (customer.roomType === "토지" &&
                     customer.landCategory?.trim()) ? (
-                    <div className="space-y-2 rounded-xl bg-[#F9FAFB] px-3 py-2.5">
+                    <div className="space-y-1.5 rounded-xl bg-[#F9FAFB] px-2.5 py-2">
                       <CustomerPreferredLocationBlock customer={customer} />
                       {customer.roomType === "토지" &&
                       customer.landCategory?.trim() ? (
@@ -868,7 +868,7 @@ function ScheduleDetailInner() {
                     <button
                       type="button"
                       onClick={() => setCustomerDetailOpen((v) => !v)}
-                      className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:scale-[0.99] transition-all duration-150"
+                      className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left active:scale-[0.99] transition-all duration-150"
                       aria-expanded={customerDetailOpen}
                     >
                       <span className="text-[13px] font-bold text-gray-600">
@@ -881,7 +881,7 @@ function ScheduleDetailInner() {
                       </span>
                     </button>
                     {customerDetailOpen ? (
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-gray-100 px-3 py-2.5">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-gray-100 px-2.5 py-2">
                         <CustomerMeta
                           label="입주희망"
                           value={getCustomerMoveInLabel(customer)}
@@ -960,7 +960,7 @@ function ScheduleDetailInner() {
               ref={(el) => {
                 propertyRefs.current[index] = el;
               }}
-              className="space-y-3 scroll-mt-20"
+              className="space-y-2 scroll-mt-20"
             >
               <PropertyBrief
                 index={index}

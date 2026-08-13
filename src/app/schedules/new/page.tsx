@@ -316,7 +316,7 @@ function ScheduleCreateInner() {
         id="schedule-create-form"
         noValidate
         onSubmit={handleSubmit}
-        className="space-y-3 overscroll-y-contain pb-2"
+        className="space-y-2.5 overscroll-y-contain pb-2"
       >
         <div className="space-y-3">
           <div ref={customerRef}>
@@ -447,9 +447,9 @@ function ScheduleCreateInner() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {properties.map((property, index) => (
-            <div key={property.id} className="space-y-2">
+            <div key={property.id} className="space-y-1.5">
               {index > 0 && (
                 <div
                   className="mx-1 border-t-2 border-dashed border-gray-200"

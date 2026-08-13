@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { NAVI_APPS, openNavi } from "@/lib/navi";
+import { NAVI_APPS, NAVI_REMEMBER_ENABLED, openNavi } from "@/lib/navi";
 import { setNaviPreference } from "@/lib/storage";
 import type { NaviApp } from "@/lib/types";
 
@@ -21,7 +21,7 @@ export function NaviAppModal({
   onOpened,
 }: NaviAppModalProps) {
   const [selected, setSelected] = useState<NaviApp>("tmap");
-  /** 기본: 매번 선택. 체크 시 기억 */
+  /** 기본: 매번 선택. 체크 시 기억 (NAVI_REMEMBER_ENABLED일 때만) */
   const [remember, setRemember] = useState(false);
 
   useEffect(() => {
@@ -33,72 +33,81 @@ export function NaviAppModal({
   const handleOpen = () => {
     const app = NAVI_APPS.find((item) => item.id === selected);
     if (!app || app.disabled) return;
-    void setNaviPreference(selected, remember)
-      .then(() => openNavi(selected, address))
-      .then(() => {
-        onOpened?.(selected);
-        onClose();
-      });
+    void (async () => {
+      const shouldRemember = NAVI_REMEMBER_ENABLED && remember;
+      await setNaviPreference(selected, shouldRemember);
+      await openNavi(selected, address);
+      onOpened?.(selected);
+      onClose();
+    })();
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="어떤 앱으로 연결할까요?"
-    >
+    <Modal open={open} onClose={onClose} title="어떤 앱으로 연결할까요?">
       <p className="-mt-2 mb-4 rounded-xl bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-amber-800">
-        (추천) 아래 앱이 없으시면 플레이스토어나 앱스토어에서 설치후 사용을 권장 합니다
+        (추천) 아래 앱이 없으시면 플레이스토어나 앱스토어에서 설치후 사용을 권장
+        합니다
       </p>
 
       <div className="space-y-2">
         {NAVI_APPS.map((app) => {
           const disabled = Boolean(app.disabled);
+          const isSelected = !disabled && selected === app.id;
           return (
             <button
               key={app.id}
               type="button"
               disabled={disabled}
+              aria-label={app.label}
+              aria-pressed={isSelected}
               onClick={() => {
                 if (disabled) return;
                 setSelected(app.id);
               }}
+              style={{ backgroundColor: app.buttonBg }}
               className={[
-                "w-full rounded-2xl border p-4 text-left transition-all duration-150",
+                "relative flex h-14 w-full items-center justify-center overflow-hidden rounded-2xl border transition-all duration-150",
                 disabled
-                  ? "cursor-not-allowed border-gray-100 bg-gray-100 opacity-60"
-                  : "active:scale-95",
-                !disabled && selected === app.id
-                  ? "border-[#3182F6] bg-blue-50"
-                  : !disabled
-                    ? "border-gray-200 bg-white"
-                    : "",
+                  ? "cursor-not-allowed border-gray-300 opacity-90"
+                  : "active:scale-[0.99]",
+                isSelected
+                  ? "border-[#3182F6] ring-2 ring-[#3182F6]/35"
+                  : "border-gray-200",
               ].join(" ")}
             >
-              <div
-                className={[
-                  "font-bold",
-                  disabled ? "text-gray-400" : "text-gray-900",
-                ].join(" ")}
-              >
-                {app.label}
-              </div>
-              {app.description ? (
-                <div className="text-sm text-gray-500">{app.description}</div>
-              ) : null}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={app.image}
+                alt=""
+                className="h-full w-full object-cover object-center"
+                draggable={false}
+              />
             </button>
           );
         })}
       </div>
 
-      <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+      <label
+        className={[
+          "mt-4 flex items-center gap-2 text-sm",
+          NAVI_REMEMBER_ENABLED
+            ? "cursor-pointer text-gray-700"
+            : "cursor-not-allowed text-gray-400",
+        ].join(" ")}
+      >
         <input
           type="checkbox"
           checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-          className="h-4 w-4 shrink-0 accent-[#3182F6]"
+          disabled={!NAVI_REMEMBER_ENABLED}
+          onChange={(e) => {
+            if (!NAVI_REMEMBER_ENABLED) return;
+            setRemember(e.target.checked);
+          }}
+          className="h-4 w-4 shrink-0 accent-[#3182F6] disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <span>항상 이 앱으로 열기</span>
+        <span className={NAVI_REMEMBER_ENABLED ? undefined : "line-through decoration-gray-400 decoration-2"}>
+          항상 이 앱으로 열기
+        </span>
       </label>
 
       <div className="mt-5 grid grid-cols-2 gap-2">

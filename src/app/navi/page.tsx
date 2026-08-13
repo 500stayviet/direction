@@ -295,7 +295,7 @@ export default function NaviEntryPage() {
             return (
               <div
                 key={s.id}
-                className="relative mb-2.5 overflow-visible pb-0.5 pt-2"
+                className="relative mb-1.5 overflow-visible pb-0.5 pt-1.5"
               >
                 <ListEdgeChips
                   roomType={customer?.roomType}
@@ -336,7 +336,7 @@ export default function NaviEntryPage() {
                 >
                   <Card
                     className={[
-                      "relative !rounded-2xl !px-3 !pb-2.5 !pt-3",
+                      "relative !rounded-2xl !px-3 !pb-2 !pt-2.5",
                       alertHighlightClass(
                         done ? null : listCardHighlight("navi", s.id),
                         done,
@@ -354,7 +354,7 @@ export default function NaviEntryPage() {
                         {formatVisitDateTime(s.visitDate, s.visitTime)}
                       </p>
 
-                      <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="mt-1.5 flex items-center justify-between gap-3">
                         <p
                           className={[
                             "min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight leading-none",
@@ -378,7 +378,7 @@ export default function NaviEntryPage() {
                         )}
                       </div>
 
-                      <div className="mt-3">
+                      <div className="mt-2">
                         <p
                           className={[
                             "min-w-0 truncate text-[13px] font-semibold leading-snug",

@@ -27,6 +27,8 @@ import type { Customer, ListedProperty, Schedule } from "@/lib/types";
  * sessionStorage/메모리 캐시는 클라이언트 전용.
  * useSyncExternalStore의 getServerSnapshot=null 로 SSR·hydration을 맞추고,
  * hydration 이후에만 캐시 스냅샷을 쓴다 (등록 N명 불일치 방지).
+ *
+ * getSnapshot은 순수 읽기만 — ensureEntityCacheUser(notify)는 이펙트에서.
  */
 function useEntityListState<T>(
   peek: () => T[] | null,
@@ -34,11 +36,7 @@ function useEntityListState<T>(
 ) {
   const cached = useSyncExternalStore(
     subscribeEntityCache,
-    () => {
-      const userId = peekCurrentUser()?.id ?? null;
-      if (userId) ensureEntityCacheUser(userId);
-      return peek();
-    },
+    peek,
     () => null
   );
 
@@ -65,6 +63,12 @@ function useEntityListState<T>(
       setLoading(false);
     }
   }, [cached]);
+
+  // 렌더 중 notify 금지 — session 캐시 채우기는 마운트/세션 확정 후
+  useEffect(() => {
+    const syncedId = peekCurrentUser()?.id ?? null;
+    if (syncedId) ensureEntityCacheUser(syncedId);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

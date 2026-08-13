@@ -18,7 +18,7 @@ export const DEMO_GANGDONG_OFFICE_ADDRESS = "서울특별시 강동구 성내동
 export const DEMO_TEST_PHONE = "111-1111-1111";
 /** 협력부동산에서 준 매물 체험용 — 가입자 상호/전화와 구분 */
 export const DEMO_PARTNER_AGENCY = {
-  name: "성내공인중개사",
+  name: "옆나라 공인중개사사무소",
   phone: "02-1111-2222",
   dong: "성내동",
 } as const;
