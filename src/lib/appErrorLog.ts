@@ -152,13 +152,18 @@ export async function logApiResponseIfNeeded(
   });
 }
 
-type RouteCtx = { params?: Promise<Record<string, string>> | Record<string, string> };
+type RouteCtx = {
+  params?: Promise<Record<string, string>> | Record<string, string>;
+};
 
 /**
  * Route handler 래퍼: 4xx/5xx 응답·미처리 예외를 app_error_logs에 기록.
+ * Next dynamic route handlers may require `params`; keep the constraint loose.
  */
 export function withApiErrorLog<
-  T extends (request: Request, ctx?: RouteCtx) => Promise<Response> | Response,
+  // Next App Router: handlers may use NextRequest and/or required `{ params }`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  T extends (request: any, ctx?: any) => Promise<Response> | Response,
 >(handler: T): T {
   const wrapped = async (request: Request, ctx?: RouteCtx) => {
     try {
