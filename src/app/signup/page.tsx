@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { BrandIcon } from "@/components/BrandIcon";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
+import { StickyActionBar } from "@/components/StickyActionBar";
 import { hardRedirectLogin, registerUser } from "@/lib/auth";
 import { normalizeUsername } from "@/lib/supabase/email";
 import {
@@ -242,7 +243,12 @@ export default function SignupPage() {
         </p>
       </div>
 
-      <form noValidate onSubmit={handleSubmit} className="space-y-3">
+      <form
+        id="signup-form"
+        noValidate
+        onSubmit={handleSubmit}
+        className="space-y-3"
+      >
         <Card className="space-y-2.5">
           <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
             업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
@@ -430,11 +436,19 @@ export default function SignupPage() {
             </span>
           </span>
         </label>
+      </form>
 
-        <Button type="submit" fullWidth size="lg" disabled={loading}>
+      <StickyActionBar>
+        <Button
+          type="submit"
+          form="signup-form"
+          fullWidth
+          size="lg"
+          disabled={loading}
+        >
           {loading ? "가입 중..." : "가입하고 시작하기"}
         </Button>
-      </form>
+      </StickyActionBar>
 
       <RequiredFieldWarnModal
         open={warnOpen}

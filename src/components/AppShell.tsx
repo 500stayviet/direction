@@ -22,16 +22,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     (pathname.startsWith("/navi/") && pathname !== "/navi");
   // 하단 고정 CTA + 탭바가 있는 화면 (스크롤 여유)
   const stickySave =
-    !isAuthPage &&
-    (pathname === "/schedules/new" ||
-      pathname === "/customers" ||
-      pathname === "/customers/new" ||
-      pathname === "/properties" ||
-      pathname === "/properties/new" ||
-      pathname === "/account/edit" ||
-      /^\/customers\/[^/]+$/.test(pathname) ||
-      /^\/properties\/[^/]+$/.test(pathname) ||
-      /^\/schedules\/[^/]+$/.test(pathname));
+    pathname === "/signup" ||
+    (!isAuthPage &&
+      (pathname === "/schedules/new" ||
+        pathname === "/customers" ||
+        pathname === "/customers/new" ||
+        pathname === "/properties" ||
+        pathname === "/properties/new" ||
+        pathname === "/account/edit" ||
+        /^\/customers\/[^/]+$/.test(pathname) ||
+        /^\/properties\/[^/]+$/.test(pathname) ||
+        /^\/schedules\/[^/]+$/.test(pathname)));
 
   return (
     <div className="min-h-dvh bg-[#F9FAFB] text-gray-900">

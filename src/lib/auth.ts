@@ -491,6 +491,7 @@ export async function getCurrentUser(): Promise<User | null> {
         },
         cachedUser
       );
+      notifyAuthChange();
     }
     // 화면 로그인 유지용 — 백그라운드 토큰 강제 갱신은 하지 않음
     // (만료 refresh_token setSession → 400 콘솔 노이즈 /admin·로그인에서도 발생)

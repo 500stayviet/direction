@@ -38,10 +38,9 @@ function useAuthUser(): User | null {
     getAuthEpoch,
     () => 0
   );
-  return useMemo(() => {
-    void epoch;
-    return peekCurrentUser();
-  }, [epoch]);
+  // epoch마다 최신 peek — useMemo로 User 참조를 고정하면 업장명 보정이 안 보임
+  void epoch;
+  return peekCurrentUser();
 }
 
 const menus = [
