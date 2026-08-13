@@ -925,7 +925,7 @@ function ScheduleDetailInner() {
                         ) : null}
                       </div>
                     ) : null}
-                    {(customer.preferredGus?.length ?? 0) > 0 ||
+                    {(customer.preferredDongs?.length ?? 0) > 0 ||
                     (customer.roomType === "토지" &&
                       customer.landCategory?.trim()) ? (
                       <div className="space-y-2 border-t border-gray-100 px-3 py-2.5">
@@ -936,7 +936,7 @@ function ScheduleDetailInner() {
                             value={customer.landCategory.trim()}
                           />
                         ) : null}
-                        {(customer.preferredGus?.length ?? 0) > 0 ? (
+                        {(customer.preferredDongs?.length ?? 0) > 0 ? (
                           <CustomerPreferredLocationBlock customer={customer} />
                         ) : null}
                       </div>

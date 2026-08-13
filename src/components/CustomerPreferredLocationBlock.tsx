@@ -8,16 +8,20 @@ export function preferredLocationRows(
 ): { gu: string; dongsLabel: string }[] {
   const gus = customer.preferredGus ?? [];
   if (gus.length === 0) return [];
-  return gus.map((gu) => {
-    const dongs = (customer.preferredDongs ?? [])
-      .map(parsePreferredDong)
-      .filter((p): p is { gu: string; dong: string } => Boolean(p && p.gu === gu))
-      .map((p) => p.dong);
-    return {
-      gu,
-      dongsLabel: dongs.length > 0 ? dongs.join(", ") : "",
-    };
-  });
+  return gus
+    .map((gu) => {
+      const dongs = (customer.preferredDongs ?? [])
+        .map(parsePreferredDong)
+        .filter(
+          (p): p is { gu: string; dong: string } => Boolean(p && p.gu === gu)
+        )
+        .map((p) => p.dong);
+      return {
+        gu,
+        dongsLabel: dongs.length > 0 ? dongs.join(", ") : "",
+      };
+    })
+    .filter((row) => row.dongsLabel.length > 0);
 }
 
 /** 고객 상세·네비 카드용 — 기존 메타/메모 톤 */

@@ -12,7 +12,8 @@ export type CustomerFieldKey =
   | "monthlyRent"
   | "monthlyRentTo"
   | "moveIn"
-  | "carType";
+  | "carType"
+  | "preferredLocation";
 
 export type CustomerValidationInput = {
   name: string;
@@ -33,6 +34,8 @@ export type CustomerValidationInput = {
   moveInSingle: boolean;
   parkingType: "유" | "무";
   carType: string;
+  preferredGus?: string[];
+  preferredDongs?: string[];
 };
 
 const MESSAGES: Record<CustomerFieldKey, (dealType: DealType) => string> = {
@@ -50,6 +53,7 @@ const MESSAGES: Record<CustomerFieldKey, (dealType: DealType) => string> = {
   monthlyRentTo: () => "월세 종료 금액을 입력해 주세요.",
   moveIn: () => "희망 입주일을 선택해 주세요.",
   carType: () => "차종을 선택해 주세요.",
+  preferredLocation: () => "선호위치 구와 동을 모두 선택해 주세요.",
 };
 
 export function getMissingCustomerFields(
@@ -99,6 +103,10 @@ export function getMissingCustomerFields(
     input.carType !== "SUV"
   ) {
     missing.push("carType");
+  }
+  const dongs = input.preferredDongs ?? [];
+  if (dongs.length === 0) {
+    missing.push("preferredLocation");
   }
   return missing;
 }

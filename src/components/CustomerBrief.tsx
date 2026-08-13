@@ -171,7 +171,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             </div>
           ) : null}
 
-          {(customer.preferredGus?.length ?? 0) > 0 ? (
+          {(customer.preferredDongs?.length ?? 0) > 0 ? (
             <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
               <CustomerPreferredLocationBlock customer={customer} />
             </div>

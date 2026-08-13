@@ -13,14 +13,12 @@ export function encodePreferredDong(gu: string, dong: string) {
 
 export const DEFAULT_PREFERRED_GU = "강동구";
 
+/** 신규 폼 저장값 초기 — 하단 결과에는 넣지 않음 (박스는 강동구만 표시) */
 export function defaultPreferredLocation(): {
   preferredGus: string[];
   preferredDongs: string[];
 } {
-  return {
-    preferredGus: [DEFAULT_PREFERRED_GU],
-    preferredDongs: [],
-  };
+  return { preferredGus: [], preferredDongs: [] };
 }
 
 export function parsePreferredDong(
@@ -44,15 +42,25 @@ function groupDongsByGu(encoded: string[]): Record<string, string[]> {
   return map;
 }
 
+/** 구·동이 모두 선택된 항목만 하단 결과로 사용 */
+export function completedPreferredGus(
+  preferredGus: string[],
+  preferredDongs: string[]
+): string[] {
+  const grouped = groupDongsByGu(preferredDongs);
+  return preferredGus.filter((gu) => (grouped[gu]?.length ?? 0) > 0);
+}
+
 /**
- * 매물등록과 같이 구·동을 각각 모달로 고른다.
- * - 구 기본값: 강동구 (표시)
- * - 동: 「선택동」표시 → 누르면 모달 (다수 선택)
+ * - 구 박스 기본 표시만 강동구 (하단 결과 X)
+ * - 하단 결과는 구+동 선택완료 후에만
+ * - 동 모달 맨 아래 「전체」
  */
 export function PreferredLocationPicker({
   preferredGus,
   preferredDongs,
   onChange,
+  invalid,
 }: {
   preferredGus: string[];
   preferredDongs: string[];
@@ -60,10 +68,12 @@ export function PreferredLocationPicker({
     preferredGus: string[];
     preferredDongs: string[];
   }) => void;
+  invalid?: boolean;
 }) {
   const [guOpen, setGuOpen] = useState(false);
   const [dongOpen, setDongOpen] = useState(false);
-  const [activeGu, setActiveGu] = useState<string>(
+  /** 박스에만 보이는 구 (저장 전) */
+  const [boxGu, setBoxGu] = useState<string>(
     () => preferredGus[0] || DEFAULT_PREFERRED_GU
   );
   const [draftDongs, setDraftDongs] = useState<string[]>([]);
@@ -72,115 +82,129 @@ export function PreferredLocationPicker({
     () => groupDongsByGu(preferredDongs),
     [preferredDongs]
   );
+  const resultGus = useMemo(
+    () => completedPreferredGus(preferredGus, preferredDongs),
+    [preferredGus, preferredDongs]
+  );
 
-  const displayGu =
-    activeGu || preferredGus[0] || DEFAULT_PREFERRED_GU;
-  const activeDongNames = grouped[displayGu] ?? [];
+  const boxDongNames = grouped[boxGu] ?? [];
   const dongButtonLabel =
-    activeDongNames.length > 0 ? activeDongNames.join(", ") : "선택동";
-  const dongList = SEOUL_DONG_BY_GU[displayGu] ?? [];
+    boxDongNames.length > 0 ? boxDongNames.join(", ") : "선택동";
+  const dongList = SEOUL_DONG_BY_GU[boxGu] ?? [];
 
   const pickGu = (gu: string) => {
-    const nextGus = preferredGus.includes(gu)
-      ? preferredGus
-      : [...preferredGus, gu].sort();
-    onChange({ preferredGus: nextGus, preferredDongs });
-    setActiveGu(gu);
+    setBoxGu(gu);
     setGuOpen(false);
   };
 
   const openDongModal = () => {
-    const gu = displayGu;
-    if (!preferredGus.includes(gu)) {
-      onChange({
-        preferredGus: [...preferredGus, gu].sort(),
-        preferredDongs,
-      });
-    }
-    setActiveGu(gu);
-    const existing = (grouped[gu] ?? []).map((d) =>
-      encodePreferredDong(gu, d)
+    const existing = (grouped[boxGu] ?? []).map((d) =>
+      encodePreferredDong(boxGu, d)
     );
     setDraftDongs(existing);
     setDongOpen(true);
   };
 
   const toggleDong = (dong: string) => {
-    const gu = activeGu || displayGu;
-    const key = encodePreferredDong(gu, dong);
+    const key = encodePreferredDong(boxGu, dong);
     setDraftDongs((prev) =>
       prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
     );
   };
 
+  const toggleAllDongs = () => {
+    const allKeys = dongList.map((d) => encodePreferredDong(boxGu, d));
+    const allSelected =
+      allKeys.length > 0 && allKeys.every((k) => draftDongs.includes(k));
+    setDraftDongs(allSelected ? [] : allKeys);
+  };
+
+  const allDraftSelected =
+    dongList.length > 0 &&
+    dongList.every((d) =>
+      draftDongs.includes(encodePreferredDong(boxGu, d))
+    );
+
   const confirmDongs = () => {
-    const gu = activeGu || displayGu;
+    if (draftDongs.length === 0) {
+      // 동 미선택이면 해당 구 결과는 넣지 않음 (기존 해당 구 결과도 제거)
+      const nextDongs = preferredDongs.filter(
+        (raw) => !raw.startsWith(`${boxGu}${SEP}`)
+      );
+      const nextGus = preferredGus.filter((g) => g !== boxGu);
+      onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
+      setDongOpen(false);
+      return;
+    }
     const others = preferredDongs.filter(
-      (raw) => !raw.startsWith(`${gu}${SEP}`)
+      (raw) => !raw.startsWith(`${boxGu}${SEP}`)
     );
     const nextDongs = [...others, ...draftDongs].sort();
-    const nextGus = preferredGus.includes(gu)
+    const nextGus = preferredGus.includes(boxGu)
       ? preferredGus
-      : [...preferredGus, gu].sort();
+      : [...preferredGus, boxGu].sort();
     onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
     setDongOpen(false);
   };
 
   const removeGu = (gu: string) => {
-    const nextGus = preferredGus.filter((g) => g !== gu);
-    const nextDongs = preferredDongs.filter(
-      (raw) => !raw.startsWith(`${gu}${SEP}`)
-    );
-    if (nextGus.length === 0) {
-      onChange(defaultPreferredLocation());
-      setActiveGu(DEFAULT_PREFERRED_GU);
-      return;
-    }
-    onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
-    if (activeGu === gu) setActiveGu(nextGus[0] || DEFAULT_PREFERRED_GU);
+    onChange({
+      preferredGus: preferredGus.filter((g) => g !== gu),
+      preferredDongs: preferredDongs.filter(
+        (raw) => !raw.startsWith(`${gu}${SEP}`)
+      ),
+    });
+    if (boxGu === gu) setBoxGu(DEFAULT_PREFERRED_GU);
   };
+
+  const boxClass = [
+    "flex min-h-[48px] w-full items-center justify-center rounded-xl border bg-gray-50 px-3 active:scale-[0.99] transition-all duration-150",
+    invalid ? "border-red-500 bg-red-50" : "border-gray-200",
+  ].join(" ");
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[13px] font-semibold text-gray-600">선호위치</p>
+      <p
+        className={[
+          "text-[13px] font-semibold",
+          invalid ? "text-red-600" : "text-gray-600",
+        ].join(" ")}
+      >
+        선호위치
+        <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+          *
+        </span>
+      </p>
       <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => setGuOpen(true)}
-          className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 active:scale-[0.99] transition-all duration-150"
-        >
+        <button type="button" onClick={() => setGuOpen(true)} className={boxClass}>
           <span className="truncate text-[15px] font-semibold text-gray-900">
-            {displayGu}
-          </span>
-          <span className="shrink-0 text-[12px] font-bold text-[#3182F6]">
-            선택
+            {boxGu}
           </span>
         </button>
-        <button
-          type="button"
-          onClick={openDongModal}
-          className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 active:scale-[0.99] transition-all duration-150"
-        >
+        <button type="button" onClick={openDongModal} className={boxClass}>
           <span
             className={[
               "truncate text-[15px] font-semibold",
-              activeDongNames.length > 0 ? "text-gray-900" : "text-gray-400",
+              boxDongNames.length > 0 ? "text-gray-900" : "text-gray-400",
             ].join(" ")}
           >
             {dongButtonLabel}
           </span>
-          <span className="shrink-0 text-[12px] font-bold text-[#3182F6]">
-            선택
-          </span>
         </button>
       </div>
-      <p className="text-[11px] text-gray-400">
-        구는 기본 강동구입니다. 선택동을 눌러 동을 여러 개 고를 수 있습니다.
-      </p>
+      {invalid ? (
+        <p className="text-[11px] font-semibold text-red-500">
+          구와 동을 모두 선택해 주세요.
+        </p>
+      ) : (
+        <p className="text-[11px] text-gray-400">
+          구·동을 모두 고른 뒤 선택완료하면 아래에 반영됩니다.
+        </p>
+      )}
 
-      {preferredGus.length > 0 ? (
+      {resultGus.length > 0 ? (
         <div className="space-y-1.5 rounded-xl bg-[#F7F8FA] px-2.5 py-2">
-          {preferredGus.map((gu) => {
+          {resultGus.map((gu) => {
             const dongs = grouped[gu] ?? [];
             return (
               <div
@@ -191,23 +215,18 @@ export function PreferredLocationPicker({
                   type="button"
                   className="min-w-0 flex-1 text-left text-[13px] leading-snug text-gray-800"
                   onClick={() => {
-                    setActiveGu(gu);
-                    const existing = (grouped[gu] ?? []).map((d) =>
-                      encodePreferredDong(gu, d)
+                    setBoxGu(gu);
+                    setDraftDongs(
+                      dongs.map((d) => encodePreferredDong(gu, d))
                     );
-                    setDraftDongs(existing);
                     setDongOpen(true);
                   }}
                 >
                   <span className="font-bold">{gu}</span>
-                  {dongs.length > 0 ? (
-                    <span className="text-gray-600">
-                      {" · "}
-                      {dongs.join(", ")}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400"> · 선택동</span>
-                  )}
+                  <span className="text-gray-600">
+                    {" · "}
+                    {dongs.join(", ")}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -226,7 +245,7 @@ export function PreferredLocationPicker({
         open={guOpen}
         onClose={() => setGuOpen(false)}
         title="구 선택"
-        description="한 번 고르면 바로 저장됩니다. 다른 구는 다시 선택하세요."
+        description="구를 고른 뒤 동도 선택해야 결과에 반영됩니다."
         dense
         footer={
           <Button fullWidth variant="secondary" onClick={() => setGuOpen(false)}>
@@ -236,8 +255,8 @@ export function PreferredLocationPicker({
       >
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
           {SEOUL_GU_LIST.map((gu) => {
-            const saved = preferredGus.includes(gu);
-            const current = gu === displayGu;
+            const inResult = resultGus.includes(gu);
+            const current = gu === boxGu;
             return (
               <button
                 key={gu}
@@ -245,7 +264,7 @@ export function PreferredLocationPicker({
                 onClick={() => pickGu(gu)}
                 className={[
                   "min-h-[44px] rounded-xl text-[13px] font-bold transition-all active:scale-95",
-                  current || saved
+                  current || inResult
                     ? "bg-[#3182F6] text-white"
                     : "bg-gray-100 text-gray-700",
                 ].join(" ")}
@@ -260,22 +279,23 @@ export function PreferredLocationPicker({
       <Modal
         open={dongOpen}
         onClose={() => setDongOpen(false)}
-        title={`${activeGu || displayGu} · 동 선택`}
-        description="여러 동을 고른 뒤 선택완료를 눌러 주세요"
+        title={`${boxGu} · 동 선택`}
+        description="동을 고른 뒤 선택완료를 눌러 주세요"
         dense
         footer={
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" onClick={() => setDongOpen(false)}>
               취소
             </Button>
-            <Button onClick={confirmDongs}>선택완료</Button>
+            <Button onClick={confirmDongs} disabled={draftDongs.length === 0}>
+              선택완료
+            </Button>
           </div>
         }
       >
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
           {dongList.map((dong) => {
-            const gu = activeGu || displayGu;
-            const key = encodePreferredDong(gu, dong);
+            const key = encodePreferredDong(boxGu, dong);
             const active = draftDongs.includes(key);
             return (
               <button
@@ -293,6 +313,18 @@ export function PreferredLocationPicker({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={toggleAllDongs}
+            className={[
+              "col-span-3 min-h-[44px] rounded-xl text-[14px] font-extrabold transition-all active:scale-95",
+              allDraftSelected
+                ? "bg-[#3182F6] text-white"
+                : "bg-gray-800 text-white",
+            ].join(" ")}
+          >
+            전체
+          </button>
         </div>
       </Modal>
     </div>

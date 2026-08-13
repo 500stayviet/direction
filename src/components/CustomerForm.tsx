@@ -47,7 +47,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
-import { PreferredLocationPicker, defaultPreferredLocation } from "@/components/PreferredLocationPicker";
+import { PreferredLocationPicker, defaultPreferredLocation, completedPreferredGus } from "@/components/PreferredLocationPicker";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 
 const FORM_ID = "customer-form";
@@ -222,6 +222,8 @@ export function CustomerForm({
     moveInSingle,
     parkingType,
     carType,
+    preferredGus,
+    preferredDongs,
   };
 
   const missingFields = validationActive
@@ -342,7 +344,10 @@ export function CustomerForm({
       notes: notes.trim(),
       landCategory:
         roomType === "토지" ? landCategory.trim() || undefined : undefined,
-      preferredGus: preferredGus.length > 0 ? preferredGus : undefined,
+      preferredGus: (() => {
+        const done = completedPreferredGus(preferredGus, preferredDongs);
+        return done.length > 0 ? done : undefined;
+      })(),
       preferredDongs: preferredDongs.length > 0 ? preferredDongs : undefined,
       workspaceShared,
       siteShared: initial?.siteShared === true,
@@ -466,14 +471,17 @@ export function CustomerForm({
             />
           ) : null}
 
-          <PreferredLocationPicker
-            preferredGus={preferredGus}
-            preferredDongs={preferredDongs}
-            onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
-              setPreferredGus(nextGus);
-              setPreferredDongs(nextDongs);
-            }}
-          />
+          <div ref={setFieldRef("preferredLocation")}>
+            <PreferredLocationPicker
+              preferredGus={preferredGus}
+              preferredDongs={preferredDongs}
+              invalid={isInvalid("preferredLocation")}
+              onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
+                setPreferredGus(nextGus);
+                setPreferredDongs(nextDongs);
+              }}
+            />
+          </div>
 
           <div className="space-y-2">
             <div className="space-y-1">
