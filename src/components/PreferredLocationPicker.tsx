@@ -12,7 +12,6 @@ export function encodePreferredDong(gu: string, dong: string) {
 }
 
 export const DEFAULT_PREFERRED_GU = "강동구";
-export const DEFAULT_PREFERRED_DONG = "성내동";
 
 export function defaultPreferredLocation(): {
   preferredGus: string[];
@@ -20,9 +19,7 @@ export function defaultPreferredLocation(): {
 } {
   return {
     preferredGus: [DEFAULT_PREFERRED_GU],
-    preferredDongs: [
-      encodePreferredDong(DEFAULT_PREFERRED_GU, DEFAULT_PREFERRED_DONG),
-    ],
+    preferredDongs: [],
   };
 }
 
