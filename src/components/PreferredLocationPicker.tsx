@@ -72,9 +72,12 @@ export function PreferredLocationPicker({
 }) {
   const [guOpen, setGuOpen] = useState(false);
   const [dongOpen, setDongOpen] = useState(false);
-  /** 박스에만 보이는 구 (저장 전) */
-  const [boxGu, setBoxGu] = useState<string>(
-    () => preferredGus[0] || DEFAULT_PREFERRED_GU
+  /**
+   * 박스에만 보이는 구. 빈 문자열이면 「선택구」.
+   * 신규: 강동구 / 이미 결과가 있으면 선택구·선택동으로 시작.
+   */
+  const [boxGu, setBoxGu] = useState<string>(() =>
+    preferredDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU
   );
   const [draftDongs, setDraftDongs] = useState<string[]>([]);
 
@@ -87,10 +90,10 @@ export function PreferredLocationPicker({
     [preferredGus, preferredDongs]
   );
 
-  const boxDongNames = grouped[boxGu] ?? [];
-  const dongButtonLabel =
-    boxDongNames.length > 0 ? boxDongNames.join(", ") : "선택동";
-  const dongList = SEOUL_DONG_BY_GU[boxGu] ?? [];
+  const activeGu = boxGu || DEFAULT_PREFERRED_GU;
+  const guButtonLabel = boxGu || "선택구";
+  const dongButtonLabel = "선택동";
+  const dongList = SEOUL_DONG_BY_GU[activeGu] ?? [];
 
   const pickGu = (gu: string) => {
     setBoxGu(gu);
@@ -98,22 +101,24 @@ export function PreferredLocationPicker({
   };
 
   const openDongModal = () => {
-    const existing = (grouped[boxGu] ?? []).map((d) =>
-      encodePreferredDong(boxGu, d)
+    const gu = boxGu || DEFAULT_PREFERRED_GU;
+    if (!boxGu) setBoxGu(gu);
+    const existing = (grouped[gu] ?? []).map((d) =>
+      encodePreferredDong(gu, d)
     );
     setDraftDongs(existing);
     setDongOpen(true);
   };
 
   const toggleDong = (dong: string) => {
-    const key = encodePreferredDong(boxGu, dong);
+    const key = encodePreferredDong(activeGu, dong);
     setDraftDongs((prev) =>
       prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
     );
   };
 
   const toggleAllDongs = () => {
-    const allKeys = dongList.map((d) => encodePreferredDong(boxGu, d));
+    const allKeys = dongList.map((d) => encodePreferredDong(activeGu, d));
     const allSelected =
       allKeys.length > 0 && allKeys.every((k) => draftDongs.includes(k));
     setDraftDongs(allSelected ? [] : allKeys);
@@ -122,44 +127,52 @@ export function PreferredLocationPicker({
   const allDraftSelected =
     dongList.length > 0 &&
     dongList.every((d) =>
-      draftDongs.includes(encodePreferredDong(boxGu, d))
+      draftDongs.includes(encodePreferredDong(activeGu, d))
     );
 
   const confirmDongs = () => {
+    const gu = activeGu;
     if (draftDongs.length === 0) {
-      // 동 미선택이면 해당 구 결과는 넣지 않음 (기존 해당 구 결과도 제거)
       const nextDongs = preferredDongs.filter(
-        (raw) => !raw.startsWith(`${boxGu}${SEP}`)
+        (raw) => !raw.startsWith(`${gu}${SEP}`)
       );
-      const nextGus = preferredGus.filter((g) => g !== boxGu);
+      const nextGus = preferredGus.filter((g) => g !== gu);
       onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
       setDongOpen(false);
+      setBoxGu(nextDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU);
       return;
     }
     const others = preferredDongs.filter(
-      (raw) => !raw.startsWith(`${boxGu}${SEP}`)
+      (raw) => !raw.startsWith(`${gu}${SEP}`)
     );
     const nextDongs = [...others, ...draftDongs].sort();
-    const nextGus = preferredGus.includes(boxGu)
+    const nextGus = preferredGus.includes(gu)
       ? preferredGus
-      : [...preferredGus, boxGu].sort();
+      : [...preferredGus, gu].sort();
     onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
     setDongOpen(false);
+    // 선택 완료 후 박스는 다시 선택구·선택동
+    setBoxGu("");
   };
 
   const removeGu = (gu: string) => {
-    onChange({
-      preferredGus: preferredGus.filter((g) => g !== gu),
-      preferredDongs: preferredDongs.filter(
-        (raw) => !raw.startsWith(`${gu}${SEP}`)
-      ),
-    });
-    if (boxGu === gu) setBoxGu(DEFAULT_PREFERRED_GU);
+    const nextGus = preferredGus.filter((g) => g !== gu);
+    const nextDongs = preferredDongs.filter(
+      (raw) => !raw.startsWith(`${gu}${SEP}`)
+    );
+    onChange({ preferredGus: nextGus, preferredDongs: nextDongs });
+    setBoxGu(nextDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU);
   };
 
   const boxClass = [
-    "flex min-h-[48px] w-full items-center justify-center rounded-xl border bg-gray-50 px-3 active:scale-[0.99] transition-all duration-150",
-    invalid ? "border-red-500 bg-red-50" : "border-gray-200",
+    "flex min-h-[48px] w-full items-center justify-center rounded-xl border px-3 active:scale-[0.99] transition-all duration-150",
+    invalid
+      ? "border-red-500 bg-red-50"
+      : "border-[#3182F6] bg-[#3182F6]",
+  ].join(" ");
+  const boxTextClass = [
+    "truncate text-[15px] font-semibold",
+    invalid ? "text-red-600" : "text-white",
   ].join(" ");
 
   return (
@@ -177,19 +190,10 @@ export function PreferredLocationPicker({
       </p>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => setGuOpen(true)} className={boxClass}>
-          <span className="truncate text-[15px] font-semibold text-gray-900">
-            {boxGu}
-          </span>
+          <span className={boxTextClass}>{guButtonLabel}</span>
         </button>
         <button type="button" onClick={openDongModal} className={boxClass}>
-          <span
-            className={[
-              "truncate text-[15px] font-semibold",
-              boxDongNames.length > 0 ? "text-gray-900" : "text-gray-400",
-            ].join(" ")}
-          >
-            {dongButtonLabel}
-          </span>
+          <span className={boxTextClass}>{dongButtonLabel}</span>
         </button>
       </div>
       {invalid ? (
@@ -256,7 +260,7 @@ export function PreferredLocationPicker({
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
           {SEOUL_GU_LIST.map((gu) => {
             const inResult = resultGus.includes(gu);
-            const current = gu === boxGu;
+            const current = Boolean(boxGu) && gu === boxGu;
             return (
               <button
                 key={gu}
@@ -278,13 +282,22 @@ export function PreferredLocationPicker({
 
       <Modal
         open={dongOpen}
-        onClose={() => setDongOpen(false)}
-        title={`${boxGu} · 동 선택`}
+        onClose={() => {
+          setDongOpen(false);
+          if (resultGus.length > 0) setBoxGu("");
+        }}
+        title={`${activeGu} · 동 선택`}
         description="동을 고른 뒤 선택완료를 눌러 주세요"
         dense
         footer={
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setDongOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDongOpen(false);
+                if (resultGus.length > 0) setBoxGu("");
+              }}
+            >
               취소
             </Button>
             <Button onClick={confirmDongs} disabled={draftDongs.length === 0}>
@@ -295,7 +308,7 @@ export function PreferredLocationPicker({
       >
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
           {dongList.map((dong) => {
-            const key = encodePreferredDong(boxGu, dong);
+            const key = encodePreferredDong(activeGu, dong);
             const active = draftDongs.includes(key);
             return (
               <button
