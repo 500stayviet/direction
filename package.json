@@ -7,6 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:auth": "playwright test e2e/auth-*.spec.ts",
+    "test:e2e:team": "playwright test e2e/team-*.spec.ts e2e/team-member-*.spec.ts",
+    "test:e2e:suspend": "playwright test e2e/suspend-*.spec.ts",
+    "cleanup:e2e-users": "node --env-file=.env.local scripts/cleanup-e2e-users.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-splash.ps1"
   },
@@ -18,6 +23,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -74,7 +74,7 @@ export function PropertyBrief({
     property.moveInDate
   );
   const partnerLabel =
-    property.partnerAgency.name?.trim() || "협력부동산";
+    property.partnerAgency?.name?.trim() || "협력부동산";
 
   const dealLabel =
     property.roomType === "건물" || property.roomType === "토지"
@@ -168,7 +168,7 @@ export function PropertyBrief({
               {property.address || "주소 없음"}
               {property.roomNo?.trim() ? (
                 <span className="ml-2.5 text-[16px] font-extrabold text-gray-700">
-                  {property.roomNo.trim()}
+                  {property.roomNo?.trim()}
                 </span>
               ) : null}
             </span>
@@ -194,13 +194,13 @@ export function PropertyBrief({
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-[14px] font-bold text-gray-700">
                       {partnerLabel}
-                      {property.partnerAgency.dong?.trim() ? (
+                      {property.partnerAgency?.dong?.trim() ? (
                         <span className="ml-1.5 text-[12px] font-semibold text-gray-400">
                           {property.partnerAgency.dong.trim()}
                         </span>
                       ) : null}
                     </p>
-                    {property.partnerAgency.phone ? (
+                    {property.partnerAgency?.phone ? (
                       <PhoneLink
                         phone={property.partnerAgency.phone}
                         className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
@@ -296,7 +296,7 @@ export function PropertyBrief({
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {formatMoney(property.maintenanceFee)}
                 {!skipsResidentialExtras(property.roomType) &&
-                property.maintenanceIncludes.length > 0 ? (
+                (property.maintenanceIncludes?.length ?? 0) > 0 ? (
                   <span className="ml-1 text-[12px] font-semibold text-gray-500">
                     ({property.maintenanceIncludes.join(", ")})
                   </span>
@@ -431,7 +431,7 @@ export function PropertyBrief({
           />
           )}
           {showResidentialExtras &&
-            property.options.map((opt) => (
+            (property.options ?? []).map((opt) => (
             <span key={opt} className={chipOption}>
               {opt}
             </span>

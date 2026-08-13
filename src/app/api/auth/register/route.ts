@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { usernameToEmail, validateUsernameFormat } from "@/lib/supabase/email";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
-import {
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import {
   applySignupPromotions,
   isPromoSignupEnabled,
   resolveSignupEventCode,

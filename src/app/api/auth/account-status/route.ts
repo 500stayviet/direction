@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import {
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import {
   getAuthUserFromToken,
   getBearerToken,
 } from "@/lib/serverAuth";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthUserFromToken, getBearerToken } from "@/lib/serverAuth";
-import {
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import {
   buildWorkspaceInfo,
   dissolveSoloPendingWorkspace,
   getMembership,

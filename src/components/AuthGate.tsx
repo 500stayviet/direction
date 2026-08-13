@@ -172,6 +172,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [ready, booted, pathname]);
 
+  // 로그인·가입은 스플래시/부팅 게이트 없이 즉시 표시 (폼 입력 가능)
+  if (isAuthPath(pathname)) {
+    return <div key={sessionKey}>{children}</div>;
+  }
+
   // 최초 부팅 중: children은 마운트하되 보이지 않게 (null 반환 시 트리 깨짐 방지)
   if (!ready && !booted) {
     return <div className="invisible h-0 overflow-hidden">{children}</div>;

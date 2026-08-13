@@ -31,6 +31,32 @@ function canUseStorage(): boolean {
  * - sessionStorage (스플래시 완료 플래그는 유지 — 로그아웃 후 재표시 방지)
  * - 예전 localStorage 키
  */
+/** 예전 공용 키·Supabase 브라우저 토큰 (앱 세션 realty_app_auth 는 유지) */
+function clearLegacyAndSupabaseLocalKeys(opts?: {
+  includeAccountScopedKeys?: boolean;
+}): void {
+  if (!canUseStorage()) return;
+  for (const k of LEGACY_SHARED_KEYS) {
+    localStorage.removeItem(k);
+  }
+  const toRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    const drop =
+      key.startsWith("sb-") ||
+      key.includes("auth-token") ||
+      (opts?.includeAccountScopedKeys === true && key.startsWith("realty_u_"));
+    if (drop) toRemove.push(key);
+  }
+  for (const key of toRemove) localStorage.removeItem(key);
+}
+
+/**
+ * 계정 전환 시 남는 런타임 캐시 제거.
+ * - sessionStorage (스플래시 완료 플래그는 유지 — 로그아웃 후 재표시 방지)
+ * - 예전 localStorage 키
+ */
 export function clearAuthRuntimeCache(): void {
   cachedUser = null;
   clearAppAuth();
@@ -48,23 +74,7 @@ export function clearAuthRuntimeCache(): void {
   } catch {
     /* ignore */
   }
-  if (!canUseStorage()) return;
-  for (const k of LEGACY_SHARED_KEYS) {
-    localStorage.removeItem(k);
-  }
-  // 계정별 예전 로컬 데이터 키 + supabase auth 토큰 정리
-  const toRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (
-      key?.startsWith("realty_u_") ||
-      key?.startsWith("sb-") ||
-      key?.includes("auth-token")
-    ) {
-      toRemove.push(key);
-    }
-  }
-  for (const key of toRemove) localStorage.removeItem(key);
+  clearLegacyAndSupabaseLocalKeys({ includeAccountScopedKeys: true });
   resetBrowserClient();
 }
 
@@ -593,20 +603,7 @@ export async function loginUser(
 
     // 이전 계정 잔여 토큰만 지우고, 새 앱 세션을 먼저 저장
     cachedUser = null;
-    if (canUseStorage()) {
-      for (const k of LEGACY_SHARED_KEYS) localStorage.removeItem(k);
-      const toRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (
-          key?.startsWith("sb-") ||
-          key?.includes("auth-token")
-        ) {
-          toRemove.push(key);
-        }
-      }
-      for (const key of toRemove) localStorage.removeItem(key);
-    }
+    clearLegacyAndSupabaseLocalKeys();
     resetBrowserClient();
 
     // 앱 세션 백업 — 홈 새로고침 후에도 로그인 유지의 핵심
@@ -624,19 +621,9 @@ export async function loginUser(
           window.setTimeout(() => reject(new Error("session-timeout")), 2500)
         ),
       ]);
-      void supabase
-        .from("profiles")
-        .upsert({
-          id: body.user.id,
-          username: body.user.username,
-          shop_name: body.user.shopName,
-          display_name: body.user.name,
-          phone: body.user.phone,
-          // password_hint / entitlement 컬럼은 서버만 관리 — 빈 값으로 덮어쓰지 않음
-        })
-        .then(() => undefined);
 
-      // 로그인 응답에는 힌트가 없음 → 본인 계정 화면용으로 프로필에서만 보강
+      // 프로필 생성·upsert는 서버(login/register)만 — 클라이언트 upsert는
+      // entitlement 트리거/RLS로 400이 나기 쉬워 제거. 힌트·요금만 조회 보강.
       void supabase
         .from("profiles")
         .select("password_hint, matching_enabled, plan_tier, promo_source")
