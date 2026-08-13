@@ -25,11 +25,6 @@ interface SeoulAddressFieldProps {
 }
 
 const DEFAULT_GU = "강동구";
-const DEFAULT_DONG = "성내동";
-
-function defaultDongForGu(nextGu: string): string {
-  return nextGu === DEFAULT_GU ? DEFAULT_DONG : "";
-}
 
 export function SeoulAddressField({
   value,
@@ -44,9 +39,7 @@ export function SeoulAddressField({
   const initialGu = parsed.gu || DEFAULT_GU;
   const initialJibun = parseJibunDetail(parsed.detail);
   const [gu, setGu] = useState(initialGu);
-  const [dong, setDong] = useState(
-    parsed.dong || defaultDongForGu(initialGu)
-  );
+  const [dong, setDong] = useState(parsed.dong || "");
   const [jibunMain, setJibunMain] = useState(initialJibun.main);
   const [jibunSub, setJibunSub] = useState(initialJibun.sub);
   /** 사용자가 구·동을 선택한 뒤에만 완료(초록) 표시 */
@@ -58,7 +51,7 @@ export function SeoulAddressField({
     const next = parseSeoulAddress(value);
     if (next.gu) {
       setGu(next.gu);
-      setDong(next.dong || defaultDongForGu(next.gu));
+      setDong(next.dong || "");
       const jibun = parseJibunDetail(next.detail);
       setJibunMain(jibun.main);
       setJibunSub(jibun.sub);
@@ -68,15 +61,14 @@ export function SeoulAddressField({
     }
     if (!value) {
       const nextGu = DEFAULT_GU;
-      const nextDong = DEFAULT_DONG;
       setGu(nextGu);
-      setDong(nextDong);
+      setDong("");
       setJibunMain("");
       setJibunSub("");
       setGuComplete(false);
       setDongComplete(false);
-      onChange(composeSeoulAddress(nextGu, nextDong, ""));
-      onDongChange?.(nextDong);
+      onChange(composeSeoulAddress(nextGu, "", ""));
+      onDongChange?.("");
     } else {
       const jibun = parseJibunDetail(next.detail);
       setJibunMain(jibun.main);
@@ -164,13 +156,12 @@ export function SeoulAddressField({
           title="구 선택"
           description="서울시 자치구"
           onChange={(nextGu) => {
-            const nextDong = defaultDongForGu(nextGu);
             setGu(nextGu);
-            setDong(nextDong);
+            setDong("");
             setGuComplete(true);
             setDongComplete(false);
-            if (nextDong) onDongChange?.(nextDong);
-            emitSelectAddress(nextGu, nextDong, jibunMain, jibunSub);
+            onDongChange?.("");
+            emitSelectAddress(nextGu, "", jibunMain, jibunSub);
           }}
         />
         <OptionPicker
@@ -181,7 +172,7 @@ export function SeoulAddressField({
           value={dong}
           options={dongs}
           disabled={!gu}
-          placeholder={gu ? "동 선택" : "구 먼저 선택"}
+          placeholder={gu ? "선택 동" : "구 먼저 선택"}
           title="동 선택"
           description={gu ? `${gu} 법정동` : "구를 먼저 선택해 주세요"}
           onChange={(nextDong) => {
