@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   completedPreferredGus,
+  defaultPreferredLocation,
   encodePreferredDong,
   formatPreferredLocationLabel,
   parsePreferredDong,
@@ -15,6 +16,13 @@ describe("preferredLocation", () => {
     assert.deepEqual(parsePreferredDong(raw), {
       gu: "강동구",
       dong: "성내동",
+    });
+  });
+
+  it("기본값은 강동구·성내동이다", () => {
+    assert.deepEqual(defaultPreferredLocation(), {
+      preferredGus: ["강동구"],
+      preferredDongs: ["강동구|성내동"],
     });
   });
 

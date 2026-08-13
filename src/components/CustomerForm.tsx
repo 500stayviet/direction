@@ -47,7 +47,11 @@ import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
-import { PreferredLocationPicker, defaultPreferredLocation, completedPreferredGus } from "@/components/PreferredLocationPicker";
+import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
+import {
+  completedPreferredGus,
+  defaultPreferredLocation,
+} from "@/lib/preferredLocation";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 
 const FORM_ID = "customer-form";
@@ -168,12 +172,13 @@ export function CustomerForm({
   );
   const [preferredGus, setPreferredGus] = useState<string[]>(() => {
     if (initial?.preferredGus?.length) return initial.preferredGus;
-    if (initial) return [];
+    if (initial?.preferredDongs?.length) {
+      return completedPreferredGus([], initial.preferredDongs);
+    }
     return defaultPreferredLocation().preferredGus;
   });
   const [preferredDongs, setPreferredDongs] = useState<string[]>(() => {
     if (initial?.preferredDongs?.length) return initial.preferredDongs;
-    if (initial) return [];
     return defaultPreferredLocation().preferredDongs;
   });
   const preferredRef = useRef({

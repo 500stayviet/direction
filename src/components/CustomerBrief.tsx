@@ -15,7 +15,8 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
 import { ListEdgeChips } from "@/components/ListEdgeChips";
-import { CustomerPreferredLocationBlock, preferredLocationRows } from "@/components/CustomerPreferredLocationBlock";
+import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
+import { preferredLocationRows } from "@/lib/preferredLocation";
 
 const chipBase =
   "inline-flex items-center rounded-full px-3.5 py-2 text-[14px] font-bold leading-none tracking-tight";

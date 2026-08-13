@@ -13,7 +13,7 @@ import { getContractDeadlineLabel } from "@/lib/deadline";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { alertHighlightClass } from "@/lib/teamAlerts";
-import { formatPreferredLocationLabel } from "@/components/CustomerPreferredLocationBlock";
+import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
 import type { Customer } from "@/lib/types";
 
 interface CustomerListCardProps {

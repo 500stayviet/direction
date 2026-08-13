@@ -7,13 +7,20 @@ export function encodePreferredDong(gu: string, dong: string) {
 }
 
 export const DEFAULT_PREFERRED_GU = "강동구";
+export const DEFAULT_PREFERRED_DONG = "성내동";
+export { SEP as PREFERRED_DONG_SEP };
 
-/** 신규 폼 저장값 초기 — 하단 결과에는 넣지 않음 (박스는 강동구만 표시) */
+/** 신규·미입력 시 기본 선택값 — 저장·상세 표시에 포함 */
 export function defaultPreferredLocation(): {
   preferredGus: string[];
   preferredDongs: string[];
 } {
-  return { preferredGus: [], preferredDongs: [] };
+  return {
+    preferredGus: [DEFAULT_PREFERRED_GU],
+    preferredDongs: [
+      encodePreferredDong(DEFAULT_PREFERRED_GU, DEFAULT_PREFERRED_DONG),
+    ],
+  };
 }
 
 export function parsePreferredDong(
@@ -40,7 +47,7 @@ export function groupDongsByGu(encoded: string[]): Record<string, string[]> {
   return map;
 }
 
-/** 구·동이 모두 선택된 항목만 사용 (동만 있어도 구 복원) */
+/** 동이 있는 구만 (동만 있어도 구 복원) */
 export function completedPreferredGus(
   preferredGus: string[],
   preferredDongs: string[]
@@ -68,19 +75,15 @@ export function preferredLocationRows(customer: {
   if (dongs.length === 0) return [];
 
   const byGu = groupDongsByGu(dongs);
-  const gusFromData = Object.keys(byGu);
-  if (gusFromData.length === 0) return [];
+  const fromDongs = Object.keys(byGu);
+  if (fromDongs.length === 0) return [];
 
   const preferredGus = Array.isArray(customer.preferredGus)
-    ? customer.preferredGus
+    ? customer.preferredGus.filter((gu) => byGu[gu]?.length)
     : [];
-  const gus =
-    preferredGus.length > 0
-      ? preferredGus.filter((gu) => byGu[gu]?.length)
-      : gusFromData.sort();
-  const finalGus = gus.length > 0 ? gus : gusFromData.sort();
+  const gus = preferredGus.length > 0 ? preferredGus : fromDongs.sort();
 
-  return finalGus.map((gu) => ({
+  return gus.map((gu) => ({
     gu,
     dongsLabel: (byGu[gu] ?? []).join(", "),
   }));
@@ -96,5 +99,3 @@ export function formatPreferredLocationLabel(customer: {
     )
     .join(" · ");
 }
-
-export { SEP as PREFERRED_DONG_SEP };

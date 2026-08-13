@@ -76,12 +76,8 @@ test("고객등록 UI: 구·동 선택완료 후 상세에 선호위치 표시",
   await page.getByPlaceholder("홍길동").fill(`등록선호${user.username}`);
   await page.getByPlaceholder("010-1234-5678").fill("01011112222");
 
-  // 기본 구(강동구)에서 동 선택
-  await page.getByRole("button", { name: "선택동" }).click();
-  await expect(page.getByText("동 선택")).toBeVisible();
-  await page.getByRole("button", { name: "성내동", exact: true }).click();
-  await page.getByRole("button", { name: "선택완료" }).click();
-  await expect(page.getByText(/강동구/)).toBeVisible();
+  // 기본값으로 강동구·성내동이 이미 하단에 있음
+  await expect(page.getByText("강동구").first()).toBeVisible();
   await expect(page.getByText(/성내동/)).toBeVisible();
 
   // 보증금·월세 (단일 기본)

@@ -3,11 +3,6 @@
 import type { Customer } from "@/lib/types";
 import { preferredLocationRows } from "@/lib/preferredLocation";
 
-export {
-  formatPreferredLocationLabel,
-  preferredLocationRows,
-} from "@/lib/preferredLocation";
-
 /** 고객 상세·네비 카드용 — 금액/입주 메타와 같은 톤 */
 export function CustomerPreferredLocationBlock({
   customer,
