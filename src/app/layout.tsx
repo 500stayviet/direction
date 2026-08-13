@@ -68,9 +68,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
-        <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* favicon·apple-touch-icon 은 metadata /admin layout 에서 경로별 분리 */}
         {/* 스플래시 이미지 미리 받아 로고만 뜨는 빈 구간을 줄임 */}
         <link
           rel="preload"

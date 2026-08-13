@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="현장동선 관리자">
+  <rect width="512" height="512" rx="112" fill="#1B2A4A"/>
+  <rect x="36" y="36" width="440" height="440" rx="96" fill="#243B67"/>
+  <text x="256" y="232" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, Pretendard, Noto Sans KR, sans-serif" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="-2">현장동선</text>
+  <text x="256" y="328" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, Pretendard, Noto Sans KR, sans-serif" font-size="72" font-weight="800" fill="#7EB6FF" letter-spacing="-2">관리자</text>
+</svg>
