@@ -154,13 +154,13 @@ export function SeoulAddressField({
 
       <div className="grid grid-cols-2 gap-2">
         <OptionPicker
-          label="구"
+          variant="solid"
           required={required}
           invalid={guInvalid || addressInvalid}
           complete={guComplete}
           value={gu}
           options={SEOUL_GU_LIST}
-          placeholder="구 선택"
+          placeholder="선택구"
           title="구 선택"
           description="서울시 자치구"
           onChange={(nextGu) => {
@@ -174,14 +174,14 @@ export function SeoulAddressField({
           }}
         />
         <OptionPicker
-          label="동"
+          variant="solid"
           required={required && requireDong}
           invalid={dongInvalid}
           complete={dongComplete}
           value={dong}
           options={dongs}
           disabled={!gu}
-          placeholder={gu ? "동 선택" : "구 먼저 선택"}
+          placeholder={gu ? "선택동" : "구 먼저 선택"}
           title="동 선택"
           description={gu ? `${gu} 법정동` : "구를 먼저 선택해 주세요"}
           onChange={(nextDong) => {
