@@ -11,6 +11,8 @@
     "test:e2e:auth": "playwright test e2e/auth-*.spec.ts",
     "test:e2e:team": "playwright test e2e/team-*.spec.ts e2e/team-member-*.spec.ts",
     "test:e2e:suspend": "playwright test e2e/suspend-*.spec.ts",
+    "test:e2e:preferred": "playwright test e2e/customer-preferred-location.spec.ts",
+    "test:unit": "node --import tsx --test src/lib/preferredLocation.test.ts",
     "cleanup:e2e-users": "node --env-file=.env.local scripts/cleanup-e2e-users.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-splash.ps1"
@@ -31,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

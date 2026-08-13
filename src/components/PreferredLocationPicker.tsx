@@ -4,58 +4,22 @@ import { useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { SEOUL_DONG_BY_GU, SEOUL_GU_LIST } from "@/lib/seoulRegions";
+import {
+  PREFERRED_DONG_SEP as SEP,
+  DEFAULT_PREFERRED_GU,
+  completedPreferredGus,
+  encodePreferredDong,
+  groupDongsByGu,
+} from "@/lib/preferredLocation";
 
-const SEP = "|";
+export {
+  DEFAULT_PREFERRED_GU,
+  completedPreferredGus,
+  defaultPreferredLocation,
+  encodePreferredDong,
+  parsePreferredDong,
+} from "@/lib/preferredLocation";
 
-export function encodePreferredDong(gu: string, dong: string) {
-  return `${gu}${SEP}${dong}`;
-}
-
-export const DEFAULT_PREFERRED_GU = "강동구";
-
-/** 신규 폼 저장값 초기 — 하단 결과에는 넣지 않음 (박스는 강동구만 표시) */
-export function defaultPreferredLocation(): {
-  preferredGus: string[];
-  preferredDongs: string[];
-} {
-  return { preferredGus: [], preferredDongs: [] };
-}
-
-export function parsePreferredDong(
-  raw: string
-): { gu: string; dong: string } | null {
-  const i = raw.indexOf(SEP);
-  if (i <= 0) return null;
-  return { gu: raw.slice(0, i), dong: raw.slice(i + 1) };
-}
-
-function groupDongsByGu(encoded: string[]): Record<string, string[]> {
-  const map: Record<string, string[]> = {};
-  for (const raw of encoded) {
-    const parsed = parsePreferredDong(raw);
-    if (!parsed) continue;
-    if (!map[parsed.gu]) map[parsed.gu] = [];
-    if (!map[parsed.gu].includes(parsed.dong)) {
-      map[parsed.gu].push(parsed.dong);
-    }
-  }
-  return map;
-}
-
-/** 구·동이 모두 선택된 항목만 사용 (동만 있어도 구 복원) */
-export function completedPreferredGus(
-  preferredGus: string[],
-  preferredDongs: string[]
-): string[] {
-  const grouped = groupDongsByGu(preferredDongs);
-  const fromDongs = Object.keys(grouped);
-  if (fromDongs.length === 0) return [];
-  const ordered = preferredGus.filter((gu) => (grouped[gu]?.length ?? 0) > 0);
-  for (const gu of fromDongs.sort()) {
-    if (!ordered.includes(gu)) ordered.push(gu);
-  }
-  return ordered;
-}
 
 /**
  * - 구 박스 기본 표시만 강동구 (하단 결과 X)

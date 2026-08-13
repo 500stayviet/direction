@@ -90,8 +90,14 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
           </div>
 
           {/* 금액 → 선호위치 → 지목 → 방 → 입주희망 */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2 flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+          <div
+            className="grid grid-cols-2 gap-2"
+            data-testid="customer-brief-meta"
+          >
+            <div
+              className="col-span-2 flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2"
+              data-testid="customer-brief-amount"
+            >
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 금액
               </p>
@@ -100,12 +106,18 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
               </p>
             </div>
             {preferredRows.length > 0 ? (
-              <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <div
+                className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2"
+                data-testid="customer-brief-preferred"
+              >
                 <CustomerPreferredLocationBlock customer={customer} />
               </div>
             ) : null}
             {customer.roomType === "토지" && customer.landCategory?.trim() ? (
-              <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+              <div
+                className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2"
+                data-testid="customer-brief-land-category"
+              >
                 <p className="text-[11px] font-bold leading-none text-gray-400">
                   지목
                 </p>
@@ -126,7 +138,10 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 </p>
               </div>
             ) : null}
-            <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div
+              className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2"
+              data-testid="customer-brief-movein"
+            >
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 입주희망
               </p>

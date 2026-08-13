@@ -1,58 +1,12 @@
 "use client";
 
 import type { Customer } from "@/lib/types";
-import { parsePreferredDong } from "@/components/PreferredLocationPicker";
+import { preferredLocationRows } from "@/lib/preferredLocation";
 
-export function preferredLocationRows(
-  customer: Pick<Customer, "preferredGus" | "preferredDongs">
-): { gu: string; dongsLabel: string }[] {
-  const raw = customer.preferredDongs;
-  const dongs = Array.isArray(raw)
-    ? raw.map((x) => String(x ?? "").trim()).filter(Boolean)
-    : typeof raw === "string" && raw.trim()
-      ? [raw.trim()]
-      : [];
-  if (dongs.length === 0) return [];
-
-  const byGu: Record<string, string[]> = {};
-  for (const item of dongs) {
-    const parsed = parsePreferredDong(item);
-    if (!parsed) continue;
-    if (!byGu[parsed.gu]) byGu[parsed.gu] = [];
-    if (!byGu[parsed.gu].includes(parsed.dong)) {
-      byGu[parsed.gu].push(parsed.dong);
-    }
-  }
-
-  const gusFromData = Object.keys(byGu);
-  if (gusFromData.length === 0) return [];
-
-  const preferredGus = Array.isArray(customer.preferredGus)
-    ? customer.preferredGus
-    : [];
-  const gus =
-    preferredGus.length > 0
-      ? preferredGus.filter((gu) => byGu[gu]?.length)
-      : gusFromData.sort();
-
-  // preferredGus 필터로 전부 빠지면 동 기준으로라도 표시
-  const finalGus = gus.length > 0 ? gus : gusFromData.sort();
-
-  return finalGus.map((gu) => ({
-    gu,
-    dongsLabel: (byGu[gu] ?? []).join(", "),
-  }));
-}
-
-export function formatPreferredLocationLabel(
-  customer: Pick<Customer, "preferredGus" | "preferredDongs">
-): string {
-  return preferredLocationRows(customer)
-    .map((row) =>
-      row.dongsLabel ? `${row.gu} ${row.dongsLabel}` : row.gu
-    )
-    .join(" · ");
-}
+export {
+  formatPreferredLocationLabel,
+  preferredLocationRows,
+} from "@/lib/preferredLocation";
 
 /** 고객 상세·네비 카드용 — 금액/입주 메타와 같은 톤 */
 export function CustomerPreferredLocationBlock({

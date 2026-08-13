@@ -289,3 +289,70 @@ export async function insertSharedProperty(opts: {
   if (error) throw new Error(`insert property: ${error.message}`);
   return { id, address, marker: opts.marker, jibun };
 }
+
+/** 원룸 등 고객을 DB에 직접 넣고 상세 표시를 검증할 때 사용 */
+export async function insertCustomer(opts: {
+  ownerUserId: string;
+  workspaceId?: string | null;
+  name: string;
+  roomType?: string;
+  preferredGus?: string[];
+  preferredDongs?: string[];
+  landCategory?: string;
+}) {
+  const admin = serviceSupabase();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const roomType = opts.roomType ?? "원룸";
+  const preferredGus = opts.preferredGus ?? ["강동구"];
+  const preferredDongs = opts.preferredDongs ?? ["강동구|성내동"];
+  const payload = {
+    id,
+    name: opts.name,
+    phone: "010-9999-8877",
+    dealType: "월세" as const,
+    roomType,
+    deposit: 1000,
+    depositTo: 1000,
+    depositSingle: true,
+    monthlyRent: 50,
+    monthlyRentTo: 50,
+    monthlyRentSingle: true,
+    budget: "보증금 1,000 · 월 50",
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    moveInDate: "2026.12.01",
+    nonOccupancy: false,
+    loanNeeded: "무" as const,
+    loanType: "해당없음",
+    insuranceNeeded: "무" as const,
+    elevatorNeeded: "무" as const,
+    parkingType: "무" as const,
+    petAllowed: "무" as const,
+    notes: "e2e preferred location",
+    landCategory: opts.landCategory,
+    preferredGus,
+    preferredDongs,
+    workspaceShared: false,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: opts.ownerUserId,
+    createdByName: "e2e",
+  };
+  const { error } = await admin.from("customers").insert({
+    id,
+    user_id: opts.ownerUserId,
+    workspace_id: opts.workspaceId ?? null,
+    created_by: opts.ownerUserId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
+  if (error) throw new Error(`insert customer: ${error.message}`);
+  return { id, preferredGus, preferredDongs, roomType };
+}
+
