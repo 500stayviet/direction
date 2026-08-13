@@ -854,9 +854,7 @@ function ScheduleDetailInner() {
                   (customer.roomType === "토지" &&
                     customer.landCategory?.trim()) ? (
                     <div className="space-y-2 rounded-xl bg-[#F9FAFB] px-3 py-2.5">
-                      {(customer.preferredDongs?.length ?? 0) > 0 ? (
-                        <CustomerPreferredLocationBlock customer={customer} />
-                      ) : null}
+                      <CustomerPreferredLocationBlock customer={customer} />
                       {customer.roomType === "토지" &&
                       customer.landCategory?.trim() ? (
                         <CustomerMeta

@@ -24,10 +24,12 @@ export function Button({
   size = "md",
   className = "",
   children,
+  type = "button",
   ...props
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={[
         "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold",
         "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",

@@ -6,12 +6,17 @@ import { parsePreferredDong } from "@/components/PreferredLocationPicker";
 export function preferredLocationRows(
   customer: Pick<Customer, "preferredGus" | "preferredDongs">
 ): { gu: string; dongsLabel: string }[] {
-  const dongs = customer.preferredDongs ?? [];
+  const raw = customer.preferredDongs;
+  const dongs = Array.isArray(raw)
+    ? raw.map((x) => String(x ?? "").trim()).filter(Boolean)
+    : typeof raw === "string" && raw.trim()
+      ? [raw.trim()]
+      : [];
   if (dongs.length === 0) return [];
 
   const byGu: Record<string, string[]> = {};
-  for (const raw of dongs) {
-    const parsed = parsePreferredDong(raw);
+  for (const item of dongs) {
+    const parsed = parsePreferredDong(item);
     if (!parsed) continue;
     if (!byGu[parsed.gu]) byGu[parsed.gu] = [];
     if (!byGu[parsed.gu].includes(parsed.dong)) {
@@ -19,15 +24,34 @@ export function preferredLocationRows(
     }
   }
 
-  const gus =
-    (customer.preferredGus?.length ?? 0) > 0
-      ? (customer.preferredGus as string[]).filter((gu) => byGu[gu]?.length)
-      : Object.keys(byGu).sort();
+  const gusFromData = Object.keys(byGu);
+  if (gusFromData.length === 0) return [];
 
-  return gus.map((gu) => ({
+  const preferredGus = Array.isArray(customer.preferredGus)
+    ? customer.preferredGus
+    : [];
+  const gus =
+    preferredGus.length > 0
+      ? preferredGus.filter((gu) => byGu[gu]?.length)
+      : gusFromData.sort();
+
+  // preferredGus 필터로 전부 빠지면 동 기준으로라도 표시
+  const finalGus = gus.length > 0 ? gus : gusFromData.sort();
+
+  return finalGus.map((gu) => ({
     gu,
     dongsLabel: (byGu[gu] ?? []).join(", "),
   }));
+}
+
+export function formatPreferredLocationLabel(
+  customer: Pick<Customer, "preferredGus" | "preferredDongs">
+): string {
+  return preferredLocationRows(customer)
+    .map((row) =>
+      row.dongsLabel ? `${row.gu} ${row.dongsLabel}` : row.gu
+    )
+    .join(" · ");
 }
 
 /** 고객 상세·네비 카드용 — 금액/입주 메타와 같은 톤 */

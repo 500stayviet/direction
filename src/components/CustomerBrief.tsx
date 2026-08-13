@@ -15,7 +15,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
 import { ListEdgeChips } from "@/components/ListEdgeChips";
-import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
+import { CustomerPreferredLocationBlock, preferredLocationRows } from "@/components/CustomerPreferredLocationBlock";
 
 const chipBase =
   "inline-flex items-center rounded-full px-3.5 py-2 text-[14px] font-bold leading-none tracking-tight";
@@ -42,6 +42,7 @@ function StatusChip({
 export function CustomerBrief({ customer }: { customer: Customer }) {
   const roomNorm = normalizeRoomType(customer.roomType) ?? customer.roomType;
   const showRoomBath = needsRoomBathCounts(roomNorm);
+  const preferredRows = preferredLocationRows(customer);
   const showLoanInsurancePet = !(
     customer.roomType === "상가" ||
     customer.roomType === "사무실" ||
@@ -98,7 +99,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 {getCustomerBudgetLabel(customer)}
               </p>
             </div>
-            {(customer.preferredDongs?.length ?? 0) > 0 ? (
+            {preferredRows.length > 0 ? (
               <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
                 <CustomerPreferredLocationBlock customer={customer} />
               </div>

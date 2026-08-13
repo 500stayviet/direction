@@ -13,6 +13,7 @@ import { getContractDeadlineLabel } from "@/lib/deadline";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { alertHighlightClass } from "@/lib/teamAlerts";
+import { formatPreferredLocationLabel } from "@/components/CustomerPreferredLocationBlock";
 import type { Customer } from "@/lib/types";
 
 interface CustomerListCardProps {
@@ -48,6 +49,7 @@ export function CustomerListCard({
     c.createdBy,
     peekCurrentUser()?.id
   );
+  const preferredLabel = formatPreferredLocationLabel(c);
 
   const card = (
     <Card
@@ -92,6 +94,17 @@ export function CustomerListCard({
             ].join(" ")}
           />
         </div>
+
+        {preferredLabel ? (
+          <p
+            className={[
+              "mt-1.5 truncate text-[12px] font-semibold leading-snug",
+              done ? "text-gray-500" : "text-gray-700",
+            ].join(" ")}
+          >
+            선호 {preferredLabel}
+          </p>
+        ) : null}
 
         {sharer || saved ? (
         <div className="mt-4 flex items-center justify-between gap-2">

@@ -176,6 +176,11 @@ export function CustomerForm({
     if (initial) return [];
     return defaultPreferredLocation().preferredDongs;
   });
+  const preferredRef = useRef({
+    preferredGus,
+    preferredDongs,
+  });
+  preferredRef.current = { preferredGus, preferredDongs };
   const [workspaceShared, setWorkspaceShared] = useState(
     initial?.workspaceShared === true
   );
@@ -249,9 +254,12 @@ export function CustomerForm({
     const savedDealType: DealType = isLandOrBuilding ? "매매" : dealType;
     const isNonOccupancy = savedDealType === "매매" && nonOccupancy;
     const toDate = moveInSingle ? moveInFrom : moveInTo;
+    const preferredSnap = preferredRef.current;
     const missing = getMissingCustomerFields({
       ...customerInput,
       dealType: savedDealType,
+      preferredGus: preferredSnap.preferredGus,
+      preferredDongs: preferredSnap.preferredDongs,
     });
     if (missing.length > 0) {
       const field = missing[0];
@@ -274,6 +282,10 @@ export function CustomerForm({
           ? monthlyRent
           : monthlyRentTo
         : undefined;
+    const doneGus = completedPreferredGus(
+      preferredSnap.preferredGus,
+      preferredSnap.preferredDongs
+    );
     onSubmit({
       id: initial?.id ?? createId("cus"),
       name: name.trim(),
@@ -344,11 +356,11 @@ export function CustomerForm({
       notes: notes.trim(),
       landCategory:
         roomType === "토지" ? landCategory.trim() || undefined : undefined,
-      preferredGus: (() => {
-        const done = completedPreferredGus(preferredGus, preferredDongs);
-        return done.length > 0 ? done : undefined;
-      })(),
-      preferredDongs: preferredDongs.length > 0 ? preferredDongs : undefined,
+      preferredGus: doneGus.length > 0 ? doneGus : undefined,
+      preferredDongs:
+        preferredSnap.preferredDongs.length > 0
+          ? preferredSnap.preferredDongs
+          : undefined,
       workspaceShared,
       siteShared: initial?.siteShared === true,
       contractCompleted: initial?.contractCompleted,
@@ -477,6 +489,10 @@ export function CustomerForm({
               preferredDongs={preferredDongs}
               invalid={isInvalid("preferredLocation")}
               onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
+                preferredRef.current = {
+                  preferredGus: nextGus,
+                  preferredDongs: nextDongs,
+                };
                 setPreferredGus(nextGus);
                 setPreferredDongs(nextDongs);
               }}
