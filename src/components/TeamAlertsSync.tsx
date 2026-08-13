@@ -21,10 +21,6 @@ import {
 } from "@/lib/teamAlerts";
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 
-const EMPTY_CUSTOMERS: Customer[] = [];
-const EMPTY_PROPERTIES: ListedProperty[] = [];
-const EMPTY_SCHEDULES: Schedule[] = [];
-
 function useTeamAlertsState() {
   return useSyncExternalStore(
     subscribeTeamAlerts,
@@ -36,24 +32,24 @@ function useTeamAlertsState() {
 function useCachedCustomers() {
   return useSyncExternalStore(
     subscribeEntityCache,
-    () => peekCustomers() ?? EMPTY_CUSTOMERS,
-    () => EMPTY_CUSTOMERS
+    peekCustomers,
+    () => null as Customer[] | null
   );
 }
 
 function useCachedProperties() {
   return useSyncExternalStore(
     subscribeEntityCache,
-    () => peekProperties() ?? EMPTY_PROPERTIES,
-    () => EMPTY_PROPERTIES
+    peekProperties,
+    () => null as ListedProperty[] | null
   );
 }
 
 function useCachedSchedules() {
   return useSyncExternalStore(
     subscribeEntityCache,
-    () => peekSchedules() ?? EMPTY_SCHEDULES,
-    () => EMPTY_SCHEDULES
+    peekSchedules,
+    () => null as Schedule[] | null
   );
 }
 
@@ -72,6 +68,9 @@ export function TeamAlertsSync() {
   useEffect(() => {
     ensureTeamAlertsUser(userId);
     if (!userId) return;
+    // 캐시 미로드(null)일 때 []로 동기화하면 known/unseen이 비었다가
+    // 다시 채워지며 꺼둔 알람이 신규처럼 부활함
+    if (customers === null || properties === null || schedules === null) return;
 
     syncShareIds(
       "customers",

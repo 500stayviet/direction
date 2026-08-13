@@ -78,11 +78,19 @@ export default function NewPropertyPage() {
     await saveProperty();
   };
 
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.replace("/properties");
+  };
+
   return (
     <main>
       <PageHeader
         title="매물 등록"
-        backHref="/properties"
+        onBack={goBack}
         subtitle="방문 일정과 같은 매물 정보로 등록해요"
       />
 

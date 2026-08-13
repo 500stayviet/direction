@@ -55,7 +55,7 @@ export function DealTypeToggle({
               type="button"
               onClick={() => onChange(type)}
               className={[
-                "min-h-[44px] rounded-xl text-[15px] font-bold",
+                "min-h-[36px] rounded-xl text-[15px] font-bold",
                 "active:scale-95 transition-all duration-150",
                 active
                   ? "bg-[#3182F6] text-white shadow-sm"

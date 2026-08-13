@@ -6,6 +6,7 @@ import {
   isDemoSeedExpired,
 } from "@/lib/demoSeedPayload";
 import {
+  clearEntityCache,
   removeCustomerFromCache,
   removePropertyFromCache,
   removeScheduleFromCache,
@@ -20,9 +21,40 @@ function seedSkipKey(userId: string) {
   return `realty_seed_done_${DEMO_SEED_VERSION}:${userId}`;
 }
 
-function demoAlertsKey(userId: string) {
-  // _navi2: 네비 데모 알람이 sync에서 지워지던 버그 수정 후 1회 재주입
-  return `realty_demo_alerts_${DEMO_SEED_VERSION}_navi2:${userId}`;
+function demoAlertsFlagKey(userId: string) {
+  // 시드 버전과 무관 — 버전 bump 때마다 알람이 다시 켜지지 않게
+  return `realty_demo_alerts_once:${userId}`;
+}
+
+function hasInjectedDemoAlerts(userId: string): boolean {
+  try {
+    if (localStorage.getItem(demoAlertsFlagKey(userId)) === "1") return true;
+    // 예전 버전별 키 → 한 번이라도 주입했으면 재주입 금지로 이관
+    const suffix = `:${userId}`;
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (
+        key &&
+        key.startsWith("realty_demo_alerts_") &&
+        key.endsWith(suffix) &&
+        localStorage.getItem(key) === "1"
+      ) {
+        localStorage.setItem(demoAlertsFlagKey(userId), "1");
+        return true;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function markDemoAlertsInjected(userId: string) {
+  try {
+    localStorage.setItem(demoAlertsFlagKey(userId), "1");
+  } catch {
+    /* ignore */
+  }
 }
 
 function purgeExpiredDemoFromCache() {
@@ -32,12 +64,13 @@ function purgeExpiredDemoFromCache() {
   removeScheduleFromCache(schId);
 }
 
+/** 시드 upsert 후 옛 payload(선호위치 없음)가 캐시에 남지 않게 */
+function invalidateAfterDemoSeed() {
+  clearEntityCache();
+}
+
 function injectDemoAlertsOnce(userId: string) {
-  try {
-    if (localStorage.getItem(demoAlertsKey(userId)) === "1") return;
-  } catch {
-    /* ignore */
-  }
+  if (hasInjectedDemoAlerts(userId)) return;
 
   ensureTeamAlertsUser(userId);
   const [custId, propId, schId] = DEMO_CORE_IDS;
@@ -48,11 +81,7 @@ function injectDemoAlertsOnce(userId: string) {
     matchPairs: [matchPairKey(custId, propId)],
   });
 
-  try {
-    localStorage.setItem(demoAlertsKey(userId), "1");
-  } catch {
-    /* ignore */
-  }
+  markDemoAlertsInjected(userId);
 }
 
 /**
@@ -103,6 +132,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     const body = (await res.json().catch(() => null)) as {
       message?: string;
       expired?: boolean;
+      seeded?: boolean;
     } | null;
 
     if (!res.ok) {
@@ -112,6 +142,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     if (body?.expired) {
       purgeExpiredDemoFromCache();
     } else {
+      if (body?.seeded) invalidateAfterDemoSeed();
       injectDemoAlertsOnce(userId);
     }
 

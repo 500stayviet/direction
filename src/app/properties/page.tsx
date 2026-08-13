@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { PropertyListCard } from "@/components/PropertyListCard";
+import { ListSearchInput } from "@/components/CustomerSearchInput";
 import {
   consumeCustomerSwipeNudge,
   markCustomerSwipeUsed,
@@ -162,27 +163,20 @@ export default function PropertyListPage() {
   };
 
   return (
-    <main>
+    <main className="-mx-4 min-h-dvh bg-[#FFF4E8] px-4 pb-4">
       <PageHeader
         title="매물 리스트"
         backHref="/"
         subtitle={`등록 ${properties.length}건`}
       />
 
-      <div className="space-y-3 pb-4">
-        <Card>
-          <label className="block space-y-1">
-            <span className="text-[13px] font-semibold text-gray-600">
-              주소 / 호실 / 유형 검색
-            </span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="성내동, 원룸, 전세..."
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
-            />
-          </label>
-        </Card>
+      <div className="space-y-2 pb-4">
+        <ListSearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="주소 · 호실 · 유형"
+          aria-label="매물 검색"
+        />
 
         {filtered.length === 0 ? (
           <Card>

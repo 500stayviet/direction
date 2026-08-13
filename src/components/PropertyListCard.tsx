@@ -70,8 +70,8 @@ export function PropertyListCard({
   const card = (
     <Card
       className={[
-        "relative !rounded-2xl !border-2 !px-3 !pb-2 !pt-3 !shadow-none",
-        alertHighlightClass(done ? null : alertHighlight, done),
+        "relative !rounded-2xl !px-3 !pb-2 !pt-3",
+        alertHighlightClass(done ? null : alertHighlight, done, "properties"),
         cardClassName,
       ].join(" ")}
     >
@@ -132,7 +132,7 @@ export function PropertyListCard({
         </div>
 
         {sharer || saved ? (
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
             {sharer}
           </p>

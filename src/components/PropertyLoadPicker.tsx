@@ -48,7 +48,7 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-between gap-2 rounded-xl border border-dashed border-[#3182F6]/35 bg-blue-50/60 px-3.5 py-3 text-left active:scale-[0.99] transition-all duration-150"
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-dashed border-[#3182F6]/35 bg-blue-50/60 px-3.5 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
       >
         <div className="min-w-0">
           <p className="text-[14px] font-bold text-[#3182F6]">
@@ -73,7 +73,7 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="찾기: 성내동, 1203호, OO부동산"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-[15px] font-medium text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-[15px] font-medium text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
         />
 
         <div className="mt-3 max-h-[min(60vh,28rem)] space-y-0 overflow-y-auto overflow-x-visible pr-1 pt-1">

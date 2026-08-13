@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
-import { CustomerSearchInput } from "@/components/CustomerSearchInput";
+import { ListSearchInput } from "@/components/CustomerSearchInput";
 import { CustomerListCard } from "@/components/CustomerListCard";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
@@ -164,20 +164,20 @@ export default function CustomerListPage() {
   };
 
   return (
-    <main>
+    <main className="-mx-4 min-h-dvh bg-[#E8F8F1] px-4 pb-4">
       <PageHeader
         title="고객리스트"
         backHref="/"
         subtitle={`등록 ${customers.length}명`}
       />
 
-      <div className="space-y-3 pb-4">
-        <Card>
-          <CustomerSearchInput
-            value={query}
-            onChange={setQuery}
-          />
-        </Card>
+      <div className="space-y-2 pb-4">
+        <ListSearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="이름 · 전화 · 보증금"
+          aria-label="고객 검색"
+        />
 
         {filtered.length === 0 ? (
           <Card>

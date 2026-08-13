@@ -5,7 +5,7 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v16";
+export const DEMO_SEED_VERSION = "demo_v19";
 
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
@@ -162,7 +162,6 @@ export function buildDemoSeedData(
     new Date(baseMs + 12 * 3600_000 - offsetMs).toISOString();
 
   const displayName = actor?.displayName?.trim() || "회원";
-  const actorPhone = actor?.phone?.trim() || DEMO_TEST_PHONE;
 
   const visitDate = daysFrom(base, 0);
   const moveInFrom = daysFrom(base, CONTRACT_DEADLINE_DAYS);
@@ -196,6 +195,8 @@ export function buildDemoSeedData(
       parkingType: "유",
       carType: "세단",
       petAllowed: "무",
+      preferredGus: ["강동구"],
+      preferredDongs: ["강동구|성내동"],
       notes:
         "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdByName: displayName,
@@ -210,8 +211,8 @@ export function buildDemoSeedData(
     floorPassword: "1234*",
     roomPassword: "5678*",
     arriveTime: "10:00",
-    tenantPhone: DEMO_TEST_PHONE,
-    landlordPhone: actorPhone,
+    tenantPhone: "",
+    landlordPhone: "",
     hasPartnerAgency: true,
     partnerAgency: {
       name: DEMO_PARTNER_AGENCY.name,

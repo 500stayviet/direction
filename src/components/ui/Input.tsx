@@ -68,7 +68,7 @@ export function Field({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
 
 const invalidClass =
   "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200";
@@ -116,7 +116,7 @@ export function TextArea({
       <textarea
         className={[
           inputClass,
-          "min-h-[80px] resize-none",
+          "min-h-[56px] resize-none",
           invalid ? invalidClass : "",
           className,
         ].join(" ")}

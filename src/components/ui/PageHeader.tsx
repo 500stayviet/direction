@@ -42,10 +42,10 @@ export function PageHeader({
   titlePlacement = "inline",
   titleTone,
 }: PageHeaderProps) {
-  const backClass =
-    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-lg text-gray-700 shadow-sm active:scale-95 transition-all duration-150";
   const leftTitle = titleAlign === "left";
   const titleBelow = titlePlacement === "below";
+  const backClass =
+    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-lg text-gray-700 shadow-sm active:scale-95 transition-all duration-150";
 
   const backControl = onBack ? (
     <button
@@ -113,7 +113,7 @@ export function PageHeader({
             className="pointer-events-auto w-full max-w-[430px] border-b border-gray-200 bg-[#F9FAFB]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[#F9FAFB]/85"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-            <div className="flex items-center gap-2 py-2">
+            <div className="flex items-center gap-2 py-1.5">
               {backControl}
               {actions}
             </div>
@@ -124,13 +124,24 @@ export function PageHeader({
           className="-mx-4 shrink-0"
           style={{
             marginTop: "calc(-1 * max(0.5rem, env(safe-area-inset-top)))",
-            height: "calc(env(safe-area-inset-top) + 3.25rem)",
+            /* py-1.5(0.75) + h-11(2.75) + border — 여유 포함 */
+            height: "calc(env(safe-area-inset-top) + 3.5rem)",
           }}
           aria-hidden
         />
-        {/* 명칭은 스크롤과 함께 + 하단 줄 */}
-        <div className="-mx-4 mb-3 border-b border-gray-200 px-4 py-2.5">
-          {titleBlock}
+        {/* 페이지 명칭 — 위·아래 선 사이 여유 있게, 가운데·검정 */}
+        <div className="-mx-4 mb-3 border-b border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center justify-center">
+            <h1 className="truncate text-center text-[18px] font-bold leading-snug tracking-tight text-gray-900">
+              {title}
+            </h1>
+            {titleExtra}
+          </div>
+          {subtitle ? (
+            <p className="mt-1 truncate text-center text-[12px] leading-snug text-gray-500">
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       </>
     );

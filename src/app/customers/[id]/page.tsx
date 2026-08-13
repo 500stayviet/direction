@@ -33,6 +33,7 @@ import {
   firstUnseenMatchPropertyId,
   markShareSeen,
 } from "@/lib/teamAlerts";
+import { fetchWorkspaceStatus } from "@/lib/workspace";
 import type { Customer } from "@/lib/types";
 
 export default function CustomerDetailPage() {
@@ -45,16 +46,23 @@ export default function CustomerDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [hasTeammates, setHasTeammates] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const found = await getCustomerById(params.id);
+      const [found, ws] = await Promise.all([
+        getCustomerById(params.id),
+        fetchWorkspaceStatus(),
+      ]);
       if (cancelled) return;
       if (!found) {
         router.replace("/");
         return;
       }
+      setHasTeammates(
+        Boolean(ws.ok && ws.workspace && (ws.workspace.memberCount ?? 0) > 1)
+      );
       setCustomer(found);
       markShareSeen("customers", found.id);
       void touchRecentCustomer(found.id);
@@ -123,7 +131,7 @@ export default function CustomerDetailPage() {
   };
 
   const toggleTeamShare = async () => {
-    if (!customer || shareBusy || isForeign) return;
+    if (!customer || shareBusy || isForeign || !hasTeammates) return;
     const prevShared = Boolean(customer.workspaceShared);
     const next = {
       ...customer,
@@ -142,6 +150,9 @@ export default function CustomerDetailPage() {
     }
   };
 
+  // 팀원 2명 이상일 때만 표시 (데모·이미 공유중이어도 팀 없으면 숨김)
+  const showTeamShare = !editing && hasTeammates;
+
   return (
     <main>
       <PageHeader
@@ -150,7 +161,7 @@ export default function CustomerDetailPage() {
         backHref="/customers"
         right={
           <>
-            {!editing ? (
+            {showTeamShare ? (
               <TeamShareButton
                 active={customer.workspaceShared === true}
                 disabled={shareBusy}

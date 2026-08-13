@@ -717,11 +717,14 @@ export async function upsertListedProperty(
     ? null
     : workspaceId || existing?.workspace_id || null;
   const shared = Boolean(property.workspaceShared === true);
+  const sanitized: ListedProperty = property.hasPartnerAgency
+    ? { ...property, tenantPhone: "", landlordPhone: "" }
+    : property;
   const payload = withCreatorMeta(
     {
-      ...property,
+      ...sanitized,
       workspaceShared: shared,
-      partnerAgencyShared: Boolean(property.partnerAgencyShared === true),
+      partnerAgencyShared: Boolean(sanitized.partnerAgencyShared === true),
     },
     actor,
     boundWorkspace,

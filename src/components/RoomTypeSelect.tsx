@@ -55,7 +55,7 @@ export function RoomTypeSelect({
         type="button"
         onClick={() => setOpen(true)}
         className={[
-          "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
+          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
           "active:scale-[0.99] transition-all duration-150",
           invalid
             ? "border-red-500 bg-red-50"

@@ -131,6 +131,20 @@ export function serviceSupabase(): SupabaseClient {
   );
 }
 
+/** e2e 가입 계정·소유 고객/매물/일정 하드삭제 (테스트 후 DB 적재 방지) */
+export async function purgeE2eUser(userId: string | null | undefined) {
+  if (!userId) return;
+  const admin = serviceSupabase();
+  for (const table of ["schedules", "listed_properties", "customers"] as const) {
+    await admin.from(table).delete().eq("user_id", userId);
+  }
+  await admin.from("workspace_members").delete().eq("user_id", userId);
+  await admin.from("promo_redemptions").delete().eq("user_id", userId);
+  await admin.from("referrals").delete().eq("referred_user_id", userId);
+  await admin.from("profiles").delete().eq("id", userId);
+  await admin.auth.admin.deleteUser(userId);
+}
+
 export async function adminLogin(request: APIRequestContext): Promise<string> {
   const res = await request.post("/api/admin/login", {
     data: {

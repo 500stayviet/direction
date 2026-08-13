@@ -233,6 +233,19 @@ export function syncMatchPairs(pairKeys: string[]) {
   if (!userId) return;
   const incoming = new Set(pairKeys.filter(Boolean));
 
+  // 체험 매칭(demo_*)은 캐시 일시 비움 때 목록에서 빠져도 known에서 지우지 않음
+  if (state.preserveDemoShareAlerts) {
+    for (const key of state.knownMatch) {
+      if (key.includes("demo_")) incoming.add(key);
+    }
+    for (const key of state.unseenMatchCustomer) {
+      if (key.includes("demo_")) incoming.add(key);
+    }
+    for (const key of state.unseenMatchProperty) {
+      if (key.includes("demo_")) incoming.add(key);
+    }
+  }
+
   if (!state.matchSeeded) {
     state = {
       ...state,
@@ -402,23 +415,25 @@ export function listCardHighlight(
 
 export function alertHighlightClass(
   highlight: "share" | "match" | null | undefined,
-  done?: boolean
+  done?: boolean,
+  _kind?: AlertTab
 ): string {
   if (done) {
-    return "!border-solid !bg-gray-200 !border-gray-300 text-gray-500";
+    return "!border-2 !border-solid !bg-gray-200 !border-gray-300 !shadow-none text-gray-500";
   }
   if (highlight === "share") {
-    return "!border-solid !border-emerald-500 !bg-emerald-50";
+    return "!border-2 !border-solid !border-emerald-500 !bg-emerald-50 !shadow-none";
   }
   if (highlight === "match") {
-    return "animate-border-sparkle";
+    return "!border-2 animate-border-sparkle !shadow-none";
   }
-  return "!border-dashed !border-orange-300 !bg-[#FFF9F3]";
+  // 고객·매물·네비 idle 공통: 업무용 흰 면 + 진한 슬레이트 실선
+  return "!border-2 !border-solid !border-slate-400 !bg-white !shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
 }
 
 /**
  * 데모 시드 직후 — 본인 생성 체험 카드도 공유·매칭 알람처럼 보이게 강제.
- * (일반 팀 공유 규칙 예외, 테스트용)
+ * 이미 known에 있는 id는 unseen에 다시 넣지 않음(껐다가 시드 버전 올려도 부활 방지).
  */
 export function injectDemoTestAlerts(input: {
   customerIds: string[];
@@ -431,6 +446,21 @@ export function injectDemoTestAlerts(input: {
   const merge = (prev: string[], add: string[]) =>
     sortedUnique([...prev, ...add]);
 
+  /** known에 이미 있으면(열람·이전 주입) unseen에 재추가하지 않음 */
+  const mergeUnseenNewOnly = (prevUnseen: string[], known: string[], add: string[]) => {
+    const knownSet = new Set(known);
+    const fresh = add.filter((id) => !knownSet.has(id));
+    if (fresh.length === 0) return sortedUnique(prevUnseen);
+    return merge(prevUnseen, fresh);
+  };
+
+  const nextKnownShare = {
+    customers: merge(state.knownShare.customers, input.customerIds),
+    properties: merge(state.knownShare.properties, input.propertyIds),
+    navi: merge(state.knownShare.navi, input.scheduleIds),
+  };
+  const nextKnownMatch = merge(state.knownMatch, input.matchPairs);
+
   state = {
     ...state,
     preserveDemoShareAlerts: true,
@@ -440,23 +470,33 @@ export function injectDemoTestAlerts(input: {
       navi: true,
     },
     matchSeeded: true,
-    knownShare: {
-      customers: merge(state.knownShare.customers, input.customerIds),
-      properties: merge(state.knownShare.properties, input.propertyIds),
-      navi: merge(state.knownShare.navi, input.scheduleIds),
-    },
+    knownShare: nextKnownShare,
     unseenShare: {
-      customers: merge(state.unseenShare.customers, input.customerIds),
-      properties: merge(state.unseenShare.properties, input.propertyIds),
-      navi: merge(state.unseenShare.navi, input.scheduleIds),
+      customers: mergeUnseenNewOnly(
+        state.unseenShare.customers,
+        state.knownShare.customers,
+        input.customerIds
+      ),
+      properties: mergeUnseenNewOnly(
+        state.unseenShare.properties,
+        state.knownShare.properties,
+        input.propertyIds
+      ),
+      navi: mergeUnseenNewOnly(
+        state.unseenShare.navi,
+        state.knownShare.navi,
+        input.scheduleIds
+      ),
     },
-    knownMatch: merge(state.knownMatch, input.matchPairs),
-    unseenMatchCustomer: merge(
+    knownMatch: nextKnownMatch,
+    unseenMatchCustomer: mergeUnseenNewOnly(
       state.unseenMatchCustomer,
+      state.knownMatch,
       input.matchPairs
     ),
-    unseenMatchProperty: merge(
+    unseenMatchProperty: mergeUnseenNewOnly(
       state.unseenMatchProperty,
+      state.knownMatch,
       input.matchPairs
     ),
   };

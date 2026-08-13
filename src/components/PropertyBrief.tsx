@@ -212,29 +212,32 @@ export function PropertyBrief({
                     )}
                   </div>
                 </div>
-              ) : null}
-              {property.tenantPhone ? (
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                  <span className="shrink-0 text-[14px] font-bold text-gray-700">
-                    임차인
-                  </span>
-                  <PhoneLink
-                    phone={property.tenantPhone}
-                    className="!text-[16px] !font-extrabold !text-[#03B26C]"
-                  />
-                </div>
-              ) : null}
-              {property.landlordPhone ? (
-                <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
-                  <span className="shrink-0 text-[14px] font-bold text-gray-700">
-                    임대인
-                  </span>
-                  <PhoneLink
-                    phone={property.landlordPhone}
-                    className="!text-[16px] !font-extrabold !text-[#03B26C]"
-                  />
-                </div>
-              ) : null}
+              ) : (
+                <>
+                  {property.tenantPhone ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                      <span className="shrink-0 text-[14px] font-bold text-gray-700">
+                        임차인
+                      </span>
+                      <PhoneLink
+                        phone={property.tenantPhone}
+                        className="!text-[16px] !font-extrabold !text-[#03B26C]"
+                      />
+                    </div>
+                  ) : null}
+                  {property.landlordPhone ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                      <span className="shrink-0 text-[14px] font-bold text-gray-700">
+                        임대인
+                      </span>
+                      <PhoneLink
+                        phone={property.landlordPhone}
+                        className="!text-[16px] !font-extrabold !text-[#03B26C]"
+                      />
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         )}

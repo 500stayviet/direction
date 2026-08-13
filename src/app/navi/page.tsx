@@ -236,7 +236,7 @@ export default function NaviEntryPage() {
   };
 
   return (
-    <main>
+    <main className="-mx-4 min-h-dvh bg-[#FFF8E1] px-4 pb-4">
       <PageHeader
         title="네비 시작하기"
         backHref="/"
@@ -336,10 +336,11 @@ export default function NaviEntryPage() {
                 >
                   <Card
                     className={[
-                      "relative !rounded-2xl !border-2 !px-3 !pb-2.5 !pt-3 !shadow-none",
+                      "relative !rounded-2xl !px-3 !pb-2.5 !pt-3",
                       alertHighlightClass(
                         done ? null : listCardHighlight("navi", s.id),
-                        done
+                        done,
+                        "navi"
                       ),
                     ].join(" ")}
                   >
@@ -386,7 +387,7 @@ export default function NaviEntryPage() {
                         >
                           {propertyLine}
                         </p>
-                        <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="mt-0.5 flex items-center justify-between gap-2">
                           <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
                             {teamSharerLabel(
                               s.createdByName,

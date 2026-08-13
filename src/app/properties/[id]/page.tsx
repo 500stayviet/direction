@@ -39,6 +39,7 @@ import {
   firstUnseenMatchCustomerId,
   markShareSeen,
 } from "@/lib/teamAlerts";
+import { fetchWorkspaceStatus } from "@/lib/workspace";
 import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
 import type { ListedProperty, User } from "@/lib/types";
 
@@ -61,19 +62,24 @@ export default function PropertyDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
+  const [hasTeammates, setHasTeammates] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [found, me] = await Promise.all([
+      const [found, me, ws] = await Promise.all([
         getListedPropertyById(params.id),
         getCurrentUser(),
+        fetchWorkspaceStatus(),
       ]);
       if (cancelled) return;
       if (!found) {
         router.replace("/properties");
         return;
       }
+      setHasTeammates(
+        Boolean(ws.ok && ws.workspace && (ws.workspace.memberCount ?? 0) > 1)
+      );
       setProperty(found);
       markShareSeen("properties", found.id);
       setAgent(me);
@@ -183,7 +189,7 @@ export default function PropertyDetailPage() {
   };
 
   const toggleTeamShare = async () => {
-    if (!property || shareBusy || isForeign) return;
+    if (!property || shareBusy || isForeign || !hasTeammates) return;
     const prevShared = Boolean(property.workspaceShared);
     const next = {
       ...property,
@@ -203,6 +209,7 @@ export default function PropertyDetailPage() {
   };
 
   const teamOn = property.workspaceShared === true;
+  const showTeamShare = !editing && hasTeammates;
 
   return (
     <main>
@@ -219,7 +226,7 @@ export default function PropertyDetailPage() {
         }
         right={
           <>
-            {!editing ? (
+            {showTeamShare ? (
               <TeamShareButton
                 active={teamOn}
                 disabled={shareBusy}

@@ -92,7 +92,7 @@ export function formatPreferredLocationLabel(customer: {
 }): string {
   return preferredLocationRows(customer)
     .map((row) =>
-      row.dongsLabel ? `${row.gu} ${row.dongsLabel}` : row.gu
+      row.dongsLabel ? `${row.gu}  ·  ${row.dongsLabel}` : row.gu
     )
     .join(" · ");
 }

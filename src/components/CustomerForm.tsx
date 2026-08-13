@@ -12,7 +12,7 @@ import type {
 } from "@/lib/types";
 import {
   BUILDING_KINDS,
-  LOAN_KIND_OPTIONS,
+  loanKindOptionsForDeal,
   ROOM_TYPES,
   defaultRoomBathCounts,
   needsRoomBathCounts,
@@ -149,7 +149,11 @@ export function CustomerForm({
   const [loanType, setLoanType] = useState(() => {
     const t = initial?.loanType?.trim();
     if (t && t !== "해당없음") return t;
-    return LOAN_KIND_OPTIONS[0] ?? "기타";
+    const deal =
+      initial?.roomType === "토지" || initial?.roomType === "건물"
+        ? "매매"
+        : initial?.dealType ?? "월세";
+    return loanKindOptionsForDeal(deal)[0] ?? "기타";
   });
   const [parkingType, setParkingType] = useState<ParkingType>(
     initial?.parkingType === "유" ? "유" : "무"
@@ -205,6 +209,16 @@ export function CustomerForm({
 
   const isLandOrBuilding = roomType === "토지" || roomType === "건물";
   const effectiveDealType: DealType = isLandOrBuilding ? "매매" : dealType;
+  const loanKindOptions = useMemo(
+    () => loanKindOptionsForDeal(effectiveDealType),
+    [effectiveDealType]
+  );
+
+  useEffect(() => {
+    if (!loanKindOptions.includes(loanType)) {
+      setLoanType(loanKindOptions[0] ?? "기타");
+    }
+  }, [loanKindOptions, loanType]);
 
   const handleDealTypeChange = (next: DealType) => {
     setDealType(next);
@@ -382,7 +396,7 @@ export function CustomerForm({
         id={FORM_ID}
         noValidate
         onSubmit={handleSubmit}
-        className="space-y-3 pb-2"
+        className="space-y-2 pb-2"
       >
         <Card className="space-y-2.5">
           <div ref={setFieldRef("name")}>
@@ -671,7 +685,7 @@ export function CustomerForm({
             ) : null}
 
             {effectiveDealType === "매매" ? (
-              <label className="flex min-h-[48px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
+              <label className="flex min-h-[38px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
                 <CircleCheck
                   checked={nonOccupancy}
                   onChange={(e) => setNonOccupancy(e.target.checked)}
@@ -756,7 +770,7 @@ export function CustomerForm({
                 onChange={(next) => {
                   setLoanNeeded(next);
                   if (next === "유" && (!loanType || loanType === "해당없음")) {
-                    setLoanType(LOAN_KIND_OPTIONS[0] ?? "기타");
+                    setLoanType(loanKindOptions[0] ?? "기타");
                   }
                 }}
               />
@@ -767,7 +781,7 @@ export function CustomerForm({
                   onChange={(e) => setLoanType(e.target.value)}
                   hint="상담·기록용 · 매물 매칭에는 사용하지 않아요"
                 >
-                  {LOAN_KIND_OPTIONS.map((t) => (
+                  {loanKindOptions.map((t) => (
                     <option key={t} value={t}>
                       {t}
                     </option>

@@ -54,8 +54,8 @@ export function CustomerListCard({
   const card = (
     <Card
       className={[
-        "relative !rounded-2xl !border-2 !px-3 !pb-2 !pt-3 !shadow-none",
-        alertHighlightClass(done ? null : alertHighlight, done),
+        "relative !rounded-2xl !px-3 !pb-2 !pt-3",
+        alertHighlightClass(done ? null : alertHighlight, done, "customers"),
       ].join(" ")}
     >
       <div className="relative">
@@ -97,17 +97,23 @@ export function CustomerListCard({
 
         {preferredLabel ? (
           <p
+            data-testid="customer-card-preferred"
             className={[
               "mt-1.5 truncate text-[12px] font-semibold leading-snug",
               done ? "text-gray-500" : "text-gray-700",
             ].join(" ")}
           >
-            선호 {preferredLabel}
+            {preferredLabel}
           </p>
         ) : null}
 
         {sharer || saved ? (
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div
+          className={[
+            "flex items-center justify-between gap-2",
+            preferredLabel ? "mt-0.5" : "mt-4",
+          ].join(" ")}
+        >
           <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
             {sharer}
           </p>

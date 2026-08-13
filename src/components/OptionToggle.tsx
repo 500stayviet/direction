@@ -80,7 +80,7 @@ export function OptionToggle<T extends string>({
               type="button"
               onClick={() => onChange(option)}
               className={[
-                "min-h-[44px] rounded-xl font-bold active:scale-95 transition-all duration-150",
+                "min-h-[36px] rounded-xl font-bold active:scale-95 transition-all duration-150",
                 fit
                   ? "min-w-0 flex-1 px-1.5 text-[12px] leading-snug tracking-tight"
                   : "text-[15px]",

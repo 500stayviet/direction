@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SITE, siteMailtoHref } from "@/lib/constants/site";
@@ -14,6 +15,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ads", label: "광고" },
   { id: "disclaimer", label: "면책" },
 ];
+
+function tabFromSearch(raw: string | null): Tab {
+  if (raw === "privacy" || raw === "ads" || raw === "disclaimer") return raw;
+  return "service";
+}
 
 const REVISION = "시행일 2026. 8. 1. · 개정 2026. 8. 12.";
 
@@ -43,7 +49,24 @@ function BusinessOperatorBlock() {
 }
 
 export default function TermsPage() {
-  const [tab, setTab] = useState<Tab>("service");
+  return (
+    <Suspense
+      fallback={
+        <main className="pb-4">
+          <PageHeader title="약관 및 안내" backHref="/" />
+        </main>
+      }
+    >
+      <TermsPageInner />
+    </Suspense>
+  );
+}
+
+function TermsPageInner() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() =>
+    tabFromSearch(searchParams.get("tab"))
+  );
 
   return (
     <main className="pb-4">

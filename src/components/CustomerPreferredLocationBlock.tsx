@@ -20,11 +20,11 @@ export function CustomerPreferredLocationBlock({
       {rows.map((row) => (
         <p
           key={row.gu}
-          className="text-[14px] font-extrabold leading-snug tracking-tight text-gray-900"
+          className="text-[15px] font-extrabold leading-snug tracking-tight text-gray-900"
         >
           <span>{row.gu}</span>
           {row.dongsLabel ? (
-            <span className="font-bold text-gray-800">{` · ${row.dongsLabel}`}</span>
+            <span>{`  ·  ${row.dongsLabel}`}</span>
           ) : null}
         </p>
       ))}

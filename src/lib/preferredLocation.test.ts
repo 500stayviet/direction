@@ -39,7 +39,7 @@ describe("preferredLocation", () => {
         preferredGus: ["강동구"],
         preferredDongs: ["강동구|성내동"],
       }),
-      "강동구 성내동"
+      "강동구  ·  성내동"
     );
   });
 

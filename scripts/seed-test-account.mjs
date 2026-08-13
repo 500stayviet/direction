@@ -170,8 +170,8 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
     floorPassword: "1234*",
     roomPassword: "5678*",
     arriveTime: "10:00",
-    tenantPhone: DEMO_TEST_PHONE,
-    landlordPhone: "02-3425-5114",
+    tenantPhone: "",
+    landlordPhone: "",
     hasPartnerAgency: true,
     partnerAgency: {
       name: "성내동 테스트부동산",

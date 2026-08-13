@@ -16,7 +16,7 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
     case "3룸+":
     case "아파트":
     default:
-      return "희망층, 방향, 채광, 기타 희망조건 등";
+      return "희망층, 방향, 기타 희망조건 등";
   }
 }
 

@@ -40,10 +40,8 @@ function hasUsableContact(property: Property): boolean {
 }
 
 const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
-  contacts: (p) =>
-    p.hasPartnerAgency
-      ? "협력 부동산 연락처 또는 임차인·임대인 번호를 입력해 주세요."
-      : "임차인 번호 또는 임대인 번호 중 하나는 입력해 주세요.",
+  contacts: () =>
+    "임차인 번호 또는 임대인 번호 중 하나는 입력해 주세요.",
   partnerName: () => "협력 부동산 상호명을 입력해 주세요.",
   partnerDong: () => "협력 부동산 동을 입력해 주세요.",
   partnerPhone: () => "협력 부동산 연락처를 입력해 주세요.",

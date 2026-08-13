@@ -24,12 +24,20 @@ export default function NewCustomerPage() {
     }
   };
 
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.replace("/customers");
+  };
+
   return (
     <main>
       <PageHeader
         title="고객 등록"
-        backHref="/customers"
-        subtitle="고객 DB에 바로 등록"
+        onBack={goBack}
+        subtitle="방문 일정과 같은 고객 정보로 등록해요"
       />
       <CustomerForm onSubmit={handleSubmit} submitLabel="고객등록하기" />
       <SaveCompleteModal

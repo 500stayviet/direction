@@ -68,7 +68,7 @@ function CountPicker({
           if (!disabled) setOpen(true);
         }}
         className={[
-          "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
+          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
           "transition-all duration-150",
           disabled
             ? "cursor-default border-gray-200 bg-gray-100"

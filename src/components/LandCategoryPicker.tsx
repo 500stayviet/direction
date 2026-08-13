@@ -21,7 +21,7 @@ export function LandCategoryPicker({
         type="button"
         onClick={() => setOpen(true)}
         className={[
-          "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
+          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
           "border-gray-200 bg-gray-50 active:scale-[0.99] transition-all duration-150",
           value ? "border-[#3182F6]/55" : "",
         ].join(" ")}

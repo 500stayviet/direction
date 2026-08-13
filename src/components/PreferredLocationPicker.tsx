@@ -114,7 +114,7 @@ export function PreferredLocationPicker({
 
   const fieldBoxClass = (complete: boolean) =>
     [
-      "flex min-h-[48px] w-full items-center justify-between rounded-xl border px-3.5",
+      "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
       "active:scale-[0.99] transition-all duration-150",
       invalid
         ? "border-red-500 bg-red-50"
@@ -193,9 +193,14 @@ export function PreferredLocationPicker({
           <button
             type="button"
             onClick={openDongModal}
-            className={fieldBoxClass(false)}
+            className={fieldBoxClass(Boolean(boxGu))}
           >
-            <span className="truncate text-[16px] font-semibold text-gray-400">
+            <span
+              className={[
+                "truncate text-[16px] font-semibold",
+                boxGu ? "text-gray-900" : "text-gray-400",
+              ].join(" ")}
+            >
               선택동
             </span>
             <span className={chevronClass}>▾</span>
@@ -290,7 +295,7 @@ export function PreferredLocationPicker({
         open={dongOpen}
         onClose={closeDongModal}
         title={`${activeGu} · 동 선택`}
-        description="동을 고른 뒤 선택완료를 눌러 주세요"
+        description="원하는 동을 모두 고른 뒤, 아래 선택완료를 눌러 주세요"
         dense
         footer={
           <div className="grid grid-cols-2 gap-2">
@@ -327,10 +332,10 @@ export function PreferredLocationPicker({
             type="button"
             onClick={toggleAllDongs}
             className={[
-              "col-span-3 min-h-[44px] rounded-xl text-[14px] font-extrabold transition-all active:scale-95",
+              "min-h-[44px] rounded-xl text-[13px] font-bold transition-all active:scale-95",
               allDraftSelected
                 ? "bg-[#3182F6] text-white"
-                : "bg-gray-800 text-white",
+                : "bg-gray-100 text-gray-700",
             ].join(" ")}
           >
             전체

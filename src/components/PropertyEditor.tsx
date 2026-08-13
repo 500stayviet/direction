@@ -25,7 +25,7 @@ import {
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
-import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
+import { formatMoveInRange, formatPhoneInput } from "@/lib/format";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
@@ -121,12 +121,6 @@ export function PropertyEditor({
     {}
   );
   const [moveOpen, setMoveOpen] = useState(false);
-  const [enterDirectContacts, setEnterDirectContacts] = useState(() => {
-    return Boolean(
-      onlyDigits(property.tenantPhone ?? "") ||
-        onlyDigits(property.landlordPhone ?? "")
-    );
-  });
 
   const reorderList = allProperties ?? [];
   const canReorder = Boolean(onSwapWith);
@@ -138,6 +132,10 @@ export function PropertyEditor({
       next.monthlyRent = 0;
     } else if (next.dealType === "전세" || next.dealType === "매매") {
       next.monthlyRent = 0;
+    }
+    if (next.hasPartnerAgency) {
+      next.tenantPhone = "";
+      next.landlordPhone = "";
     }
     onChange(next);
   };
@@ -161,25 +159,13 @@ export function PropertyEditor({
     : [];
   const isInvalid = (key: PropertyFieldKey) => missingFields.includes(key);
 
-  const showContactFields =
-    !property.hasPartnerAgency ||
-    enterDirectContacts ||
-    (validationActive && isInvalid("contacts"));
+  const showContactFields = !property.hasPartnerAgency;
 
   useEffect(() => {
     if (!validationActive || !focusField) return;
-    if (
-      property.hasPartnerAgency &&
-      (focusField === "contacts" ||
-        focusField === "partnerPhone" ||
-        focusField === "partnerName" ||
-        focusField === "partnerDong")
-    ) {
-      if (focusField === "contacts") setEnterDirectContacts(true);
-    }
     const el = fieldRefs.current[focusField];
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [validationActive, focusField, property.hasPartnerAgency]);
+  }, [validationActive, focusField]);
 
   const setFieldRef = (key: PropertyFieldKey) => (node: HTMLDivElement | null) => {
     fieldRefs.current[key] = node;
@@ -248,7 +234,7 @@ export function PropertyEditor({
   return (
     <Card
       className={[
-        "space-y-2.5",
+        "space-y-2",
         showTitle
           ? "border-2 border-gray-200 shadow-md"
           : "",
@@ -323,11 +309,10 @@ export function PropertyEditor({
         />
       )}
 
-      <div className="space-y-2">
-        <p className="text-sm font-bold text-gray-800">협력 부동산</p>
+      <div className="space-y-1.5">
         <label
           className={[
-            "flex min-h-[48px] items-center gap-3 rounded-xl border px-3.5",
+            "flex min-h-[38px] items-center gap-3 rounded-xl border px-3.5",
             "active:scale-[0.99] transition-all duration-150",
             property.hasPartnerAgency
               ? "border-emerald-300 bg-emerald-50"
@@ -344,47 +329,32 @@ export function PropertyEditor({
                 partnerAgency: on
                   ? property.partnerAgency
                   : { name: "", phone: "", dong: "" },
+                // 협력부동산 매물은 협력 연락처만 사용
+                ...(on
+                  ? { tenantPhone: "", landlordPhone: "" }
+                  : {}),
               });
-              if (!on) setEnterDirectContacts(false);
             }}
           />
-          <span className="flex-1">
-            <span className="flex flex-wrap items-baseline gap-x-1.5">
-              <span
-                className={[
-                  "text-[15px] font-bold",
-                  property.hasPartnerAgency
-                    ? "text-emerald-800"
-                    : "text-gray-900",
-                ].join(" ")}
-              >
-                협력 부동산 있음
-              </span>
-              <span className="text-[12px] font-medium text-gray-400">
-                (협력부동산매물일시)
-              </span>
-            </span>
-            <span
-              className={[
-                "mt-0.5 block text-xs",
-                property.hasPartnerAgency
-                  ? "text-emerald-700/80"
-                  : "text-gray-500",
-              ].join(" ")}
-            >
-              체크하면 상호·연락처를 입력할 수 있어요
-            </span>
+          <span
+            className={[
+              "text-[15px] font-bold",
+              property.hasPartnerAgency
+                ? "text-emerald-800"
+                : "text-gray-900",
+            ].join(" ")}
+          >
+            협력 부동산 매물
           </span>
         </label>
-        {property.hasPartnerAgency && (
-          <>
+        {property.hasPartnerAgency ? (
+          <div className="space-y-1.5">
             <div ref={setFieldRef("partnerName")}>
               <Input
-                label="상호명 (동 이름 포함)"
+                label="상호명"
                 value={property.partnerAgency.name}
                 onChange={(e) => updateAgency({ name: e.target.value })}
                 placeholder="OO부동산"
-                hint="동 이름을 포함하면 찾기 쉬워요"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -407,28 +377,20 @@ export function PropertyEditor({
                   value={formatPhoneInput(property.partnerAgency.phone)}
                   onChange={(phone) => updateAgency({ phone })}
                   placeholder="02-1234-5678"
+                  hint=""
                 />
               </div>
             </div>
-            <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-white px-3.5 active:scale-[0.99] transition-all duration-150">
-              <CircleCheck
-                checked={enterDirectContacts}
-                onChange={(e) => setEnterDirectContacts(e.target.checked)}
-              />
-              <span className="text-[14px] font-semibold text-gray-700">
-                임차인 임대인 연락처 추가 입력 (선택)
-              </span>
-            </label>
-          </>
-        )}
+          </div>
+        ) : null}
 
-        {showContactFields && (
+        {showContactFields ? (
           <div
             ref={setFieldRef("contacts")}
             className={[
-              "space-y-1 rounded-xl",
+              "space-y-1",
               isInvalid("contacts")
-                ? "border border-red-500 bg-red-50 p-2.5"
+                ? "rounded-xl border border-red-500 bg-red-50 p-2.5"
                 : "",
             ].join(" ")}
           >
@@ -439,31 +401,22 @@ export function PropertyEditor({
               ].join(" ")}
             >
               연락처
-              {!property.hasPartnerAgency && (
-                <span
-                  className={
-                    isInvalid("contacts")
-                      ? "ml-0.5 text-red-500"
-                      : "ml-0.5 text-[#3182F6]"
-                  }
-                >
-                  *
-                </span>
-              )}
+              <span
+                className={
+                  isInvalid("contacts")
+                    ? "ml-0.5 text-red-500"
+                    : "ml-0.5 text-[#3182F6]"
+                }
+              >
+                *
+              </span>
             </p>
-            <p
-              className={[
-                "text-xs",
-                isInvalid("contacts")
-                  ? "font-semibold text-red-500"
-                  : "text-gray-400",
-              ].join(" ")}
-            >
-              {isInvalid("contacts")
-                ? "미입력 · 임차인 또는 임대인 번호 필요"
-                : "임차인·임대인 중 하나 이상 필수"}
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {isInvalid("contacts") ? (
+              <p className="text-xs font-semibold text-red-500">
+                임차인 또는 임대인 번호 중 하나 필요
+              </p>
+            ) : null}
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               <PhoneInput
                 label="임차인 번호"
                 invalid={isInvalid("contacts")}
@@ -482,33 +435,70 @@ export function PropertyEditor({
               />
             </div>
           </div>
-        )}
-
-        <div ref={setFieldRef("roomType")}>
-          <RoomTypeSelect
-            required
-            invalid={isInvalid("roomType")}
-            value={
-              normalizeRoomType(property.roomType) ??
-              property.roomType ??
-              "원룸"
-            }
-            onChange={handleRoomTypeChange}
-          />
-        </div>
-
-        <div ref={setFieldRef("roomCount")}>
-          <RoomBathCountFields
-            roomType={normalizeRoomType(property.roomType) ?? property.roomType}
-            roomCount={property.roomCount}
-            bathroomCount={property.bathroomCount}
-            invalidRoomCount={isInvalid("roomCount")}
-            onChange={({ roomCount, bathroomCount }) =>
-              update({ roomCount, bathroomCount })
-            }
-          />
-        </div>
+        ) : null}
       </div>
+
+      {property.hasPartnerAgency ? (
+        <div
+          className="mt-3 space-y-1.5 border-t border-gray-300 pt-3"
+          aria-label="매물 유형"
+        >
+          <p className="text-[12px] font-bold text-gray-500">매물 유형</p>
+          <div ref={setFieldRef("roomType")}>
+            <RoomTypeSelect
+              required
+              invalid={isInvalid("roomType")}
+              value={
+                normalizeRoomType(property.roomType) ??
+                property.roomType ??
+                "원룸"
+              }
+              onChange={handleRoomTypeChange}
+            />
+          </div>
+          <div ref={setFieldRef("roomCount")}>
+            <RoomBathCountFields
+              roomType={
+                normalizeRoomType(property.roomType) ?? property.roomType
+              }
+              roomCount={property.roomCount}
+              bathroomCount={property.bathroomCount}
+              invalidRoomCount={isInvalid("roomCount")}
+              onChange={({ roomCount, bathroomCount }) =>
+                update({ roomCount, bathroomCount })
+              }
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div ref={setFieldRef("roomType")}>
+            <RoomTypeSelect
+              required
+              invalid={isInvalid("roomType")}
+              value={
+                normalizeRoomType(property.roomType) ??
+                property.roomType ??
+                "원룸"
+              }
+              onChange={handleRoomTypeChange}
+            />
+          </div>
+          <div ref={setFieldRef("roomCount")}>
+            <RoomBathCountFields
+              roomType={
+                normalizeRoomType(property.roomType) ?? property.roomType
+              }
+              roomCount={property.roomCount}
+              bathroomCount={property.bathroomCount}
+              invalidRoomCount={isInvalid("roomCount")}
+              onChange={({ roomCount, bathroomCount }) =>
+                update({ roomCount, bathroomCount })
+              }
+            />
+          </div>
+        </>
+      )}
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-4">
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>

@@ -207,8 +207,26 @@ export const LOAN_TYPES = [
   "기타",
 ];
 
-/** 대출 유일 때 선택하는 종류 (해당없음 제외) */
+/** 전세·월세 고객 — 전세자금 등 (디딤돌 제외) */
+export const LOAN_KIND_OPTIONS_JEONSE = [
+  "LH",
+  "SH",
+  "중기청",
+  "버팀목",
+  "기타",
+] as const;
+
+/** 매매 고객 — 디딤돌·기타 */
+export const LOAN_KIND_OPTIONS_SALE = ["디딤돌", "기타"] as const;
+
+/** @deprecated 거래유형별 loanKindOptionsForDeal 사용 */
 export const LOAN_KIND_OPTIONS = LOAN_TYPES.filter((t) => t !== "해당없음");
+
+/** 대출 유일 때 선택지 (거래유형별) */
+export function loanKindOptionsForDeal(dealType?: DealType | string | null): string[] {
+  if (dealType === "매매") return [...LOAN_KIND_OPTIONS_SALE];
+  return [...LOAN_KIND_OPTIONS_JEONSE];
+}
 
 export const MAINTENANCE_OPTIONS = [
   "인터넷",
@@ -272,8 +290,11 @@ export function createEmptyProperty(): Property {
     monthlyRent: undefined,
     maintenanceFee: 0,
     maintenanceIncludes: [],
+    parkingType: "무",
     parkingFeeType: "별도",
     parkingFee: undefined,
+    loanAvailable: "무",
+    insuranceType: "무",
     petAllowed: "무",
     elevator: false,
     options: [],
