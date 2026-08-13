@@ -16,6 +16,7 @@ import {
   peekAccessTokenIfFresh,
   peekCurrentUser,
   refreshSuspendedFromServer,
+  subscribeAuthChange,
 } from "@/lib/auth";
 
 /** 정지 계정에서도 허용하는 경로 */
@@ -99,6 +100,10 @@ export function AccountSuspendedGate({
     }
 
     const status = await refreshSuspendedFromServer(token);
+    if (status.deleted) {
+      applyStatus({ suspended: false, reason: "" });
+      return;
+    }
     applyStatus(status);
   }, [applyStatus, pathname]);
 
@@ -115,6 +120,17 @@ export function AccountSuspendedGate({
       window.removeEventListener("focus", onVis);
     };
   }, [sync, gateOff]);
+
+  // 세션이 비워지면 정지 배지도 함께 해제 (홈·하단바와 동기)
+  useEffect(() => {
+    return subscribeAuthChange(() => {
+      if (!peekCurrentUser()) {
+        applyStatus({ suspended: false, reason: "" });
+      } else {
+        void sync();
+      }
+    });
+  }, [applyStatus, sync]);
 
   useEffect(() => {
     if (gateOff) return;

@@ -22,6 +22,34 @@ export const BOOT_SPLASH_DONE_KEY = "realty_boot_splash_done";
 
 let cachedUser: User | null = null;
 
+type AuthListener = () => void;
+const authListeners = new Set<AuthListener>();
+/** useSyncExternalStore 스냅샷 — 로그인/로그아웃마다 증가 */
+let authEpoch = 0;
+
+function notifyAuthChange() {
+  authEpoch += 1;
+  authListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/** 홈·하단바·알람 등 — 세션 변경 시 동일하게 리렌더 */
+export function subscribeAuthChange(listener: AuthListener): () => void {
+  authListeners.add(listener);
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
+export function getAuthEpoch(): number {
+  return authEpoch;
+}
+
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
 }
@@ -61,10 +89,16 @@ export function clearAuthRuntimeCache(): void {
   cachedUser = null;
   clearAppAuth();
   clearEntityCache();
+  void import("./teamAlerts")
+    .then((m) => m.ensureTeamAlertsUser(null))
+    .catch(() => undefined);
   void import("./storage")
     .then((m) => m.invalidateWorkspaceIdCache())
     .catch(() => undefined);
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    notifyAuthChange();
+    return;
+  }
   try {
     const splashDone = sessionStorage.getItem(BOOT_SPLASH_DONE_KEY);
     sessionStorage.clear();
@@ -76,6 +110,7 @@ export function clearAuthRuntimeCache(): void {
   }
   clearLegacyAndSupabaseLocalKeys({ includeAccountScopedKeys: true });
   resetBrowserClient();
+  notifyAuthChange();
 }
 
 /** 세션·화면 상태를 완전히 비우기 위해 홈으로 하드 이동 */
@@ -213,7 +248,7 @@ export function peekCurrentUser(): User | null {
 /** 서버에서 정지 여부 최신화 후 로컬 세션 반영 */
 export async function refreshSuspendedFromServer(
   accessToken: string
-): Promise<{ suspended: boolean; reason: string }> {
+): Promise<{ suspended: boolean; reason: string; deleted?: boolean }> {
   try {
     const res = await fetch("/api/auth/account-status", {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -221,6 +256,7 @@ export async function refreshSuspendedFromServer(
     const body = (await res.json()) as {
       ok?: boolean;
       suspended?: boolean;
+      deleted?: boolean;
       reason?: string | null;
       matchingEnabled?: boolean;
       planTier?: string;
@@ -232,6 +268,15 @@ export async function refreshSuspendedFromServer(
       return {
         suspended: Boolean(u?.suspended),
         reason: u?.suspendedReason ?? "",
+      };
+    }
+    // 탈퇴·계정 종료 — 로그인 UI·알람까지 함께 비움
+    if (body.deleted === true) {
+      clearAuthRuntimeCache();
+      return {
+        suspended: false,
+        reason: "",
+        deleted: true,
       };
     }
     const suspended = Boolean(body.suspended);
@@ -260,6 +305,7 @@ export async function refreshSuspendedFromServer(
           next
         );
       }
+      notifyAuthChange();
     }
     return { suspended, reason };
   } catch {
@@ -609,6 +655,7 @@ export async function loginUser(
     // 앱 세션 백업 — 홈 새로고침 후에도 로그인 유지의 핵심
     saveAppAuth(body.session, body.user);
     cachedUser = body.user;
+    notifyAuthChange();
 
     try {
       const supabase = createClient();

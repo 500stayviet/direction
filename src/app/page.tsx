@@ -8,7 +8,14 @@ import { Modal } from "@/components/ui/Modal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { useAccountSuspended } from "@/components/AccountSuspendedGate";
 import { BrandIcon } from "@/components/BrandIcon";
-import { getCurrentUser, hardRedirectHome, logoutUser, peekCurrentUser } from "@/lib/auth";
+import {
+  getAuthEpoch,
+  getCurrentUser,
+  hardRedirectHome,
+  logoutUser,
+  peekCurrentUser,
+  subscribeAuthChange,
+} from "@/lib/auth";
 import { getDailyGreeting } from "@/lib/dailyGreeting";
 import { todayISO } from "@/lib/date";
 import {
@@ -24,13 +31,17 @@ import type { User } from "@/lib/types";
 import { AdBanner } from "@/components/ads/AdBanner";
 import { SiteFooter } from "@/components/SiteFooter";
 
-function subscribeNoop() {
-  return () => {};
-}
-
-/** SSR·hydration은 null, 이후 localStorage peek (mismatch 방지) */
-function usePeekedUser(): User | null {
-  return useSyncExternalStore(subscribeNoop, peekCurrentUser, () => null);
+/** 세션 변경(로그인·만료·정지·로그아웃)에 맞춰 홈 상단 상태를 동기화 */
+function useAuthUser(): User | null {
+  const epoch = useSyncExternalStore(
+    subscribeAuthChange,
+    getAuthEpoch,
+    () => 0
+  );
+  return useMemo(() => {
+    void epoch;
+    return peekCurrentUser();
+  }, [epoch]);
 }
 
 const menus = [
@@ -72,12 +83,7 @@ const FREE_NOTICE_HIDE_KEY = "realty_home_free_notice_hide";
 
 export default function HomePage() {
   const router = useRouter();
-  const peekedUser = usePeekedUser();
-  /** undefined = 아직 getCurrentUser 전 → peekedUser 사용 */
-  const [userOverride, setUserOverride] = useState<User | null | undefined>(
-    undefined
-  );
-  const user = userOverride === undefined ? peekedUser : userOverride;
+  const user = useAuthUser();
   const { suspended, blockOrExplain } = useAccountSuspended();
   // 홈에서 고객·매물·네비를 같이 워밍 — 리스트 진입 시 빈 화면 깜빡임 방지
   const { items: customers } = useCustomersList();
@@ -91,10 +97,9 @@ export default function HomePage() {
     let cancelled = false;
 
     void (async () => {
-      const u = await getCurrentUser();
+      await getCurrentUser();
       if (cancelled) return;
-      setUserOverride(u);
-      if (u) {
+      if (peekCurrentUser()) {
         setFreeNoticeOpen(false);
         return;
       }
@@ -146,7 +151,7 @@ export default function HomePage() {
   );
   // SSR은 고정값, hydration 이후 로컬 날짜 인사 (mismatch 방지)
   const dailyGreeting = useSyncExternalStore(
-    subscribeNoop,
+    () => () => {},
     () => getDailyGreeting(),
     () => "오늘도 현장 화이팅"
   );
@@ -244,7 +249,6 @@ export default function HomePage() {
                 type="button"
                 onClick={() => {
                   void (async () => {
-                    setUserOverride(null);
                     await logoutUser();
                     hardRedirectHome();
                   })();

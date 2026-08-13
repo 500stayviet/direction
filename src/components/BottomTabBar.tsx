@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { useAccountSuspended } from "@/components/AccountSuspendedGate";
 import { useAlertBadgeCounts } from "@/components/TeamAlertsSync";
-import { getCachedUser } from "@/lib/auth";
+import {
+  getAuthEpoch,
+  peekCurrentUser,
+  subscribeAuthChange,
+} from "@/lib/auth";
 
 const tabs = [
   { href: "/", label: "홈", icon: "🏠", match: (p: string) => p === "/", public: true },
@@ -41,6 +45,15 @@ export function BottomTabBar() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const badges = useAlertBadgeCounts();
   const { blockOrExplain } = useAccountSuspended();
+  const authEpoch = useSyncExternalStore(
+    subscribeAuthChange,
+    getAuthEpoch,
+    () => 0
+  );
+  const loggedIn = useMemo(() => {
+    void authEpoch;
+    return Boolean(peekCurrentUser()?.id);
+  }, [authEpoch]);
 
   // 현장 리드 중에는 하단 CTA만 남김
   if (pathname.startsWith("/navi/") && pathname !== "/navi") {
@@ -48,8 +61,9 @@ export function BottomTabBar() {
   }
 
   const handleTab = (href: string, isPublic: boolean) => {
+    // 정지 계정 — 로그인 모달보다 이용제한 안내가 우선
     if (href !== "/" && blockOrExplain()) return;
-    if (isPublic || getCachedUser()) {
+    if (isPublic || loggedIn) {
       router.push(href);
       return;
     }
@@ -72,7 +86,7 @@ export function BottomTabBar() {
             {tabs.map((tab) => {
               const active = tab.match(pathname);
               const badgeCount =
-                "badgeKey" in tab ? badges[tab.badgeKey] : 0;
+                loggedIn && "badgeKey" in tab ? badges[tab.badgeKey] : 0;
               const className = [
                 "flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-semibold",
                 "active:scale-95 transition-all duration-150",
@@ -92,20 +106,6 @@ export function BottomTabBar() {
                   ) : null}
                 </span>
               );
-
-              if (tab.public) {
-                return (
-                  <button
-                    key={tab.href}
-                    type="button"
-                    onClick={() => handleTab(tab.href, tab.public)}
-                    className={className}
-                  >
-                    {icon}
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              }
 
               return (
                 <button

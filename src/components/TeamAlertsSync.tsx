@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { peekCurrentUser } from "@/lib/auth";
+import {
+  getAuthEpoch,
+  peekCurrentUser,
+  subscribeAuthChange,
+} from "@/lib/auth";
 import { isForeignTeamItem } from "@/lib/teamActionGuard";
 import { findMatchingProperties } from "@/lib/matchCustomerProperty";
 import {
@@ -27,6 +31,18 @@ function useTeamAlertsState() {
     getTeamAlertsSnapshot,
     getTeamAlertsSnapshot
   );
+}
+
+function useAuthUserId(): string | null {
+  const epoch = useSyncExternalStore(
+    subscribeAuthChange,
+    getAuthEpoch,
+    () => 0
+  );
+  return useMemo(() => {
+    void epoch;
+    return peekCurrentUser()?.id ?? null;
+  }, [epoch]);
 }
 
 function useCachedCustomers() {
@@ -55,12 +71,19 @@ function useCachedSchedules() {
 
 export function useAlertBadgeCounts() {
   const snap = useTeamAlertsState();
-  return useMemo(() => getAlertBadgeCounts(), [snap]);
+  const userId = useAuthUserId();
+  return useMemo(() => {
+    if (!userId) {
+      return { customers: 0, properties: 0, navi: 0 };
+    }
+    void snap;
+    return getAlertBadgeCounts();
+  }, [snap, userId]);
 }
 
 /** 로그인 후 리스트 기준으로 공유·매칭 알람 동기화 */
 export function TeamAlertsSync() {
-  const userId = peekCurrentUser()?.id ?? null;
+  const userId = useAuthUserId();
   const customers = useCachedCustomers();
   const properties = useCachedProperties();
   const schedules = useCachedSchedules();
