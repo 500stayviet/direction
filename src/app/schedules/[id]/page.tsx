@@ -850,6 +850,22 @@ function ScheduleDetailInner() {
                       className="!shrink-0 !rounded-xl !bg-[#E8F8F1] !px-2.5 !py-1.5 !text-[14px] !font-extrabold !text-[#03B26C]"
                     />
                   </div>
+                  {(customer.preferredDongs?.length ?? 0) > 0 ||
+                  (customer.roomType === "토지" &&
+                    customer.landCategory?.trim()) ? (
+                    <div className="space-y-2 rounded-xl bg-[#F9FAFB] px-3 py-2.5">
+                      {(customer.preferredDongs?.length ?? 0) > 0 ? (
+                        <CustomerPreferredLocationBlock customer={customer} />
+                      ) : null}
+                      {customer.roomType === "토지" &&
+                      customer.landCategory?.trim() ? (
+                        <CustomerMeta
+                          label="지목"
+                          value={customer.landCategory.trim()}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="rounded-xl bg-[#F9FAFB]">
                     <button
                       type="button"
@@ -922,22 +938,6 @@ function ScheduleDetailInner() {
                               {customer.notes}
                             </p>
                           </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {(customer.preferredDongs?.length ?? 0) > 0 ||
-                    (customer.roomType === "토지" &&
-                      customer.landCategory?.trim()) ? (
-                      <div className="space-y-2 border-t border-gray-100 px-3 py-2.5">
-                        {customer.roomType === "토지" &&
-                        customer.landCategory?.trim() ? (
-                          <CustomerMeta
-                            label="지목"
-                            value={customer.landCategory.trim()}
-                          />
-                        ) : null}
-                        {(customer.preferredDongs?.length ?? 0) > 0 ? (
-                          <CustomerPreferredLocationBlock customer={customer} />
                         ) : null}
                       </div>
                     ) : null}

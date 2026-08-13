@@ -274,6 +274,19 @@ export function buildAdminCustomerDetail(args: {
     );
   }
   push(fields, "금액", getCustomerBudgetLabel(c));
+  if ((c.preferredDongs?.length ?? 0) > 0) {
+    const loc = (c.preferredDongs ?? [])
+      .map((raw) => {
+        const i = raw.indexOf("|");
+        if (i <= 0) return raw;
+        return `${raw.slice(0, i)} ${raw.slice(i + 1)}`;
+      })
+      .join(", ");
+    push(fields, "선호위치", loc || undefined);
+  }
+  if (c.roomType === "토지" && c.landCategory?.trim()) {
+    push(fields, "지목", c.landCategory.trim());
+  }
   push(fields, "입주희망", getCustomerMoveInLabel(c));
 
   const showLoanInsurancePet = !(

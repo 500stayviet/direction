@@ -88,7 +88,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             )}
           </div>
 
-          {/* 금액 · 입주 — 매물 상세와 같은 배치 */}
+          {/* 금액 → 선호위치 → 지목 → 방 → 입주희망 */}
           <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2 flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
               <p className="text-[11px] font-bold leading-none text-gray-400">
@@ -98,6 +98,21 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 {getCustomerBudgetLabel(customer)}
               </p>
             </div>
+            {(customer.preferredDongs?.length ?? 0) > 0 ? (
+              <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+                <CustomerPreferredLocationBlock customer={customer} />
+              </div>
+            ) : null}
+            {customer.roomType === "토지" && customer.landCategory?.trim() ? (
+              <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
+                <p className="text-[11px] font-bold leading-none text-gray-400">
+                  지목
+                </p>
+                <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                  {customer.landCategory.trim()}
+                </p>
+              </div>
+            ) : null}
             {showRoomBath ? (
               <div className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
                 <p className="text-[11px] font-bold leading-none text-gray-400">
@@ -161,21 +176,6 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
               />
             ) : null}
           </div>
-
-          {customer.roomType === "토지" && customer.landCategory?.trim() ? (
-            <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-              <p className="text-[12px] font-bold text-gray-400">지목</p>
-              <p className="mt-1 text-[14px] font-medium text-gray-800">
-                {customer.landCategory.trim()}
-              </p>
-            </div>
-          ) : null}
-
-          {(customer.preferredDongs?.length ?? 0) > 0 ? (
-            <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-              <CustomerPreferredLocationBlock customer={customer} />
-            </div>
-          ) : null}
 
           <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
             <p className="text-[12px] font-bold text-gray-400">추가내용</p>

@@ -42,13 +42,19 @@ function groupDongsByGu(encoded: string[]): Record<string, string[]> {
   return map;
 }
 
-/** 구·동이 모두 선택된 항목만 하단 결과로 사용 */
+/** 구·동이 모두 선택된 항목만 사용 (동만 있어도 구 복원) */
 export function completedPreferredGus(
   preferredGus: string[],
   preferredDongs: string[]
 ): string[] {
   const grouped = groupDongsByGu(preferredDongs);
-  return preferredGus.filter((gu) => (grouped[gu]?.length ?? 0) > 0);
+  const fromDongs = Object.keys(grouped);
+  if (fromDongs.length === 0) return [];
+  const ordered = preferredGus.filter((gu) => (grouped[gu]?.length ?? 0) > 0);
+  for (const gu of fromDongs.sort()) {
+    if (!ordered.includes(gu)) ordered.push(gu);
+  }
+  return ordered;
 }
 
 /**
