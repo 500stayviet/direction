@@ -47,7 +47,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
-import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
+import { PreferredLocationPicker, defaultPreferredLocation } from "@/components/PreferredLocationPicker";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 
 const FORM_ID = "customer-form";
@@ -166,12 +166,16 @@ export function CustomerForm({
   const [landCategory, setLandCategory] = useState(
     initial?.landCategory ?? ""
   );
-  const [preferredGus, setPreferredGus] = useState<string[]>(
-    () => initial?.preferredGus ?? []
-  );
-  const [preferredDongs, setPreferredDongs] = useState<string[]>(
-    () => initial?.preferredDongs ?? []
-  );
+  const [preferredGus, setPreferredGus] = useState<string[]>(() => {
+    if (initial?.preferredGus?.length) return initial.preferredGus;
+    if (initial) return [];
+    return defaultPreferredLocation().preferredGus;
+  });
+  const [preferredDongs, setPreferredDongs] = useState<string[]>(() => {
+    if (initial?.preferredDongs?.length) return initial.preferredDongs;
+    if (initial) return [];
+    return defaultPreferredLocation().preferredDongs;
+  });
   const [workspaceShared, setWorkspaceShared] = useState(
     initial?.workspaceShared === true
   );

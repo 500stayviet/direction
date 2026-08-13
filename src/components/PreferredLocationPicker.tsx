@@ -11,6 +11,21 @@ export function encodePreferredDong(gu: string, dong: string) {
   return `${gu}${SEP}${dong}`;
 }
 
+export const DEFAULT_PREFERRED_GU = "강동구";
+export const DEFAULT_PREFERRED_DONG = "성내동";
+
+export function defaultPreferredLocation(): {
+  preferredGus: string[];
+  preferredDongs: string[];
+} {
+  return {
+    preferredGus: [DEFAULT_PREFERRED_GU],
+    preferredDongs: [
+      encodePreferredDong(DEFAULT_PREFERRED_GU, DEFAULT_PREFERRED_DONG),
+    ],
+  };
+}
+
 export function parsePreferredDong(
   raw: string
 ): { gu: string; dong: string } | null {
@@ -52,7 +67,9 @@ export function PreferredLocationPicker({
 }) {
   const [guOpen, setGuOpen] = useState(false);
   const [dongOpen, setDongOpen] = useState(false);
-  const [activeGu, setActiveGu] = useState<string>("");
+  const [activeGu, setActiveGu] = useState<string>(
+    () => preferredGus[0] || DEFAULT_PREFERRED_GU
+  );
   const [draftDongs, setDraftDongs] = useState<string[]>([]);
 
   const grouped = useMemo(
@@ -161,9 +178,6 @@ export function PreferredLocationPicker({
 
       {guCount > 0 ? (
         <div className="space-y-1.5 rounded-xl bg-[#F7F8FA] px-2.5 py-2">
-          <p className="text-[11px] font-semibold text-gray-400">
-            구({guCount})
-          </p>
           {preferredGus.map((gu) => {
             const dongs = grouped[gu] ?? [];
             return (

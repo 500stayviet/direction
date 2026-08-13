@@ -32,7 +32,7 @@ export function CustomerPreferredLocationBlock({
   return (
     <div className="min-w-0 space-y-1.5">
       <p className="text-[11px] font-semibold leading-none text-gray-400">
-        선호위치 · 구({rows.length})
+        선호위치
       </p>
       {rows.map((row) => (
         <p
