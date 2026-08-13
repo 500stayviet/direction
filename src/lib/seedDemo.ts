@@ -21,7 +21,8 @@ function seedSkipKey(userId: string) {
 }
 
 function demoAlertsKey(userId: string) {
-  return `realty_demo_alerts_${DEMO_SEED_VERSION}:${userId}`;
+  // _navi2: 네비 데모 알람이 sync에서 지워지던 버그 수정 후 1회 재주입
+  return `realty_demo_alerts_${DEMO_SEED_VERSION}_navi2:${userId}`;
 }
 
 function purgeExpiredDemoFromCache() {

@@ -345,20 +345,3 @@ export function MatchingCustomersSection({
     </div>
   );
 }
-
-export function MatchingGate({ children }: { children: ReactNode }) {
-  const user = peekCurrentUser();
-  if (user?.matchingEnabled === false) {
-    return (
-      <Card className="space-y-1 !p-4 text-center">
-        <p className="text-[14px] font-bold text-gray-800">
-          조건 매칭은 유료 기능입니다
-        </p>
-        <p className="text-[12px] leading-snug text-gray-500">
-          프로모 혜택 또는 유료 플랜 적용 후 이용할 수 있습니다.
-        </p>
-      </Card>
-    );
-  }
-  return <>{children}</>;
-}

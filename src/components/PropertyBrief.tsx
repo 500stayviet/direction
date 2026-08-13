@@ -259,14 +259,17 @@ export function PropertyBrief({
             <div className="flex min-h-[52px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 대지면적
+                {property.landCategory?.trim() ? " · 지목" : ""}
+                {property.landUse?.trim() ? " · 용도" : ""}
               </p>
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {property.landArea != null ? `${property.landArea}평` : "-"}
-                {property.landUse?.trim() ? (
-                  <span className="ml-1 text-[12px] font-semibold text-gray-500">
-                    · {property.landUse.trim()}
-                  </span>
-                ) : null}
+                {[
+                  property.landArea != null ? `${property.landArea}평` : null,
+                  property.landCategory?.trim() || null,
+                  property.landUse?.trim() || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "-"}
               </p>
             </div>
           ) : property.roomType === "건물" ? (

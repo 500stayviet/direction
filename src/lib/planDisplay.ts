@@ -36,7 +36,7 @@ export function planDisplayForUser(input: {
   if (tier === "pro") {
     return {
       label: "프로",
-      detail: "조건 매칭 포함",
+      detail: "사이트내 공유 매칭 포함",
       tone: "pro",
     };
   }

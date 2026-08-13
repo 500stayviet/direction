@@ -37,6 +37,13 @@ async function getHandler(request: Request) {
       let countQuery = auth.admin
         .from("app_error_logs")
         .select("id", { count: "exact", head: true });
+      if (statusFilter === "4xx") {
+        countQuery = countQuery.gte("status", 400).lt("status", 500);
+      } else if (statusFilter === "5xx") {
+        countQuery = countQuery.gte("status", 500).lt("status", 600);
+      } else if (/^\d{3}$/.test(statusFilter)) {
+        countQuery = countQuery.eq("status", Number(statusFilter));
+      }
       if (since && !Number.isNaN(Date.parse(since))) {
         countQuery = countQuery.gt("created_at", new Date(since).toISOString());
       }
@@ -51,6 +58,7 @@ async function getHandler(request: Request) {
         ok: true,
         count: count ?? 0,
         since: since || null,
+        status: statusFilter || null,
       });
     }
 

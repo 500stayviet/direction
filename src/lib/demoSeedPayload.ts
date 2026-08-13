@@ -5,7 +5,7 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v15";
+export const DEMO_SEED_VERSION = "demo_v16";
 
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
@@ -16,6 +16,12 @@ export const DEMO_CORE_IDS = [
 /** 성내동 체험 지번 — 원터치 네비 체험용 */
 export const DEMO_GANGDONG_OFFICE_ADDRESS = "서울특별시 강동구 성내동 540";
 export const DEMO_TEST_PHONE = "111-1111-1111";
+/** 협력부동산에서 준 매물 체험용 — 가입자 상호/전화와 구분 */
+export const DEMO_PARTNER_AGENCY = {
+  name: "성내공인중개사",
+  phone: "02-1111-2222",
+  dong: "성내동",
+} as const;
 
 /** 시드에 심을 가입자 프로필 */
 export type DemoSeedActor = {
@@ -140,7 +146,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
 /**
  * 체험용 1고객 · 1매물 · 1네비(일정)
  * baseDate 기준: 방문일=당일, 희망입주=당일+31일부터
- * actor: 가입 시 이름·상호·전화 — 생성자·협력부동산 등에 반영
+ * actor: 가입 시 이름·상호·전화 — 생성자 표시용 (협력부동산은 DEMO_PARTNER_AGENCY)
  */
 export function buildDemoSeedData(
   baseDate: Date = startOfLocalDay(new Date()),
@@ -156,7 +162,6 @@ export function buildDemoSeedData(
     new Date(baseMs + 12 * 3600_000 - offsetMs).toISOString();
 
   const displayName = actor?.displayName?.trim() || "회원";
-  const shopName = actor?.shopName?.trim() || "테스트부동산";
   const actorPhone = actor?.phone?.trim() || DEMO_TEST_PHONE;
 
   const visitDate = daysFrom(base, 0);
@@ -209,9 +214,9 @@ export function buildDemoSeedData(
     landlordPhone: actorPhone,
     hasPartnerAgency: true,
     partnerAgency: {
-      name: shopName,
-      phone: actorPhone,
-      dong: "성내동",
+      name: DEMO_PARTNER_AGENCY.name,
+      phone: DEMO_PARTNER_AGENCY.phone,
+      dong: DEMO_PARTNER_AGENCY.dong,
     },
     dealType: "전세" as const,
     roomType: "원룸" as const,
@@ -231,7 +236,8 @@ export function buildDemoSeedData(
     moveInSingle: false,
     moveInDate: propMoveInDate,
     insuranceType: "유",
-    notes: `${shopName} 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.`,
+    notes:
+      "협력부동산에서 받은 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
     createdByName: displayName,
     workspaceShared: false,
     partnerAgencyShared: false,

@@ -140,11 +140,21 @@ export async function logApiResponseIfNeeded(
 ): Promise<void> {
   if (!shouldLogHttpStatus(res.status)) return;
   const url = new URL(request.url);
+  const path = url.pathname;
+
+  // 예상 가능한 인증 실패는 노이즈 — 5xx만 남긴다
+  if (
+    res.status < 500 &&
+    (path === "/api/auth/login" || path === "/api/admin/login")
+  ) {
+    return;
+  }
+
   const { message, bodyPreview } = await extractResponseMessage(res);
   await writeAppErrorLog({
     status: res.status,
     method: request.method,
-    path: url.pathname,
+    path,
     message,
     bodyPreview,
     ip: getClientIp(request),

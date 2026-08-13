@@ -11,6 +11,8 @@ import { Input, TextArea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
+import { LandCategoryPicker } from "@/components/LandCategoryPicker";
+import { propertyNotesPlaceholder } from "@/lib/memoPlaceholders";
 import { OptionToggle } from "@/components/OptionToggle";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -524,6 +526,12 @@ export function PropertyEditor({
             }
           />
         </div>
+        {isLand ? (
+          <LandCategoryPicker
+            value={property.landCategory ?? ""}
+            onChange={(landCategory) => update({ landCategory })}
+          />
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <div ref={setFieldRef("deposit")}>
             <Input
@@ -720,7 +728,7 @@ export function PropertyEditor({
               label="추가내용"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
-              placeholder="위반건축물, 건물현황, 향, 특이사항 등"
+              placeholder={propertyNotesPlaceholder(property.roomType)}
             />
             {showTeamShare ? (
               <>
@@ -754,7 +762,7 @@ export function PropertyEditor({
               label="추가내용"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
-              placeholder="위반건축물, 건물현황, 향, 특이사항 등"
+              placeholder={propertyNotesPlaceholder(property.roomType)}
             />
             {showTeamShare ? (
               <>
@@ -894,13 +902,7 @@ export function PropertyEditor({
             label="추가내용"
             value={property.notes ?? ""}
             onChange={(e) => update({ notes: e.target.value })}
-            placeholder={
-              property.roomType === "상가"
-                ? "권리금, 건물현황, 향, 특이사항 등"
-                : property.roomType === "사무실"
-                  ? "층, 건물현황, 향, 특이사항 등"
-                  : "위반건축물, 건물현황, 향, 특이사항 등"
-            }
+            placeholder={propertyNotesPlaceholder(property.roomType)}
           />
           {showTeamShare ? (
             <>

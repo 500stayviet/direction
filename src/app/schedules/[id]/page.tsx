@@ -12,6 +12,7 @@ import { TimePicker } from "@/components/TimePicker";
 import { CustomerSearchInput } from "@/components/CustomerSearchInput";
 import { CustomerListCard } from "@/components/CustomerListCard";
 import { CustomerBrief } from "@/components/CustomerBrief";
+import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
@@ -442,18 +443,30 @@ function ScheduleDetailInner() {
     }
   };
 
+  const cancelEditing = () => {
+    if (!schedule) return;
+    setVisitDate(schedule.visitDate ?? "");
+    setVisitTime(schedule.visitTime ?? "");
+    setProperties(schedule.properties);
+    restoreCustomerFromSchedule(schedule);
+    setEditing(false);
+  };
+
   return (
     <main>
       <PageHeader
         title={editing ? "일정 수정" : "방문 일정"}
         titlePlacement="below"
         backHref={
-          fromNavi
-            ? "/navi"
-            : customer
-              ? `/customers/${customer.id}`
-              : "/schedules/new"
+          editing
+            ? undefined
+            : fromNavi
+              ? "/navi"
+              : customer
+                ? `/customers/${customer.id}`
+                : "/schedules/new"
         }
+        onBack={editing ? cancelEditing : undefined}
         right={
           <>
             {!editing &&
@@ -519,11 +532,7 @@ function ScheduleDetailInner() {
               tone={editing ? "cancel" : "edit"}
               onClick={() => {
                 if (editing) {
-                  setVisitDate(schedule.visitDate ?? "");
-                  setVisitTime(schedule.visitTime ?? "");
-                  setProperties(schedule.properties);
-                  restoreCustomerFromSchedule(schedule);
-                  setEditing(false);
+                  cancelEditing();
                   return;
                 }
                 const myId = peekCurrentUser()?.id ?? agent?.id;
@@ -913,6 +922,22 @@ function ScheduleDetailInner() {
                               {customer.notes}
                             </p>
                           </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {(customer.preferredGus?.length ?? 0) > 0 ||
+                    (customer.roomType === "토지" &&
+                      customer.landCategory?.trim()) ? (
+                      <div className="space-y-2 border-t border-gray-100 px-3 py-2.5">
+                        {customer.roomType === "토지" &&
+                        customer.landCategory?.trim() ? (
+                          <CustomerMeta
+                            label="지목"
+                            value={customer.landCategory.trim()}
+                          />
+                        ) : null}
+                        {(customer.preferredGus?.length ?? 0) > 0 ? (
+                          <CustomerPreferredLocationBlock customer={customer} />
                         ) : null}
                       </div>
                     ) : null}

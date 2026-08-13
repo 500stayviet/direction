@@ -166,6 +166,16 @@ export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
   if (!userId) return;
   const incoming = new Set(foreignIds.filter(Boolean));
 
+  // 체험 시드(demo_*)는 본인 생성이라 foreign 목록에 없음 → 알람 유지용으로 포함
+  if (state.preserveDemoShareAlerts) {
+    for (const id of state.knownShare[tab]) {
+      if (id.startsWith("demo_")) incoming.add(id);
+    }
+    for (const id of state.unseenShare[tab]) {
+      if (id.startsWith("demo_")) incoming.add(id);
+    }
+  }
+
   if (!state.shareSeeded[tab]) {
     state = {
       ...state,
@@ -192,9 +202,6 @@ export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
   }
   for (const id of [...known]) {
     if (!incoming.has(id)) {
-      if (state.preserveDemoShareAlerts && id.startsWith("demo_")) {
-        continue;
-      }
       known.delete(id);
       unseen.delete(id);
     }

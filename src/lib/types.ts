@@ -65,7 +65,7 @@ export interface User {
   suspended?: boolean;
   /** 정지 사유 (사용자에게 표시) */
   suspendedReason?: string;
-  /** 조건 매칭·사이트 매칭 (미설정 시 true) */
+  /** 사이트내(전역) 공유 매칭용 플래그. 본인 고객↔매물 조건 매칭은 항상 무료 */
   matchingEnabled?: boolean;
   /** free | basic_lifetime | pro */
   planTier?: string;
@@ -141,6 +141,15 @@ export interface Customer extends SharedMeta {
   /** 고객 애완동물 유무 */
   petAllowed: PetAllowed;
   notes?: string;
+  /** 토지 희망 지목 */
+  landCategory?: string;
+  /** 선호 구 (서울) */
+  preferredGus?: string[];
+  /**
+   * 선호 동 — `"구|동"` 형식 (예: 강동구|성내동)
+   * 구별 표시·삭제·이후 매칭에 사용
+   */
+  preferredDongs?: string[];
   /** 계약 완료 여부 */
   contractCompleted?: boolean;
   createdAt: string;
@@ -213,6 +222,8 @@ export interface Property extends SharedMeta {
   landArea?: number;
   /** 토지 용도 */
   landUse?: string;
+  /** 토지 지목 (지적) */
+  landCategory?: string;
   /** 건물 세부 유형 */
   buildingKind?: BuildingKind;
   /** 지하 층수 */

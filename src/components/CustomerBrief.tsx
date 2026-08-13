@@ -15,6 +15,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
 import { ListEdgeChips } from "@/components/ListEdgeChips";
+import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
 
 const chipBase =
   "inline-flex items-center rounded-full px-3.5 py-2 text-[14px] font-bold leading-none tracking-tight";
@@ -160,6 +161,21 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
               />
             ) : null}
           </div>
+
+          {customer.roomType === "토지" && customer.landCategory?.trim() ? (
+            <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
+              <p className="text-[12px] font-bold text-gray-400">지목</p>
+              <p className="mt-1 text-[14px] font-medium text-gray-800">
+                {customer.landCategory.trim()}
+              </p>
+            </div>
+          ) : null}
+
+          {(customer.preferredGus?.length ?? 0) > 0 ? (
+            <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
+              <CustomerPreferredLocationBlock customer={customer} />
+            </div>
+          ) : null}
 
           <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
             <p className="text-[12px] font-bold text-gray-400">추가내용</p>

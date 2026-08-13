@@ -188,7 +188,7 @@ async function __GET_handler(request: Request, { params }: Params) {
   }
 }
 
-/** 계정 정지 / 정지 해제 (슈퍼·직원) */
+/** 계정 정지 / 정지 해제 / 비밀번호 재설정 (슈퍼·직원) */
 async function __POST_handler(request: Request, { params }: Params) {
   const auth = await requireAdminSession(request);
   if (!auth.ok) {
@@ -213,16 +213,23 @@ async function __POST_handler(request: Request, { params }: Params) {
       reason?: string;
     };
     const action = (body.action ?? "").trim();
-    if (action !== "suspend" && action !== "unsuspend") {
+    if (
+      action !== "suspend" &&
+      action !== "unsuspend" &&
+      action !== "reset_password"
+    ) {
       return NextResponse.json(
-        { ok: false, message: "action 은 suspend 또는 unsuspend 입니다." },
+        {
+          ok: false,
+          message: "action 은 suspend, unsuspend, reset_password 입니다.",
+        },
         { status: 400 }
       );
     }
 
     const { data: profile } = await auth.admin
       .from("profiles")
-      .select("id, username")
+      .select("id, username, phone, display_name")
       .eq("id", userId)
       .maybeSingle();
     if (!profile) {
@@ -257,6 +264,47 @@ async function __POST_handler(request: Request, { params }: Params) {
     }
 
     const actor = `${auth.session.title}:${auth.session.displayName}`;
+
+    if (action === "reset_password") {
+      // 랜덤 코드 = 새 로그인 비밀번호.
+      // 가입 이메일 수집 후: 동일 코드를 메일로 발송 예정. 지금은 관리자 화면에만 표시.
+      const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+      const bytes = new Uint8Array(10);
+      crypto.getRandomValues(bytes);
+      let temporaryPassword = "";
+      for (const b of bytes) {
+        temporaryPassword += alphabet[b % alphabet.length];
+      }
+
+      const { error } = await auth.admin.auth.admin.updateUserById(userId, {
+        password: temporaryPassword,
+      });
+      if (error) {
+        return NextResponse.json(
+          { ok: false, message: error.message },
+          { status: 500 }
+        );
+      }
+
+      await writeAuditLog(auth.admin, {
+        actorName: actor,
+        action: "admin_reset_password",
+        entityType: "account",
+        entityId: userId,
+        detail: {
+          username: profile.username,
+          phone: profile.phone ? String(profile.phone) : "",
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        temporaryPassword,
+        username: profile.username,
+        phone: profile.phone ? String(profile.phone) : "",
+        name: profile.display_name ? String(profile.display_name) : "",
+      });
+    }
 
     if (action === "suspend") {
       const reason = (body.reason ?? "").trim() || "관리자 정지";

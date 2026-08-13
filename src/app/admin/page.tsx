@@ -279,6 +279,11 @@ export default function AdminPage() {
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [suspendPreset, setSuspendPreset] = useState<string>(SUSPEND_PRESETS[0]);
   const [suspendCustom, setSuspendCustom] = useState("");
+  const [resetPasswordInfo, setResetPasswordInfo] = useState<{
+    username: string;
+    temporaryPassword: string;
+    phone: string;
+  } | null>(null);
 
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [teamQ, setTeamQ] = useState("");
@@ -342,7 +347,7 @@ export default function AdminPage() {
   >([]);
   const [errorLogQ, setErrorLogQ] = useState("");
   const [errorLogStatus, setErrorLogStatus] = useState<"all" | "4xx" | "5xx">(
-    "all"
+    "5xx"
   );
   const [copiedErrorId, setCopiedErrorId] = useState<string | null>(null);
   const [errorBadge, setErrorBadge] = useState(0);
@@ -563,7 +568,7 @@ export default function AdminPage() {
     async (
       token: string,
       q = "",
-      status: "all" | "4xx" | "5xx" = "all"
+      status: "all" | "4xx" | "5xx" = "5xx"
     ) => {
       const params = new URLSearchParams({ limit: "40" });
       if (q.trim()) params.set("q", q.trim());
@@ -590,7 +595,7 @@ export default function AdminPage() {
 
   const loadErrorBadge = useCallback(
     async (token: string) => {
-      const params = new URLSearchParams({ count: "1" });
+      const params = new URLSearchParams({ count: "1", status: "5xx" });
       const seen = readErrorSeenAt();
       if (seen) params.set("since", seen);
       const res = await fetch(`/api/admin/error-logs?${params}`, {
@@ -1021,19 +1026,73 @@ export default function AdminPage() {
 
       <div className="space-y-3 pb-10">
         <Card className="!p-3">
-          <p className="text-[13px] font-bold text-gray-900">
-            {session.title} · {session.displayName}
-          </p>
-          <p className="text-[11px] text-gray-400">@{session.username}</p>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[12px] font-bold text-gray-900">
+              {session.title === session.displayName
+                ? session.title
+                : `${session.title} · ${session.displayName}`}
+            </p>
+            <p className="text-[10px] text-gray-400">@{session.username}</p>
+          </div>
+
           {summary ? (
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] text-gray-600">
-              <p>오늘 접속 {summary.todayVisitors ?? 0}</p>
-              <p>오늘 가입 {summary.todaySignups ?? 0}</p>
-              <p>회원 {summary.profiles}</p>
-              <p>탈퇴 {summary.deletedAccounts}</p>
-              <p>고객 {summary.customersActive}</p>
-              <p>매물 {summary.propertiesActive}</p>
-              <p>네비 {summary.schedulesActive}</p>
+            <div className="mt-2 space-y-1.5">
+              <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-[#D9E6F8] bg-[#F7FAFF]">
+                <div className="border-r border-[#D9E6F8] px-2.5 py-2 text-center">
+                  <p className="text-[12px] text-[#6B8AB8]">오늘 접속</p>
+                  <p className="mt-0.5 text-[18px] font-extrabold tabular-nums text-gray-900">
+                    {summary.todayVisitors ?? 0}
+                  </p>
+                </div>
+                <div className="px-2.5 py-2 text-center">
+                  <p className="text-[12px] text-[#6B8AB8]">오늘 가입</p>
+                  <p className="mt-0.5 text-[18px] font-extrabold tabular-nums text-[#3182F6]">
+                    {summary.todaySignups ?? 0}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 rounded-lg bg-[#F7F8FA] px-1.5 py-1.5">
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">계정</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.profiles}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">팀</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.workspaces ?? 0}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">탈퇴</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.deletedAccounts}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 rounded-lg bg-[#F7F8FA] px-1.5 py-1.5">
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">고객</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.customersActive}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">매물</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.propertiesActive}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[11px] text-gray-400">네비</p>
+                  <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-gray-600">
+                    {summary.schedulesActive}
+                  </p>
+                </div>
+              </div>
             </div>
           ) : null}
         </Card>
@@ -1821,7 +1880,8 @@ export default function AdminPage() {
                 <div className="space-y-2 border-t border-gray-100 px-2.5 pb-2.5 pt-2">
                   <p className="text-[11px] text-gray-500">
                     기간 내 <span className="font-semibold text-gray-600">신규 가입만</span>{" "}
-                    기본 평생 무료(매칭 제외) 적용. 기존 회원·저장 시점
+                    기본 평생 무료 적용(본인 고객↔매물 조건 매칭은 원래 무료,
+                    사이트내 공유 매칭은 별도). 기존 회원·저장 시점
                     일괄 부여는 하지 않습니다. 한 번 부여된 혜택은 종료 후에도
                     유지됩니다.
                   </p>
@@ -2211,8 +2271,8 @@ export default function AdminPage() {
             <div>
               <p className="text-[14px] font-bold">API 에러</p>
               <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-                400·500대 · 「복사」후 Cursor에 붙여넣기 · 다른 탭으로 나가면
-                알림 숫자 초기화
+                기본 500대 · 로그인 실패(4xx)는 기록하지 않음 · 「복사」후
+                Cursor에 붙여넣기 · 다른 탭으로 나가면 알림 숫자 초기화
               </p>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -2493,15 +2553,15 @@ export default function AdminPage() {
         }
         headerRight={
           detail && detail.status !== "deleted" ? (
-            detail.status === "suspended" ? (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={busy}
-                className="rounded-lg bg-[#3182F6] px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
+                className="rounded-lg bg-gray-800 px-2.5 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
                 onClick={() => {
                   if (
                     !window.confirm(
-                      `@${detail.username} 계정 정지를 해제할까요?`
+                      `@${detail.username} 비밀번호를 랜덤 코드로 재설정할까요?\n(이메일 발송은 준비중 · 지금은 화면에 표시된 코드로 로그인)`
                     )
                   ) {
                     return;
@@ -2517,40 +2577,92 @@ export default function AdminPage() {
                             "Content-Type": "application/json",
                             ...authHeaders(session.token),
                           },
-                          body: JSON.stringify({ action: "unsuspend" }),
+                          body: JSON.stringify({ action: "reset_password" }),
                         }
                       );
                       const body = (await res.json()) as {
                         ok?: boolean;
                         message?: string;
+                        temporaryPassword?: string;
+                        username?: string;
+                        phone?: string;
                       };
-                      if (!res.ok || !body.ok) {
-                        alert(body.message ?? "정지 해제 실패");
+                      if (!res.ok || !body.ok || !body.temporaryPassword) {
+                        alert(body.message ?? "비밀번호 재설정 실패");
                         return;
                       }
-                      await openAccount(detail.id);
+                      setResetPasswordInfo({
+                        username: body.username ?? detail.username,
+                        temporaryPassword: body.temporaryPassword,
+                        phone: body.phone ?? detail.phone ?? "",
+                      });
                     } finally {
                       setBusy(false);
                     }
                   })();
                 }}
               >
-                정지 해제
+                비밀번호 재설정
               </button>
-            ) : (
-              <button
-                type="button"
-                disabled={busy}
-                className="rounded-lg bg-red-500 px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
-                onClick={() => {
-                  setSuspendPreset(SUSPEND_PRESETS[0]);
-                  setSuspendCustom("");
-                  setSuspendOpen(true);
-                }}
-              >
-                계정 정지
-              </button>
-            )
+              {detail.status === "suspended" ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg bg-[#3182F6] px-2.5 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `@${detail.username} 계정 정지를 해제할까요?`
+                      )
+                    ) {
+                      return;
+                    }
+                    void (async () => {
+                      setBusy(true);
+                      try {
+                        const res = await fetch(
+                          `/api/admin/accounts/${detail.id}`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...authHeaders(session.token),
+                            },
+                            body: JSON.stringify({ action: "unsuspend" }),
+                          }
+                        );
+                        const body = (await res.json()) as {
+                          ok?: boolean;
+                          message?: string;
+                        };
+                        if (!res.ok || !body.ok) {
+                          alert(body.message ?? "정지 해제 실패");
+                          return;
+                        }
+                        await openAccount(detail.id);
+                      } finally {
+                        setBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  정지 해제
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="rounded-lg bg-red-500 px-2.5 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                  onClick={() => {
+                    setSuspendPreset(SUSPEND_PRESETS[0]);
+                    setSuspendCustom("");
+                    setSuspendOpen(true);
+                  }}
+                >
+                  계정 정지
+                </button>
+              )}
+            </div>
           ) : null
         }
       >
@@ -3082,6 +3194,59 @@ export default function AdminPage() {
             >
               닫기
             </Button>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={Boolean(resetPasswordInfo)}
+        onClose={() => setResetPasswordInfo(null)}
+        title="비밀번호 재설정"
+        description={
+          resetPasswordInfo
+            ? `@${resetPasswordInfo.username} — 랜덤 코드가 새 비밀번호입니다`
+            : undefined
+        }
+        dense
+        position="center"
+      >
+        {resetPasswordInfo ? (
+          <div className="space-y-3">
+            <p className="text-[12px] leading-snug text-gray-500">
+              아래 랜덤 코드로 로그인하세요. 가입 이메일로 보내는 발송은
+              준비중이며, 지금은 이 화면에만 표시됩니다.
+            </p>
+            {resetPasswordInfo.phone ? (
+              <p className="text-[12px] text-gray-600">
+                연락처{" "}
+                <span className="font-bold text-gray-900">
+                  {resetPasswordInfo.phone}
+                </span>
+              </p>
+            ) : null}
+            <div className="rounded-xl bg-gray-50 px-3 py-3 text-center">
+              <p className="text-[11px] text-gray-400">랜덤 코드 (로그인 비밀번호)</p>
+              <p className="mt-1 break-all font-mono text-[20px] font-extrabold tracking-wide text-gray-900">
+                {resetPasswordInfo.temporaryPassword}
+              </p>
+              <p className="mt-1.5 text-[10px] font-semibold text-amber-600">
+                이메일 발송 · 준비중
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(resetPasswordInfo.temporaryPassword)
+                    .then(() => alert("랜덤 코드를 복사했습니다."))
+                    .catch(() => alert("복사에 실패했습니다."));
+                }}
+              >
+                복사
+              </Button>
+              <Button onClick={() => setResetPasswordInfo(null)}>확인</Button>
+            </div>
           </div>
         ) : null}
       </Modal>

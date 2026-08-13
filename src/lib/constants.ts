@@ -280,6 +280,7 @@ export function createEmptyProperty(): Property {
     usableArea: undefined,
     landArea: undefined,
     landUse: "",
+    landCategory: "",
     buildingKind: undefined,
     floorsBasement: undefined,
     floorsAbove: undefined,

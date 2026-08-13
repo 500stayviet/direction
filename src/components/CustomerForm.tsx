@@ -46,6 +46,9 @@ import { OptionToggle } from "@/components/OptionToggle";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
+import { LandCategoryPicker } from "@/components/LandCategoryPicker";
+import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
+import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 
 const FORM_ID = "customer-form";
 
@@ -160,6 +163,15 @@ export function CustomerForm({
     initial?.petAllowed ?? "무"
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [landCategory, setLandCategory] = useState(
+    initial?.landCategory ?? ""
+  );
+  const [preferredGus, setPreferredGus] = useState<string[]>(
+    () => initial?.preferredGus ?? []
+  );
+  const [preferredDongs, setPreferredDongs] = useState<string[]>(
+    () => initial?.preferredDongs ?? []
+  );
   const [workspaceShared, setWorkspaceShared] = useState(
     initial?.workspaceShared === true
   );
@@ -324,6 +336,10 @@ export function CustomerForm({
           ? "무"
           : petAllowed,
       notes: notes.trim(),
+      landCategory:
+        roomType === "토지" ? landCategory.trim() || undefined : undefined,
+      preferredGus: preferredGus.length > 0 ? preferredGus : undefined,
+      preferredDongs: preferredDongs.length > 0 ? preferredDongs : undefined,
       workspaceShared,
       siteShared: initial?.siteShared === true,
       contractCompleted: initial?.contractCompleted,
@@ -437,6 +453,22 @@ export function CustomerForm({
             value={effectiveDealType}
             onChange={handleDealTypeChange}
             types={isLandOrBuilding ? (["매매"] as const) : undefined}
+          />
+
+          {roomType === "토지" ? (
+            <LandCategoryPicker
+              value={landCategory}
+              onChange={setLandCategory}
+            />
+          ) : null}
+
+          <PreferredLocationPicker
+            preferredGus={preferredGus}
+            preferredDongs={preferredDongs}
+            onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
+              setPreferredGus(nextGus);
+              setPreferredDongs(nextDongs);
+            }}
           />
 
           <div className="space-y-2">
@@ -767,11 +799,7 @@ export function CustomerForm({
             label="메모 / 특이사항"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              roomType === "토지" || roomType === "건물"
-                ? "건폐율, 용적률, 현황, 향, 희망조건 등"
-                : "현황, 향, 희망조건, 희망층수, 애완동물 등"
-            }
+            placeholder={customerMemoPlaceholder(roomType)}
           />
           <OptionToggle
             label="팀공유 유무"
