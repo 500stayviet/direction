@@ -649,11 +649,6 @@ export function PropertyEditor({
             invalid={isInvalid("address")}
             value={property.address}
             onChange={(address) => update({ address })}
-            onDongChange={(dong) => {
-              updateAgency({
-                dong: property.partnerAgency.dong || dong,
-              });
-            }}
           />
         </div>
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
