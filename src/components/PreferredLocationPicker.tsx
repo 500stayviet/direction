@@ -12,7 +12,7 @@ import {
   groupDongsByGu,
 } from "@/lib/preferredLocation";
 
-/** 구·동 다중 선택. 기본값은 강동구·성내동(저장값). */
+/** 구·동 다중 선택. 구 박스 기본 표시만 강동구(저장 전). */
 export function PreferredLocationPicker({
   preferredGus,
   preferredDongs,
@@ -208,7 +208,7 @@ export function PreferredLocationPicker({
         </p>
       ) : (
         <p className="text-[11px] text-gray-400">
-          아래에 반영된 구·동을 수정하거나 추가할 수 있습니다.
+          구·동을 모두 고른 뒤 선택완료하면 아래에 반영됩니다.
         </p>
       )}
 

@@ -7,20 +7,17 @@ export function encodePreferredDong(gu: string, dong: string) {
 }
 
 export const DEFAULT_PREFERRED_GU = "강동구";
-export const DEFAULT_PREFERRED_DONG = "성내동";
 export { SEP as PREFERRED_DONG_SEP };
 
-/** 신규·미입력 시 기본 선택값 — 저장·상세 표시에 포함 */
+/**
+ * 신규 폼 저장값 초기 — 하단 결과에는 넣지 않음.
+ * 구 박스 표시만 강동구(PreferredLocationPicker).
+ */
 export function defaultPreferredLocation(): {
   preferredGus: string[];
   preferredDongs: string[];
 } {
-  return {
-    preferredGus: [DEFAULT_PREFERRED_GU],
-    preferredDongs: [
-      encodePreferredDong(DEFAULT_PREFERRED_GU, DEFAULT_PREFERRED_DONG),
-    ],
-  };
+  return { preferredGus: [], preferredDongs: [] };
 }
 
 export function parsePreferredDong(

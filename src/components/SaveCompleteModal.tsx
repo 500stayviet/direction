@@ -5,9 +5,11 @@ import { useEffect } from "react";
 export function SaveCompleteModal({
   open,
   onClose,
+  message = "변경사항이 저장되었습니다",
 }: {
   open: boolean;
   onClose: () => void;
+  message?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -43,7 +45,7 @@ export function SaveCompleteModal({
           </svg>
         </span>
         <p className="mt-3 text-[14px] font-semibold leading-snug tracking-tight text-gray-800">
-          변경사항이 저장되었습니다
+          {message}
         </p>
       </div>
     </div>

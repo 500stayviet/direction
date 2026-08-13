@@ -8,6 +8,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
+import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import { createEmptyProperty } from "@/lib/constants";
 import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
 import {
@@ -28,6 +29,8 @@ export default function NewPropertyPage() {
   const [focusField, setFocusField] = useState<PropertyFieldKey | undefined>();
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState("");
+  const [savedOpen, setSavedOpen] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveProperty = async () => {
@@ -40,7 +43,8 @@ export default function NewPropertyPage() {
     };
     try {
       await upsertListedProperty(saved);
-      router.push(`/properties/${saved.id}`);
+      setSavedId(saved.id);
+      setSavedOpen(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : "매물 저장에 실패했습니다.");
     }
@@ -118,6 +122,14 @@ export default function NewPropertyPage() {
         open={warnOpen}
         message={warnMessage}
         onClose={() => setWarnOpen(false)}
+      />
+      <SaveCompleteModal
+        open={savedOpen}
+        message="등록이 완료되었습니다"
+        onClose={() => {
+          setSavedOpen(false);
+          if (savedId) router.push(`/properties/${savedId}`);
+        }}
       />
     </main>
   );

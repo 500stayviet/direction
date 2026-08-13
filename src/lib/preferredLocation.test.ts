@@ -19,10 +19,10 @@ describe("preferredLocation", () => {
     });
   });
 
-  it("기본값은 강동구·성내동이다", () => {
+  it("기본 저장값은 비어 있다(박스는 강동구만)", () => {
     assert.deepEqual(defaultPreferredLocation(), {
-      preferredGus: ["강동구"],
-      preferredDongs: ["강동구|성내동"],
+      preferredGus: [],
+      preferredDongs: [],
     });
   });
 

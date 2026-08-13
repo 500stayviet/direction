@@ -175,10 +175,12 @@ export function CustomerForm({
     if (initial?.preferredDongs?.length) {
       return completedPreferredGus([], initial.preferredDongs);
     }
+    if (initial) return [];
     return defaultPreferredLocation().preferredGus;
   });
   const [preferredDongs, setPreferredDongs] = useState<string[]>(() => {
     if (initial?.preferredDongs?.length) return initial.preferredDongs;
+    if (initial) return [];
     return defaultPreferredLocation().preferredDongs;
   });
   const preferredRef = useRef({
