@@ -21,6 +21,75 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.moveInImmediate, true);
     assert.match(parsed.notes, /디딤돌/);
     assert.match(parsed.notes, /강아지/);
+    assert.doesNotMatch(parsed.notes, /있고|있음|바로입주/);
+  });
+
+  it("칸에 못 넣은 설명만 메모로 남기고 걸러낸 숫자는 넣지 않는다", () => {
+    const note = parseIntakeText(
+      "원룸 전세 2억 암사동 남향 저층 싫어요 희망층 3층 이상",
+      "customer"
+    );
+    assert.match(note.notes, /남향/);
+    assert.match(note.notes, /저층/);
+    assert.match(note.notes, /희망층/);
+    assert.doesNotMatch(note.notes, /2억|암사동|원룸|전세/);
+
+    const labeled = parseIntakeText(
+      "상가 월세 암사동 메모: 권리금 협의",
+      "property"
+    );
+    assert.match(labeled.notes, /권리금/);
+
+    const discarded = parseIntakeText("원룸 12/50 5억9 3화 물화 9/31", "customer");
+    assert.equal(discarded.notes, "");
+    assert.equal(discarded.deposit, undefined);
+    assert.equal(discarded.bathroomCount, undefined);
+
+    const keepDir = parseIntakeText("원룸 전세 5억9 남향", "customer");
+    assert.equal(keepDir.deposit, undefined);
+    assert.equal(keepDir.notes, "남향");
+
+    const road = parseIntakeText("성내동 올림픽로 123 원룸 전세", "property");
+    assert.equal(road.dong, "성내동");
+    assert.equal(road.jibun, undefined);
+    assert.match(road.notes, /올림픽로/);
+  });
+
+  it("거래종류가 여러 개면 처음 것만 넣고 뒤는 버린다", () => {
+    const jeonseFirst = parseIntakeText(
+      "원룸 전세 2억 암사동 매매 5억 남향",
+      "customer"
+    );
+    assert.equal(jeonseFirst.dealType, "전세");
+    assert.equal(jeonseFirst.deposit, 20000);
+    assert.equal(jeonseFirst.dong, "암사동");
+    assert.match(jeonseFirst.notes, /남향/);
+    assert.doesNotMatch(jeonseFirst.notes, /매매|5억/);
+
+    const saleFirst = parseIntakeText("원룸 매매 5 전세 2억", "customer");
+    assert.equal(saleFirst.dealType, "매매");
+    assert.equal(saleFirst.deposit, 50000);
+    assert.match(saleFirst.notes, /전세/);
+    assert.match(saleFirst.notes, /2억/);
+
+    const saleWithRent = parseIntakeText(
+      "건물 매매 5억 월세 1000/50 남향",
+      "property"
+    );
+    assert.equal(saleWithRent.dealType, "매매");
+    assert.equal(saleWithRent.deposit, 50000);
+    assert.match(saleWithRent.notes, /월세/);
+    assert.match(saleWithRent.notes, /1000\/50/);
+    assert.match(saleWithRent.notes, /남향/);
+
+    const laterDongDropped = parseIntakeText(
+      "원룸 전세 2억 매매 천호동",
+      "customer"
+    );
+    assert.equal(laterDongDropped.dealType, "전세");
+    assert.equal(laterDongDropped.deposit, 20000);
+    assert.equal(laterDongDropped.dong, undefined);
+    assert.equal(laterDongDropped.notes, "");
   });
 
   it("나중에 나온 유형이 이긴다", () => {
@@ -49,6 +118,43 @@ describe("parseIntakeText", () => {
     const apt = parseIntakeText("아파트 4룸 매매", "property");
     assert.equal(apt.roomType, "아파트");
     assert.equal(apt.roomCount, 4);
+
+    const bathRight = parseIntakeText("방4 화3 전세", "property");
+    assert.equal(bathRight.roomType, "3룸+");
+    assert.equal(bathRight.roomCount, 4);
+    assert.equal(bathRight.bathroomCount, 3);
+    assert.equal(
+      applyIntakeToProperty(createEmptyProperty(), bathRight).bathroomCount,
+      3
+    );
+
+    const bathLeft = parseIntakeText("화3 방4 월세", "customer");
+    assert.equal(bathLeft.roomCount, 4);
+    assert.equal(bathLeft.bathroomCount, 3);
+
+    const bathTight = parseIntakeText("4룸화2 전세", "property");
+    assert.equal(bathTight.roomCount, 4);
+    assert.equal(bathTight.bathroomCount, 2);
+    const bathRoomSpace = parseIntakeText("4룸 화2 전세", "property");
+    assert.equal(bathRoomSpace.roomCount, 4);
+    assert.equal(bathRoomSpace.bathroomCount, 2);
+    const bathRoomSpaces = parseIntakeText("4룸 화 2 전세", "property");
+    assert.equal(bathRoomSpaces.bathroomCount, 2);
+    const twoRoomBath = parseIntakeText("투룸 화2 월세", "property");
+    assert.equal(twoRoomBath.roomType, "투룸");
+    assert.equal(twoRoomBath.bathroomCount, 2);
+
+    const bathSpaced = parseIntakeText("방4 화 3 전세", "property");
+    assert.equal(bathSpaced.bathroomCount, 3);
+    const bathWord = parseIntakeText("방4 화장실 3 전세", "property");
+    assert.equal(bathWord.bathroomCount, 3);
+
+    const bathAlone = parseIntakeText("원룸 전세 화3 암사동", "property");
+    assert.equal(bathAlone.bathroomCount, undefined);
+    const bathReversed = parseIntakeText("방4 3화 전세", "property");
+    assert.equal(bathReversed.bathroomCount, undefined);
+    const bathCompound = parseIntakeText("방4 물화3 전세", "property");
+    assert.equal(bathCompound.bathroomCount, undefined);
   });
 
   it("매물 월세·옵션·동호실", () => {

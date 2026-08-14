@@ -343,6 +343,9 @@ export function CustomerForm({
     if (parsed.roomCount && needsRoomBathCounts(parsed.roomType)) {
       setRoomCount(parsed.roomCount);
     }
+    if (parsed.bathroomCount && needsRoomBathCounts(parsed.roomType)) {
+      setBathroomCount(parsed.bathroomCount);
+    }
     if (parsed.dealType) handleDealTypeChange(parsed.dealType);
     if (parsed.deposit && parsed.deposit > 0) {
       setDeposit(parsed.deposit);

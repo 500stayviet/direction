@@ -16,6 +16,7 @@ import {
   findAllDongsInText,
   isKnownSeoulDong,
   resolveGuFromDong,
+  SEOUL_GU_LIST,
 } from "@/lib/seoulRegions";
 import type { DealType, ParkingType, Property, RoomType } from "@/lib/types";
 
@@ -29,6 +30,7 @@ export type IntakeParseResult = {
   landlordPhone?: string;
   roomType?: RoomType;
   roomCount?: number;
+  bathroomCount?: number;
   dealType?: DealType;
   deposit?: number;
   depositTo?: number;
@@ -68,7 +70,45 @@ const ROOM_COUNT_WORDS: { keys: string[]; n: number }[] = [
   { keys: ["다섯룸", "다섯 룸"], n: 5 },
 ];
 
-function parseRoomSpec(text: string): { roomType?: RoomType; roomCount?: number } {
+function isAdjacentSpans(
+  text: string,
+  a: { start: number; end: number },
+  b: { start: number; end: number }
+): boolean {
+  if (a.end <= b.start) return /^\s*$/.test(text.slice(a.end, b.start));
+  if (b.end <= a.start) return /^\s*$/.test(text.slice(b.end, a.start));
+  return false;
+}
+
+function parseAdjacentBathroom(
+  text: string,
+  roomSpans: { start: number; end: number }[]
+): number | undefined {
+  let best: { n: number; index: number } | undefined;
+  const keep = (n: number, index: number) => {
+    if (!best || index >= best.index) best = { n, index };
+  };
+
+  const roomHwaRe = /룸\s*화(?:장실)?\s*([1-4])(?!\d)\s*개?/g;
+  let m: RegExpExecArray | null;
+  while ((m = roomHwaRe.exec(text))) {
+    keep(Number(m[1]), m.index);
+  }
+
+  const bathRe = /(?<=^|[\s\d]|룸)화(?:장실)?\s*([1-4])(?!\d)\s*개?/g;
+  while ((m = bathRe.exec(text))) {
+    const span = { start: m.index, end: m.index + m[0].length };
+    if (!roomSpans.some((room) => isAdjacentSpans(text, room, span))) continue;
+    keep(Number(m[1]), span.start);
+  }
+  return best?.n;
+}
+
+function parseRoomSpec(text: string): {
+  roomType?: RoomType;
+  roomCount?: number;
+  bathroomCount?: number;
+} {
   const typeHit = lastIndex(
     text,
     ROOM_ALIASES.flatMap((a) => a.keys)
@@ -78,24 +118,42 @@ function parseRoomSpec(text: string): { roomType?: RoomType; roomCount?: number 
     : undefined;
   const typeIndex = typeHit?.index ?? -1;
 
-  const counts: { n: number; index: number }[] = [];
+  const counts: { n: number; start: number; end: number }[] = [];
+  const roomSpans: { start: number; end: number }[] = [];
   const nRoomRe = /(?<!\d)([1-5])\s*룸/g;
   let m: RegExpExecArray | null;
   while ((m = nRoomRe.exec(text))) {
-    counts.push({ n: Number(m[1]), index: m.index });
+    const start = m.index;
+    const end = start + m[0].length;
+    counts.push({ n: Number(m[1]), start, end });
+    roomSpans.push({ start, end });
   }
   const bangRe = /방\s*([1-5])(?!\d)\s*개?/g;
   while ((m = bangRe.exec(text))) {
-    counts.push({ n: Number(m[1]), index: m.index });
+    const start = m.index;
+    const end = start + m[0].length;
+    counts.push({ n: Number(m[1]), start, end });
+    roomSpans.push({ start, end });
   }
   for (const row of ROOM_COUNT_WORDS) {
     const hit = lastIndex(text, row.keys);
-    if (hit) counts.push({ n: row.n, index: hit.index });
+    if (hit) {
+      const end = hit.index + hit.key.length;
+      counts.push({ n: row.n, start: hit.index, end });
+      roomSpans.push({ start: hit.index, end });
+    }
+  }
+  if (typeHit) {
+    roomSpans.push({
+      start: typeHit.index,
+      end: typeHit.index + typeHit.key.length,
+    });
   }
   const lastCount = counts.reduce<(typeof counts)[number] | null>((best, hit) => {
-    if (!best || hit.index > best.index) return hit;
+    if (!best || hit.start > best.start) return hit;
     return best;
   }, null);
+  const bathroomCount = parseAdjacentBathroom(text, roomSpans);
 
   const skipCount =
     roomType === "상가" ||
@@ -104,29 +162,101 @@ function parseRoomSpec(text: string): { roomType?: RoomType; roomCount?: number 
     roomType === "건물";
   if (skipCount) return { roomType };
 
-  const typeFromCount = (n: number): { roomType: RoomType; roomCount?: number } => {
-    if (n === 1) return { roomType: "원룸" };
-    if (n === 2) return { roomType: "투룸", roomCount: 2 };
-    return { roomType: "3룸+", roomCount: n };
+  const typeFromCount = (
+    n: number
+  ): { roomType: RoomType; roomCount?: number; bathroomCount?: number } => {
+    if (n === 1) return { roomType: "원룸", bathroomCount };
+    if (n === 2) return { roomType: "투룸", roomCount: 2, bathroomCount };
+    return { roomType: "3룸+", roomCount: n, bathroomCount };
   };
 
   if (roomType === "아파트" && lastCount) {
-    return { roomType: "아파트", roomCount: lastCount.n };
+    return { roomType: "아파트", roomCount: lastCount.n, bathroomCount };
   }
-  if (lastCount && (!roomType || lastCount.index >= typeIndex)) {
+  if (lastCount && (!roomType || lastCount.start >= typeIndex)) {
     return typeFromCount(lastCount.n);
   }
   if (roomType === "3룸+") {
     const n = lastCount && lastCount.n >= 3 ? lastCount.n : 3;
-    return { roomType, roomCount: n };
+    return { roomType, roomCount: n, bathroomCount };
   }
-  if (roomType === "투룸") return { roomType, roomCount: 2 };
-  if (roomType === "아파트") return { roomType, roomCount: 2 };
-  return { roomType };
+  if (roomType === "투룸") return { roomType, roomCount: 2, bathroomCount };
+  if (roomType === "아파트") return { roomType, roomCount: 2, bathroomCount };
+  return { roomType, bathroomCount };
 }
 
-const PET_WORDS = /강아지|고양이|반려|애완|펫|개\s*키우|반려견|반려묘/;
+const PET_WORDS =
+  /(?:강아지|고양이|반려(?:견|묘)?|애완(?:동물)?|펫)(?:\s*키우[요움]?)?|개\s*키우[요움]?/;
 const LOAN_KIND = /디딤돌|버팀목|중금|보금자리|특례|전세대출|주택담보/;
+
+const MEMO_WEAK_TOKENS = new Set([
+  "유",
+  "무",
+  "있음",
+  "없어요",
+  "없고",
+  "있고",
+  "있어요",
+  "있습니다",
+  "가능",
+  "불가",
+  "없",
+  "없음",
+  "부터",
+  "까지",
+  "입주",
+  "키워요",
+  "키움",
+  "개",
+  "및",
+  "또",
+  "또는",
+  "등",
+  "좀",
+  "요",
+  "희망",
+  "선호",
+]);
+
+const INTAKE_FIELD_LABELS = [
+  ...ROOM_ALIASES.flatMap((row) => row.keys),
+  ...ROOM_COUNT_WORDS.flatMap((row) => row.keys),
+  ...DEAL_TYPES,
+  ...PROPERTY_OPTIONS,
+  "3룸+",
+  "보증금",
+  "관리비",
+  "매가",
+  "보증",
+  "대출",
+  "주차",
+  "입주",
+  "엘리베이터",
+  "엘베",
+  "E/V",
+  "EV",
+  "보증보험",
+  "전세보증보험",
+  "보증 보험",
+  "팀공유",
+  "팀 공유",
+  "임차인",
+  "임대인",
+  "전화번호",
+  "연락처",
+  "고객명",
+  "명칭",
+  "이름",
+  "성함",
+  "성명",
+  "바로입주",
+  "즉시입주",
+  "바로 입주",
+  "즉시 입주",
+  "즉시",
+  "화장실",
+  "메모",
+];
 
 function lastIndex(text: string, keys: string[]): { key: string; index: number } | null {
   let best: { key: string; index: number } | null = null;
@@ -138,6 +268,61 @@ function lastIndex(text: string, keys: string[]): { key: string; index: number }
     }
   }
   return best;
+}
+
+/** 전세대출 안의 전세는 거래종류가 아님 */
+function dealTypeHits(text: string): { key: DealType; index: number }[] {
+  const hits: { key: DealType; index: number }[] = [];
+  for (const key of DEAL_TYPES) {
+    let from = 0;
+    while (from < text.length) {
+      const index = text.indexOf(key, from);
+      if (index < 0) break;
+      if (!(key === "전세" && text.slice(index).startsWith("전세대출"))) {
+        hits.push({ key, index });
+      }
+      from = index + 1;
+    }
+  }
+  hits.sort((a, b) => a.index - b.index || b.key.length - a.key.length);
+  const unique: { key: DealType; index: number }[] = [];
+  let lastEnd = -1;
+  for (const hit of hits) {
+    if (hit.index < lastEnd) continue;
+    unique.push(hit);
+    lastEnd = hit.index + hit.key.length;
+  }
+  return unique;
+}
+
+/** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세부터는 칸에서 뺌 */
+function firstDealFieldText(text: string): {
+  dealType?: DealType;
+  fieldText: string;
+  laterText: string;
+  laterDeal?: DealType;
+} {
+  const hits = dealTypeHits(text);
+  const first = hits[0];
+  if (!first) return { fieldText: text, laterText: "" };
+  const second = hits[1];
+  if (!second) return { dealType: first.key, fieldText: text, laterText: "" };
+  return {
+    dealType: first.key,
+    fieldText: maskUsedSpans(text, [{ start: second.index, end: text.length }]),
+    laterText: text.slice(second.index).trim(),
+    laterDeal: second.key,
+  };
+}
+
+function compactOccupancyNote(raw: string, extraWords: string[]): string {
+  let next = raw.replace(/\s+/g, " ").trim();
+  const words = [...extraWords].sort((a, b) => b.length - a.length);
+  for (const word of words) {
+    if (!word) continue;
+    next = next.split(word).join(" ");
+  }
+  return next.replace(/\s+/g, " ").trim();
 }
 
 function parseYesNo(text: string, labels: string[]): YesNo | undefined {
@@ -1142,6 +1327,114 @@ function parseMoveInDates(
   return {};
 }
 
+function collectRegexSpans(
+  text: string,
+  patterns: RegExp[]
+): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = [];
+  for (const pattern of patterns) {
+    const re = new RegExp(
+      pattern.source,
+      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
+    );
+    for (const m of text.matchAll(re)) {
+      if (m.index == null) continue;
+      spans.push({ start: m.index, end: m.index + m[0].length });
+    }
+  }
+  return spans;
+}
+
+function pushWordSpans(
+  text: string,
+  words: string[],
+  spans: { start: number; end: number }[]
+) {
+  for (const word of words) {
+    if (!word) continue;
+    let from = 0;
+    while (from < text.length) {
+      const index = text.indexOf(word, from);
+      if (index < 0) break;
+      spans.push({ start: index, end: index + word.length });
+      from = index + Math.max(1, word.length);
+    }
+  }
+}
+
+/** 칸에 넣은 값·걸러낸 숫자 조각은 빼고, 남은 설명만 메모로 */
+function leftoverMemoText(text: string, extraWords: string[]): string {
+  const spans: { start: number; end: number }[] = [];
+  for (const hit of parsePhoneHits(text)) {
+    spans.push({ start: hit.index, end: hit.end });
+  }
+  for (const place of findAllDongsInText(text)) {
+    spans.push({ start: place.start, end: place.end });
+  }
+  pushWordSpans(text, [...SEOUL_GU_LIST, ...extraWords], spans);
+  spans.push(
+    ...collectRegexSpans(text, [
+      /\d+(?:\.\d+)?\s*억\s*\d+(?:\.\d+)?\s*(?:천|만)?/g,
+      /\d+(?:\.\d+)?\s*억\s*\d+/g,
+      /\d+(?:\.\d+)?\s*억/g,
+      /\d+(?:\.\d+)?\s*만(?:원)?/g,
+      /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/g,
+      /\d{1,2}\s*월\s*\d{1,2}\s*일/g,
+      new RegExp(
+        `\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}(?:\\s*[${PAIR_SEP_CLS}]\\s*\\d{2,4})?`,
+        "g"
+      ),
+      new RegExp(`\\d+(?:\\.\\d+)?\\s*[${TILDE_CLS}\\-]\\s*\\d+(?:\\.\\d+)?`, "g"),
+      /물화\s*\d*/g,
+      /(?:화장실|화)\s*[1-9]\d*\s*개?/g,
+      /\d+\s*화(?:장실)?/g,
+      /방\s*[1-9]\d*\s*개?/g,
+      /[1-5]\s*룸/g,
+      /룸\s*화(?:장실)?\s*[1-4]\s*개?/g,
+      /\d+\s*동\s*\d+\s*호/g,
+      /\d+\s*층\s*\d+\s*호/g,
+      /\d{2,4}\s*호/g,
+      /\d+\s*층/g,
+      /\d+\s*번지/g,
+      /\d+/g,
+    ])
+  );
+
+  let next = maskUsedSpans(text, spans);
+  const labels = [...INTAKE_FIELD_LABELS].sort((a, b) => b.length - a.length);
+  for (const label of labels) {
+    next = next.split(label).join(" ");
+  }
+  next = next
+    .replace(/[:：]/g, " ")
+    .replace(/[^\uAC00-\uD7A3A-Za-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!next) return "";
+
+  const kept = next.split(" ").filter((token) => {
+    if (!token || MEMO_WEAK_TOKENS.has(token)) return false;
+    if (/^[A-Za-z]$/.test(token)) return false;
+    return true;
+  });
+  const joined = kept.join(" ").trim();
+  const hangul = joined.replace(/[^가-힣]/g, "");
+  if (hangul.length < 2) return "";
+  return joined;
+}
+
+function uniqueNoteParts(parts: string[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of parts) {
+    const next = part.replace(/\s+/g, " ").trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    out.push(next);
+  }
+  return out.join(" / ");
+}
+
 export function parseIntakeText(
   raw: string,
   kind: IntakeKind,
@@ -1162,23 +1455,23 @@ export function parseIntakeText(
   const result: IntakeParseResult = { options: [], notes: "" };
   if (!text) return result;
 
-  const room = parseRoomSpec(text);
+  const { dealType: firstDeal, fieldText, laterText, laterDeal } =
+    firstDealFieldText(text);
+  const room = parseRoomSpec(fieldText);
   if (room.roomType) result.roomType = room.roomType;
   if (room.roomCount) result.roomCount = room.roomCount;
+  if (room.bathroomCount) result.bathroomCount = room.bathroomCount;
 
-  const dealHit = lastIndex(text, [...DEAL_TYPES]);
-  if (dealHit && DEAL_TYPES.includes(dealHit.key as DealType)) {
-    result.dealType = dealHit.key as DealType;
-  }
+  if (firstDeal) result.dealType = firstDeal;
 
   const asSale =
     result.dealType === "매매" ||
     result.roomType === "토지" ||
     result.roomType === "건물" ||
-    /매매|매가/.test(text);
+    (result.dealType === undefined && /매가/.test(fieldText));
   const allowTripleEok =
     result.roomType === "토지" || result.roomType === "건물";
-  const money = parseMoneyManwon(text, {
+  const money = parseMoneyManwon(fieldText, {
     asSale,
     allowTripleEok,
     maxBareEok: maxBareSaleEok(result.roomType),
@@ -1205,7 +1498,7 @@ export function parseIntakeText(
     }
   }
 
-  const leftoverText = maskUsedSpans(text, money.usedSpans);
+  const leftoverText = maskUsedSpans(fieldText, money.usedSpans);
   const contacts = parseContacts(leftoverText);
   result.name = contacts.name;
   result.phone = contacts.phone;
@@ -1221,7 +1514,7 @@ export function parseIntakeText(
   }
 
   const locText = stripContactNoise(leftoverText, contacts.name);
-  const loc = parseLocation(locText, text);
+  const loc = parseLocation(locText, fieldText);
   result.gu = loc.gu;
   result.dong = loc.dong;
   result.jibun = loc.jibun;
@@ -1230,7 +1523,7 @@ export function parseIntakeText(
       Boolean(p.gu)
     )
     .map((p) => ({ gu: p.gu, dong: p.dong }));
-  result.roomNo = parseRoomNo(text);
+  result.roomNo = parseRoomNo(fieldText);
 
   const moveIn = parseMoveInDates(leftoverText, today);
   if (moveIn.from) {
@@ -1240,19 +1533,19 @@ export function parseIntakeText(
     result.moveInImmediate = true;
   }
 
-  result.loan = parseYesNo(text, ["대출"]);
-  result.insurance = parseYesNo(text, ["보증보험", "전세보증보험", "보증 보험"]);
-  result.parking = parseYesNo(text, ["주차"]);
-  result.elevator = parseYesNo(text, ["엘리베이터", "엘베", "E/V", "EV"]);
-  result.workspaceShared = parseYesNo(text, ["팀공유", "팀 공유"]);
+  result.loan = parseYesNo(fieldText, ["대출"]);
+  result.insurance = parseYesNo(fieldText, ["보증보험", "전세보증보험", "보증 보험"]);
+  result.parking = parseYesNo(fieldText, ["주차"]);
+  result.elevator = parseYesNo(fieldText, ["엘리베이터", "엘베", "E/V", "EV"]);
+  result.workspaceShared = parseYesNo(fieldText, ["팀공유", "팀 공유"]);
 
-  if (LOAN_KIND.test(text)) {
+  if (LOAN_KIND.test(fieldText)) {
     result.loan = "유";
   }
 
   const options: string[] = [];
   for (const opt of PROPERTY_OPTIONS) {
-    if (text.includes(opt)) options.push(opt);
+    if (fieldText.includes(opt)) options.push(opt);
   }
   result.options = options;
 
@@ -1261,7 +1554,20 @@ export function parseIntakeText(
   if (loanKind) notes.push(loanKind[0]);
   const pet = text.match(PET_WORDS);
   if (pet) notes.push(pet[0]);
-  result.notes = notes.join(" / ");
+  const leftover = leftoverMemoText(fieldText, notes);
+  if (leftover) notes.push(leftover);
+  if (
+    firstDeal === "매매" &&
+    (laterDeal === "전세" || laterDeal === "월세") &&
+    laterText
+  ) {
+    const occupancy = compactOccupancyNote(laterText, notes);
+    if (occupancy) notes.push(occupancy);
+  } else if (laterText) {
+    const laterLeftover = leftoverMemoText(laterText, notes);
+    if (laterLeftover) notes.push(laterLeftover);
+  }
+  result.notes = uniqueNoteParts(notes);
 
   return result;
 }
@@ -1321,7 +1627,7 @@ export function applyIntakeToProperty(
     if (needsRoomBathCounts(parsed.roomType)) {
       const defaults = defaultRoomBathCounts(parsed.roomType);
       next.roomCount = parsed.roomCount ?? defaults.roomCount;
-      next.bathroomCount = defaults.bathroomCount;
+      next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
     }
   }
   if (parsed.dealType) next.dealType = parsed.dealType;
