@@ -934,7 +934,11 @@ function parseRoomNo(text: string): string | undefined {
   const ho = text.match(/(\d{2,4})\s*호/);
   if (ho) return `${ho[1]}호`;
   const floor = text.match(/(\d+)\s*층/);
-  if (floor) return `${floor[1]}층`;
+  if (floor && floor.index != null) {
+    const before = text.slice(Math.max(0, floor.index - 6), floor.index);
+    if (/희망층?\s*$/.test(before)) return undefined;
+    return `${floor[1]}층`;
+  }
   return undefined;
 }
 
@@ -1394,9 +1398,8 @@ function leftoverMemoText(text: string, extraWords: string[]): string {
       /\d+\s*동\s*\d+\s*호/g,
       /\d+\s*층\s*\d+\s*호/g,
       /\d{2,4}\s*호/g,
-      /\d+\s*층/g,
       /\d+\s*번지/g,
-      /\d+/g,
+      /\d+(?!\s*층)/g,
     ])
   );
 
@@ -1407,7 +1410,7 @@ function leftoverMemoText(text: string, extraWords: string[]): string {
   }
   next = next
     .replace(/[:：]/g, " ")
-    .replace(/[^\uAC00-\uD7A3A-Za-z\s]/g, " ")
+    .replace(/[^\uAC00-\uD7A30-9A-Za-z\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!next) return "";
@@ -1435,6 +1438,27 @@ function uniqueNoteParts(parts: string[]): string {
   return out.join(" / ");
 }
 
+/** 칸에 넣은 번호 말고, 뒤에 또 나온 전화는 메모로 */
+function extraPhonesForMemo(
+  text: string,
+  used: (string | undefined)[]
+): string[] {
+  const usedDigits = new Set(
+    used
+      .filter((phone): phone is string => Boolean(phone))
+      .map((phone) => toKrPhoneDigits(phone))
+  );
+  const extras: string[] = [];
+  const seen = new Set<string>();
+  for (const hit of parsePhoneHits(text)) {
+    const digits = toKrPhoneDigits(hit.formatted);
+    if (!digits || usedDigits.has(digits) || seen.has(digits)) continue;
+    seen.add(digits);
+    extras.push(hit.formatted);
+  }
+  return extras;
+}
+
 export function parseIntakeText(
   raw: string,
   kind: IntakeKind,
@@ -1455,7 +1479,7 @@ export function parseIntakeText(
   const result: IntakeParseResult = { options: [], notes: "" };
   if (!text) return result;
 
-  const { dealType: firstDeal, fieldText, laterText, laterDeal } =
+  const { dealType: firstDeal, fieldText, laterText } =
     firstDealFieldText(text);
   const room = parseRoomSpec(fieldText);
   if (room.roomType) result.roomType = room.roomType;
@@ -1464,6 +1488,10 @@ export function parseIntakeText(
 
   if (firstDeal) result.dealType = firstDeal;
 
+  const phoneSpans = parsePhoneHits(fieldText).map((hit) => ({
+    start: hit.index,
+    end: hit.end,
+  }));
   const asSale =
     result.dealType === "매매" ||
     result.roomType === "토지" ||
@@ -1471,7 +1499,7 @@ export function parseIntakeText(
     (result.dealType === undefined && /매가/.test(fieldText));
   const allowTripleEok =
     result.roomType === "토지" || result.roomType === "건물";
-  const money = parseMoneyManwon(fieldText, {
+  const money = parseMoneyManwon(maskUsedSpans(fieldText, phoneSpans), {
     asSale,
     allowTripleEok,
     maxBareEok: maxBareSaleEok(result.roomType),
@@ -1556,16 +1584,16 @@ export function parseIntakeText(
   if (pet) notes.push(pet[0]);
   const leftover = leftoverMemoText(fieldText, notes);
   if (leftover) notes.push(leftover);
-  if (
-    firstDeal === "매매" &&
-    (laterDeal === "전세" || laterDeal === "월세") &&
-    laterText
-  ) {
-    const occupancy = compactOccupancyNote(laterText, notes);
-    if (occupancy) notes.push(occupancy);
-  } else if (laterText) {
-    const laterLeftover = leftoverMemoText(laterText, notes);
-    if (laterLeftover) notes.push(laterLeftover);
+  for (const phone of extraPhonesForMemo(fieldText, [
+    result.phone,
+    result.tenantPhone,
+    result.landlordPhone,
+  ])) {
+    notes.push(phone);
+  }
+  if (laterText) {
+    const laterNote = compactOccupancyNote(laterText, notes);
+    if (laterNote) notes.push(laterNote);
   }
   result.notes = uniqueNoteParts(notes);
 
