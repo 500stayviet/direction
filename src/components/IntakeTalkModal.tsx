@@ -20,7 +20,7 @@ const GUIDE: Record<
     { name: "입주희망일", example: "○○월 ○○일    부터    ○○월 ○○일" },
     { name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
     { name: "팀공유 (유 / 무)" },
-    { name: "메모" },
+    { name: "메모", example: "메모: 남향 저층" },
   ],
   property: [
     { name: "매물유형", example: "원룸 등" },
@@ -31,7 +31,7 @@ const GUIDE: Record<
     { name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
     { name: "임차인 · 임대인 전화번호", example: "010-1234-5678" },
     { name: "팀공유 (유 / 무)" },
-    { name: "메모" },
+    { name: "메모", example: "메모: 남향 저층" },
   ],
 };
 

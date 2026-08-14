@@ -34,7 +34,7 @@ export function IntakeMessageModal({
       open={open}
       onClose={onClose}
       title="메시지로 입력"
-      description="글을 붙여넣거나 입력한 뒤 반영하세요."
+      description="글을 붙여 넣거나 입력한 뒤 반영하세요."
     >
       <TextArea
         ref={areaRef}

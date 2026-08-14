@@ -40,7 +40,39 @@ describe("parseIntakeText", () => {
       "상가 월세 암사동 메모: 권리금 협의",
       "property"
     );
-    assert.match(labeled.notes, /권리금/);
+    assert.equal(labeled.notes, "권리금 협의");
+
+    const labeledMoney = parseIntakeText(
+      "원룸 전세 2억 암사동 메모: 매매 5억 남향",
+      "customer"
+    );
+    assert.equal(labeledMoney.dealType, "전세");
+    assert.equal(labeledMoney.deposit, 20000);
+    assert.equal(labeledMoney.dong, "암사동");
+    assert.equal(labeledMoney.notes, "매매 5억 남향");
+
+    const labeledDot = parseIntakeText(
+      "원룸 전세 2억 암사동 메모. 남향 저층",
+      "customer"
+    );
+    assert.equal(labeledDot.dealType, "전세");
+    assert.equal(labeledDot.deposit, 20000);
+    assert.equal(labeledDot.notes, "남향 저층");
+
+    const labeledSpaced = parseIntakeText(
+      "원룸 전세 2억 암사동 메모 : 권리금 협의",
+      "customer"
+    );
+    assert.equal(labeledSpaced.notes, "권리금 협의");
+
+    const notMemoWord = parseIntakeText(
+      "원룸 전세 2억 암사동 메모로 남향",
+      "customer"
+    );
+    assert.equal(notMemoWord.dealType, "전세");
+    assert.equal(notMemoWord.dong, "암사동");
+    assert.match(notMemoWord.notes, /남향/);
+    assert.doesNotMatch(notMemoWord.notes, /메모로/);
 
     const discarded = parseIntakeText("원룸 12/50 5억9 3화 물화 9/31", "customer");
     assert.equal(discarded.notes, "");

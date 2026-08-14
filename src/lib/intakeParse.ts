@@ -315,6 +315,15 @@ function firstDealFieldText(text: string): {
   };
 }
 
+function splitLabeledMemo(text: string): { body: string; labeledMemo: string } {
+  const m = text.match(/메모\s*[.:：。]/);
+  if (!m || m.index == null) return { body: text, labeledMemo: "" };
+  return {
+    body: text.slice(0, m.index).replace(/\s+/g, " ").trim(),
+    labeledMemo: text.slice(m.index + m[0].length).replace(/\s+/g, " ").trim(),
+  };
+}
+
 function compactOccupancyNote(raw: string, extraWords: string[]): string {
   let next = raw.replace(/\s+/g, " ").trim();
   const words = [...extraWords].sort((a, b) => b.length - a.length);
@@ -1479,8 +1488,14 @@ export function parseIntakeText(
   const result: IntakeParseResult = { options: [], notes: "" };
   if (!text) return result;
 
+  const { body, labeledMemo } = splitLabeledMemo(text);
+  if (!body) {
+    result.notes = labeledMemo;
+    return result;
+  }
+
   const { dealType: firstDeal, fieldText, laterText } =
-    firstDealFieldText(text);
+    firstDealFieldText(body);
   const room = parseRoomSpec(fieldText);
   if (room.roomType) result.roomType = room.roomType;
   if (room.roomCount) result.roomCount = room.roomCount;
@@ -1578,9 +1593,9 @@ export function parseIntakeText(
   result.options = options;
 
   const notes: string[] = [];
-  const loanKind = text.match(LOAN_KIND);
+  const loanKind = body.match(LOAN_KIND);
   if (loanKind) notes.push(loanKind[0]);
-  const pet = text.match(PET_WORDS);
+  const pet = body.match(PET_WORDS);
   if (pet) notes.push(pet[0]);
   const leftover = leftoverMemoText(fieldText, notes);
   if (leftover) notes.push(leftover);
@@ -1595,6 +1610,7 @@ export function parseIntakeText(
     const laterNote = compactOccupancyNote(laterText, notes);
     if (laterNote) notes.push(laterNote);
   }
+  if (labeledMemo) notes.push(labeledMemo);
   result.notes = uniqueNoteParts(notes);
 
   return result;
