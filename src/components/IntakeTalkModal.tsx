@@ -11,7 +11,7 @@ const GUIDE: Record<
   { name: string; example?: string }[]
 > = {
   customer: [
-    { name: "고객명 또는 명칭", example: "직접 입력" },
+    { name: "고객명 또는 명칭", example: "홍길동" },
     { name: "전화번호", example: "010-1234-5678" },
     { name: "매물유형", example: "원룸 등" },
     { name: "거래종류", example: "매매 전세 월세" },
@@ -39,9 +39,13 @@ type SpeechRec = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
-  onresult: ((ev: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onresult:
+    | ((ev: {
+        results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+      }) => void)
+    | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((ev?: { error?: string }) => void) | null;
   start: () => void;
   stop: () => void;
 };
@@ -54,6 +58,22 @@ function getSpeechRecognition(): SpeechRec | null {
     (window as unknown as { SpeechRecognition?: new () => SpeechRec })
       .SpeechRecognition;
   return Ctor ? new Ctor() : null;
+}
+
+function spokenFromResults(
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
+): string {
+  let finals = "";
+  let interim = "";
+  for (let i = 0; i < results.length; i += 1) {
+    const row = results[i];
+    if (!row) continue;
+    const piece = (row[0]?.transcript ?? "").trim();
+    if (!piece) continue;
+    if (row.isFinal) finals = `${finals} ${piece}`.trim();
+    else interim = `${interim} ${piece}`.trim();
+  }
+  return `${finals} ${interim}`.replace(/\s+/g, " ").trim();
 }
 
 export function IntakeTalkModal({
@@ -71,17 +91,24 @@ export function IntakeTalkModal({
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const recRef = useRef<SpeechRec | null>(null);
-  const baseRef = useRef("");
+  const prefixRef = useRef("");
   const textRef = useRef("");
+  const listeningRef = useRef(false);
+
+  const setListeningBoth = (next: boolean) => {
+    listeningRef.current = next;
+    setListening(next);
+  };
 
   useEffect(() => {
     if (!open) {
+      listeningRef.current = false;
       recRef.current?.stop();
       recRef.current = null;
       setListening(false);
       setText("");
       setError("");
-      baseRef.current = "";
+      prefixRef.current = "";
       textRef.current = "";
       return;
     }
@@ -94,24 +121,23 @@ export function IntakeTalkModal({
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (ev) => {
-      let finalChunk = "";
-      let interim = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i += 1) {
-        const row = ev.results[i];
-        if (!row) continue;
-        if (row.isFinal) finalChunk += row[0].transcript;
-        else interim += row[0].transcript;
-      }
-      if (finalChunk) {
-        baseRef.current = `${baseRef.current} ${finalChunk}`.trim();
-      }
-      const next = `${baseRef.current} ${interim}`.trim();
+      const spoken = spokenFromResults(ev.results);
+      const next = `${prefixRef.current} ${spoken}`.replace(/\s+/g, " ").trim();
       textRef.current = next;
       setText(next);
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => {
-      setListening(false);
+    rec.onend = () => {
+      prefixRef.current = textRef.current;
+      if (!listeningRef.current) return;
+      try {
+        rec.start();
+      } catch {
+        setListeningBoth(false);
+      }
+    };
+    rec.onerror = (ev) => {
+      if (ev?.error === "aborted" || ev?.error === "no-speech") return;
+      setListeningBoth(false);
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     recRef.current = rec;
@@ -121,15 +147,16 @@ export function IntakeTalkModal({
     const rec = recRef.current;
     if (!rec) return;
     setError("");
-    if (listening) {
+    if (listeningRef.current) {
+      setListeningBoth(false);
       rec.stop();
-      baseRef.current = textRef.current;
-      setListening(false);
+      prefixRef.current = textRef.current;
       return;
     }
+    prefixRef.current = textRef.current;
     try {
       rec.start();
-      setListening(true);
+      setListeningBoth(true);
     } catch {
       setError("마이크를 시작할 수 없습니다.");
     }
@@ -140,7 +167,7 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="가이드를 따라 입력해 보세요."
+      description="가이드에 따라 대화 해 보세요."
     >
       <ul className="mb-3 space-y-1.5 rounded-2xl bg-gray-50 px-3 py-2.5">
         {GUIDE[kind].map((line) => (
@@ -163,7 +190,7 @@ export function IntakeTalkModal({
         onChange={(e) => {
           setText(e.target.value);
           textRef.current = e.target.value;
-          baseRef.current = e.target.value;
+          prefixRef.current = e.target.value;
         }}
         placeholder="입력한 내용이 여기에 쌓입니다"
         className="min-h-[96px]"

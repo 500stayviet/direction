@@ -52,6 +52,7 @@ export type IntakeParseResult = {
   workspaceShared?: YesNo;
   options: string[];
   notes: string;
+  nameLabeled?: boolean;
 };
 
 const ROOM_ALIASES: { keys: string[]; value: RoomType }[] = [
@@ -216,6 +217,8 @@ const MEMO_WEAK_TOKENS = new Set([
   "요",
   "희망",
   "선호",
+  "또는",
+  "등",
 ]);
 
 const INTAKE_FIELD_LABELS = [
@@ -249,6 +252,7 @@ const INTAKE_FIELD_LABELS = [
   "이름",
   "성함",
   "성명",
+  "고객명 또는 명칭",
   "바로입주",
   "즉시입주",
   "바로 입주",
@@ -256,6 +260,20 @@ const INTAKE_FIELD_LABELS = [
   "즉시",
   "화장실",
   "메모",
+  "매물유형",
+  "매물 유형",
+  "거래종류",
+  "거래 종류",
+  "선호위치",
+  "선호 위치",
+  "거래가액",
+  "거래 가액",
+  "입주희망일",
+  "입주 희망일",
+  "임대가능일",
+  "임대 가능일",
+  "매매가",
+  "주소",
 ];
 
 function lastIndex(text: string, keys: string[]): { key: string; index: number } | null {
@@ -1074,6 +1092,7 @@ const NAME_STOP = new Set([
   "위치",
   "유무",
   "즉시",
+  "매물유형",
 ]);
 
 function isNameCandidate(word: string): boolean {
@@ -1120,6 +1139,7 @@ function expandSpokenPhones(text: string): string {
 
 function parseContacts(text: string): {
   name?: string;
+  nameLabeled?: boolean;
   phone?: string;
   tenantPhone?: string;
   landlordPhone?: string;
@@ -1132,6 +1152,7 @@ function parseContacts(text: string): {
     labeledName && isNameCandidate(labeledName[1] ?? "")
       ? labeledName[1]
       : undefined;
+  const nameLabeled = Boolean(name);
 
   if (!name && phones[0]) {
     const before = text.slice(Math.max(0, phones[0].index - 8), phones[0].index);
@@ -1166,6 +1187,7 @@ function parseContacts(text: string): {
 
   return {
     name,
+    nameLabeled,
     phone:
       labeled ??
       mobile?.formatted ??
@@ -1544,6 +1566,7 @@ export function parseIntakeText(
   const leftoverText = maskUsedSpans(fieldText, money.usedSpans);
   const contacts = parseContacts(leftoverText);
   result.name = contacts.name;
+  if (contacts.nameLabeled) result.nameLabeled = true;
   result.phone = contacts.phone;
   result.tenantPhone = contacts.tenantPhone;
   result.landlordPhone = contacts.landlordPhone;
@@ -1597,7 +1620,10 @@ export function parseIntakeText(
   if (loanKind) notes.push(loanKind[0]);
   const pet = body.match(PET_WORDS);
   if (pet) notes.push(pet[0]);
-  const leftover = leftoverMemoText(fieldText, notes);
+  const leftover = leftoverMemoText(fieldText, [
+    ...notes,
+    ...(contacts.name ? [contacts.name] : []),
+  ]);
   if (leftover) notes.push(leftover);
   for (const phone of extraPhonesForMemo(fieldText, [
     result.phone,

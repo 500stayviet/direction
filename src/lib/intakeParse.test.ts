@@ -87,6 +87,20 @@ describe("parseIntakeText", () => {
     assert.equal(road.dong, "성내동");
     assert.equal(road.jibun, undefined);
     assert.match(road.notes, /올림픽로/);
+
+    const typeLabel = parseIntakeText("매물유형 원룸 전세 2억 암사동", "customer");
+    assert.equal(typeLabel.roomType, "원룸");
+    assert.equal(typeLabel.dealType, "전세");
+    assert.equal(typeLabel.deposit, 20000);
+    assert.doesNotMatch(typeLabel.notes, /매물유형|유형/);
+
+    const nameLabel = parseIntakeText(
+      "고객명 홍길동 원룸 전세 2억 암사동",
+      "customer"
+    );
+    assert.equal(nameLabel.name, "홍길동");
+    assert.equal(nameLabel.nameLabeled, true);
+    assert.doesNotMatch(nameLabel.notes, /고객명|홍길동/);
   });
 
   it("앞에 나온 거래만 칸에 넣고 뒤 거래·금액은 메모로 남긴다", () => {

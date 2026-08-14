@@ -339,6 +339,7 @@ export function CustomerForm({
       setPhone(formatPhoneInput(nextPhone));
       setPhoneNonce((n) => n + 1);
     }
+    if (parsed.nameLabeled && parsed.name) setName(parsed.name);
     if (parsed.roomType) applyRoomType(parsed.roomType);
     if (parsed.roomCount && needsRoomBathCounts(parsed.roomType)) {
       setRoomCount(parsed.roomCount);
