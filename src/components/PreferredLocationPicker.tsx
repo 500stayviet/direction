@@ -11,13 +11,37 @@ import {
   encodePreferredDong,
   groupDongsByGu,
 } from "@/lib/preferredLocation";
+import {
+  filledBoxClass,
+  filledBoxTextClass,
+} from "@/lib/uiInvalid";
 
-/** 구·동 다중 선택. 구 박스 기본 표시만 강동구(저장 전). */
+function fieldBoxClass(complete: boolean, fieldInvalid = false) {
+  return [
+    "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
+    "active:scale-[0.99] transition-all duration-150",
+    fieldInvalid
+      ? "border-red-500 bg-red-50"
+      : complete
+        ? filledBoxClass
+        : "border-gray-200 bg-gray-50",
+  ].join(" ");
+}
+
+function chevronClass(fieldInvalid: boolean) {
+  return [
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
+    fieldInvalid ? "bg-red-100 text-red-600" : "bg-blue-50 text-[#3182F6]",
+  ].join(" ");
+}
+
+/** 구·동 다중 선택. 강동구는 동 목록 기본값일 뿐, 고르기 전에는 칸에 넣지 않음. */
 export function PreferredLocationPicker({
   preferredGus,
   preferredDongs,
   onChange,
   invalid,
+  accent,
 }: {
   preferredGus: string[];
   preferredDongs: string[];
@@ -26,13 +50,16 @@ export function PreferredLocationPicker({
     preferredDongs: string[];
   }) => void;
   invalid?: boolean;
+  /** 메시지·대화·사진으로 반영된 뒤에만 파란 박스 */
+  accent?: boolean;
 }) {
   const [guOpen, setGuOpen] = useState(false);
   const [dongOpen, setDongOpen] = useState(false);
-  /** 빈 문자열이면 박스에 「선택구」 */
+  /** 빈 문자열이면 박스에 「선택구」. 기본 강동구는 표시만, 고른 값은 아님 */
   const [boxGu, setBoxGu] = useState<string>(() =>
     preferredDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU
   );
+  const [guPicked, setGuPicked] = useState(false);
   const [draftDongs, setDraftDongs] = useState<string[]>([]);
 
   const grouped = useMemo(
@@ -46,9 +73,18 @@ export function PreferredLocationPicker({
 
   const activeGu = boxGu || DEFAULT_PREFERRED_GU;
   const dongList = SEOUL_DONG_BY_GU[activeGu] ?? [];
+  const shownGu = boxGu || resultGus[0] || "";
+  const shownDongs = shownGu ? grouped[shownGu] ?? [] : [];
+  const guSelected = guPicked || resultGus.length > 0;
+  const displayGu = guSelected ? shownGu : "";
+  const guMissing = Boolean(invalid && !guSelected);
+  const dongMissing = Boolean(invalid && shownDongs.length === 0);
+  const guFilled = Boolean(accent && resultGus.length > 0);
+  const dongFilled = Boolean(accent && shownDongs.length > 0);
 
   const pickGu = (gu: string) => {
     setBoxGu(gu);
+    setGuPicked(true);
     setGuOpen(false);
   };
 
@@ -110,23 +146,8 @@ export function PreferredLocationPicker({
       preferredDongs: nextDongs,
     });
     setBoxGu(nextDongs.length > 0 ? "" : DEFAULT_PREFERRED_GU);
+    if (nextDongs.length === 0) setGuPicked(false);
   };
-
-  const fieldBoxClass = (complete: boolean) =>
-    [
-      "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
-      "active:scale-[0.99] transition-all duration-150",
-      invalid
-        ? "border-red-500 bg-red-50"
-        : complete
-          ? "border-[#3182F6]/55 bg-gray-50"
-          : "border-gray-200 bg-gray-50",
-    ].join(" ");
-
-  const chevronClass = [
-    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
-    invalid ? "bg-red-100 text-red-600" : "bg-blue-50 text-[#3182F6]",
-  ].join(" ");
 
   return (
     <div className="space-y-1.5">
@@ -146,13 +167,13 @@ export function PreferredLocationPicker({
           <p
             className={[
               "text-[13px] font-semibold",
-              invalid ? "text-red-600" : "text-gray-600",
+              guMissing ? "text-red-600" : "text-gray-600",
             ].join(" ")}
           >
             구
             <span
               className={
-                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+                guMissing ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
               }
             >
               *
@@ -161,30 +182,34 @@ export function PreferredLocationPicker({
           <button
             type="button"
             onClick={() => setGuOpen(true)}
-            className={fieldBoxClass(Boolean(boxGu))}
+            className={fieldBoxClass(guFilled, guMissing)}
           >
             <span
               className={[
                 "truncate text-[16px] font-semibold",
-                boxGu ? "text-gray-900" : "text-gray-400",
+                guFilled
+                  ? filledBoxTextClass
+                  : displayGu
+                    ? "text-gray-900"
+                    : "text-gray-400",
               ].join(" ")}
             >
-              {boxGu || "선택구"}
+              {displayGu || "선택구"}
             </span>
-            <span className={chevronClass}>▾</span>
+            <span className={chevronClass(guMissing)}>▾</span>
           </button>
         </div>
         <div className="space-y-1">
           <p
             className={[
               "text-[13px] font-semibold",
-              invalid ? "text-red-600" : "text-gray-600",
+              dongMissing ? "text-red-600" : "text-gray-600",
             ].join(" ")}
           >
             동
             <span
               className={
-                invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
+                dongMissing ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
               }
             >
               *
@@ -193,17 +218,21 @@ export function PreferredLocationPicker({
           <button
             type="button"
             onClick={openDongModal}
-            className={fieldBoxClass(Boolean(boxGu))}
+            className={fieldBoxClass(dongFilled, dongMissing)}
           >
             <span
               className={[
                 "truncate text-[16px] font-semibold",
-                boxGu ? "text-gray-900" : "text-gray-400",
+                dongFilled
+                  ? filledBoxTextClass
+                  : shownDongs.length > 0
+                    ? "text-gray-900"
+                    : "text-gray-400",
               ].join(" ")}
             >
-              선택동
+              {shownDongs.length > 0 ? shownDongs.join(", ") : "선택동"}
             </span>
-            <span className={chevronClass}>▾</span>
+            <span className={chevronClass(dongMissing)}>▾</span>
           </button>
         </div>
       </div>
@@ -271,7 +300,7 @@ export function PreferredLocationPicker({
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
           {SEOUL_GU_LIST.map((gu) => {
             const inResult = resultGus.includes(gu);
-            const current = Boolean(boxGu) && gu === boxGu;
+            const current = guPicked && gu === boxGu;
             return (
               <button
                 key={gu}

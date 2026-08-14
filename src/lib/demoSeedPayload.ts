@@ -7,6 +7,12 @@ import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
 export const DEMO_SEED_VERSION = "demo_v20";
 
+/** 체험 카드 생성자 표시 — 가입자가 아니라 관리자 */
+export const DEMO_CREATOR_NAME = "관리자";
+
+/** 생성자 표기 일괄 변경 — 시드 내용을 다시 쓰지 않고 이름만 맞춤 */
+export const DEMO_CREATOR_LABEL_VERSION = "admin_1";
+
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
   "demo_prop_1",
@@ -146,11 +152,12 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
 /**
  * 체험용 1고객 · 1매물 · 1네비(일정)
  * baseDate 기준: 방문일=당일, 희망입주=당일+31일부터
- * actor: 가입 시 이름·상호·전화 — 생성자 표시용 (협력부동산은 DEMO_PARTNER_AGENCY)
+ * actor: 가입 시 이름·상호·전화 (협력부동산은 DEMO_PARTNER_AGENCY)
+ * 생성자 표시는 DEMO_CREATOR_NAME(관리자)
  */
 export function buildDemoSeedData(
   baseDate: Date = startOfLocalDay(new Date()),
-  actor?: DemoSeedActor | null
+  _actor?: DemoSeedActor | null
 ): {
   customers: Customer[];
   properties: ListedProperty[];
@@ -160,8 +167,6 @@ export function buildDemoSeedData(
   const baseMs = base.getTime();
   const iso = (offsetMs: number) =>
     new Date(baseMs + 12 * 3600_000 - offsetMs).toISOString();
-
-  const displayName = actor?.displayName?.trim() || "회원";
 
   const visitDate = daysFrom(base, 0);
   const moveInFrom = daysFrom(base, CONTRACT_DEADLINE_DAYS);
@@ -199,7 +204,7 @@ export function buildDemoSeedData(
       preferredDongs: ["강동구|성내동"],
       notes:
         "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
-      createdByName: displayName,
+      createdByName: DEMO_CREATOR_NAME,
       workspaceShared: false,
       createdAt: iso(1000 * 60 * 60),
     }),
@@ -239,7 +244,7 @@ export function buildDemoSeedData(
     insuranceType: "유",
     notes:
       "협력부동산에서 받은 체험 매물입니다. 원터치 네비를 눌러 길찾기를 시험해 보세요.",
-    createdByName: displayName,
+    createdByName: DEMO_CREATOR_NAME,
     workspaceShared: false,
     partnerAgencyShared: false,
   };
@@ -269,7 +274,7 @@ export function buildDemoSeedData(
       visitTime: "10:00",
       properties: scheduleProps,
       routeSummary: buildRouteSummary(scheduleProps),
-      createdByName: displayName,
+      createdByName: DEMO_CREATOR_NAME,
       workspaceShared: false,
       createdAt: iso(1000 * 60 * 20),
       updatedAt: iso(1000 * 60 * 20),

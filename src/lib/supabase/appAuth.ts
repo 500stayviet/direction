@@ -1,4 +1,5 @@
 import type { User } from "@/lib/types";
+import { AUTO_LOGIN_MAX_AGE_SEC } from "@/lib/loginPrefs";
 
 const APP_AUTH_KEY = "realty_app_auth_v1";
 const APP_USER_COOKIE = "realty_app_user_v1";
@@ -24,37 +25,31 @@ function publicUserForCookie(user: User): Omit<User, "passwordHint"> & {
 function writeUserCookie(user: User): void {
   if (typeof document === "undefined") return;
   try {
-    // 힌트는 쿠키에 넣지 않음 (XSS·문서 접근 시 탈취 면적 축소)
     const value = encodeURIComponent(
       JSON.stringify(publicUserForCookie(user))
     );
-    // 화면 로그인 상태용 (토큰은 localStorage). 약 2주 — 주 단위 재로그인 여유
-    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 14}; SameSite=Lax${cookieSecureSuffix()}`;
+    document.cookie = `${APP_USER_COOKIE}=${value}; Path=/; Max-Age=${AUTO_LOGIN_MAX_AGE_SEC}; SameSite=Lax${cookieSecureSuffix()}`;
   } catch {
     /* ignore */
   }
 }
 
-function readUserCookie(): User | null {
-  if (typeof document === "undefined") return null;
+function clearUserCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${cookieSecureSuffix()}`;
+  document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+function parseAuth(raw: string | null): AppAuth | null {
+  if (!raw) return null;
   try {
-    const match = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith(`${APP_USER_COOKIE}=`));
-    if (!match) return null;
-    const raw = decodeURIComponent(match.slice(APP_USER_COOKIE.length + 1));
-    return JSON.parse(raw) as User;
+    const parsed = JSON.parse(raw) as AppAuth;
+    if (!parsed?.user?.id) return null;
+    if (!parsed.access_token && !parsed.refresh_token) return null;
+    return parsed;
   } catch {
     return null;
   }
-}
-
-function clearUserCookie(): void {
-  if (typeof document === "undefined") return;
-  // Secure로 심은 쿠키는 Secure 포함해서 지워야 함 (HTTPS 배포)
-  document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${cookieSecureSuffix()}`;
-  // 예전 non-Secure 쿠키도 함께 제거
-  document.cookie = `${APP_USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
 export function saveAppAuth(
@@ -71,7 +66,12 @@ export function saveAppAuth(
   try {
     window.localStorage.setItem(APP_AUTH_KEY, JSON.stringify(payload));
   } catch {
-    /* private mode 등 */
+    /* private mode */
+  }
+  try {
+    window.sessionStorage.removeItem(APP_AUTH_KEY);
+  } catch {
+    /* ignore */
   }
   writeUserCookie(user);
 }
@@ -79,30 +79,27 @@ export function saveAppAuth(
 export function loadAppAuth(): AppAuth | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(APP_AUTH_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as AppAuth;
-      if (parsed?.user?.id) return parsed;
-    }
+    const fromLocal = parseAuth(window.localStorage.getItem(APP_AUTH_KEY));
+    if (fromLocal) return fromLocal;
   } catch {
-    /* fall through */
+    /* ignore */
   }
-
-  // localStorage가 비어도 쿠키 사용자로 화면 로그인 유지
-  const user = readUserCookie();
-  if (!user?.id) return null;
-  return {
-    access_token: "",
-    refresh_token: "",
-    user,
-    savedAt: Date.now(),
-  };
+  try {
+    return parseAuth(window.sessionStorage.getItem(APP_AUTH_KEY));
+  } catch {
+    return null;
+  }
 }
 
 export function clearAppAuth(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(APP_AUTH_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.sessionStorage.removeItem(APP_AUTH_KEY);
   } catch {
     /* ignore */
   }

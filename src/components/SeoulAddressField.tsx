@@ -10,6 +10,7 @@ import {
   composeSeoulAddress,
   parseJibunDetail,
   parseSeoulAddress,
+  isPlaceholderAddress,
 } from "@/lib/seoulRegions";
 
 interface SeoulAddressFieldProps {
@@ -20,6 +21,8 @@ interface SeoulAddressFieldProps {
   /** false면 동 필수 표시/검증 UI 제외. 기본 true */
   requireDong?: boolean;
   invalid?: boolean;
+  /** 메시지·대화·사진으로 반영된 뒤에만 파란 박스 */
+  accent?: boolean;
   /** 라벨 우측 경고 (동일 매물 등) */
   labelRight?: React.ReactNode;
 }
@@ -33,6 +36,7 @@ export function SeoulAddressField({
   required,
   requireDong = true,
   invalid,
+  accent,
   labelRight,
 }: SeoulAddressFieldProps) {
   const parsed = useMemo(() => parseSeoulAddress(value), [value]);
@@ -43,7 +47,9 @@ export function SeoulAddressField({
   const [jibunMain, setJibunMain] = useState(initialJibun.main);
   const [jibunSub, setJibunSub] = useState(initialJibun.sub);
   /** 사용자가 구·동을 선택한 뒤에만 완료(초록) 표시 */
-  const [guComplete, setGuComplete] = useState(Boolean(parsed.gu));
+  const [guComplete, setGuComplete] = useState(
+    Boolean(parsed.gu) && !isPlaceholderAddress(value)
+  );
   const [dongComplete, setDongComplete] = useState(Boolean(parsed.dong));
 
   // 외부 value가 바뀌면(매물 불러오기 등) 구·동·상세 동기화
@@ -55,7 +61,7 @@ export function SeoulAddressField({
       const jibun = parseJibunDetail(next.detail);
       setJibunMain(jibun.main);
       setJibunSub(jibun.sub);
-      setGuComplete(true);
+      setGuComplete(!isPlaceholderAddress(value));
       setDongComplete(Boolean(next.dong));
       return;
     }
@@ -98,8 +104,8 @@ export function SeoulAddressField({
     );
   };
 
-  const guInvalid = Boolean(invalid && !gu);
-  const dongInvalid = Boolean(invalid && requireDong && !dong);
+  const guInvalid = Boolean(invalid && !guComplete);
+  const dongInvalid = Boolean(invalid && requireDong && !dongComplete);
   const mainInvalid = Boolean(invalid && !jibunMain.trim());
   const addressInvalid = Boolean(invalid);
 
@@ -148,11 +154,11 @@ export function SeoulAddressField({
         <OptionPicker
           label="구"
           required={required}
-          invalid={guInvalid || addressInvalid}
-          complete={guComplete}
-          value={gu}
+          invalid={guInvalid}
+          complete={Boolean(accent && guComplete)}
+          value={guComplete ? gu : ""}
           options={SEOUL_GU_LIST}
-          placeholder="구 선택"
+          placeholder="선택구"
           title="구 선택"
           description="서울시 자치구"
           onChange={(nextGu) => {
@@ -168,11 +174,11 @@ export function SeoulAddressField({
           label="동"
           required={required && requireDong}
           invalid={dongInvalid}
-          complete={dongComplete}
+          complete={Boolean(accent && dongComplete)}
           value={dong}
           options={dongs}
           disabled={!gu}
-          placeholder={gu ? "선택 동" : "구 먼저 선택"}
+          placeholder={gu ? "선택동" : "구 먼저 선택"}
           title="동 선택"
           description={gu ? `${gu} 법정동` : "구를 먼저 선택해 주세요"}
           onChange={(nextDong) => {

@@ -1,6 +1,6 @@
 import type { RoomType } from "@/lib/types";
 
-/** 고객 등록 — 메모 / 특이사항 힌트 */
+/** 고객·매물 등록 메모 힌트 */
 export function customerMemoPlaceholder(roomType?: RoomType | string): string {
   switch (roomType) {
     case "상가":
@@ -16,11 +16,10 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
     case "3룸+":
     case "아파트":
     default:
-      return "희망층, 방향, 기타 희망조건 등";
+      return "희망층, 방향, 애완동물, 특이사항 등";
   }
 }
 
-/** 매물 등록 — 추가내용 힌트 */
 export function propertyNotesPlaceholder(roomType?: RoomType | string): string {
   switch (roomType) {
     case "상가":
@@ -36,6 +35,6 @@ export function propertyNotesPlaceholder(roomType?: RoomType | string): string {
     case "3룸+":
     case "아파트":
     default:
-      return "건축연도, 층, 방향, 특이사항 등";
+      return "건축연도, 층, 방향, 애완동물, 특이사항 등";
   }
 }

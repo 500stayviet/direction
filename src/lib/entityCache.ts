@@ -1,6 +1,7 @@
 "use client";
 
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 
 export type EntityBucket = "customers" | "properties" | "schedules";
 
@@ -268,21 +269,27 @@ export function patchCreatedByNameInCache(ownerUserId: string, name: string) {
   if (state.customers) {
     setCustomersCache(
       state.customers.map((c) =>
-        c.createdBy === ownerUserId ? { ...c, createdByName: next } : c
+        c.createdBy === ownerUserId && !isDemoEntityId(c.id)
+          ? { ...c, createdByName: next }
+          : c
       )
     );
   }
   if (state.properties) {
     setPropertiesCache(
       state.properties.map((p) =>
-        p.createdBy === ownerUserId ? { ...p, createdByName: next } : p
+        p.createdBy === ownerUserId && !isDemoEntityId(p.id)
+          ? { ...p, createdByName: next }
+          : p
       )
     );
   }
   if (state.schedules) {
     setSchedulesCache(
       state.schedules.map((s) =>
-        s.createdBy === ownerUserId ? { ...s, createdByName: next } : s
+        s.createdBy === ownerUserId && !isDemoEntityId(s.id)
+          ? { ...s, createdByName: next }
+          : s
       )
     );
   }

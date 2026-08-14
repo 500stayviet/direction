@@ -101,6 +101,20 @@ main {
   animation: slide-up 0.22s ease-out;
 }
 
+@keyframes rec-dot-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+.rec-dot-blink {
+  animation: rec-dot-blink 1.8s ease-in-out infinite;
+}
+
 /* 하단 고정 CTA용 */
 .safe-bottom {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));

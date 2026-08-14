@@ -12,7 +12,7 @@
     "test:e2e:team": "playwright test e2e/team-*.spec.ts e2e/team-member-*.spec.ts",
     "test:e2e:suspend": "playwright test e2e/suspend-*.spec.ts",
     "test:e2e:preferred": "playwright test e2e/customer-preferred-location.spec.ts",
-    "test:unit": "node --import tsx --test src/lib/preferredLocation.test.ts",
+    "test:unit": "node --import tsx --test src/lib/preferredLocation.test.ts src/lib/intakeParse.test.ts src/lib/seoulRegions.test.ts",
     "cleanup:e2e-users": "node --env-file=.env.local scripts/cleanup-e2e-users.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-splash.ps1"
@@ -22,7 +22,8 @@
     "@supabase/supabase-js": "^2.111.0",
     "next": "16.2.12",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

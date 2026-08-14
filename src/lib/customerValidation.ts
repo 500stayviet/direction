@@ -7,21 +7,27 @@ export type CustomerFieldKey =
   | "phone"
   | "buildingKind"
   | "roomCount"
+  | "roomType"
+  | "dealType"
   | "deposit"
   | "depositTo"
   | "monthlyRent"
   | "monthlyRentTo"
   | "moveIn"
+  | "loan"
+  | "insurance"
+  | "parking"
   | "carType"
+  | "teamShare"
   | "preferredLocation";
 
 export type CustomerValidationInput = {
   name: string;
   phone: string;
-  roomType: RoomType;
+  roomType?: RoomType | "";
   buildingKind: BuildingKind | "";
   roomCount: number;
-  dealType: DealType;
+  dealType: DealType | "";
   deposit: number;
   depositTo: number;
   depositSingle: boolean;
@@ -32,36 +38,69 @@ export type CustomerValidationInput = {
   moveInFrom: string;
   moveInTo: string;
   moveInSingle: boolean;
-  parkingType: "유" | "무";
+  parkingType?: "유" | "무" | "";
   carType: string;
+  loanNeeded?: "유" | "무" | "";
+  insuranceNeeded?: "유" | "무" | "";
+  workspaceShared?: boolean;
   preferredGus?: string[];
   preferredDongs?: string[];
 };
 
+function requiredInputMessage(label: string): string {
+  return `${label} 칸 입력은 필수입니다.`;
+}
+
 const MESSAGES: Record<CustomerFieldKey, (dealType: DealType) => string> = {
-  name: () => "고객명 또는 명칭을 입력해 주세요.",
-  phone: () => "전화번호를 입력해 주세요.",
-  buildingKind: () => "건물 종류를 선택해 주세요.",
-  roomCount: () => "방 수를 선택해 주세요.",
+  name: () => requiredInputMessage("고객명 또는 명칭"),
+  phone: () => requiredInputMessage("전화번호"),
+  buildingKind: () => requiredInputMessage("건물 종류"),
+  roomCount: () => requiredInputMessage("방 수"),
+  roomType: () => requiredInputMessage("매물 유형"),
+  dealType: () => requiredInputMessage("거래종류"),
   deposit: (dealType) =>
-    dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",
+    requiredInputMessage(dealType === "매매" ? "매가" : "보증금"),
   depositTo: (dealType) =>
-    dealType === "매매"
-      ? "매가 종료 금액을 입력해 주세요."
-      : "보증금 종료 금액을 입력해 주세요.",
-  monthlyRent: () => "월세를 입력해 주세요.",
-  monthlyRentTo: () => "월세 종료 금액을 입력해 주세요.",
-  moveIn: () => "희망 입주일을 선택해 주세요.",
-  carType: () => "차종을 선택해 주세요.",
-  preferredLocation: () => "선호위치 구와 동을 모두 선택해 주세요.",
+    requiredInputMessage(dealType === "매매" ? "매가 까지" : "보증금 까지"),
+  monthlyRent: () => requiredInputMessage("월세"),
+  monthlyRentTo: () => requiredInputMessage("월세 까지"),
+  moveIn: () => requiredInputMessage("입주희망일"),
+  loan: () => requiredInputMessage("대출 유무"),
+  insurance: () => requiredInputMessage("전세보증보험 가입 가능 여부"),
+  parking: () => requiredInputMessage("주차 유무"),
+  carType: () => requiredInputMessage("차종"),
+  teamShare: () => requiredInputMessage("팀공유 유무"),
+  preferredLocation: () => requiredInputMessage("선호위치"),
 };
+
+/** 화면 위→아래 순서. 모달·스크롤은 이 배열의 첫 빠진 칸 */
+export const CUSTOMER_FIELD_ORDER: CustomerFieldKey[] = [
+  "name",
+  "phone",
+  "roomType",
+  "buildingKind",
+  "roomCount",
+  "dealType",
+  "preferredLocation",
+  "deposit",
+  "depositTo",
+  "monthlyRent",
+  "monthlyRentTo",
+  "moveIn",
+  "loan",
+  "insurance",
+  "parking",
+  "carType",
+  "teamShare",
+];
 
 export function getMissingCustomerFields(
   input: CustomerValidationInput
 ): CustomerFieldKey[] {
   const missing: CustomerFieldKey[] = [];
   if (!input.name.trim()) missing.push("name");
-  if (onlyDigits(input.phone).length < 9) missing.push("phone");
+  if (onlyDigits(input.phone).length < 7) missing.push("phone");
+  if (!input.roomType) missing.push("roomType");
   if (input.roomType === "건물" && !input.buildingKind) {
     missing.push("buildingKind");
   }
@@ -95,25 +134,49 @@ export function getMissingCustomerFields(
       missing.push("moveIn");
     }
   }
-  if (
-    input.roomType !== "토지" &&
-    input.roomType !== "건물" &&
-    input.parkingType === "유" &&
-    input.carType !== "세단" &&
-    input.carType !== "SUV"
-  ) {
-    missing.push("carType");
+  const isLand = input.roomType === "토지";
+  const isBuilding = input.roomType === "건물";
+  if (!isLand && !isBuilding && !input.dealType) {
+    missing.push("dealType");
+  }
+  const skipLoanInsurance =
+    input.roomType === "상가" ||
+    input.roomType === "사무실" ||
+    isLand ||
+    isBuilding;
+  if (!skipLoanInsurance) {
+    if (input.loanNeeded !== "유" && input.loanNeeded !== "무") {
+      missing.push("loan");
+    }
+    if (input.insuranceNeeded !== "유" && input.insuranceNeeded !== "무") {
+      missing.push("insurance");
+    }
+  }
+  if (!isLand && !isBuilding) {
+    if (input.parkingType !== "유" && input.parkingType !== "무") {
+      missing.push("parking");
+    }
+    if (
+      input.parkingType === "유" &&
+      input.carType !== "세단" &&
+      input.carType !== "SUV"
+    ) {
+      missing.push("carType");
+    }
+  }
+  if (input.workspaceShared !== true && input.workspaceShared !== false) {
+    missing.push("teamShare");
   }
   const dongs = input.preferredDongs ?? [];
   if (dongs.length === 0) {
     missing.push("preferredLocation");
   }
-  return missing;
+  return CUSTOMER_FIELD_ORDER.filter((key) => missing.includes(key));
 }
 
 export function getCustomerFieldMessage(
   field: CustomerFieldKey,
-  dealType: DealType
+  dealType: DealType | ""
 ): string {
-  return MESSAGES[field](dealType);
+  return MESSAGES[field](dealType || "전세");
 }

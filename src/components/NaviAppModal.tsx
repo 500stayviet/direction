@@ -87,28 +87,21 @@ export function NaviAppModal({
         })}
       </div>
 
-      <label
-        className={[
-          "mt-4 flex items-center gap-2 text-sm",
-          NAVI_REMEMBER_ENABLED
-            ? "cursor-pointer text-gray-700"
-            : "cursor-not-allowed text-gray-400",
-        ].join(" ")}
-      >
-        <input
-          type="checkbox"
-          checked={remember}
-          disabled={!NAVI_REMEMBER_ENABLED}
-          onChange={(e) => {
-            if (!NAVI_REMEMBER_ENABLED) return;
-            setRemember(e.target.checked);
-          }}
-          className="h-4 w-4 shrink-0 accent-[#3182F6] disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <span className={NAVI_REMEMBER_ENABLED ? undefined : "line-through decoration-gray-400 decoration-2"}>
-          항상 이 앱으로 열기
-        </span>
-      </label>
+      {NAVI_REMEMBER_ENABLED ? (
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-[#3182F6]"
+          />
+          <span>항상 이 앱으로 열기</span>
+        </label>
+      ) : (
+        <p className="mt-4 text-center text-sm font-medium text-gray-400">
+          (준비중)
+        </p>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={onClose}>

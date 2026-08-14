@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeUsername, usernameToEmail } from "@/lib/supabase/email";
 import { backfillShopName } from "@/lib/format";
+import { AUTO_LOGIN_MAX_AGE_SEC } from "@/lib/loginPrefs";
 import { withApiErrorLog } from "@/lib/appErrorLog";
 
 async function __POST_handler(request: Request) {
@@ -9,10 +10,12 @@ async function __POST_handler(request: Request) {
     const body = (await request.json()) as {
       username?: string;
       password?: string;
+      autoLogin?: boolean;
     };
 
     const username = normalizeUsername(body.username ?? "");
     const password = (body.password ?? "").normalize("NFKC").trim();
+    const autoLogin = body.autoLogin !== false;
 
     if (!username || !password) {
       return NextResponse.json(
@@ -165,13 +168,13 @@ async function __POST_handler(request: Request) {
       user,
     });
 
-    // 화면 로그인 상태용 쿠키 (힌트 제외 · 토큰은 클라이언트가 localStorage에 저장)
+    // 화면 로그인 상태용 쿠키 (힌트 제외 · 토큰은 클라이언트가 저장)
     res.cookies.set(
       "realty_app_user_v1",
       JSON.stringify({ ...user, passwordHint: "" }),
       {
         path: "/",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: AUTO_LOGIN_MAX_AGE_SEC,
         sameSite: "lax",
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",

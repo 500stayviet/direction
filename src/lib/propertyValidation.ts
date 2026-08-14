@@ -16,7 +16,8 @@ export type PropertyFieldKey =
   | "deposit"
   | "loan"
   | "insurance"
-  | "parking";
+  | "parking"
+  | "elevator";
 
 export interface ValidationOptions {
   /** false면 주소·협력부동산 동 필수 제외. 기본 true */
@@ -39,24 +40,47 @@ function hasUsableContact(property: Property): boolean {
   return Boolean(tenant || landlord || partner);
 }
 
+function requiredInputMessage(label: string): string {
+  return `${label} 칸 입력은 필수입니다.`;
+}
+
 const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
-  contacts: () =>
-    "임차인 번호 또는 임대인 번호 중 하나는 입력해 주세요.",
-  partnerName: () => "협력 부동산 상호명을 입력해 주세요.",
-  partnerDong: () => "협력 부동산 동을 입력해 주세요.",
-  partnerPhone: () => "협력 부동산 연락처를 입력해 주세요.",
-  address: () => "구·동·지번 본번을 입력해 주세요.",
-  roomType: () => "매물 유형을 선택해 주세요.",
-  roomCount: () => "방 수를 선택해 주세요.",
-  buildingKind: () =>
-    "건물 종류(단독주택·상가주택·근생)를 선택해 주세요.",
-  dealType: () => "희망거래를 선택해 주세요.",
+  contacts: () => requiredInputMessage("연락처"),
+  partnerName: () => requiredInputMessage("상호명"),
+  partnerDong: () => requiredInputMessage("동"),
+  partnerPhone: () => requiredInputMessage("연락처"),
+  address: () => requiredInputMessage("매물 주소"),
+  roomType: () => requiredInputMessage("매물 유형"),
+  roomCount: () => requiredInputMessage("방 수"),
+  buildingKind: () => requiredInputMessage("건물 종류"),
+  dealType: () => requiredInputMessage("거래종류"),
   deposit: (p) =>
-    p.dealType === "매매" ? "매가를 입력해 주세요." : "보증금을 입력해 주세요.",
-  loan: () => "대출 유무를 선택해 주세요.",
-  insurance: () => "전세보증보험 가입 가능 여부를 선택해 주세요.",
-  parking: () => "주차 유무를 선택해 주세요.",
+    requiredInputMessage(
+      p.dealType === "매매" ? "매가" : "보증금"
+    ),
+  loan: () => requiredInputMessage("대출 유무"),
+  insurance: () => requiredInputMessage("전세보증보험 가입 가능 여부"),
+  parking: () => requiredInputMessage("주차 유무"),
+  elevator: () => requiredInputMessage("엘리베이터 유무"),
 };
+
+/** 화면 위→아래 순서. 모달·스크롤은 이 배열의 첫 빠진 칸 */
+export const PROPERTY_FIELD_ORDER: PropertyFieldKey[] = [
+  "partnerName",
+  "partnerDong",
+  "partnerPhone",
+  "contacts",
+  "roomType",
+  "roomCount",
+  "dealType",
+  "deposit",
+  "address",
+  "buildingKind",
+  "loan",
+  "insurance",
+  "parking",
+  "elevator",
+];
 
 /** 해당 매물의 미입력 필수 필드 목록 (표시 순서) */
 export function getMissingRequiredFields(
@@ -123,8 +147,13 @@ export function getMissingRequiredFields(
       missing.push("parking");
     }
   }
+  if (!isLand) {
+    if (property.elevator !== true && property.elevator !== false) {
+      missing.push("elevator");
+    }
+  }
 
-  return missing;
+  return PROPERTY_FIELD_ORDER.filter((key) => missing.includes(key));
 }
 
 export function getFieldErrorMessage(

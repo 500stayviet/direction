@@ -4,12 +4,51 @@ import { formatPhoneInput } from "@/lib/format";
 import { withApiErrorLog } from "@/lib/appErrorLog";
 import {
   DEMO_CORE_IDS,
+  DEMO_CREATOR_NAME,
   DEMO_SEED_VERSION,
   buildDemoSeedData,
   demoSeedBaseDate,
   isDemoSeedExpired,
   type DemoSeedActor,
 } from "@/lib/demoSeedPayload";
+
+async function relabelExistingDemoCreators(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+) {
+  const tables: Array<["customers" | "listed_properties" | "schedules", string]> =
+    [
+      ["customers", DEMO_CORE_IDS[0]],
+      ["listed_properties", DEMO_CORE_IDS[1]],
+      ["schedules", DEMO_CORE_IDS[2]],
+    ];
+  for (const [table, id] of tables) {
+    await admin
+      .from(table)
+      .update({ created_by_name: DEMO_CREATOR_NAME })
+      .eq("id", id);
+
+    const { data: row } = await admin
+      .from(table)
+      .select("payload")
+      .eq("user_id", userId)
+      .eq("id", id)
+      .maybeSingle();
+    if (!row?.payload || typeof row.payload !== "object") continue;
+    const payload = {
+      ...(row.payload as Record<string, unknown>),
+      createdByName: DEMO_CREATOR_NAME,
+    };
+    await admin
+      .from(table)
+      .update({
+        created_by_name: DEMO_CREATOR_NAME,
+        payload,
+      })
+      .eq("user_id", userId)
+      .eq("id", id);
+  }
+}
 
 async function expireDemoRows(
   admin: ReturnType<typeof createAdminClient>,
@@ -87,6 +126,8 @@ async function __POST_handler(request: Request) {
       });
     }
 
+    await relabelExistingDemoCreators(admin, userId);
+
     const { data: profile } = await admin
       .from("profiles")
       .select(
@@ -102,7 +143,12 @@ async function __POST_handler(request: Request) {
       currentVersion &&
       currentVersion.localeCompare(DEMO_SEED_VERSION) > 0
     ) {
-      return NextResponse.json({ ok: true, skipped: true, reason: "newer" });
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        relabeled: true,
+        reason: "newer",
+      });
     }
 
     let needSeed = currentVersion !== DEMO_SEED_VERSION;
@@ -135,7 +181,12 @@ async function __POST_handler(request: Request) {
     }
 
     if (!needSeed) {
-      return NextResponse.json({ ok: true, skipped: true, reason: "ok" });
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        relabeled: true,
+        reason: "ok",
+      });
     }
 
     const meta = (userData.user.user_metadata ?? {}) as Record<
@@ -171,7 +222,7 @@ async function __POST_handler(request: Request) {
       const payload = {
         ...c,
         createdBy: userId,
-        createdByName: displayName,
+        createdByName: DEMO_CREATOR_NAME,
         workspaceShared: false,
       };
       const rowBody: Record<string, unknown> = {
@@ -179,7 +230,7 @@ async function __POST_handler(request: Request) {
         user_id: userId,
         workspace_id: null,
         created_by: userId,
-        created_by_name: displayName,
+        created_by_name: DEMO_CREATOR_NAME,
         payload,
         created_at: c.createdAt,
         updated_at: new Date().toISOString(),
@@ -212,7 +263,7 @@ async function __POST_handler(request: Request) {
       const payload = {
         ...p,
         createdBy: userId,
-        createdByName: displayName,
+        createdByName: DEMO_CREATOR_NAME,
         workspaceShared: false,
       };
       const rowBody: Record<string, unknown> = {
@@ -220,7 +271,7 @@ async function __POST_handler(request: Request) {
         user_id: userId,
         workspace_id: null,
         created_by: userId,
-        created_by_name: displayName,
+        created_by_name: DEMO_CREATOR_NAME,
         payload,
         created_at: p.createdAt,
         updated_at: new Date().toISOString(),
@@ -253,7 +304,7 @@ async function __POST_handler(request: Request) {
       const payload = {
         ...s,
         createdBy: userId,
-        createdByName: displayName,
+        createdByName: DEMO_CREATOR_NAME,
         workspaceShared: false,
       };
       const { error } = await admin.from("schedules").upsert(
@@ -262,7 +313,7 @@ async function __POST_handler(request: Request) {
           user_id: userId,
           workspace_id: null,
           created_by: userId,
-          created_by_name: displayName,
+          created_by_name: DEMO_CREATOR_NAME,
           workspace_shared: false,
           payload,
           created_at: s.createdAt,
@@ -302,6 +353,7 @@ async function __POST_handler(request: Request) {
     return NextResponse.json({
       ok: true,
       seeded: true,
+      relabeled: true,
       version: DEMO_SEED_VERSION,
     });
   } catch (e) {

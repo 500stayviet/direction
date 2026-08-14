@@ -13,6 +13,7 @@ import {
   parseISODate,
   todayISO,
 } from "@/lib/date";
+import { filledBoxClass } from "@/lib/uiInvalid";
 
 interface DateRangePickerProps {
   label?: string;
@@ -24,6 +25,8 @@ interface DateRangePickerProps {
   /** true면 종료일 없이도 완료 가능 */
   optionalTo?: boolean;
   invalid?: boolean;
+  /** 반영된 값 — 파란 칸 */
+  accent?: boolean;
 }
 
 type Step = "from" | "to";
@@ -37,6 +40,7 @@ export function DateRangePicker({
   minDate = todayISO(),
   optionalTo = false,
   invalid,
+  accent,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("from");
@@ -121,19 +125,19 @@ export function DateRangePicker({
         <p
           className={[
             "text-[13px] font-semibold",
-            invalid ? "text-red-600" : "text-gray-600",
+            invalid ? "text-red-500" : "text-gray-600",
           ].join(" ")}
         >
           {label}
           {required && (
-            <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+            <span className={invalid ? "ml-0.5 text-red-400" : "ml-0.5 text-[#3182F6]"}>
               *
             </span>
           )}
         </p>
       ) : null}
       {invalid ? (
-        <p className="text-xs font-semibold text-red-500">미입력</p>
+        <p className="text-xs font-semibold text-red-400">미입력</p>
       ) : null}
 
       <button
@@ -143,10 +147,12 @@ export function DateRangePicker({
           "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
           "active:scale-[0.99] transition-all duration-150",
           invalid
-            ? "border-red-500 bg-red-50 text-gray-900"
-            : summary
-              ? "border-gray-200 bg-white text-gray-900"
-              : "border-gray-200 bg-gray-50 text-gray-400",
+            ? "border-red-300 bg-red-50/70 text-gray-900"
+            : accent && summary
+              ? filledBoxClass
+              : summary
+                ? "border-gray-200 bg-white text-gray-900"
+                : "border-gray-200 bg-gray-50 text-gray-400",
         ].join(" ")}
       >
         <span className="truncate text-left text-[16px] font-semibold">

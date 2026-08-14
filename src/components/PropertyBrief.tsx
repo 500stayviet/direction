@@ -259,7 +259,7 @@ export function PropertyBrief({
               {formatDepositRent(
                 property.roomType === "건물" || property.roomType === "토지"
                   ? "매매"
-                  : property.dealType,
+                  : property.dealType ?? "",
                 property.deposit,
                 property.monthlyRent
               )}
@@ -381,7 +381,7 @@ export function PropertyBrief({
         </div>
         )}
 
-        {/* 조건 칩: 대출 → 보증보험 → 주차 → 엘리베이터 → 애완동물 */}
+        {/* 조건 칩: 대출 → 보증보험 → 주차 → 엘리베이터 */}
         <div className="flex flex-wrap gap-1.5">
           {showResidentialExtras && (
           <StatusChip
@@ -433,14 +433,7 @@ export function PropertyBrief({
           <StatusChip
             label="엘리베이터"
             value={property.elevator ? "유" : "무"}
-            active={property.elevator}
-          />
-          )}
-          {showResidentialExtras && (
-          <StatusChip
-            label="애완동물"
-            value={property.petAllowed ?? "무"}
-            active={property.petAllowed === "유"}
+            active={property.elevator === true}
           />
           )}
           {showResidentialExtras &&
@@ -452,7 +445,7 @@ export function PropertyBrief({
         </div>
 
         <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-          <p className="text-[12px] font-bold text-gray-400">추가내용</p>
+          <p className="text-[12px] font-bold text-gray-400">메모</p>
           <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
             {property.notes?.trim() || "-"}
           </p>

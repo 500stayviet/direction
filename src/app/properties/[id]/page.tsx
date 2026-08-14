@@ -279,6 +279,7 @@ export default function PropertyDetailPage() {
               index={0}
               showTitle={false}
               showArriveTime={false}
+              enableIntake
               property={property}
               validationActive={validationActive}
               focusField={focusField}

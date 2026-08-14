@@ -56,7 +56,7 @@ export function PropertyListCard({
   alertHighlight = null,
 }: PropertyListCardProps) {
   const saved = showSavedDate ? formatSavedDate(p.createdAt) : "";
-  const moneyChip = formatDepositRent(p.dealType, p.deposit, p.monthlyRent);
+  const moneyChip = formatDepositRent(p.dealType ?? "", p.deposit, p.monthlyRent);
   const address = (p.address ?? "").trim() || "주소 미입력";
   const room = (p.roomNo ?? "").trim();
   const contact = getPropertyListContact(p);

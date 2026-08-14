@@ -365,7 +365,7 @@ function ScheduleDetailInner() {
       if (!guestName.trim()) {
         showWarn({
           target: "guestName",
-          message: "성함을 입력해 주세요.",
+          message: "성함 칸 입력은 필수입니다.",
         });
         return;
       }
@@ -379,14 +379,14 @@ function ScheduleDetailInner() {
     if (!visitDate) {
       showWarn({
         target: "visitDate",
-        message: "방문 일자를 선택해 주세요.",
+        message: "방문 일자 칸 입력은 필수입니다.",
       });
       return;
     }
     if (!visitTime) {
       showWarn({
         target: "visitTime",
-        message: "만나는 시간을 선택해 주세요.",
+        message: "만나는 시간 칸 입력은 필수입니다.",
       });
       return;
     }
@@ -914,17 +914,6 @@ function ScheduleDetailInner() {
                           <CustomerMeta
                             label="엘리베이터"
                             value={yesNoLabel(customer.elevatorNeeded)}
-                          />
-                        ) : null}
-                        {!(
-                          customer.roomType === "상가" ||
-                          customer.roomType === "사무실" ||
-                          customer.roomType === "토지" ||
-                          customer.roomType === "건물"
-                        ) ? (
-                          <CustomerMeta
-                            label="애완동물"
-                            value={customer.petAllowed ?? "-"}
                           />
                         ) : null}
                         {customer.notes?.trim() ? (

@@ -15,6 +15,7 @@ type Props = {
   bathroomCount?: number;
   onChange: (next: { roomCount: number; bathroomCount: number }) => void;
   invalidRoomCount?: boolean;
+  filled?: boolean;
 };
 
 function CountPicker({
@@ -27,6 +28,7 @@ function CountPicker({
   options,
   selected,
   onPick,
+  filled,
 }: {
   label: string;
   required?: boolean;
@@ -37,6 +39,7 @@ function CountPicker({
   options: readonly string[];
   selected: string;
   onPick: (value: string) => void;
+  filled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const empty = !valueLabel;
@@ -71,13 +74,17 @@ function CountPicker({
           "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
           "transition-all duration-150",
           disabled
-            ? "cursor-default border-gray-200 bg-gray-100"
+            ? filled && !empty
+              ? "cursor-default"
+              : "cursor-default border-gray-200 bg-gray-100"
             : "active:scale-[0.99]",
           invalid
             ? "border-red-500 bg-red-50"
-            : disabled
-              ? ""
-              : "border-gray-200 bg-gray-50",
+            : filled && !empty
+              ? "border-green-400 bg-white"
+              : disabled
+                ? ""
+                : "border-gray-200 bg-gray-50",
         ].join(" ")}
       >
         <span
@@ -98,7 +105,14 @@ function CountPicker({
             ▾
           </span>
         ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-[11px] font-bold text-gray-500">
+          <span
+            className={[
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold",
+              filled
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-200 text-gray-500",
+            ].join(" ")}
+          >
             —
           </span>
         )}
@@ -156,6 +170,7 @@ export function RoomBathCountFields({
   bathroomCount,
   onChange,
   invalidRoomCount,
+  filled,
 }: Props) {
   if (!needsRoomBathCounts(roomType)) return null;
 
@@ -179,6 +194,7 @@ export function RoomBathCountFields({
         valueLabel={rooms > 0 ? `${rooms}개` : ""}
         options={roomOptions}
         selected={rooms > 0 ? String(rooms) : ""}
+        filled={filled}
         onPick={(v) =>
           onChange({
             roomCount: Number(v),
@@ -191,6 +207,7 @@ export function RoomBathCountFields({
         valueLabel={`${baths}개`}
         options={BATHROOM_COUNT_OPTIONS}
         selected={String(baths)}
+        filled={filled}
         onPick={(v) =>
           onChange({
             roomCount: fixedRooms ? 2 : rooms > 0 ? rooms : minRooms,

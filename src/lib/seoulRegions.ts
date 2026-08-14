@@ -383,6 +383,170 @@ export const SEOUL_DONG_BY_GU: Record<string, string[]> = {
   ],
 };
 
+type DongSpan = { dong: string; start: number; end: number };
+
+let dongToGusCache: Map<string, string[]> | null = null;
+
+function dongToGusMap(): Map<string, string[]> {
+  if (dongToGusCache) return dongToGusCache;
+  const map = new Map<string, string[]>();
+  for (const [gu, dongs] of Object.entries(SEOUL_DONG_BY_GU)) {
+    for (const dong of dongs) {
+      const list = map.get(dong) ?? [];
+      if (!list.includes(gu)) list.push(gu);
+      map.set(dong, list);
+    }
+  }
+  dongToGusCache = map;
+  return map;
+}
+
+export function isKnownSeoulDong(name: string): boolean {
+  return dongToGusMap().has(name);
+}
+
+function guSpansInText(text: string): { start: number; end: number }[] {
+  const spans: { start: number; end: number }[] = [];
+  for (const gu of SEOUL_GU_LIST) {
+    let from = 0;
+    while (from < text.length) {
+      const start = text.indexOf(gu, from);
+      if (start < 0) break;
+      spans.push({ start, end: start + gu.length });
+      from = start + 1;
+    }
+  }
+  return spans;
+}
+
+function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+/** 동 이름으로 구를 찾는다. 서울에 동이 하나뿐이면 그 구. 신사동처럼 겹치면 구가 힌트로 있을 때만. */
+export function resolveGuFromDong(
+  dong: string,
+  hintedGu?: string
+): string | undefined {
+  const gus = dongToGusMap().get(dong) ?? [];
+  if (gus.length === 0) return undefined;
+  if (hintedGu && gus.includes(hintedGu)) return hintedGu;
+  if (gus.length === 1) return gus[0];
+  return undefined;
+}
+
+/** 글에서 마지막에 나온 서울 자치구 */
+export function findLastGuInText(text: string): string | undefined {
+  let best: { gu: string; index: number } | undefined;
+  for (const gu of SEOUL_GU_LIST) {
+    const index = text.lastIndexOf(gu);
+    if (index < 0) continue;
+    if (
+      !best ||
+      index > best.index ||
+      (index === best.index && gu.length > best.gu.length)
+    ) {
+      best = { gu, index };
+    }
+  }
+  return best?.gu;
+}
+
+function collectDongSpans(text: string): DongSpan[] {
+  const map = dongToGusMap();
+  const hits: DongSpan[] = [];
+  const guSpans = guSpansInText(text);
+
+  for (const dong of map.keys()) {
+    let from = 0;
+    while (from < text.length) {
+      const start = text.indexOf(dong, from);
+      if (start < 0) break;
+      const end = start + dong.length;
+      if (!guSpans.some((g) => overlaps(start, end, g.start, g.end))) {
+        hits.push({ dong, start, end });
+      }
+      from = start + 1;
+    }
+  }
+
+  const adminRe = /([가-힣]{1,8})\d+동/g;
+  let m: RegExpExecArray | null;
+  while ((m = adminRe.exec(text))) {
+    const canonical = `${m[1]}동`;
+    if (!map.has(canonical)) continue;
+    const start = m.index;
+    const end = start + m[0].length;
+    if (guSpans.some((g) => overlaps(start, end, g.start, g.end))) continue;
+    hits.push({ dong: canonical, start, end });
+  }
+
+  return hits.filter(
+    (h) =>
+      !hits.some(
+        (o) =>
+          o !== h &&
+          o.start <= h.start &&
+          o.end >= h.end &&
+          o.end - o.start > h.end - h.start
+      )
+  );
+}
+
+/** 글에서 동을 찾고, 겹치지 않으면 구까지 채운다. 암사1동 → 암사동. */
+export function findDongInText(
+  text: string,
+  hintedGu?: string
+): { dong: string; gu?: string; start: number; end: number } | undefined {
+  const all = findAllDongsInText(text);
+  if (all.length === 0) return undefined;
+  const last = all[all.length - 1];
+  if (!last) return undefined;
+  if (hintedGu && !last.gu) {
+    return { ...last, gu: resolveGuFromDong(last.dong, hintedGu) };
+  }
+  return last;
+}
+
+/** 글에 나온 동을 앞에서부터 모두. 구를 모르면(신사동 등) 빼지 않고 gu만 비움 */
+export function findAllDongsInText(
+  text: string
+): { dong: string; gu?: string; start: number; end: number }[] {
+  const hits = collectDongSpans(text);
+  hits.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const unique: { dong: string; gu?: string; start: number; end: number }[] = [];
+  const seen = new Set<string>();
+  for (const hit of hits) {
+    const guBefore = findLastGuInText(text.slice(0, hit.start));
+    const gu = resolveGuFromDong(hit.dong, guBefore);
+    const key = `${gu ?? ""}|${hit.dong}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push({ dong: hit.dong, gu, start: hit.start, end: hit.end });
+  }
+  return unique;
+}
+
+export function canonicalizeDongName(
+  raw: string,
+  hintedGu?: string
+): { dong: string; gu?: string } {
+  const text = raw.trim();
+  if (!text) return { dong: "" };
+  const map = dongToGusMap();
+  if (map.has(text)) {
+    return { dong: text, gu: resolveGuFromDong(text, hintedGu) };
+  }
+  const admin = text.match(/^([가-힣]{1,8})\d+동$/);
+  if (admin) {
+    const canonical = `${admin[1]}동`;
+    if (map.has(canonical)) {
+      return { dong: canonical, gu: resolveGuFromDong(canonical, hintedGu) };
+    }
+  }
+  return { dong: text, gu: hintedGu };
+}
+
 export function composeJibunDetail(main: string, sub: string): string {
   const a = main.trim();
   const b = sub.trim();
@@ -412,6 +576,14 @@ export function composeSeoulAddress(
   return parts.join(" ");
 }
 
+/** 구만 기본 표시된 주소(서울 강동구) — 사용자가 아직 안 넣은 것으로 봄 */
+export function isPlaceholderAddress(address: string): boolean {
+  const text = address.trim();
+  if (!text) return true;
+  const { gu, dong, detail } = parseSeoulAddress(text);
+  return Boolean(gu) && !dong && !detail.trim();
+}
+
 /** 저장된 주소에서 구·동·상세 분리 시도 */
 export function parseSeoulAddress(address: string): {
   gu: string;
@@ -426,9 +598,11 @@ export function parseSeoulAddress(address: string): {
     /^서울\s+([가-힣]+구)\s+([가-힣0-9]+동|[가-힣0-9]+가|[가-힣]+로[0-9가]*)\s*(.*)$/
   );
   if (withDong) {
+    const hintedGu = withDong[1] ?? "";
+    const parsedDong = canonicalizeDongName(withDong[2] ?? "", hintedGu);
     return {
-      gu: withDong[1] ?? "",
-      dong: withDong[2] ?? "",
+      gu: parsedDong.gu || hintedGu,
+      dong: parsedDong.dong,
       detail: (withDong[3] ?? "").trim(),
     };
   }
@@ -443,5 +617,23 @@ export function parseSeoulAddress(address: string): {
     };
   }
 
-  return { gu: "", dong: "", detail: text };
+  const hintedGu = findLastGuInText(normalized);
+  const dongHit = findDongInText(normalized, hintedGu);
+  if (dongHit) {
+    const leftover = `${normalized.slice(0, dongHit.start)} ${normalized.slice(dongHit.end)}`
+      .replace(/^서울\s*/, "")
+      .replace(
+        new RegExp(`(?:${SEOUL_GU_LIST.join("|")})`, "g"),
+        ""
+      )
+      .replace(/\s+/g, " ")
+      .trim();
+    return {
+      gu: dongHit.gu || hintedGu || "",
+      dong: dongHit.dong,
+      detail: leftover,
+    };
+  }
+
+  return { gu: hintedGu ?? "", dong: "", detail: text };
 }

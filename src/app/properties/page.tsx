@@ -65,7 +65,7 @@ export default function PropertyListPage() {
             p.address.toLowerCase().includes(q) ||
             p.roomNo.toLowerCase().includes(q) ||
             (p.roomType ?? "").includes(q) ||
-            p.dealType.includes(q) ||
+            (p.dealType ?? "").includes(q) ||
             (p.moveInFrom ?? "").includes(q) ||
             (p.moveInTo ?? "").includes(q) ||
             (p.moveInDate ?? "").toLowerCase().includes(q)

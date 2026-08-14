@@ -67,6 +67,92 @@ export function currentYear(): number {
   return new Date().getFullYear();
 }
 
+export function isoFromYearMonthDay(
+  year: number,
+  month: number,
+  day: number
+): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, month - 1, day);
+  if (
+    d.getFullYear() !== year ||
+    d.getMonth() !== month - 1 ||
+    d.getDate() !== day
+  ) {
+    return null;
+  }
+  return toISODate(d);
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** 월·일만 있을 때 올해로 넣고, 이미 지난 날이면 내년 */
+export function isoFromMonthDay(
+  month: number,
+  day: number,
+  today: Date = new Date()
+): string | null {
+  const y = today.getFullYear();
+  const thisYear = isoFromYearMonthDay(y, month, day);
+  if (!thisYear) return null;
+  const today0 = startOfDay(today);
+  const candidate = parseISODate(thisYear);
+  if (!candidate) return null;
+  if (candidate < today0) {
+    return isoFromYearMonthDay(y + 1, month, day);
+  }
+  return thisYear;
+}
+
+/** 등록용: 오늘보다 이전이면 같은 월·일의 다음 미래(올해 남은 날 또는 내년) */
+export function isoNotBeforeToday(
+  iso: string,
+  today: Date = new Date()
+): string | null {
+  const d = parseISODate(iso);
+  if (!d) return null;
+  if (d >= startOfDay(today)) return toISODate(d);
+  return isoFromMonthDay(d.getMonth() + 1, d.getDate(), today);
+}
+
+/** 기간 끝 월일. 시작보다 앞선 월일이면 이듬해 */
+export function isoFollowingMonthDay(
+  fromIso: string,
+  month: number,
+  day: number
+): string | null {
+  const fromDate = parseISODate(fromIso);
+  if (!fromDate) return null;
+  const fromMd = (fromDate.getMonth() + 1) * 32 + fromDate.getDate();
+  const toMd = month * 32 + day;
+  const year =
+    toMd >= fromMd ? fromDate.getFullYear() : fromDate.getFullYear() + 1;
+  return isoFromYearMonthDay(year, month, day);
+}
+
+/** 입주/임대 기간을 오늘 이전으로 두지 않음 */
+export function clampMoveInToToday(
+  from: string,
+  to: string,
+  today: Date = new Date()
+): { from: string; to: string } | null {
+  const fromN = isoNotBeforeToday(from, today);
+  if (!fromN) return null;
+  let toN = isoNotBeforeToday(to || from, today) ?? fromN;
+  if (toN < fromN) {
+    const td = parseISODate(toN);
+    toN = td
+      ? isoFollowingMonthDay(fromN, td.getMonth() + 1, td.getDate()) ?? fromN
+      : fromN;
+  }
+  return { from: fromN, to: toN };
+}
+
 export function formatMonthTitle(year: number, monthIndex: number): string {
   return `${year}년 ${monthIndex + 1}월`;
 }

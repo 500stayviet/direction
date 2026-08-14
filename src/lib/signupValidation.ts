@@ -34,18 +34,18 @@ const MESSAGES: Record<SignupFieldKey, (input: SignupValidationInput) => string>
   {
     username: (input) => {
       const id = validateUsernameFormat(input.username);
-      return id.ok ? "아이디를 입력해 주세요." : id.message;
+      return id.ok ? "아이디 칸 입력은 필수입니다." : id.message;
     },
     password: (input) =>
       input.password && input.password.length < 6
         ? "비밀번호는 6자 이상이어야 합니다."
-        : "비밀번호를 입력해 주세요.",
+        : "비밀번호 칸 입력은 필수입니다.",
     passwordConfirm: (input) =>
       input.passwordConfirm && input.password !== input.passwordConfirm
         ? "비밀번호 확인이 일치하지 않습니다."
-        : "비밀번호 확인을 입력해 주세요.",
-    passwordHint: () => "비밀번호 힌트를 입력해 주세요.",
-    agreed: () => "이용약관 및 면책 안내에 동의해 주세요.",
+        : "비밀번호 확인 칸 입력은 필수입니다.",
+    passwordHint: () => "비밀번호 힌트 칸 입력은 필수입니다.",
+    agreed: () => "이용약관 및 면책 안내 칸 입력은 필수입니다.",
   };
 
 export function getMissingSignupFields(

@@ -2,6 +2,7 @@ import { loadAppAuth } from "@/lib/supabase/appAuth";
 import { getAccessToken } from "@/lib/auth";
 import {
   DEMO_CORE_IDS,
+  DEMO_CREATOR_LABEL_VERSION,
   DEMO_SEED_VERSION,
   isDemoSeedExpired,
 } from "@/lib/demoSeedPayload";
@@ -18,7 +19,7 @@ import {
 } from "@/lib/teamAlerts";
 
 function seedSkipKey(userId: string) {
-  return `realty_seed_done_${DEMO_SEED_VERSION}:${userId}`;
+  return `realty_seed_done_${DEMO_SEED_VERSION}:${DEMO_CREATOR_LABEL_VERSION}:${userId}`;
 }
 
 function demoAlertsFlagKey(userId: string) {
@@ -133,6 +134,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
       message?: string;
       expired?: boolean;
       seeded?: boolean;
+      relabeled?: boolean;
     } | null;
 
     if (!res.ok) {
@@ -142,7 +144,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
     if (body?.expired) {
       purgeExpiredDemoFromCache();
     } else {
-      if (body?.seeded) invalidateAfterDemoSeed();
+      if (body?.seeded || body?.relabeled) invalidateAfterDemoSeed();
       injectDemoAlertsOnce(userId);
     }
 

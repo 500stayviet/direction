@@ -105,7 +105,7 @@ export function buildPropertyShareText(
       `금액: ${formatDepositRent(
         property.roomType === "건물" || property.roomType === "토지"
           ? "매매"
-          : property.dealType,
+          : property.dealType ?? "",
         property.deposit,
         property.monthlyRent
       )}`
@@ -167,15 +167,13 @@ export function buildPropertyShareText(
     }
 
     if (showResidential) {
-      lines.push(`애완동물: ${property.petAllowed ?? "무"}`);
-
       if (property.options?.length) {
         lines.push(`옵션: ${property.options.join(", ")}`);
       }
     }
 
     if (!excludeNotes && property.notes?.trim()) {
-      lines.push(`추가내용: ${property.notes.trim()}`);
+      lines.push(`메모: ${property.notes.trim()}`);
     }
 
     lines.push("");

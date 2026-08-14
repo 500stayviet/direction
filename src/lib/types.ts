@@ -181,7 +181,7 @@ export interface Property extends SharedMeta {
   /** 협력 부동산 여부 */
   hasPartnerAgency: boolean;
   partnerAgency: PartnerAgency;
-  dealType: DealType;
+  dealType?: DealType;
   /** 방/매물 유형 (고객 유형을 기본으로 불러옴) */
   roomType?: RoomType;
   /** 방 수 (투룸은 2 고정 · 3룸+/아파트 선택, 필수 · 최대 5) */
@@ -199,7 +199,7 @@ export interface Property extends SharedMeta {
   loanAvailable?: ParkingType;
   /** 애완동물 유무(가능 여부) */
   petAllowed: PetAllowed;
-  elevator: boolean;
+  elevator?: boolean;
   options: string[];
   /** 입주 가능 시작일 */
   moveInFrom?: string;

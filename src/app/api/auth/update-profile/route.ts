@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatPhoneInput, normalizeShopName } from "@/lib/format";
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import { DEMO_ENTITY_ID_LIKE } from "@/lib/demoSeedPayload";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -15,11 +16,13 @@ async function syncCreatorDisplayName(
     await admin
       .from(table)
       .update({ created_by_name: displayName })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .not("id", "like", DEMO_ENTITY_ID_LIKE);
     await admin
       .from(table)
       .update({ created_by_name: displayName })
-      .eq("created_by", userId);
+      .eq("created_by", userId)
+      .not("id", "like", DEMO_ENTITY_ID_LIKE);
   }
   await admin
     .from("workspace_members")

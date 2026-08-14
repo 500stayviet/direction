@@ -116,7 +116,7 @@ test("고객등록 UI: 구·동 선택완료 후 상세·카드에 선호위치 
     // 입주 단일
     const moveInSection = page
       .locator("div")
-      .filter({ hasText: "희망 입주일" })
+      .filter({ hasText: "입주희망일" })
       .last();
     await moveInSection.locator('label:has-text("단일")').click();
     await page.getByRole("button", { name: "입주 날짜 선택" }).click();

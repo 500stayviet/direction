@@ -185,7 +185,7 @@ export function isBuildingType(roomType?: string | null): boolean {
   return roomType === "건물";
 }
 
-/** 상가·사무실 — 애완/보증보험/옵션/관리비포함 불필요 */
+/** 상가·사무실 — 보증보험/옵션/관리비포함 불필요 */
 export function skipsResidentialExtras(roomType?: string | null): boolean {
   return (
     roomType === "상가" || roomType === "사무실" || roomType === "오피스"
@@ -282,21 +282,21 @@ export function createEmptyProperty(): Property {
       phone: "",
       dong: "",
     },
-    dealType: "월세",
-    roomType: "원룸",
+    dealType: undefined,
+    roomType: undefined,
     roomCount: undefined,
     bathroomCount: undefined,
     deposit: 0,
     monthlyRent: undefined,
     maintenanceFee: 0,
     maintenanceIncludes: [],
-    parkingType: "무",
+    parkingType: undefined,
     parkingFeeType: "별도",
     parkingFee: undefined,
-    loanAvailable: "무",
-    insuranceType: "무",
+    loanAvailable: undefined,
+    insuranceType: undefined,
     petAllowed: "무",
-    elevator: false,
+    elevator: undefined,
     options: [],
     usableArea: undefined,
     landArea: undefined,

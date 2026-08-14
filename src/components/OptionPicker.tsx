@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import {
+  filledBoxClass,
+  filledBoxTextClass,
+} from "@/lib/uiInvalid";
 
 interface OptionPickerProps {
   label: string;
@@ -11,7 +15,7 @@ interface OptionPickerProps {
   onChange: (value: string) => void;
   required?: boolean;
   invalid?: boolean;
-  /** 값 선택 완료 — 연한 파란 테두리 */
+  /** 값 선택 완료 — 파란 박스 */
   complete?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -72,14 +76,18 @@ export function OptionPicker({
           invalid
             ? "border-red-500 bg-red-50"
             : showComplete
-              ? "border-[#3182F6]/55 bg-gray-50"
+              ? filledBoxClass
               : "border-gray-200 bg-gray-50 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
         ].join(" ")}
       >
         <span
           className={[
             "text-[16px] font-semibold",
-            value ? "text-gray-900" : "text-gray-400",
+            showComplete
+              ? filledBoxTextClass
+              : value
+                ? "text-gray-900"
+                : "text-gray-400",
           ].join(" ")}
         >
           {value || placeholder}

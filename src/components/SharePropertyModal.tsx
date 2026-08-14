@@ -88,7 +88,7 @@ export function SharePropertyModal({
                 checked={excludeNotes}
                 onChange={(e) => setExcludeNotes(e.target.checked)}
               />
-              추가내용 제외
+              메모 제외
             </label>
           </div>
         </div>

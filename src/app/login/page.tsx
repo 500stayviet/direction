@@ -8,8 +8,12 @@ import { Modal } from "@/components/ui/Modal";
 import { BrandIcon } from "@/components/BrandIcon";
 import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
-
-const REMEMBER_USERNAME_KEY = "realty_remember_username";
+import {
+  getRememberedUsername,
+  isAutoLoginEnabled,
+  setAutoLoginEnabled,
+  setRememberedUsername,
+} from "@/lib/loginPrefs";
 
 export default function LoginPage() {
   return (
@@ -31,6 +35,7 @@ function LoginPageInner() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberId, setRememberId] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -43,20 +48,22 @@ function LoginPageInner() {
       setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
     }
 
-    let remembered = "";
-    try {
-      remembered = localStorage.getItem(REMEMBER_USERNAME_KEY)?.trim() ?? "";
-    } catch {
-      remembered = "";
-    }
+    const applyRemembered = () => {
+      const remembered = getRememberedUsername();
+      setAutoLogin(isAutoLoginEnabled());
+      if (preset) {
+        setUsername(preset);
+        setRememberId(Boolean(remembered));
+      } else if (remembered) {
+        setUsername(remembered);
+        setRememberId(true);
+      }
+    };
 
-    if (preset) {
-      setUsername(preset);
-      setRememberId(Boolean(remembered));
-    } else if (remembered) {
-      setUsername(remembered);
-      setRememberId(true);
-    }
+    applyRemembered();
+    // 브라우저 자동완성이 칸을 비운 뒤에 다시 넣음
+    const retry = window.setTimeout(applyRemembered, 80);
+    return () => window.clearTimeout(retry);
   }, [searchParams]);
 
   const [findOpen, setFindOpen] = useState(false);
@@ -74,7 +81,7 @@ function LoginPageInner() {
     setSuccess("");
     setLoading(true);
     try {
-      const result = await loginUser(username, password);
+      const result = await loginUser(username, password, { autoLogin });
       if (!result.ok) {
         setError(result.message);
         setLoading(false);
@@ -82,15 +89,8 @@ function LoginPageInner() {
       }
 
       const normalized = username.trim().toLowerCase();
-      try {
-        if (rememberId && normalized) {
-          localStorage.setItem(REMEMBER_USERNAME_KEY, normalized);
-        } else {
-          localStorage.removeItem(REMEMBER_USERNAME_KEY);
-        }
-      } catch {
-        /* ignore */
-      }
+      setRememberedUsername(rememberId ? normalized : null);
+      setAutoLoginEnabled(autoLogin);
 
       // 세션 백업 저장 후 홈으로 (하드 새로고침 없이 → 스플래시 재표시 방지)
       router.replace("/");
@@ -207,22 +207,41 @@ function LoginPageInner() {
             }
           />
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <label className="inline-flex cursor-pointer items-center gap-2 active:scale-[0.99] transition-all duration-150">
               <input
                 type="checkbox"
                 checked={rememberId}
-                onChange={(e) => setRememberId(e.target.checked)}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setRememberId(on);
+                  setRememberedUsername(on ? username : null);
+                }}
                 className="h-4 w-4 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
               />
               <span className="text-[13px] font-semibold text-gray-600">
                 아이디 기억하기
               </span>
             </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 active:scale-[0.99] transition-all duration-150">
+              <input
+                type="checkbox"
+                checked={autoLogin}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setAutoLogin(on);
+                  setAutoLoginEnabled(on);
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
+              />
+              <span className="text-[13px] font-semibold text-gray-600">
+                자동로그인
+              </span>
+            </label>
             <button
               type="button"
               onClick={openFind}
-              className="text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
+              className="ml-auto text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
             >
               비밀번호 찾기
             </button>

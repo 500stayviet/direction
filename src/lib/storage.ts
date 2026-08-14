@@ -15,7 +15,11 @@ import {
   getSessionUserId,
   peekCurrentUser,
 } from "./auth";
-import { isDemoEntityId, isDemoSeedExpired } from "./demoSeedPayload";
+import {
+  DEMO_CREATOR_NAME,
+  isDemoEntityId,
+  isDemoSeedExpired,
+} from "./demoSeedPayload";
 import {
   applyCustomerDueComplete,
   applyPropertyDueComplete,
@@ -156,10 +160,11 @@ function withCreatorMeta<T extends { id: string; createdAt?: string }>(
   workspaceId?: string;
 } {
   const createdBy = existing?.created_by || actor.userId;
-  const createdByName =
-    existing?.created_by_name?.trim() ||
-    (item as { createdByName?: string }).createdByName ||
-    actor.name;
+  const createdByName = isDemoEntityId(item.id)
+    ? DEMO_CREATOR_NAME
+    : existing?.created_by_name?.trim() ||
+      (item as { createdByName?: string }).createdByName ||
+      actor.name;
   return {
     ...item,
     createdBy,

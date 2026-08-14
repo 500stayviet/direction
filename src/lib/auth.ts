@@ -109,6 +109,9 @@ export function clearAuthRuntimeCache(): void {
     /* ignore */
   }
   clearLegacyAndSupabaseLocalKeys({ includeAccountScopedKeys: true });
+  void import("./loginPrefs")
+    .then((m) => m.setAutoLoginEnabled(false))
+    .catch(() => undefined);
   resetBrowserClient();
   notifyAuthChange();
 }
@@ -215,7 +218,7 @@ export function getCachedUser(): User | null {
   return cachedUser;
 }
 
-/** 동기 — 화면 로그인 표시용 (localStorage·쿠키·메모리) */
+/** 동기 — 화면 로그인 표시용 (저장소 토큰·메모리) */
 export function peekCurrentUser(): User | null {
   if (typeof window === "undefined") return null;
   if (cachedUser?.id) {
@@ -472,7 +475,7 @@ function userFromAuthSession(authUser: {
 export async function getCurrentUser(): Promise<User | null> {
   // 하드 리로드 후에도 바로 로그인 유지
   const appAuth = loadAppAuth();
-  if (appAuth?.user) {
+  if (appAuth?.user && (appAuth.access_token || appAuth.refresh_token)) {
     const raw = String(appAuth.user.shopName ?? "")
       .trim()
       .replace(/\s+/g, " ");
@@ -619,7 +622,8 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
 
 export async function loginUser(
   username: string,
-  password: string
+  password: string,
+  opts?: { autoLogin?: boolean }
 ): Promise<AuthResult> {
   const normalized = normalizeUsername(username);
   const pwd = password.normalize("NFKC").trim();
@@ -628,11 +632,14 @@ export async function loginUser(
   }
 
   try {
-    // 서버에서 인증 후 브라우저 세션에 주입 (모바일/PWA에서 더 안정적)
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: normalized, password: pwd }),
+      body: JSON.stringify({
+        username: normalized,
+        password: pwd,
+        autoLogin: opts?.autoLogin !== false,
+      }),
     });
     const body = (await res.json()) as {
       ok?: boolean;
@@ -647,6 +654,9 @@ export async function loginUser(
         message: body.message ?? "아이디 또는 비밀번호가 올바르지 않습니다.",
       };
     }
+
+    const { setAutoLoginEnabled } = await import("./loginPrefs");
+    setAutoLoginEnabled(opts?.autoLogin !== false);
 
     // 이전 계정 잔여 토큰만 지우고, 새 앱 세션을 먼저 저장
     cachedUser = null;

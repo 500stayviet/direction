@@ -1,6 +1,32 @@
-/** 숫자만 추출 (휴대폰 최대 11자리) */
+/** 전각 숫자 → ASCII */
+function toAsciiDigits(phone: string): string {
+  return phone.replace(/[０-９]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+  );
+}
+
+/** 숫자만 추출 (휴대폰 최대 11자리). 한국 번호는 0국번 유지 */
 export function onlyDigits(phone: string, max = 11): string {
-  return phone.replace(/\D/g, "").slice(0, max);
+  return toKrPhoneDigits(phone).slice(0, max);
+}
+
+/** 82 국가번호는 버리고, 한국 번호는 항상 0으로 시작하게 */
+export function toKrPhoneDigits(phone: string): string {
+  let d = toAsciiDigits(phone).replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("82") && d.length >= 10) {
+    d = d.startsWith("820") ? d.slice(2) : `0${d.slice(2)}`;
+  }
+  d = restoreKrTrunkZero(d);
+  return d.slice(0, 11);
+}
+
+function restoreKrTrunkZero(d: string): string {
+  if (!d || d.startsWith("0")) return d;
+  if (/^1[016789]\d{7,8}$/.test(d)) return `0${d}`;
+  if (/^2\d{7,8}$/.test(d)) return `0${d}`;
+  if (/^(3[1-3]|4[1-4]|5[1-5]|6[1-4]|70|80)\d{6,8}$/.test(d)) return `0${d}`;
+  return d;
 }
 
 /**
@@ -36,7 +62,7 @@ export function backfillShopName(raw: string | null | undefined): string {
  * - 기타 지역: 031-123-4567 형태
  */
 export function formatPhoneInput(phone: string): string {
-  const d = onlyDigits(phone, 11);
+  const d = toKrPhoneDigits(phone);
   if (!d) return "";
 
   // 서울 (02)
@@ -52,6 +78,9 @@ export function formatPhoneInput(phone: string): string {
   // 휴대폰·지역번호 3자리
   if (d.length <= 3) return d;
   if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  if (d.length <= 10) {
+    return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  }
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
 }
 
@@ -60,7 +89,8 @@ export function formatPhone(phone: string): string {
 }
 
 export function toTelHref(phone: string): string {
-  return `tel:${onlyDigits(phone)}`;
+  const d = onlyDigits(phone);
+  return d ? `tel:${d}` : "tel:";
 }
 
 /** 검색어가 이름/번호 혼합일 때 번호 부분은 숫자로 비교 */
@@ -332,16 +362,12 @@ export function resolveCustomerLoanNeeded(customer: {
   return t && t !== "해당없음" ? "유" : "무";
 }
 
-/** 표시용: 무 / 유 · 버팀목 */
+/** 표시용: 유 / 무 */
 export function getCustomerLoanLabel(customer: {
   loanNeeded?: "유" | "무";
   loanType?: string;
 }): string {
-  const needed = resolveCustomerLoanNeeded(customer);
-  if (needed === "무") return "무";
-  const kind = (customer.loanType ?? "").trim();
-  if (!kind || kind === "해당없음") return "유";
-  return `유 · ${kind}`;
+  return resolveCustomerLoanNeeded(customer);
 }
 
 /** 표시용: 무 / 유 · 세단 */

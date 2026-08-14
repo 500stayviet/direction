@@ -240,7 +240,7 @@ function ScheduleCreateInner() {
       if (!guestName.trim()) {
         showWarn({
           target: "guestName",
-          message: "성함을 입력해 주세요.",
+          message: "성함 칸 입력은 필수입니다.",
         });
         return;
       }
@@ -255,14 +255,14 @@ function ScheduleCreateInner() {
     if (!visitDate) {
       showWarn({
         target: "visitDate",
-        message: "방문 일자를 선택해 주세요.",
+        message: "방문 일자 칸 입력은 필수입니다.",
       });
       return;
     }
     if (!visitTime) {
       showWarn({
         target: "visitTime",
-        message: "만나는 시간을 선택해 주세요.",
+        message: "만나는 시간 칸 입력은 필수입니다.",
       });
       return;
     }

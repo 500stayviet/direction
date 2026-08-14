@@ -185,17 +185,10 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 active={elevatorLabel === "유"}
               />
             ) : null}
-            {showLoanInsurancePet ? (
-              <StatusChip
-                label="애완동물"
-                value={customer.petAllowed ?? "무"}
-                active={customer.petAllowed === "유"}
-              />
-            ) : null}
           </div>
 
           <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-            <p className="text-[12px] font-bold text-gray-400">추가내용</p>
+            <p className="text-[12px] font-bold text-gray-400">메모</p>
             <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
               {customer.notes?.trim() || "-"}
             </p>

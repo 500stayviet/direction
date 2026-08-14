@@ -1,11 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import type { Property } from "@/lib/types";
 import {
   INSURANCE_TYPES,
   MAINTENANCE_OPTIONS,
   PROPERTY_OPTIONS,
+  EMPTY_UNIT_COUNTS,
+  ROOM_TYPES,
+  createEmptyProperty,
+  defaultRoomBathCounts,
+  isBuildingType,
+  isLandType,
+  needsRoomBathCounts,
+  normalizeRoomType,
+  skipsResidentialExtras,
 } from "@/lib/constants";
 import { Input, TextArea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -18,14 +28,13 @@ import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimePicker } from "@/components/TimePicker";
 import { PhoneInput } from "@/components/PhoneInput";
-import { RoomTypeSelect } from "@/components/RoomTypeSelect";
 import {
   BuildingLandFields,
 } from "@/components/BuildingLandFields";
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
-import { formatMoveInRange, formatPhoneInput } from "@/lib/format";
+import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
@@ -35,17 +44,21 @@ import {
   getMissingRequiredFields,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import {
-  EMPTY_UNIT_COUNTS,
-  defaultRoomBathCounts,
-  isBuildingType,
-  isLandType,
-  needsRoomBathCounts,
-  normalizeRoomType,
-  skipsResidentialExtras,
-} from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
 import { RoomBathCountFields } from "@/components/RoomBathCountFields";
+import { applyIntakeToProperty, parseIntakeText } from "@/lib/intakeParse";
+import { isPlaceholderAddress } from "@/lib/seoulRegions";
+import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
+import { IntakeResetModal } from "@/components/IntakeResetModal";
+import { IntakeMessageModal } from "@/components/IntakeMessageModal";
+import { IntakeTalkModal } from "@/components/IntakeTalkModal";
+import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass } from "@/lib/uiInvalid";
+
+const IntakePhotoPicker = dynamic(
+  () =>
+    import("@/components/IntakePhotoPicker").then((m) => m.IntakePhotoPicker),
+  { ssr: false }
+);
 
 interface PropertyEditorProps {
   index: number;
@@ -73,23 +86,28 @@ interface PropertyEditorProps {
   onSwapWith?: (targetIndex: number) => void;
   /** false면 팀공유 유무 숨김 (방문 일정 — 일정 단위로 공유) */
   showTeamShare?: boolean;
+  /** 메시지·대화·사진으로 칸 채우기 (매물 등록/수정) */
+  enableIntake?: boolean;
 }
 
 function ChipToggle({
   label,
   active,
   onClick,
+  faint,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  faint?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "rounded-lg px-2.5 py-1.5 text-sm font-semibold active:scale-95 transition-all duration-150",
+        "rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-all duration-150",
+        faint ? "relative z-[1] opacity-[0.22] pointer-events-auto" : "active:scale-95",
         active
           ? "bg-[#3182F6] text-white"
           : "bg-gray-100 text-gray-600 hover:bg-gray-200",
@@ -110,6 +128,7 @@ export function PropertyEditor({
   showTitle = true,
   showArriveTime = true,
   showTeamShare = true,
+  enableIntake = false,
   validationActive = false,
   focusField,
   requireDong = true,
@@ -121,6 +140,13 @@ export function PropertyEditor({
     {}
   );
   const [moveOpen, setMoveOpen] = useState(false);
+  const [filledFromIntake, setFilledFromIntake] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [pendingMethod, setPendingMethod] = useState<IntakeMethod | null>(null);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [talkOpen, setTalkOpen] = useState(false);
+  const [photoRequestId, setPhotoRequestId] = useState(0);
+  const [photoError, setPhotoError] = useState("");
 
   const reorderList = allProperties ?? [];
   const canReorder = Boolean(onSwapWith);
@@ -154,9 +180,10 @@ export function PropertyEditor({
     update({ [key]: next });
   };
 
-  const missingFields = validationActive
-    ? getMissingRequiredFields(property, { requireDong })
-    : [];
+  const missingFields =
+    validationActive || filledFromIntake
+      ? getMissingRequiredFields(property, { requireDong })
+      : [];
   const isInvalid = (key: PropertyFieldKey) => missingFields.includes(key);
 
   const showContactFields = !property.hasPartnerAgency;
@@ -218,7 +245,7 @@ export function PropertyEditor({
       roomType !== "건물" &&
       (isBuildingType(property.roomType) || isLandType(property.roomType))
     ) {
-      patch.dealType = "월세";
+      patch.dealType = undefined;
     }
     if (needsRoomBathCounts(roomType)) {
       const defaults = defaultRoomBathCounts(roomType);
@@ -231,7 +258,65 @@ export function PropertyEditor({
     update(patch);
   };
 
+  const formHasContent = Boolean(
+    filledFromIntake ||
+      onlyDigits(property.tenantPhone ?? "").length >= 9 ||
+      onlyDigits(property.landlordPhone ?? "").length >= 9 ||
+      (property.notes ?? "").trim() ||
+      (property.deposit ?? 0) > 0 ||
+      (property.roomNo ?? "").trim() ||
+      !isPlaceholderAddress(property.address ?? "")
+  );
+
+  const startIntake = (method: IntakeMethod) => {
+    setPhotoError("");
+    if (method === "message") setMessageOpen(true);
+    if (method === "talk") setTalkOpen(true);
+    if (method === "photo") setPhotoRequestId((n) => n + 1);
+  };
+
+  const requestIntake = (method: IntakeMethod) => {
+    if (formHasContent) {
+      setPendingMethod(method);
+      setResetOpen(true);
+      return;
+    }
+    startIntake(method);
+  };
+
+  const resetPropertyDraft = () => {
+    const empty = createEmptyProperty();
+    onChange({
+      ...empty,
+      id: property.id,
+    });
+    setFilledFromIntake(false);
+    setPhotoError("");
+  };
+
+  const applyIntakeText = (raw: string) => {
+    const parsed = parseIntakeText(raw, "property");
+    onChange(applyIntakeToProperty(property, parsed));
+    setFilledFromIntake(true);
+    setMessageOpen(false);
+    setTalkOpen(false);
+  };
+
   return (
+    <>
+    {enableIntake ? (
+      <div className="mb-3 space-y-1">
+        <IntakeSourceBar onSelect={requestIntake} />
+        {photoError ? (
+          <p className="text-[12px] font-semibold text-red-400">{photoError}</p>
+        ) : null}
+        <IntakePhotoPicker
+          requestId={photoRequestId}
+          onText={applyIntakeText}
+          onError={setPhotoError}
+        />
+      </div>
+    ) : null}
     <Card
       className={[
         "space-y-2 !p-3",
@@ -390,21 +475,24 @@ export function PropertyEditor({
             className={[
               "space-y-1",
               isInvalid("contacts")
-                ? "rounded-xl border border-red-500 bg-red-50 p-2.5"
-                : "",
+                ? invalidWrapClass
+                : filledFromIntake &&
+                    (property.tenantPhone || property.landlordPhone)
+                  ? filledSectionClass
+                  : "",
             ].join(" ")}
           >
             <p
               className={[
                 "text-[13px] font-semibold",
-                isInvalid("contacts") ? "text-red-600" : "text-gray-600",
+                isInvalid("contacts") ? invalidLabelClass : "text-gray-600",
               ].join(" ")}
             >
               연락처
               <span
                 className={
                   isInvalid("contacts")
-                    ? "ml-0.5 text-red-500"
+                    ? invalidStarClass
                     : "ml-0.5 text-[#3182F6]"
                 }
               >
@@ -412,7 +500,7 @@ export function PropertyEditor({
               </span>
             </p>
             {isInvalid("contacts") ? (
-              <p className="text-xs font-semibold text-red-500">
+              <p className={`text-xs ${invalidHintClass}`}>
                 임차인 또는 임대인 번호 중 하나 필요
               </p>
             ) : null}
@@ -438,77 +526,69 @@ export function PropertyEditor({
         ) : null}
       </div>
 
-      {property.hasPartnerAgency ? (
-        <div
-          className="mt-3 space-y-1.5 border-t border-gray-300 pt-3"
-          aria-label="매물 유형"
-        >
-          <p className="text-[12px] font-bold text-gray-500">매물 유형</p>
-          <div ref={setFieldRef("roomType")}>
-            <RoomTypeSelect
-              required
-              invalid={isInvalid("roomType")}
-              value={
-                normalizeRoomType(property.roomType) ??
-                property.roomType ??
-                "원룸"
-              }
-              onChange={handleRoomTypeChange}
-            />
-          </div>
-          <div ref={setFieldRef("roomCount")}>
-            <RoomBathCountFields
-              roomType={
-                normalizeRoomType(property.roomType) ?? property.roomType
-              }
-              roomCount={property.roomCount}
-              bathroomCount={property.bathroomCount}
-              invalidRoomCount={isInvalid("roomCount")}
-              onChange={({ roomCount, bathroomCount }) =>
-                update({ roomCount, bathroomCount })
-              }
-            />
-          </div>
-        </div>
-      ) : (
-        <>
-          <div ref={setFieldRef("roomType")}>
-            <RoomTypeSelect
-              required
-              invalid={isInvalid("roomType")}
-              value={
-                normalizeRoomType(property.roomType) ??
-                property.roomType ??
-                "원룸"
-              }
-              onChange={handleRoomTypeChange}
-            />
-          </div>
-          <div ref={setFieldRef("roomCount")}>
-            <RoomBathCountFields
-              roomType={
-                normalizeRoomType(property.roomType) ?? property.roomType
-              }
-              roomCount={property.roomCount}
-              bathroomCount={property.bathroomCount}
-              invalidRoomCount={isInvalid("roomCount")}
-              onChange={({ roomCount, bathroomCount }) =>
-                update({ roomCount, bathroomCount })
-              }
-            />
-          </div>
-        </>
-      )}
+      <div ref={setFieldRef("roomType")}>
+        <OptionToggle
+          label="매물 유형"
+          required
+          compact={filledFromIntake}
+          filled={filledFromIntake && Boolean(property.roomType)}
+          invalid={isInvalid("roomType")}
+          value={
+            normalizeRoomType(property.roomType) ?? property.roomType
+          }
+          options={ROOM_TYPES}
+          onChange={handleRoomTypeChange}
+          columns={4}
+        />
+      </div>
+      <div
+        ref={setFieldRef("roomCount")}
+        className={
+          filledFromIntake &&
+          needsRoomBathCounts(
+            normalizeRoomType(property.roomType) ?? property.roomType
+          )
+            ? filledSectionClass
+            : ""
+        }
+      >
+        <RoomBathCountFields
+          roomType={
+            normalizeRoomType(property.roomType) ?? property.roomType
+          }
+          roomCount={property.roomCount}
+          bathroomCount={property.bathroomCount}
+          invalidRoomCount={isInvalid("roomCount")}
+          filled={
+            filledFromIntake &&
+            needsRoomBathCounts(
+              normalizeRoomType(property.roomType) ?? property.roomType
+            )
+          }
+          onChange={({ roomCount, bathroomCount }) =>
+            update({ roomCount, bathroomCount })
+          }
+        />
+      </div>
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>
-        <div ref={setFieldRef("dealType")}>
+        <div
+          ref={setFieldRef("dealType")}
+          className={
+            filledFromIntake &&
+            Boolean(isBuilding || isLand ? "매매" : property.dealType)
+              ? filledSectionClass
+              : ""
+          }
+        >
           <DealTypeToggle
-            label="희망거래"
+            label="거래종류"
             required
+            compact={filledFromIntake}
             invalid={isInvalid("dealType")}
             value={
-              isBuilding || isLand ? "매매" : property.dealType
+              isBuilding || isLand ? "매매" : property.dealType ?? ""
             }
             onChange={(dealType) => update({ dealType })}
             types={
@@ -523,7 +603,14 @@ export function PropertyEditor({
           />
         ) : null}
         <div className="grid grid-cols-2 gap-2">
-          <div ref={setFieldRef("deposit")}>
+          <div
+            ref={setFieldRef("deposit")}
+            className={
+              filledFromIntake && (property.deposit ?? 0) > 0
+                ? filledSectionClass
+                : ""
+            }
+          >
             <Input
               label={
                 property.dealType === "매매" || isBuilding || isLand
@@ -535,6 +622,7 @@ export function PropertyEditor({
               hint={isInvalid("deposit") ? "미입력" : undefined}
               type="number"
               value={property.deposit || ""}
+              accent={filledFromIntake && (property.deposit ?? 0) > 0}
               onChange={(e) =>
                 update({ deposit: Number(e.target.value) || 0 })
               }
@@ -542,26 +630,44 @@ export function PropertyEditor({
             />
           </div>
           {property.dealType === "월세" && !isBuilding && !isLand && (
+            <div
+              className={
+                filledFromIntake && (property.monthlyRent ?? 0) > 0
+                  ? filledSectionClass
+                  : ""
+              }
+            >
             <Input
               label="월세 (만원)"
               type="number"
               value={property.monthlyRent || ""}
+              accent={filledFromIntake && (property.monthlyRent ?? 0) > 0}
               onChange={(e) =>
                 update({ monthlyRent: Number(e.target.value) || 0 })
               }
               placeholder="50"
             />
+            </div>
           )}
           {!isLand && (
+            <div
+              className={
+                filledFromIntake && (property.maintenanceFee ?? 0) > 0
+                  ? filledSectionClass
+                  : ""
+              }
+            >
             <Input
               label="관리비 (만원)"
               type="number"
               value={property.maintenanceFee || ""}
+              accent={filledFromIntake && (property.maintenanceFee ?? 0) > 0}
               onChange={(e) =>
                 update({ maintenanceFee: Number(e.target.value) || 0 })
               }
-              placeholder="10"
+              placeholder="0"
             />
+            </div>
           )}
         </div>
         {!isLand && !isBuilding && !hideResidentialExtras && (
@@ -575,6 +681,11 @@ export function PropertyEditor({
                   key={opt}
                   label={opt}
                   active={property.maintenanceIncludes.includes(opt)}
+                  faint={
+                    filledFromIntake &&
+                    property.maintenanceIncludes.length > 0 &&
+                    !property.maintenanceIncludes.includes(opt)
+                  }
                   onClick={() => toggleList("maintenanceIncludes", opt)}
                 />
               ))}
@@ -582,10 +693,15 @@ export function PropertyEditor({
           </div>
         )}
         {!isLand && !isBuilding && (
-          <div className="space-y-1">
+          <div
+            className={[
+              "space-y-1",
+              filledFromIntake && moveInFrom ? filledSectionClass : "",
+            ].join(" ")}
+          >
             <div className="flex items-center justify-between gap-2">
               <p className="text-[13px] font-semibold text-gray-600">
-                입주 가능일
+                임대가능일
               </p>
               <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
                 <CircleCheck
@@ -610,6 +726,7 @@ export function PropertyEditor({
               <DatePicker
                 label=""
                 value={moveInFrom}
+                accent={filledFromIntake && Boolean(moveInFrom)}
                 onChange={(next) =>
                   update({
                     moveInSingle: true,
@@ -618,13 +735,14 @@ export function PropertyEditor({
                     moveInDate: formatMoveInRange(next, next),
                   })
                 }
-                placeholder="입주 가능일 선택"
+                placeholder="임대가능일 선택"
               />
             ) : (
               <DateRangePicker
                 label=""
                 from={moveInFrom}
                 to={property.moveInTo || ""}
+                accent={filledFromIntake && Boolean(moveInFrom)}
                 onChange={({ from, to }) => {
                   const sameDay = Boolean(from && to && from === to);
                   update({
@@ -642,11 +760,19 @@ export function PropertyEditor({
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
-        <div ref={setFieldRef("address")}>
+        <div
+          ref={setFieldRef("address")}
+          className={
+            filledFromIntake && property.address?.trim()
+              ? filledSectionClass
+              : ""
+          }
+        >
           <SeoulAddressField
             required
             requireDong={requireDong}
             invalid={isInvalid("address")}
+            accent={filledFromIntake}
             value={property.address}
             onChange={(address) => update({ address })}
           />
@@ -702,15 +828,26 @@ export function PropertyEditor({
             invalidBuildingKind={isInvalid("buildingKind")}
           />
           <div className="mt-3 space-y-1.5">
+            <div ref={setFieldRef("elevator")}>
             <OptionToggle
               label="엘리베이터 유무"
+              required
+              compact={filledFromIntake}
+              invalid={isInvalid("elevator")}
               columns={2}
-              value={property.elevator ? "유" : "무"}
+              value={
+                property.elevator === true
+                  ? "유"
+                  : property.elevator === false
+                    ? "무"
+                    : undefined
+              }
               options={["유", "무"] as const}
               onChange={(v) => update({ elevator: v === "유" })}
             />
+            </div>
             <TextArea
-              label="추가내용"
+              label="메모"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
               placeholder={propertyNotesPlaceholder(property.roomType)}
@@ -720,8 +857,15 @@ export function PropertyEditor({
                 <OptionToggle
                   label="팀공유 유무"
                   hint="팀에 공유가 필요할 때 사용하세요"
+                  compact={filledFromIntake}
                   columns={2}
-                  value={property.workspaceShared === true ? "유" : "무"}
+                  value={
+                    property.workspaceShared === true
+                      ? "유"
+                      : property.workspaceShared === false
+                        ? "무"
+                        : undefined
+                  }
                   options={["유", "무"] as const}
                   onChange={(v) => update({ workspaceShared: v === "유" })}
                 />
@@ -744,7 +888,7 @@ export function PropertyEditor({
           />
           <div className="mt-3 space-y-1.5">
             <TextArea
-              label="추가내용"
+              label="메모"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
               placeholder={propertyNotesPlaceholder(property.roomType)}
@@ -754,8 +898,15 @@ export function PropertyEditor({
                 <OptionToggle
                   label="팀공유 유무"
                   hint="팀에 공유가 필요할 때 사용하세요"
+                  compact={filledFromIntake}
                   columns={2}
-                  value={property.workspaceShared === true ? "유" : "무"}
+                  value={
+                    property.workspaceShared === true
+                      ? "유"
+                      : property.workspaceShared === false
+                        ? "무"
+                        : undefined
+                  }
                   options={["유", "무"] as const}
                   onChange={(v) => update({ workspaceShared: v === "유" })}
                 />
@@ -777,6 +928,7 @@ export function PropertyEditor({
               <OptionToggle
                 label="대출 유무"
                 required
+                compact={filledFromIntake}
                 invalid={isInvalid("loan")}
                 columns={2}
                 value={
@@ -796,6 +948,7 @@ export function PropertyEditor({
               <OptionToggle
                 label="전세보증보험 가입 가능 여부"
                 required
+                compact={filledFromIntake}
                 invalid={isInvalid("insurance")}
                 columns={2}
                 value={
@@ -814,6 +967,7 @@ export function PropertyEditor({
             <OptionToggle
               label="주차 유무"
               required
+              compact={filledFromIntake}
               invalid={isInvalid("parking")}
               columns={2}
               value={
@@ -850,22 +1004,24 @@ export function PropertyEditor({
               placeholder="0"
             />
           )}
+          <div ref={setFieldRef("elevator")}>
           <OptionToggle
             label="엘리베이터 유무"
+            required
+            compact={filledFromIntake}
+            invalid={isInvalid("elevator")}
             columns={2}
-            value={property.elevator ? "유" : "무"}
+            value={
+              property.elevator === true
+                ? "유"
+                : property.elevator === false
+                  ? "무"
+                  : undefined
+            }
             options={["유", "무"] as const}
             onChange={(v) => update({ elevator: v === "유" })}
           />
-          {!hideResidentialExtras && (
-            <OptionToggle
-              label="애완동물 유무"
-              columns={2}
-              value={property.petAllowed ?? "무"}
-              options={["유", "무"] as const}
-              onChange={(petAllowed) => update({ petAllowed })}
-            />
-          )}
+          </div>
           {!hideResidentialExtras && (
             <div>
               <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
@@ -877,6 +1033,11 @@ export function PropertyEditor({
                     key={opt}
                     label={opt}
                     active={property.options.includes(opt)}
+                    faint={
+                      filledFromIntake &&
+                      property.options.length > 0 &&
+                      !property.options.includes(opt)
+                    }
                     onClick={() => toggleList("options", opt)}
                   />
                 ))}
@@ -884,7 +1045,7 @@ export function PropertyEditor({
             </div>
           )}
           <TextArea
-            label="추가내용"
+            label="메모"
             value={property.notes ?? ""}
             onChange={(e) => update({ notes: e.target.value })}
             placeholder={propertyNotesPlaceholder(property.roomType)}
@@ -894,8 +1055,15 @@ export function PropertyEditor({
               <OptionToggle
                 label="팀공유 유무"
                 hint="팀에 공유가 필요할 때 사용하세요"
+                compact={filledFromIntake}
                 columns={2}
-                value={property.workspaceShared === true ? "유" : "무"}
+                value={
+                  property.workspaceShared === true
+                    ? "유"
+                    : property.workspaceShared === false
+                      ? "무"
+                      : undefined
+                }
                 options={["유", "무"] as const}
                 onChange={(v) => update({ workspaceShared: v === "유" })}
               />
@@ -908,5 +1076,35 @@ export function PropertyEditor({
         </div>
       )}
     </Card>
+    {enableIntake ? (
+      <>
+        <IntakeResetModal
+          open={resetOpen}
+          onClose={() => {
+            setResetOpen(false);
+            setPendingMethod(null);
+          }}
+          onConfirm={() => {
+            const method = pendingMethod;
+            setResetOpen(false);
+            setPendingMethod(null);
+            resetPropertyDraft();
+            if (method) startIntake(method);
+          }}
+        />
+        <IntakeMessageModal
+          open={messageOpen}
+          onClose={() => setMessageOpen(false)}
+          onApply={applyIntakeText}
+        />
+        <IntakeTalkModal
+          open={talkOpen}
+          kind="property"
+          onClose={() => setTalkOpen(false)}
+          onApply={applyIntakeText}
+        />
+      </>
+    ) : null}
+    </>
   );
 }

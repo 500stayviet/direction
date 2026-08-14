@@ -159,7 +159,7 @@ function wantsYesFits(
 /**
  * 보유 매물이 고객 희망 조건에 맞는지.
  * 핵심: 거래유형 · 매물유형(+아파트 룸수) · 보증금/매가(·월세) · 입주
- * 유/무: 대출 · 보증보험 · 주차 · 엘리베이터 · 애완동물
+ * 유/무: 대출 · 보증보험 · 주차 · 엘리베이터
  */
 export function propertyMatchesCustomer(
   customer: Customer,
@@ -222,10 +222,6 @@ export function propertyMatchesCustomer(
   }
 
   if (!wantsYesFits(customer.elevatorNeeded, property.elevator)) {
-    return false;
-  }
-
-  if (!wantsYesFits(customer.petAllowed, property.petAllowed)) {
     return false;
   }
 

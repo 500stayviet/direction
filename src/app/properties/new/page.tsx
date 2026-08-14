@@ -107,6 +107,7 @@ export default function NewPropertyPage() {
           onChange={setProperty}
           showTitle={false}
           showArriveTime={false}
+          enableIntake
           validationActive={validationActive}
           focusField={focusField}
         />

@@ -99,7 +99,9 @@ function buildPropertyFields(
   }
 
   const dealForMoney =
-    p.roomType === "건물" || p.roomType === "토지" ? "매매" : p.dealType;
+    p.roomType === "건물" || p.roomType === "토지"
+      ? "매매"
+      : p.dealType ?? "";
   if (typeof p.deposit === "number") {
     push(
       fields,
@@ -229,13 +231,12 @@ function buildPropertyFields(
         : "무";
     push(fields, "주차", parking);
     push(fields, "엘리베이터", p.elevator ? "유" : "무");
-    push(fields, "애완동물", p.petAllowed || "무");
     if (Array.isArray(p.options) && p.options.length > 0) {
       push(fields, "옵션", p.options.join(", "));
     }
   }
 
-  push(fields, "추가내용", str(p.notes) || undefined);
+  push(fields, "메모", str(p.notes) || undefined);
   push(fields, "팀공유", p.workspaceShared ? "유" : "무");
 
   return fields;
@@ -301,12 +302,11 @@ export function buildAdminCustomerDetail(args: {
   if (showLoanInsurancePet) {
     push(fields, "대출", getCustomerLoanLabel(c));
     push(fields, "보증보험", yesNoLabel(c.insuranceNeeded));
-    push(fields, "애완동물", c.petAllowed || "무");
   }
   if (showParking) push(fields, "주차", getCustomerParkingLabel(c));
   if (showElevator) push(fields, "엘리베이터", yesNoLabel(c.elevatorNeeded));
 
-  push(fields, "추가내용", str(c.notes) || undefined);
+  push(fields, "메모", str(c.notes) || undefined);
   push(fields, "팀공유", c.workspaceShared ? "유" : "무");
   if (c.contractCompleted) push(fields, "계약완료", "유");
 
