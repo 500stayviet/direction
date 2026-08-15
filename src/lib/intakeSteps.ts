@@ -18,7 +18,7 @@ export type IntakeStepLine = {
 
 export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
   customer: [
-    { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
+    { key: "name", name: "고객명 또는 명칭", example: "홍길동  ·  명칭 성내" },
     { key: "phone", name: "전화번호", example: "010-1234-5678" },
     { key: "roomType", name: "매물유형", example: "원룸 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
@@ -81,6 +81,32 @@ export function splitIntakeStepCancel(text: string): IntakeStepCancelSplit {
     return { cancel: true, remainder: "" };
   }
   return { cancel: false, remainder: trimmed };
+}
+
+const NAME_LABEL_WORD =
+  /^(?:고객명|명칭|이름|성함|성명)(?:[:：.]?)$/;
+
+function stripSpeechTail(word: string): string {
+  return word.replace(/(?:입니다|습니까|이요|예요|에요|이야|야|요)$/, "");
+}
+
+/** 대화 고객명 줄: 단어 첫 번째(라벨이면 그다음)만 칸에 넣는다 */
+function parseTalkNameStep(text: string): string | undefined {
+  const inline = text.match(
+    /^(?:고객명|명칭|이름|성함|성명)\s*[.:：]?\s*([가-힣]{2,6})/
+  );
+  if (inline?.[1]) return inline[1];
+
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return undefined;
+
+  const first = stripSpeechTail(words[0].replace(/[:：.]/g, ""));
+  if (words.length >= 2 && NAME_LABEL_WORD.test(first)) {
+    const next = stripSpeechTail(words[1].replace(/[:：.]/g, ""));
+    return /^[가-힣]{2,6}$/.test(next) ? next : undefined;
+  }
+
+  return /^[가-힣]{2,6}$/.test(first) ? first : undefined;
 }
 
 function stepDisplay(
@@ -156,10 +182,7 @@ export function parseIntakeStep(
   }
 
   if (step === "name") {
-    const labeled = text.match(
-      /(?:고객명|명칭|이름|성함|성명)\s*[:\s]?\s*([가-힣]{2,6})/
-    );
-    const name = labeled?.[1] ?? (/^[가-힣]{2,6}$/.test(text) ? text : undefined);
+    const name = parseTalkNameStep(text);
     if (!name) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = {
       name,
@@ -169,7 +192,7 @@ export function parseIntakeStep(
     return {
       ok: true,
       partial,
-      display: stepDisplay(partial, kind, step) || name,
+      display: name,
     };
   }
 

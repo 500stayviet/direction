@@ -87,4 +87,16 @@ describe("intakeSteps", () => {
     assert.equal(money.ok, true);
     assert.equal(money.partial.deposit, 20000);
   });
+
+  it("대화 고객명 줄은 첫 단어만 칸에 넣는다", () => {
+    assert.equal(parseIntakeStep("홍길동", "name", "customer").partial.name, "홍길동");
+    assert.equal(parseIntakeStep("명칭 성내", "name", "customer").partial.name, "성내");
+    assert.equal(
+      parseIntakeStep("고객명 홍길동 010-1234", "name", "customer").partial.name,
+      "홍길동"
+    );
+    assert.equal(parseIntakeStep("홍길동입니다", "name", "customer").partial.name, "홍길동");
+    assert.equal(parseIntakeStep("원룸", "name", "customer").partial.name, "원룸");
+    assert.equal(parseIntakeStep("홍", "name", "customer").ok, false);
+  });
 });

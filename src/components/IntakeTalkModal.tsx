@@ -15,9 +15,7 @@ import {
   type IntakeStepKey,
 } from "@/lib/intakeSteps";
 import {
-  absorbCommitted,
   composeTalkText,
-  liveTail,
   readSpeechResultsSince,
 } from "@/lib/speechTranscript";
 import { filledSectionClass } from "@/lib/uiInvalid";
@@ -78,13 +76,11 @@ export function IntakeTalkModal({
     {}
   );
   const [dialogueLog, setDialogueLog] = useState("");
-  const [stepDraft, setStepDraft] = useState("");
   const [stepLive, setStepLive] = useState("");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
 
   const recRef = useRef<SpeechRec | null>(null);
-  const stepDraftRef = useRef("");
   const sessionFinalRef = useRef("");
   const resultCursorRef = useRef(0);
   const skipOnEndOnceRef = useRef(false);
@@ -93,9 +89,7 @@ export function IntakeTalkModal({
   const stepsRef = useRef(steps);
 
   const resetStepSpeech = useCallback(() => {
-    setStepDraft("");
     setStepLive("");
-    stepDraftRef.current = "";
     sessionFinalRef.current = "";
     resultCursorRef.current = 0;
   }, []);
@@ -144,9 +138,7 @@ export function IntakeTalkModal({
       delete next[key];
       return next;
     });
-    setStepDraft("");
     setStepLive("");
-    stepDraftRef.current = "";
     sessionFinalRef.current = "";
     resultCursorRef.current = 0;
   }, []);
@@ -230,11 +222,7 @@ export function IntakeTalkModal({
       );
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
-      const composed = composeTalkText(
-        stepDraftRef.current,
-        spoken.sessionFinal,
-        spoken.live
-      );
+      const composed = composeTalkText("", spoken.sessionFinal, spoken.live);
       if (!spoken.sessionFinal.trim()) return;
       processUtterance(composed, true);
       resultCursorRef.current = ev.results.length;
@@ -252,10 +240,7 @@ export function IntakeTalkModal({
         }
         return;
       }
-      const pending = absorbCommitted(
-        stepDraftRef.current,
-        sessionFinalRef.current
-      );
+      const pending = sessionFinalRef.current.trim();
       sessionFinalRef.current = "";
       setStepLive("");
       if (pending.trim()) {
@@ -328,7 +313,7 @@ export function IntakeTalkModal({
   };
 
   const hasAnyStep = Object.values(steps).some((row) => row?.display);
-  const composedLive = liveTail(stepDraft, stepLive);
+  const composedLive = stepLive;
 
   return (
     <Modal

@@ -256,19 +256,15 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
 function firstDealFieldText(text: string): {
   dealType?: DealType;
   fieldText: string;
-  laterText: string;
-  laterDeal?: DealType;
 } {
   const hits = dealTypeHits(text);
   const first = hits[0];
-  if (!first) return { fieldText: text, laterText: "" };
+  if (!first) return { fieldText: text };
   const second = hits[1];
-  if (!second) return { dealType: first.key, fieldText: text, laterText: "" };
+  if (!second) return { dealType: first.key, fieldText: text };
   return {
     dealType: first.key,
     fieldText: maskUsedSpans(text, [{ start: second.index, end: text.length }]),
-    laterText: text.slice(second.index).trim(),
-    laterDeal: second.key,
   };
 }
 
