@@ -348,9 +348,26 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="칸 순서대로 진행합니다. 유/무 4항목은 순서 상관없이 말해도 됩니다. 앞 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
+      description="순서대로 마이크에 입력하세요."
+      dense
+      className="max-h-[min(92dvh,720px)]"
+      footer={
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" fullWidth onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            fullWidth
+            disabled={!hasAnyStep}
+            onClick={handleApply}
+            data-testid="intake-talk-apply"
+          >
+            반영하기
+          </Button>
+        </div>
+      }
     >
-      <ul className="mb-3 max-h-[min(52vh,420px)] space-y-1 overflow-y-auto rounded-2xl bg-gray-50 px-2 py-2">
+      <ul className="mb-3 max-h-[min(38dvh,320px)] space-y-1 overflow-y-auto rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
@@ -519,19 +536,6 @@ export function IntakeTalkModal({
           </button>
         </div>
       )}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button variant="secondary" fullWidth onClick={onClose}>
-          취소
-        </Button>
-        <Button
-          fullWidth
-          disabled={!hasAnyStep}
-          onClick={handleApply}
-          data-testid="intake-talk-apply"
-        >
-          반영하기
-        </Button>
-      </div>
     </Modal>
   );
 }
