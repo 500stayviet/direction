@@ -362,11 +362,14 @@ function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
 
 const YESNO_VALUE =
   "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
+  "가|불|" +
   "안(?:됨|돼(?:요)?|됩니다|되)?|안\\s*돼(?:요)?|안\\s*됨|안돼(?:요)?|안됩니다|" +
   "없(?:음|어요|어|습니다)?|불가(?:능)?(?:해요|합니다|함)?|무)";
 
 function yesNoFromToken(token: string): YesNo {
   const compact = token.replace(/\s+/g, "");
+  if (/^(불|무)$/.test(compact)) return "무";
+  if (/^(가|유)$/.test(compact)) return "유";
   return /없|불가|무|안돼|안됨|안되/.test(compact) ? "무" : "유";
 }
 
@@ -375,8 +378,17 @@ function yesNoLabelPattern(label: string): string {
   return label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function parseYesNo(text: string, labels: string[]): YesNo | undefined {
-  let found: { index: number; value: YesNo } | null = null;
+export const INTAKE_YESNO_FIELDS = {
+  loan: ["대출"],
+  insurance: ["보증보험", "전세보증보험", "보증 보험"],
+  parking: ["주차"],
+  elevator: ["엘리베이터", "엘베", "E/V", "EV"],
+} as const;
+
+export type IntakeYesNoField = keyof typeof INTAKE_YESNO_FIELDS;
+
+function matchYesNo(text: string, labels: string[]): { value: YesNo; end: number } | null {
+  let found: { index: number; value: YesNo; end: number } | null = null;
   for (const label of labels) {
     const re = new RegExp(
       `${yesNoLabelPattern(label)}(?:\\s*(?:가입|입)?\\s*)?\\s*(${YESNO_VALUE})`,
@@ -387,10 +399,34 @@ function parseYesNo(text: string, labels: string[]): YesNo | undefined {
       const token = m[1] ?? "";
       const value = yesNoFromToken(token);
       const index = m.index;
-      if (!found || index >= found.index) found = { index, value };
+      const end = index + m[0].length;
+      if (!found || index >= found.index) found = { index, value, end };
     }
   }
-  return found?.value;
+  return found ? { value: found.value, end: found.end } : null;
+}
+
+export function parseYesNoField(
+  text: string,
+  field: IntakeYesNoField
+): YesNo | undefined {
+  return matchYesNo(text, [...INTAKE_YESNO_FIELDS[field]])?.value;
+}
+
+export function consumeYesNoField(
+  text: string,
+  field: IntakeYesNoField
+): { value: YesNo; remainder: string } | null {
+  const hit = matchYesNo(text, [...INTAKE_YESNO_FIELDS[field]]);
+  if (!hit) return null;
+  return {
+    value: hit.value,
+    remainder: text.slice(hit.end).replace(/^\s+/, ""),
+  };
+}
+
+function parseYesNo(text: string, labels: string[]): YesNo | undefined {
+  return matchYesNo(text, labels)?.value;
 }
 
 export function parseAllYesNoFields(

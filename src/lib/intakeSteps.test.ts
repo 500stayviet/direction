@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
   parseIntakeStep,
   parseIntakeStepChain,
@@ -71,10 +72,41 @@ describe("intakeSteps", () => {
     assert.equal(dates.ok, true);
     assert.equal(dates.partial.moveInFrom, "2026-09-15");
 
-    const flags = parseIntakeStep(full, "flags", "customer", prior);
-    assert.equal(flags.ok, true);
-    assert.equal(flags.partial.loan, "무");
-    assert.equal(flags.partial.parking, "유");
+    const loan = parseIntakeStep(full, "loan", "customer", prior);
+    assert.equal(loan.ok, true);
+    assert.equal(loan.partial.loan, "무");
+
+    const parking = parseIntakeStep(full, "parking", "customer", prior);
+    assert.equal(parking.ok, true);
+    assert.equal(parking.partial.parking, "유");
+  });
+
+  it("대출 가·대출 가능도 유로 받는다", () => {
+    assert.equal(parseIntakeStep("대출 가", "loan", "property").partial.loan, "유");
+    assert.equal(parseIntakeStep("대출 가능", "loan", "property").partial.loan, "유");
+    assert.equal(parseIntakeStep("보증보험 불", "insurance", "property").partial.insurance, "무");
+  });
+
+  it("유/무 줄은 한 항목씩 채운 뒤 다음 줄로 넘긴다", () => {
+    const full = "대출 유 보증보험 무 주차 유 엘베 무";
+    const priorSteps = {
+      roomType: { roomType: "원룸", options: [] },
+      dealType: { dealType: "매매", options: [] },
+      location: { gu: "강동구", dong: "천호동", options: [] },
+      money: { deposit: 20000, options: [] },
+      dates: { moveInFrom: "2026-08-25", moveInTo: "2026-09-10", options: [] },
+    };
+    const loanIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "loan"
+    );
+    const chain = parseIntakeStepChain(full, loanIndex, "property", priorSteps);
+    assert.equal(chain.commits.length, 4);
+    assert.equal(chain.commits[0]?.key, "loan");
+    assert.equal(chain.commits[0]?.partial.loan, "유");
+    assert.equal(chain.commits[1]?.key, "insurance");
+    assert.equal(chain.commits[1]?.partial.insurance, "무");
+    assert.equal(chain.commits[2]?.key, "parking");
+    assert.equal(chain.commits[3]?.key, "elevator");
   });
 
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {

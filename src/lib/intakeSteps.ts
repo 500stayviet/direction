@@ -2,10 +2,12 @@ import type { IntakeGuideKey } from "@/lib/intakeGuideHits";
 import { intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
   normalizeIntakeInput,
-  parseAllYesNoFields,
   parseIntakeText,
+  parseYesNoField,
+  consumeYesNoField,
   type IntakeKind,
   type IntakeParseResult,
+  type IntakeYesNoField,
 } from "@/lib/intakeParse";
 
 export type IntakeStepKey = IntakeGuideKey;
@@ -29,7 +31,10 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "입주희망일",
       example: "○○월 ○○일    부터    ○○월 ○○일",
     },
-    { key: "flags", name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
+    { key: "loan", name: "대출", example: "유 · 무 · 가능 · 가" },
+    { key: "insurance", name: "보증보험", example: "유 · 무 · 불" },
+    { key: "parking", name: "주차", example: "유 · 무 · 가능" },
+    { key: "elevator", name: "엘베", example: "유 · 무 · 가능" },
     { key: "share", name: "팀공유 (유 / 무)" },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
@@ -43,7 +48,10 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임대가능일",
       example: "○○월 ○○일    부터    ○○월 ○○일",
     },
-    { key: "flags", name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
+    { key: "loan", name: "대출", example: "유 · 무 · 가능 · 가" },
+    { key: "insurance", name: "보증보험", example: "유 · 무 · 불" },
+    { key: "parking", name: "주차", example: "유 · 무 · 가능" },
+    { key: "elevator", name: "엘베", example: "유 · 무 · 가능" },
     {
       key: "contacts",
       name: "임차인 · 임대인 전화번호",
@@ -164,6 +172,24 @@ function stepParseInput(
   return [prefix, text].filter(Boolean).join(" ");
 }
 
+const YESNO_STEP_KEYS = new Set<IntakeStepKey>([
+  "loan",
+  "insurance",
+  "parking",
+  "elevator",
+]);
+
+function isYesNoStep(step: IntakeStepKey): step is IntakeYesNoField {
+  return YESNO_STEP_KEYS.has(step);
+}
+
+function yesNoStepDisplay(step: IntakeYesNoField, value: string): string {
+  if (step === "loan") return `대출 ${value}`;
+  if (step === "insurance") return `보증보험 ${value}`;
+  if (step === "parking") return `주차 ${value}`;
+  return `엘베 ${value}`;
+}
+
 function consumeAfterToken(
   text: string,
   token: string,
@@ -270,16 +296,9 @@ export function extractTalkStepRemainder(
     const end = datesConsumedEnd(text);
     return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
   }
-  if (step === "flags") {
-    let last = 0;
-    for (const m of text.matchAll(
-      /(?:대출|보증(?:보험)?|주차|엘베|엘리베이터|승강기)\s*(?:유|무|있|없|가능|불가|안(?:돼|됨|되)?)/g
-    )) {
-      if (m.index != null) {
-        last = Math.max(last, m.index + m[0].length);
-      }
-    }
-    return last > 0 ? text.slice(last).replace(/^\s+/, "") : "";
+  if (isYesNoStep(step)) {
+    const hit = consumeYesNoField(text, step);
+    return hit?.remainder ?? "";
   }
   if (step === "share" && partial.workspaceShared) {
     return consumeAfterToken(text, `팀공유 ${partial.workspaceShared}`, true);
@@ -375,16 +394,17 @@ export function parseIntakeStep(
     };
   }
 
-  if (step === "flags") {
-    const flags = parseAllYesNoFields(text);
-    const partial: Partial<IntakeParseResult> = { ...flags, options: [] };
-    const ok = Boolean(
-      flags.loan || flags.insurance || flags.parking || flags.elevator
-    );
+  if (isYesNoStep(step)) {
+    const value = parseYesNoField(text, step);
+    if (!value) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      [step]: value,
+      options: [],
+    };
     return {
-      ok,
+      ok: true,
       partial,
-      display: stepDisplay(partial, kind, step),
+      display: yesNoStepDisplay(step, value),
     };
   }
 

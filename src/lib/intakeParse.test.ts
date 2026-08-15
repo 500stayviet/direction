@@ -754,6 +754,18 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(parsed.notes, /1억|대출|보증보험|주차|엘베/);
   });
 
+  it("구어체·오타에 가/불·가능/불가 표현도 칸에 넣는다", () => {
+    const parsed = parseIntakeText(
+      "원룸 전세 암사동 대출 가 보증보험 불 주차 가능 엘베 없어요",
+      "property"
+    );
+    assert.equal(parsed.loan, "유");
+    assert.equal(parsed.insurance, "무");
+    assert.equal(parsed.parking, "유");
+    assert.equal(parsed.elevator, "무");
+    assert.doesNotMatch(parsed.notes, /대출|보증|주차|엘베/);
+  });
+
   it("구어체·오타에 가까운 유/무 표현도 칸에 넣는다", () => {
     const parsed = parseIntakeText(
       "원룸 전세 암사동 대출 안돼요 보증보험 불가 주차 안됨 엘베 없어요",

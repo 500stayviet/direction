@@ -23,7 +23,10 @@ export type IntakeGuideKey =
   | "location"
   | "money"
   | "dates"
-  | "flags"
+  | "loan"
+  | "insurance"
+  | "parking"
+  | "elevator"
   | "share"
   | "contacts"
   | "notes";
@@ -77,15 +80,6 @@ function formatLocationGuide(
   return [addr, parsed.roomNo].filter(Boolean).join(" ");
 }
 
-function formatFlagsGuide(parsed: IntakeParseResult): string {
-  const parts: string[] = [];
-  if (parsed.loan) parts.push(`대출 ${parsed.loan}`);
-  if (parsed.insurance) parts.push(`보증보험 ${parsed.insurance}`);
-  if (parsed.parking) parts.push(`주차 ${parsed.parking}`);
-  if (parsed.elevator) parts.push(`엘베 ${parsed.elevator}`);
-  return parts.join(" · ");
-}
-
 function formatContactsGuide(parsed: IntakeParseResult): string {
   const parts: string[] = [];
   if (parsed.tenantPhone) {
@@ -131,8 +125,10 @@ export function intakeGuideHits(
     if (move) hits.dates = formatMoveInRange(move.from, move.to);
   }
 
-  const flags = formatFlagsGuide(parsed);
-  if (flags) hits.flags = flags;
+  if (parsed.loan) hits.loan = `대출 ${parsed.loan}`;
+  if (parsed.insurance) hits.insurance = `보증보험 ${parsed.insurance}`;
+  if (parsed.parking) hits.parking = `주차 ${parsed.parking}`;
+  if (parsed.elevator) hits.elevator = `엘베 ${parsed.elevator}`;
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
 
   const notes = parsed.notes.trim();
