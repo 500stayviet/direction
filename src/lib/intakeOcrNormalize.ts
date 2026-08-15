@@ -1,3 +1,5 @@
+import { normalizeIntakeInput } from "@/lib/intakeParse";
+
 const OCR_FORM_LABELS = [
   "고객명 또는 명칭",
   "입주희망일",
@@ -36,17 +38,9 @@ const OCR_FORM_LABELS = [
   "매매가",
   "보증금",
   "관리비",
-  "화장실",
-  "엘리베이터",
   "보증보험",
   "팀공유",
   "팀 공유",
-  "임차인",
-  "임대인",
-  "연락처",
-  "대출",
-  "주차",
-  "엘베",
 ];
 
 /** 사진 OCR 결과를 메시지 파서에 맞게 정리 */
@@ -64,5 +58,26 @@ export function normalizeOcrIntakeText(raw: string): string {
   for (const label of OCR_FORM_LABELS) {
     text = text.split(label).join(" ");
   }
-  return text.replace(/\s+/g, " ").trim();
+  text = text.replace(/\s+/g, " ").trim();
+
+  text = text.replace(
+    /(\d{2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/g,
+    "$1.$2.$3"
+  );
+  text = text.replace(
+    /(\d+(?:\.\d+)?)\s*억\s*[\/／]\s*(\d+(?:\.\d+)?)(?:\s*[\/／]\s*관\s*(\d+))?/g,
+    (_, eok, rent, fee) =>
+      fee != null ? `${eok}억/${rent}/관${fee}` : `${eok}억/${rent}`
+  );
+  text = text.replace(/(\d{1,3})\s*,\s*(\d{3})\s*만/g, "$1$2만");
+  text = text.replace(/(?<!\d)(\d{1,3})\s+(\d{3})\s*만(?!\d)/g, "$1$2만");
+  text = text.replace(/방\s*([1-5])\s*화\s*([1-4])/g, "방$1화$2");
+  text = text.replace(/실\s*입주/g, "실입주");
+  text = text.replace(/현\s*임\s*(?:차\s*)?인/g, "현임차인");
+  text = text.replace(
+    /(\d{1,5}\s*[-−~]\s*\d{1,5})\s+((?:[가-힣A-Za-z0-9]+\s+)+[가-힣A-Za-z0-9]+)\s+(\d+\s*호)/g,
+    (_, jibun, name, ho) => `${jibun} ${name.replace(/\s+/g, "")} ${ho}`
+  );
+
+  return normalizeIntakeInput(text);
 }
