@@ -177,10 +177,6 @@ export function IntakeTalkModal({
           commitStep(key, parsed.partial, parsed.display);
           return true;
         }
-        if (fromSpeech) {
-          stepDraftRef.current = text;
-          setStepDraft(text);
-        }
         return false;
       }
 
@@ -192,6 +188,16 @@ export function IntakeTalkModal({
     },
     [clearStep, commitStep, kind, guide]
   );
+
+  const restartAfterUtterance = useCallback((rec: SpeechRec) => {
+    skipOnEndOnceRef.current = true;
+    resetStepSpeech();
+    try {
+      rec.stop();
+    } catch {
+      /* ignore */
+    }
+  }, [resetStepSpeech]);
 
   const setListeningBoth = (next: boolean) => {
     listeningRef.current = next;
@@ -230,15 +236,9 @@ export function IntakeTalkModal({
         spoken.live
       );
       if (!spoken.sessionFinal.trim()) return;
-      const ok = processUtterance(composed, true);
-      if (!ok) return;
+      processUtterance(composed, true);
       resultCursorRef.current = ev.results.length;
-      skipOnEndOnceRef.current = true;
-      try {
-        rec.stop();
-      } catch {
-        /* ignore */
-      }
+      restartAfterUtterance(rec);
     };
     rec.onend = () => {
       if (skipOnEndOnceRef.current) {
@@ -252,23 +252,20 @@ export function IntakeTalkModal({
         }
         return;
       }
-      const locked = absorbCommitted(stepDraftRef.current, sessionFinalRef.current);
-      stepDraftRef.current = locked;
-      setStepDraft(locked);
+      const pending = absorbCommitted(
+        stepDraftRef.current,
+        sessionFinalRef.current
+      );
       sessionFinalRef.current = "";
       setStepLive("");
-      if (locked.trim()) {
-        const ok = processUtterance(locked, false);
+      if (pending.trim()) {
+        const ok = processUtterance(pending, false);
         if (ok) {
-          skipOnEndOnceRef.current = true;
-          try {
-            rec.stop();
-          } catch {
-            /* ignore */
-          }
+          restartAfterUtterance(rec);
           return;
         }
       }
+      resetStepSpeech();
       if (!listeningRef.current) return;
       try {
         rec.start();
@@ -282,7 +279,7 @@ export function IntakeTalkModal({
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     recRef.current = rec;
-  }, [open, processUtterance, resetWizard]);
+  }, [open, processUtterance, resetWizard, restartAfterUtterance]);
 
   const toggleListen = () => {
     const rec = recRef.current;
@@ -338,7 +335,7 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="한 항목씩 말해 주세요. 인식되면 다음 항목으로 넘어갑니다."
+      description="한 항목씩 말해 주세요. 해당 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
     >
       <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
