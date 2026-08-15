@@ -58,7 +58,6 @@ export type IntakeStepParseOutcome = {
   ok: boolean;
   partial: Partial<IntakeParseResult>;
   display: string;
-  remainder?: string;
 };
 
 export type IntakeStepCancelSplit = {

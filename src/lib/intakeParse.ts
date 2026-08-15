@@ -1154,7 +1154,7 @@ function isNameCandidate(word: string): boolean {
   if (NAME_STOP.has(word)) return false;
   if (/층$/.test(word)) return false;
   if (isKnownSeoulDong(word)) return false;
-  if ((SEOUL_GU_LIST as readonly string[]).includes(word)) return false;
+  if (SEOUL_GU_LIST.some((gu) => gu === word)) return false;
   if (SEOUL_GU_LIST.some((gu) => gu.replace(/구$/, "") === word)) return false;
   return true;
 }
