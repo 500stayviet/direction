@@ -401,20 +401,6 @@ export function IntakeTalkModal({
         })}
       </ul>
 
-      <div className="mb-2 grid grid-cols-2 gap-2">
-        <Button
-          variant="secondary"
-          fullWidth
-          disabled={activeIndex === 0}
-          onClick={goPrevious}
-        >
-          이전
-        </Button>
-        <Button variant="secondary" fullWidth onClick={skipCurrent}>
-          건너뛰기
-        </Button>
-      </div>
-
       <TextArea
         label="대화"
         value={dialogueLog}
@@ -430,30 +416,61 @@ export function IntakeTalkModal({
       {error ? (
         <p className="mt-1.5 text-[12px] font-semibold text-red-400">{error}</p>
       ) : null}
-      <button
-        type="button"
-        className={[
-          "mt-2 inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
-          "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
-          listening
-            ? "border-2 border-red-500 bg-white text-red-600"
-            : "bg-red-500 text-white hover:bg-red-600",
-        ].join(" ")}
-        onClick={toggleListen}
-        disabled={!recRef.current && Boolean(error)}
-      >
-        {listening ? (
-          <>
+      {!listening ? (
+        <button
+          type="button"
+          className={[
+            "mt-2 inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
+            "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
+            "bg-red-500 text-white hover:bg-red-600",
+          ].join(" ")}
+          onClick={toggleListen}
+          disabled={!recRef.current && Boolean(error)}
+        >
+          대화 시작
+        </button>
+      ) : (
+        <div className="mt-2 grid grid-cols-[48px_1fr_48px] items-center gap-2 rounded-2xl border-2 border-red-500 bg-white px-2 py-2">
+          <button
+            type="button"
+            aria-label="이전"
+            disabled={activeIndex === 0}
+            onClick={goPrevious}
+            className={[
+              "inline-flex h-11 w-11 items-center justify-center rounded-xl text-[22px] font-bold leading-none",
+              "text-gray-700 active:scale-95 transition-transform",
+              "disabled:opacity-30 disabled:active:scale-100",
+            ].join(" ")}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={toggleListen}
+            className={[
+              "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-2",
+              "text-[15px] font-semibold text-red-600 active:scale-[0.99] transition-transform",
+            ].join(" ")}
+          >
             <span
               className="rec-dot-blink h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
               aria-hidden
             />
             듣는 중
-          </>
-        ) : (
-          "대화 시작"
-        )}
-      </button>
+          </button>
+          <button
+            type="button"
+            aria-label="건너뛰기"
+            onClick={skipCurrent}
+            className={[
+              "inline-flex h-11 w-11 items-center justify-center rounded-xl text-[22px] font-bold leading-none",
+              "text-gray-700 active:scale-95 transition-transform",
+            ].join(" ")}
+          >
+            →
+          </button>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Button variant="secondary" fullWidth onClick={onClose}>
           취소
