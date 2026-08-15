@@ -88,6 +88,20 @@ describe("intakeSteps", () => {
     assert.equal(money.partial.deposit, 20000);
   });
 
+  it("전체 문장의 매매 1억은 거래가액 칸에 넣는다", () => {
+    const prior = {
+      roomType: "원룸" as const,
+      dealType: "매매" as const,
+      dong: "성내동",
+      gu: "강동구",
+      options: [] as string[],
+    };
+    const full = "원룸 매매 강동구 성내동 매매 1억";
+    const money = parseIntakeStep(full, "money", "property", prior);
+    assert.equal(money.ok, true);
+    assert.equal(money.partial.deposit, 10000);
+  });
+
   it("대화 고객명 줄은 첫 단어만 칸에 넣는다", () => {
     assert.equal(parseIntakeStep("홍길동", "name", "customer").partial.name, "홍길동");
     assert.equal(parseIntakeStep("명칭 성내", "name", "customer").partial.name, "성내");

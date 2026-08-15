@@ -252,6 +252,12 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
   return unique;
 }
 
+/** 매매 1억·매매가 2억처럼 거래종류 토큰 뒤에 바로 가격이 오는지 */
+function isSalePriceAfterMaemae(text: string, index: number): boolean {
+  const tail = text.slice(index + "매매".length);
+  return /^(?:가)?\s*\d+(?:\.\d+)?\s*억/.test(tail);
+}
+
 /** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세부터는 칸에서 뺌 */
 function firstDealFieldText(text: string): {
   dealType?: DealType;
@@ -262,6 +268,14 @@ function firstDealFieldText(text: string): {
   if (!first) return { fieldText: text };
   const second = hits[1];
   if (!second) return { dealType: first.key, fieldText: text };
+  // 앞 거래가 매매일 때 뒤 "매매 1억"은 가격 표현 — 잘라내지 않음
+  if (
+    first.key === "매매" &&
+    second.key === "매매" &&
+    isSalePriceAfterMaemae(text, second.index)
+  ) {
+    return { dealType: first.key, fieldText: text };
+  }
   return {
     dealType: first.key,
     fieldText: maskUsedSpans(text, [{ start: second.index, end: text.length }]),

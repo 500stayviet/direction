@@ -766,6 +766,17 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(parsed.notes, /대출|보증|주차|엘베/);
   });
 
+  it("매매 1억(가 없음)도 거래가액 칸에 넣는다", () => {
+    const parsed = parseIntakeText(
+      "원룸 매매 강동구 성내동 매매 1억",
+      "property"
+    );
+    assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.dealType, "매매");
+    assert.equal(parsed.deposit, 10000);
+    assert.doesNotMatch(parsed.notes, /1억|매매/);
+  });
+
   it("매매가 1억원·8월25부터 구어체 날짜도 칸에 넣는다", () => {
     const today = new Date(2026, 7, 15);
     const parsed = parseIntakeText(
