@@ -18,6 +18,7 @@ import {
   type IntakeStepKey,
 } from "@/lib/intakeSteps";
 import {
+  absorbCommitted,
   composeTalkText,
   readSpeechResultsSince,
 } from "@/lib/speechTranscript";
@@ -72,6 +73,11 @@ function buildDialogueLogForKind(
     .join(" ");
 }
 
+function composeDialogueDisplay(confirmed: string, preview: string): string {
+  const parts = [confirmed.trim(), preview.trim()].filter(Boolean);
+  return parts.join(" ");
+}
+
 export function IntakeTalkModal({
   open,
   kind,
@@ -89,6 +95,7 @@ export function IntakeTalkModal({
     {}
   );
   const [dialogueLog, setDialogueLog] = useState("");
+  const [dialoguePreview, setDialoguePreview] = useState("");
   const [stepLive, setStepLive] = useState("");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
@@ -96,6 +103,8 @@ export function IntakeTalkModal({
 
   const recRef = useRef<SpeechRec | null>(null);
   const sessionFinalRef = useRef("");
+  const stepSpeechRef = useRef("");
+  const processedResultIndexRef = useRef(0);
   const listeningRef = useRef(false);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
@@ -103,6 +112,17 @@ export function IntakeTalkModal({
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
+    setDialoguePreview("");
+    sessionFinalRef.current = "";
+  }, []);
+
+  const clearStepSpeechBuffer = useCallback(() => {
+    stepSpeechRef.current = "";
+  }, []);
+
+  const clearSpeechAfterCommit = useCallback(() => {
+    setStepLive("");
+    setDialoguePreview("");
     sessionFinalRef.current = "";
   }, []);
 
@@ -120,12 +140,16 @@ export function IntakeTalkModal({
   useEffect(() => {
     activeIndexRef.current = activeIndex;
     resetStepSpeech();
-  }, [activeIndex, resetStepSpeech]);
+    clearStepSpeechBuffer();
+  }, [activeIndex, clearStepSpeechBuffer, resetStepSpeech]);
 
   const resetWizard = useCallback(() => {
     setActiveIndex(0);
     setSteps({});
     setDialogueLog("");
+    setDialoguePreview("");
+    stepSpeechRef.current = "";
+    processedResultIndexRef.current = 0;
     resetStepSpeech();
   }, [resetStepSpeech]);
 
@@ -143,15 +167,21 @@ export function IntakeTalkModal({
       if (idx >= 0 && idx < guide.length - 1) {
         setActiveIndex(idx + 1);
       }
-      resetStepSpeech();
+      clearStepSpeechBuffer();
+      if (listeningRef.current) {
+        clearSpeechAfterCommit();
+      } else {
+        resetStepSpeech();
+      }
     },
-    [guide, resetStepSpeech, syncDialogueLog]
+    [clearSpeechAfterCommit, clearStepSpeechBuffer, guide, resetStepSpeech, syncDialogueLog]
   );
 
   const applySteps = useCallback(
     (
       nextSteps: Partial<Record<IntakeStepKey, StepRecord>>,
-      nextIndex: number
+      nextIndex: number,
+      fromIndex: number
     ) => {
       stepsRef.current = nextSteps;
       setSteps(nextSteps);
@@ -159,9 +189,25 @@ export function IntakeTalkModal({
       setActiveIndex(
         nextIndex >= guide.length ? guide.length - 1 : nextIndex
       );
-      resetStepSpeech();
+      const fromKey = guide[fromIndex]?.key;
+      const flagsDone =
+        fromKey === "flags" && flagsStepComplete(nextSteps.flags?.partial);
+      if (fromKey === "flags" && !flagsDone) {
+        if (listeningRef.current) {
+          clearSpeechAfterCommit();
+        } else {
+          resetStepSpeech();
+        }
+        return;
+      }
+      clearStepSpeechBuffer();
+      if (listeningRef.current) {
+        clearSpeechAfterCommit();
+      } else {
+        resetStepSpeech();
+      }
     },
-    [guide.length, resetStepSpeech, syncDialogueLog]
+    [clearSpeechAfterCommit, clearStepSpeechBuffer, guide, resetStepSpeech, syncDialogueLog]
   );
 
   const clearStep = useCallback(
@@ -174,8 +220,9 @@ export function IntakeTalkModal({
       });
       setStepLive("");
       sessionFinalRef.current = "";
+      clearStepSpeechBuffer();
     },
-    [syncDialogueLog]
+    [clearStepSpeechBuffer, syncDialogueLog]
   );
 
   const processUtterance = useCallback(
@@ -197,9 +244,12 @@ export function IntakeTalkModal({
       const { cancel, remainder } = splitIntakeStepCancel(trimmed);
       if (cancel && !remainder) {
         clearStep(key);
+        clearStepSpeechBuffer();
         return true;
       }
-      const text = remainder || trimmed;
+      const piece = remainder || trimmed;
+      stepSpeechRef.current = absorbCommitted(stepSpeechRef.current, piece);
+      const text = stepSpeechRef.current;
       const chain = parseIntakeStepChain(
         text,
         startIndex,
@@ -216,10 +266,55 @@ export function IntakeTalkModal({
           skipped: false,
         };
       }
-      applySteps(nextSteps, chain.nextIndex);
+      applySteps(nextSteps, chain.nextIndex, startIndex);
       return true;
     },
-    [applySteps, clearStep, commitStep, kind, guide]
+    [applySteps, clearStep, clearStepSpeechBuffer, commitStep, kind, guide]
+  );
+
+  const flushSpeechPreview = useCallback(
+    (
+      results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
+      live: string
+    ) => {
+      let pendingFinal = "";
+      for (
+        let i = processedResultIndexRef.current;
+        i < results.length;
+        i += 1
+      ) {
+        const row = results[i];
+        if (!row?.isFinal) continue;
+        const piece = (row[0]?.transcript ?? "").replace(/\s+/g, " ").trim();
+        if (piece) {
+          pendingFinal = absorbCommitted(pendingFinal, piece);
+        }
+      }
+      setDialoguePreview(composeTalkText("", pendingFinal, live));
+    },
+    []
+  );
+
+  const processNewFinalResults = useCallback(
+    (
+      results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
+    ) => {
+      for (
+        let i = processedResultIndexRef.current;
+        i < results.length;
+        i += 1
+      ) {
+        const row = results[i];
+        if (!row?.isFinal) continue;
+        const piece = (row[0]?.transcript ?? "").replace(/\s+/g, " ").trim();
+        if (piece) {
+          if (processUtteranceRef.current(piece)) {
+            processedResultIndexRef.current = i + 1;
+          }
+        }
+      }
+    },
+    []
   );
 
   useEffect(() => {
@@ -247,13 +342,12 @@ export function IntakeTalkModal({
       const spoken = readSpeechResultsSince(ev.results, 0);
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
+      flushSpeechPreview(ev.results, spoken.live);
+      processNewFinalResults(ev.results);
     };
     rec.onend = () => {
-      const pending = composeTalkText("", sessionFinalRef.current, "").trim();
       resetStepSpeech();
-      if (pending) {
-        processUtteranceRef.current(pending);
-      }
+      processedResultIndexRef.current = 0;
       if (!listeningRef.current) return;
       const fresh = buildRecognition();
       if (!fresh) {
@@ -277,7 +371,7 @@ export function IntakeTalkModal({
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     return rec;
-  }, [resetStepSpeech, stopRecognition]);
+  }, [flushSpeechPreview, processNewFinalResults, resetStepSpeech, stopRecognition]);
 
   useEffect(() => {
     if (!open) {
@@ -302,6 +396,8 @@ export function IntakeTalkModal({
     setActiveIndex(resumeIndex);
     activeIndexRef.current = resumeIndex;
     resetStepSpeech();
+    clearStepSpeechBuffer();
+    processedResultIndexRef.current = 0;
     stopRecognition();
     const rec = buildRecognition();
     if (!rec) {
@@ -345,6 +441,7 @@ export function IntakeTalkModal({
       setActiveIndex((idx) => idx + 1);
     }
     resetStepSpeech();
+    clearStepSpeechBuffer();
   };
 
   const handleApply = () => {
@@ -354,6 +451,7 @@ export function IntakeTalkModal({
   const hasAnyStep = Object.values(steps).some((row) => row?.display);
   const hasProgress = hasAnyStep || activeIndex > 0;
   const composedLive = stepLive;
+  const dialogueDisplay = composeDialogueDisplay(dialogueLog, dialoguePreview);
 
   return (
     <Modal
@@ -505,7 +603,7 @@ export function IntakeTalkModal({
                     ].join(" ")}
                   >
                     {active && composedLive.trim()
-                      ? composedLive
+                      ? [flagsValues, composedLive].filter(Boolean).join(" · ")
                       : flagsValues}
                   </span>
                 ) : isFlags ? (
@@ -555,7 +653,7 @@ export function IntakeTalkModal({
 
       <TextArea
         label="대화"
-        value={dialogueLog}
+        value={dialogueDisplay}
         readOnly
         placeholder="확정된 말이 여기에 쌓입니다"
         className="min-h-[56px]"

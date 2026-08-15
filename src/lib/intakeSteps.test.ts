@@ -6,6 +6,7 @@ import {
   parseIntakeStep,
   parseIntakeStepChain,
   firstIncompleteGuideIndex,
+  flagsStepComplete,
   splitIntakeStepCancel,
 } from "./intakeSteps.ts";
 
@@ -107,6 +108,45 @@ describe("intakeSteps", () => {
     assert.equal(step.partial.parking, "유");
     assert.equal(step.partial.loan, "무");
     assert.equal(step.partial.insurance, "유");
+  });
+
+  it("보증 가·보증 가능·보증 유도 보증보험으로 받는다", () => {
+    assert.equal(
+      parseIntakeStep("보증 가", "flags", "property").partial.insurance,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("보증 가능", "flags", "property").partial.insurance,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("보증 유", "flags", "property").partial.insurance,
+      "유"
+    );
+    assert.equal(parseIntakeStep("보증", "flags", "property").ok, false);
+  });
+
+  it("flags 칸은 여러 구절을 이어 붙여도 누적된다", () => {
+    let prior: Partial<IntakeParseResult> = { options: [] };
+    const first = parseIntakeStep("대출 가능", "flags", "property", prior);
+    assert.equal(first.partial.loan, "유");
+    prior = { ...prior, ...first.partial };
+    const second = parseIntakeStep(
+      "대출 가능 보증 불가",
+      "flags",
+      "property",
+      prior
+    );
+    assert.equal(second.partial.loan, "유");
+    assert.equal(second.partial.insurance, "무");
+    prior = { ...prior, ...second.partial };
+    const third = parseIntakeStep(
+      "대출 가능 보증 불가 주차 가능 엘베 불가",
+      "flags",
+      "property",
+      prior
+    );
+    assert.equal(flagsStepComplete(third.partial), true);
   });
 
   it("보증만 말해도 보증보험 유/무로 받는다", () => {
