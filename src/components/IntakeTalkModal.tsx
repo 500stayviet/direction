@@ -430,25 +430,25 @@ export function IntakeTalkModal({
           대화 시작
         </button>
       ) : (
-        <div className="mt-2 grid grid-cols-[48px_1fr_48px] items-center gap-2 rounded-2xl border-2 border-red-500 bg-white px-2 py-2">
+        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-2xl border-2 border-red-500 bg-white px-1.5 py-2">
           <button
             type="button"
-            aria-label="이전"
             disabled={activeIndex === 0}
             onClick={goPrevious}
             className={[
-              "inline-flex h-11 w-11 items-center justify-center rounded-xl text-[22px] font-bold leading-none",
+              "inline-flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl px-1",
               "text-gray-700 active:scale-95 transition-transform",
               "disabled:opacity-30 disabled:active:scale-100",
             ].join(" ")}
           >
-            ←
+            <span className="text-[20px] font-bold leading-none">&lt;</span>
+            <span className="text-[11px] font-semibold leading-none">이전</span>
           </button>
           <button
             type="button"
             onClick={toggleListen}
             className={[
-              "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-2",
+              "inline-flex min-h-[48px] min-w-[96px] items-center justify-center gap-2 rounded-xl px-3",
               "text-[15px] font-semibold text-red-600 active:scale-[0.99] transition-transform",
             ].join(" ")}
           >
@@ -460,14 +460,14 @@ export function IntakeTalkModal({
           </button>
           <button
             type="button"
-            aria-label="건너뛰기"
             onClick={skipCurrent}
             className={[
-              "inline-flex h-11 w-11 items-center justify-center rounded-xl text-[22px] font-bold leading-none",
+              "inline-flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl px-1",
               "text-gray-700 active:scale-95 transition-transform",
             ].join(" ")}
           >
-            →
+            <span className="text-[20px] font-bold leading-none">&gt;</span>
+            <span className="text-[11px] font-semibold leading-none">건너뛰기</span>
           </button>
         </div>
       )}
