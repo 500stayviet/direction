@@ -328,8 +328,17 @@ export function IntakeTalkModal({
                     {row?.display}
                   </span>
                 ) : active ? (
-                  <span className="ml-2.5 text-[13px] font-medium text-blue-700">
-                    {composedLive.trim() ? composedLive : "지금 말씀해 주세요"}
+                  <span
+                    className={[
+                      "ml-2.5 text-[13px] font-medium text-blue-700",
+                      !composedLive.trim() && line.example ? "whitespace-pre" : "",
+                    ].join(" ")}
+                  >
+                    {composedLive.trim()
+                      ? composedLive
+                      : line.example
+                        ? `예) ${line.example}`
+                        : null}
                   </span>
                 ) : line.example ? (
                   <span className="ml-2.5 whitespace-pre text-[13px] font-medium text-gray-500">
