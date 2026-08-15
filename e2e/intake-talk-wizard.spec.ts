@@ -89,7 +89,7 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
       "원룸"
     );
 
-    await page.getByTestId("intake-guide-row-roomType").click();
+    await page.getByRole("button", { name: "이전" }).click();
     await emitTalkStep(page, "삭제");
     await expect(page.getByTestId("intake-guide-row-roomType")).not.toContainText(
       "원룸"

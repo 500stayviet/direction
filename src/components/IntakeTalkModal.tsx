@@ -277,11 +277,6 @@ export function IntakeTalkModal({
     resetStepSpeech();
   };
 
-  const jumpToStep = (index: number) => {
-    setActiveIndex(index);
-    resetStepSpeech();
-  };
-
   const handleApply = () => {
     onApply(buildIntakeFromSteps(stepPartialsFromRecords(steps), kind));
   };
@@ -325,20 +320,12 @@ export function IntakeTalkModal({
               >
                 ▶
               </span>
-              <button
-                type="button"
-                disabled={!done && !active && !flagsValues}
-                onClick={() => {
-                  if (done || active || flagsValues) jumpToStep(index);
-                }}
+              <div
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
                   isFlags ? "flex flex-col gap-0.5" : "flex items-baseline",
                   activeRowClass(active, done),
-                  done || active || flagsValues
-                    ? "cursor-pointer active:scale-[0.99] transition-transform"
-                    : "cursor-default",
                 ].join(" ")}
               >
                 <span
@@ -395,7 +382,7 @@ export function IntakeTalkModal({
                     예) {line.example}
                   </span>
                 ) : null}
-              </button>
+              </div>
             </li>
           );
         })}
