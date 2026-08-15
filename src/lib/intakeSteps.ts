@@ -58,6 +58,7 @@ export type IntakeStepParseOutcome = {
   ok: boolean;
   partial: Partial<IntakeParseResult>;
   display: string;
+  remainder?: string;
 };
 
 export type IntakeStepCancelSplit = {
@@ -162,6 +163,185 @@ function stepParseInput(
   if (!prefix) return text;
   if (prior?.dealType && hasStandaloneDealType(text, prior.dealType)) return text;
   return [prefix, text].filter(Boolean).join(" ");
+}
+
+function consumeAfterToken(
+  text: string,
+  token: string,
+  preferLast = false
+): string {
+  const idx = preferLast ? text.lastIndexOf(token) : text.indexOf(token);
+  if (idx < 0) return text;
+  return text.slice(idx + token.length).replace(/^\s+/, "");
+}
+
+function locationConsumedEnd(
+  text: string,
+  partial: Partial<IntakeParseResult>,
+  kind: IntakeKind
+): number {
+  let end = 0;
+  const bump = (token?: string) => {
+    if (!token) return;
+    const idx = text.lastIndexOf(token);
+    if (idx >= 0) end = Math.max(end, idx + token.length);
+  };
+  bump(partial.roomNo);
+  bump(partial.jibun);
+  bump(partial.dong);
+  if (kind === "property") bump(partial.gu);
+  if (kind === "customer") {
+    for (const place of partial.places ?? []) {
+      bump(place.dong);
+      bump(place.gu);
+    }
+    bump(partial.gu);
+    bump(partial.dong);
+  }
+  return end;
+}
+
+const TALK_MONEY_SPAN =
+  /(?:매매(?:가)?|전세(?:가)?|보증금|보증|월세)\s*(?:\d+(?:\.\d+)?\s*(?:억(?:\s*\d+(?:\.\d+)?\s*(?:천|만))?|만)|\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?)|(?:^|\s)(\d+(?:\.\d+)?\s*억(?:\s*\d+(?:\.\d+)?\s*(?:천|만))?)/g;
+
+function moneyConsumedEnd(text: string): number {
+  let end = 0;
+  for (const m of text.matchAll(TALK_MONEY_SPAN)) {
+    if (m.index != null) end = Math.max(end, m.index + m[0].length);
+  }
+  return end;
+}
+
+const TALK_DATE_SPAN =
+  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터|까지))?|\d+\s*월\s*\d+)/g;
+
+function datesConsumedEnd(text: string): number {
+  let end = 0;
+  for (const m of text.matchAll(TALK_DATE_SPAN)) {
+    if (m.index != null) end = Math.max(end, m.index + m[0].length);
+  }
+  return end;
+}
+
+/** 한 발화에서 현재 단계를 채운 뒤, 남은 글을 다음 단계 입력으로 넘긴다 */
+export function extractTalkStepRemainder(
+  raw: string,
+  step: IntakeStepKey,
+  partial: Partial<IntakeParseResult>,
+  kind: IntakeKind
+): string {
+  const text = normalizeIntakeInput(raw);
+  if (!text) return "";
+
+  if (step === "name" && partial.name) {
+    return consumeAfterToken(text, partial.name);
+  }
+  if (step === "phone" && partial.phone) {
+    const digits = partial.phone.replace(/\D/g, "");
+    const idx = text.replace(/\D/g, "").indexOf(digits);
+    if (idx >= 0) {
+      let seen = 0;
+      for (let i = 0; i < text.length; i += 1) {
+        if (/\d/.test(text[i] ?? "")) {
+          if (seen === idx) return text.slice(i + digits.length).replace(/^\s+/, "");
+          seen += 1;
+        }
+      }
+    }
+    return consumeAfterToken(text, partial.phone, true);
+  }
+  if (step === "roomType" && partial.roomType) {
+    return consumeAfterToken(text, partial.roomType);
+  }
+  if (step === "dealType" && partial.dealType) {
+    return consumeAfterToken(text, partial.dealType);
+  }
+  if (step === "location") {
+    const end = locationConsumedEnd(text, partial, kind);
+    return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
+  }
+  if (step === "money" && (partial.deposit || partial.monthlyRent)) {
+    const end = moneyConsumedEnd(text);
+    return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
+  }
+  if (
+    step === "dates" &&
+    (partial.moveInFrom || partial.moveInImmediate)
+  ) {
+    const end = datesConsumedEnd(text);
+    return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
+  }
+  if (step === "flags") {
+    let last = 0;
+    for (const m of text.matchAll(
+      /(?:대출|보증(?:보험)?|주차|엘베|엘리베이터|승강기)\s*(?:유|무|있|없|가능|불가|안(?:돼|됨|되)?)/g
+    )) {
+      if (m.index != null) {
+        last = Math.max(last, m.index + m[0].length);
+      }
+    }
+    return last > 0 ? text.slice(last).replace(/^\s+/, "") : "";
+  }
+  if (step === "share" && partial.workspaceShared) {
+    return consumeAfterToken(text, `팀공유 ${partial.workspaceShared}`, true);
+  }
+  if (
+    step === "contacts" &&
+    (partial.phone || partial.tenantPhone || partial.landlordPhone)
+  ) {
+    const phone = partial.landlordPhone || partial.tenantPhone || partial.phone;
+    if (phone) return consumeAfterToken(text, phone.replace(/-/g, ""), true);
+  }
+  return "";
+}
+
+export type IntakeStepChainResult = {
+  commits: Array<{
+    key: IntakeStepKey;
+    partial: Partial<IntakeParseResult>;
+    display: string;
+  }>;
+  nextIndex: number;
+  leftover: string;
+};
+
+/** 현재 줄부터 연속으로 맞는 칸을 채운다. 메모 줄은 자동으로 넘기지 않는다 */
+export function parseIntakeStepChain(
+  raw: string,
+  startIndex: number,
+  kind: IntakeKind,
+  existingSteps: Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>>,
+  today: Date = new Date()
+): IntakeStepChainResult {
+  const guide = INTAKE_GUIDE_STEPS[kind];
+  const steps = { ...existingSteps };
+  const commits: IntakeStepChainResult["commits"] = [];
+  let text = normalizeIntakeInput(raw);
+  let index = startIndex;
+
+  while (index < guide.length && text) {
+    const key = guide[index]?.key;
+    if (!key || key === "notes") break;
+
+    const { cancel, remainder: cancelText } = splitIntakeStepCancel(text);
+    if (cancel && !cancelText) break;
+    if (cancelText) text = cancelText;
+
+    const prior = priorStepsMerged(steps, kind, index);
+    const parsed = parseIntakeStep(text, key, kind, prior, today);
+    if (!parsed.ok) break;
+
+    commits.push({
+      key,
+      partial: parsed.partial,
+      display: parsed.display,
+    });
+    steps[key] = parsed.partial;
+    text = extractTalkStepRemainder(text, key, parsed.partial, kind);
+    index += 1;
+  }
+
+  return { commits, nextIndex: index, leftover: text.trim() };
 }
 
 export function parseIntakeStep(

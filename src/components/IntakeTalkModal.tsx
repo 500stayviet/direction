@@ -8,8 +8,7 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
-  parseIntakeStep,
-  priorStepsMerged,
+  parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
   type IntakeStepKey,
@@ -145,40 +144,53 @@ export function IntakeTalkModal({
 
   const processUtterance = useCallback(
     (raw: string, fromSpeech: boolean) => {
-      const key = guide[activeIndexRef.current]?.key;
+      const startIndex = activeIndexRef.current;
+      const key = guide[startIndex]?.key;
       if (!key) return false;
 
       const trimmed = raw.trim();
       if (!trimmed) return false;
 
-      if (key !== "notes") {
-        const { cancel, remainder } = splitIntakeStepCancel(trimmed);
-        if (cancel && !remainder) {
-          clearStep(key);
-          return true;
-        }
-        const text = remainder || trimmed;
-        const prior = priorStepsMerged(
-          stepPartialsFromRecords(stepsRef.current),
-          kind,
-          activeIndexRef.current
-        );
-        const parsed = parseIntakeStep(text, key, kind, prior);
-        if (parsed.ok) {
-          if (fromSpeech) appendDialogue(parsed.display || text);
-          commitStep(key, parsed.partial, parsed.display);
-          return true;
-        }
-        return false;
+      if (key === "notes") {
+        const notes = trimmed.replace(/^메모\s*[:：.]?\s*/, "").trim();
+        if (!notes) return false;
+        if (fromSpeech) appendDialogue(notes);
+        commitStep(key, { notes, options: [] }, notes);
+        return true;
       }
 
-      const notes = trimmed.replace(/^메모\s*[:：.]?\s*/, "").trim();
-      if (!notes) return false;
-      if (fromSpeech) appendDialogue(notes);
-      commitStep(key, { notes, options: [] }, notes);
+      const { cancel, remainder } = splitIntakeStepCancel(trimmed);
+      if (cancel && !remainder) {
+        clearStep(key);
+        return true;
+      }
+      const text = remainder || trimmed;
+      const chain = parseIntakeStepChain(
+        text,
+        startIndex,
+        kind,
+        stepPartialsFromRecords(stepsRef.current)
+      );
+      if (chain.commits.length === 0) return false;
+
+      const nextSteps = { ...stepsRef.current };
+      for (const row of chain.commits) {
+        if (fromSpeech) appendDialogue(row.display || text);
+        nextSteps[row.key] = {
+          partial: row.partial,
+          display: row.display,
+          skipped: false,
+        };
+      }
+      stepsRef.current = nextSteps;
+      setSteps(nextSteps);
+      setActiveIndex(
+        chain.nextIndex >= guide.length ? guide.length - 1 : chain.nextIndex
+      );
+      resetStepSpeech();
       return true;
     },
-    [clearStep, commitStep, kind, guide]
+    [clearStep, commitStep, kind, guide, resetStepSpeech]
   );
 
   const restartAfterUtterance = useCallback((rec: SpeechRec) => {
@@ -320,7 +332,7 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="한 항목씩 말해 주세요. 해당 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
+      description="한 번에 여러 항목을 말해도 순서대로 칸에 넣습니다. 앞 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
     >
       <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {

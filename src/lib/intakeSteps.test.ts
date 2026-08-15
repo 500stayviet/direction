@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildIntakeFromSteps,
   parseIntakeStep,
+  parseIntakeStepChain,
   splitIntakeStepCancel,
 } from "./intakeSteps.ts";
 
@@ -100,6 +101,27 @@ describe("intakeSteps", () => {
     const money = parseIntakeStep(full, "money", "property", prior);
     assert.equal(money.ok, true);
     assert.equal(money.partial.deposit, 10000);
+  });
+
+  it("주소 뒤 매매가는 거래가액 줄까지 연속 반영한다", () => {
+    const full = "원룸 전세 강동구 천호동 매매가 2억";
+    const chain = parseIntakeStepChain(full, 0, "property", {});
+    assert.equal(chain.commits.length, 4);
+    assert.equal(chain.commits[0]?.key, "roomType");
+    assert.equal(chain.commits[1]?.key, "dealType");
+    assert.equal(chain.commits[2]?.key, "location");
+    assert.equal(chain.commits[3]?.key, "money");
+    assert.equal(chain.commits[3]?.partial.deposit, 20000);
+    assert.equal(chain.leftover, "");
+    const built = buildIntakeFromSteps(
+      Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
+      "property"
+    );
+    assert.equal(built.roomType, "원룸");
+    assert.equal(built.dealType, "전세");
+    assert.equal(built.dong, "천호동");
+    assert.equal(built.deposit, 20000);
+    assert.equal(built.notes, "");
   });
 
   it("대화 고객명 줄은 첫 단어만 칸에 넣는다", () => {
