@@ -28,7 +28,7 @@ test("매물 대화 입력: 순차 가이드로 칸을 채운다", async ({ page
       timeout: 30_000,
     });
 
-    await page.getByRole("button", { name: "대화로 입력하기" }).click();
+    await page.getByRole("button", { name: "마이크로 입력하기" }).click();
     await expect(page.getByRole("heading", { name: "대화로 입력" })).toBeVisible();
     await page.getByRole("button", { name: "대화 시작" }).click();
 
@@ -81,7 +81,7 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     userId = auth?.user?.id;
 
     await page.goto("/properties/new");
-    await page.getByRole("button", { name: "대화로 입력하기" }).click();
+    await page.getByRole("button", { name: "마이크로 입력하기" }).click();
     await page.getByRole("button", { name: "대화 시작" }).click();
 
     await emitTalkStep(page, "원룸");

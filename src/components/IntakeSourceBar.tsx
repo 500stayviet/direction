@@ -61,16 +61,19 @@ const ITEMS = [
   {
     id: "message" as const,
     label: "메시지로 입력하기",
+    hint: "(내용을 작성 / 붙여넣기)",
     Icon: MessageIcon,
   },
   {
     id: "talk" as const,
-    label: "대화로 입력하기",
+    label: "마이크로 입력하기",
+    hint: "(마이크로 입력)",
     Icon: TalkIcon,
   },
   {
     id: "photo" as const,
     label: "사진으로 입력하기",
+    hint: "(사진에서 추출)",
     Icon: PhotoIcon,
   },
 ];
@@ -91,6 +94,9 @@ export function IntakeSourceBar({
         >
           <item.Icon className="h-[28px] w-[28px] shrink-0 text-[#3182F6]" />
           <span className="mt-1 text-center">{item.label}</span>
+          <span className="mt-0.5 text-center text-[10px] font-medium leading-snug text-gray-400">
+            {item.hint}
+          </span>
         </button>
       ))}
     </div>
