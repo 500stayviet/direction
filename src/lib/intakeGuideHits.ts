@@ -8,6 +8,7 @@ import {
 import {
   intakeMoveInPeriod,
   intakePreferredLocation,
+  formatTalkFlagValue,
   parseIntakeText,
   type IntakeKind,
   type IntakeParseResult,
@@ -123,10 +124,10 @@ export function intakeGuideHits(
   }
 
   const flagParts: string[] = [];
-  if (parsed.loan) flagParts.push(`대출${parsed.loan}`);
-  if (parsed.insurance) flagParts.push(`보증${parsed.insurance}`);
-  if (parsed.parking) flagParts.push(`주차${parsed.parking}`);
-  if (parsed.elevator) flagParts.push(`엘베${parsed.elevator}`);
+  if (parsed.loan) flagParts.push(`대출${formatTalkFlagValue(parsed.loan)}`);
+  if (parsed.insurance) flagParts.push(`보증${formatTalkFlagValue(parsed.insurance)}`);
+  if (parsed.parking) flagParts.push(`주차${formatTalkFlagValue(parsed.parking)}`);
+  if (parsed.elevator) flagParts.push(`엘베${formatTalkFlagValue(parsed.elevator)}`);
   if (flagParts.length > 0) hits.flags = flagParts.join(" · ");
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
 

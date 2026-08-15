@@ -134,7 +134,27 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[0]?.partial.insurance, "무");
     assert.equal(chain.commits[0]?.partial.parking, "유");
     assert.equal(chain.commits[0]?.partial.elevator, "무");
-    assert.match(chain.commits[0]?.display ?? "", /엘베무/);
+    assert.match(chain.commits[0]?.display ?? "", /엘베불가/);
+  });
+
+  it("flags remainder는 채운 항목만 순서와 상관없이 소비한다", () => {
+    const priorSteps = {
+      dates: { moveInFrom: "2026-08-25", moveInTo: "2026-09-10", options: [] },
+      flags: { loan: "유", insurance: "무", options: [] },
+    };
+    const flagsIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "flags"
+    );
+    const chain = parseIntakeStepChain(
+      "주차 가능",
+      flagsIndex,
+      "property",
+      priorSteps
+    );
+    assert.equal(chain.commits.length, 1);
+    assert.equal(chain.commits[0]?.partial.parking, "유");
+    assert.equal(chain.commits[0]?.partial.loan, "유");
+    assert.equal(chain.commits[0]?.partial.insurance, "무");
   });
 
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {

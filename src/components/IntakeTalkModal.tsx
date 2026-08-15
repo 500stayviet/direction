@@ -44,13 +44,7 @@ type SpeechRec = {
   stop: () => void;
 };
 
-const STACK_VALUE_KEYS = new Set<IntakeStepKey>([
-  "phone",
-  "money",
-  "dates",
-  "contacts",
-  "flags",
-]);
+const STACK_VALUE_KEYS = new Set<IntakeStepKey>(["flags"]);
 
 function getSpeechRecognition(): SpeechRec | null {
   if (typeof window === "undefined") return null;
@@ -184,21 +178,6 @@ export function IntakeTalkModal({
     [syncDialogueLog]
   );
 
-  const clearStepsFromIndex = useCallback(
-    (fromIndex: number) => {
-      setSteps((prev) => {
-        const next = { ...prev };
-        for (let i = fromIndex; i < guide.length; i += 1) {
-          const key = guide[i]?.key;
-          if (key) delete next[key];
-        }
-        syncDialogueLog(next);
-        return next;
-      });
-    },
-    [guide, syncDialogueLog]
-  );
-
   const processUtterance = useCallback(
     (raw: string) => {
       const startIndex = activeIndexRef.current;
@@ -311,13 +290,7 @@ export function IntakeTalkModal({
   };
 
   const goPrevious = () => {
-    setActiveIndex((idx) => {
-      const next = Math.max(0, idx - 1);
-      if (next < idx) {
-        clearStepsFromIndex(next + 1);
-      }
-      return next;
-    });
+    setActiveIndex((idx) => Math.max(0, idx - 1));
     resetStepSpeech();
   };
 
@@ -367,7 +340,7 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="mb-3 max-h-[min(38dvh,320px)] space-y-1 overflow-y-auto rounded-2xl bg-gray-50 px-2 py-2">
+      <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
@@ -387,11 +360,11 @@ export function IntakeTalkModal({
             <li
               key={line.key}
               data-testid={`intake-guide-row-${line.key}`}
-              className="flex items-start gap-1"
+              className="flex items-baseline gap-1"
             >
               <span
                 className={[
-                  "w-4 shrink-0 pt-1.5 text-center text-[14px] font-bold leading-none",
+                  "w-4 shrink-0 text-center text-[14px] font-bold leading-none",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -402,7 +375,7 @@ export function IntakeTalkModal({
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
-                  stackValue ? "flex flex-col gap-0.5" : "flex items-baseline gap-2",
+                  stackValue ? "flex flex-col gap-0.5" : "flex min-w-0 items-baseline gap-2",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
@@ -414,7 +387,7 @@ export function IntakeTalkModal({
                   ].join(" ")}
                 >
                   {line.name}
-                  {!stackValue && (done || line.example ? ":" : "")}
+                  {!stackValue && (done || active || line.example ? ":" : "")}
                 </span>
                 {isFlags ? (
                   done || flagsValues || active ? (
@@ -438,25 +411,25 @@ export function IntakeTalkModal({
                       예) {line.example}
                     </span>
                   )
-                ) : done ? (
-                  <span className="min-w-0 break-words text-[13px] font-semibold leading-snug text-green-700">
-                    {row?.display}
-                  </span>
-                ) : active ? (
+                ) : done || active ? (
                   <span
                     className={[
-                      "min-w-0 break-words text-[13px] font-medium leading-snug text-blue-700",
-                      !composedLive.trim() && line.example ? "whitespace-pre-wrap" : "",
+                      "min-w-0 truncate text-[13px] leading-snug",
+                      done
+                        ? "font-semibold text-green-700"
+                        : "font-medium text-blue-700",
                     ].join(" ")}
                   >
-                    {composedLive.trim()
-                      ? composedLive
-                      : line.example
-                        ? `예) ${line.example}`
-                        : null}
+                    {done
+                      ? row?.display
+                      : composedLive.trim()
+                        ? composedLive
+                        : line.example
+                          ? `예) ${line.example}`
+                          : null}
                   </span>
                 ) : line.example ? (
-                  <span className="min-w-0 whitespace-pre-wrap text-[13px] font-medium leading-snug text-gray-500">
+                  <span className="min-w-0 truncate text-[13px] font-medium leading-snug text-gray-500">
                     예) {line.example}
                   </span>
                 ) : null}

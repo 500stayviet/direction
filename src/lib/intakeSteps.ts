@@ -8,6 +8,7 @@ import {
   type IntakeKind,
   type IntakeParseResult,
   type IntakeYesNoField,
+  formatTalkFlagValue,
 } from "@/lib/intakeParse";
 
 export type IntakeStepKey = IntakeGuideKey;
@@ -33,8 +34,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)",
-      example: "대출 유 · 보증보험 무 · 주차 유 · 엘베 무",
+      name: "대출 · 보증보험 · 주차 · 엘베 (가능 / 불가)",
+      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 불가",
     },
     { key: "share", name: "팀공유 (유 / 무)" },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
@@ -51,8 +52,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)",
-      example: "대출 유 · 보증보험 무 · 주차 유 · 엘베 무",
+      name: "대출 · 보증보험 · 주차 · 엘베 (가능 / 불가)",
+      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 불가",
     },
     {
       key: "contacts",
@@ -209,17 +210,33 @@ export function formatFlagsValueLine(
   compact = true
 ): string {
   const parts: string[] = [];
-  if (partial.loan) parts.push(compact ? `대출${partial.loan}` : `대출 ${partial.loan}`);
+  if (partial.loan) {
+    parts.push(
+      compact
+        ? `대출${formatTalkFlagValue(partial.loan)}`
+        : `대출 ${formatTalkFlagValue(partial.loan)}`
+    );
+  }
   if (partial.insurance) {
     parts.push(
-      compact ? `보증${partial.insurance}` : `보증보험 ${partial.insurance}`
+      compact
+        ? `보증${formatTalkFlagValue(partial.insurance)}`
+        : `보증보험 ${formatTalkFlagValue(partial.insurance)}`
     );
   }
   if (partial.parking) {
-    parts.push(compact ? `주차${partial.parking}` : `주차 ${partial.parking}`);
+    parts.push(
+      compact
+        ? `주차${formatTalkFlagValue(partial.parking)}`
+        : `주차 ${formatTalkFlagValue(partial.parking)}`
+    );
   }
   if (partial.elevator) {
-    parts.push(compact ? `엘베${partial.elevator}` : `엘베 ${partial.elevator}`);
+    parts.push(
+      compact
+        ? `엘베${formatTalkFlagValue(partial.elevator)}`
+        : `엘베 ${formatTalkFlagValue(partial.elevator)}`
+    );
   }
   return parts.join(" · ");
 }
@@ -240,18 +257,18 @@ function mergeFlagsFromText(
 }
 
 const FLAG_FIELD_EXAMPLES: Record<IntakeYesNoField, string> = {
-  loan: "대출 유",
-  insurance: "보증 무",
-  parking: "주차 유",
-  elevator: "엘베 무",
+  loan: "대출 가능",
+  insurance: "보증 불가",
+  parking: "주차 가능",
+  elevator: "엘베 불가",
 };
 
 export function formatFlagsActiveExample(
   partial: Partial<IntakeParseResult> | undefined
 ): string {
-  const next = nextFlagField(partial ?? {});
-  if (!next) return "";
-  return `순서 상관없이 · 예) ${FLAG_FIELD_EXAMPLES[next]}`;
+  const missing = FLAG_FIELDS.filter((field) => !partial?.[field]);
+  if (missing.length === 0) return "";
+  return `순서 상관없이 · 예) ${FLAG_FIELD_EXAMPLES[missing[0]!]}`;
 }
 
 
@@ -364,7 +381,7 @@ export function extractTalkStepRemainder(
   if (step === "flags") {
     let remainder = text;
     for (const field of FLAG_FIELDS) {
-      if (!partial[field]) break;
+      if (!partial[field]) continue;
       const hit = consumeYesNoField(remainder, field);
       if (hit) remainder = hit.remainder;
     }

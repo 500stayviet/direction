@@ -23,6 +23,10 @@ import type { DealType, ParkingType, Property, RoomType } from "@/lib/types";
 export type IntakeKind = "customer" | "property";
 export type YesNo = "유" | "무";
 
+export function formatTalkFlagValue(value: YesNo): string {
+  return value === "유" ? "가능" : "불가";
+}
+
 export type IntakeParseResult = {
   name?: string;
   phone?: string;
@@ -401,7 +405,7 @@ function matchYesNo(text: string, labels: string[]): { value: YesNo; end: number
       const value = yesNoFromToken(token);
       const index = m.index;
       const end = index + m[0].length;
-      if (!found || index >= found.index) found = { index, value, end };
+      if (!found || index < found.index) found = { index, value, end };
     }
   }
   return found ? { value: found.value, end: found.end } : null;
