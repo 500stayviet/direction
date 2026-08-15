@@ -802,4 +802,57 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.loan, "무");
     assert.doesNotMatch(parsed.notes, /1억|대출/);
   });
+
+  it("현장 매매 메시지: 주소·매매가·실입주·단지명·설명", () => {
+    const today = new Date(2026, 3, 15);
+    const parsed = parseIntakeText(
+      [
+        "천호동 314-7 제이디파크빌 403호",
+        "방2 거실 주방 화장실 다용도실",
+        "엘레베이터 주차",
+        "매매 32,000만원 실입주 가능",
+        "(이사 협의 2~3개월)",
+        "26.04.22",
+      ].join("\n"),
+      "property",
+      today
+    );
+    assert.equal(parsed.dong, "천호동");
+    assert.equal(parsed.jibun, "314-7");
+    assert.equal(parsed.roomNo, "403호");
+    assert.equal(parsed.roomCount, 2);
+    assert.equal(parsed.dealType, "매매");
+    assert.equal(parsed.deposit, 32000);
+    assert.equal(parsed.moveInImmediate, true);
+    assert.match(parsed.notes, /제이디파크빌/);
+    assert.match(parsed.notes, /거실/);
+    assert.match(parsed.notes, /이사 협의/);
+  });
+
+  it("현장 월세 메시지: YY.MM.DD·1억/110/관5·주차1대", () => {
+    const today = new Date(2026, 3, 15);
+    const parsed = parseIntakeText(
+      [
+        "26.04.22",
+        "성내동 427-63 201호",
+        "방2화1",
+        "1억/110/관5",
+        "현임차인거주중 / 주차1대가능",
+      ].join("\n"),
+      "property",
+      today
+    );
+    assert.equal(parsed.moveInFrom, "2026-04-22");
+    assert.equal(parsed.dong, "성내동");
+    assert.equal(parsed.jibun, "427-63");
+    assert.equal(parsed.roomNo, "201호");
+    assert.equal(parsed.roomCount, 2);
+    assert.equal(parsed.bathroomCount, 1);
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 10000);
+    assert.equal(parsed.monthlyRent, 110);
+    assert.equal(parsed.maintenanceFee, 5);
+    assert.equal(parsed.parking, "유");
+    assert.match(parsed.notes, /현임차인/);
+  });
 });

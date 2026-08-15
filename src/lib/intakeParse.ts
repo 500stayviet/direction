@@ -318,6 +318,11 @@ const INTENT_MEMO_PATTERNS: RegExp[] = [
   /(?:저층|고층|중층)\s*싫어요/,
   /역세권|신축|리모델링|올수리|깨끗|조용/,
   /권리금(?:\s*협의)?|점포|인테리어/,
+  /현\s*임\s*차\s*인(?:\s*거주\s*중)?|현임차인(?:\s*거주\s*중)?/,
+  /이사\s*협의\s*\d+\s*[~～〜∼~－-]\s*\d+\s*개월/,
+  /(?:거실|주방|다용도실|화장실(?:\s*포함)?)/,
+  /주차\s*\d+\s*대(?:\s*가능)?/,
+  /(?:엘리베이터|엘레베이터)(?:\s*주차)?/,
 ];
 
 function extractIntentMemoNotes(text: string): string[] {
@@ -364,6 +369,90 @@ function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
   return uniqueNoteParts(parts);
 }
 
+function appendMemoPart(notes: string, extra: string): string {
+  const next = extra.replace(/\s+/g, " ").trim();
+  if (!next) return notes;
+  return uniqueNoteParts([notes, next].filter(Boolean));
+}
+
+function extractBuildingNameMemo(text: string): string {
+  const hit = text.match(
+    /\d{1,5}\s*[-−~]\s*\d{1,5}\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐)?)\s+(?=\d+\s*호)/
+  );
+  return hit?.[1]?.trim() ?? "";
+}
+
+function expandShortYear(year: number): number {
+  return year < 100 ? 2000 + year : year;
+}
+
+function parseShortYearDateToken(
+  chunk: string,
+  today: Date
+): string | null {
+  const dot = chunk.match(
+    new RegExp(
+      `(\\d{2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})`
+    )
+  );
+  if (!dot) return null;
+  const year = expandShortYear(Number(dot[1]));
+  const month = Number(dot[2]);
+  const day = Number(dot[3]);
+  if (!isYearMonthDayTriple(year, month, day)) return null;
+  const iso = isoFromYearMonthDay(year, month, day);
+  return iso ? isoNotBeforeToday(iso, today) : null;
+}
+
+function findShortYearDateSpan(
+  text: string,
+  today: Date
+): { from: string; start: number; end: number } | null {
+  const re = new RegExp(
+    `(?<![\\d])(\\d{2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})(?!\\d)`,
+    "g"
+  );
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const from = parseShortYearDateToken(m[0], today);
+    if (from && m.index != null) {
+      return { from, start: m.index, end: m.index + m[0].length };
+    }
+  }
+  return null;
+}
+
+function normalizeFieldShorthands(text: string): string {
+  return text
+    .replace(/주차\s*(\d+)\s*대\s*(?=가능|유|있)/gi, "주차 가능 ")
+    .replace(/(\d)\s*억\s*\/\s*(\d+)\s*\/\s*관\s*(\d+)/g, "$1억/$2/관$3");
+}
+
+function parseFieldEokSlashMoney(text: string): {
+  deposit: number;
+  monthlyRent: number;
+  maintenanceFee?: number;
+  index: number;
+  end: number;
+} | null {
+  const m = text.match(
+    /(\d+(?:\.\d+)?)\s*억\s*[\/／]\s*(\d+(?:\.\d+)?)(?:\s*[\/／]\s*관\s*(\d+))?/
+  );
+  if (!m || m.index == null) return null;
+  const deposit = Math.round(Number(m[1]) * 10000);
+  const monthlyRent = Math.round(Number(m[2]));
+  if (!isPlausibleUnlabeledDeposit(deposit) || monthlyRent <= 0) return null;
+  const maintenanceFee = m[3] ? Math.round(Number(m[3])) : undefined;
+  if (maintenanceFee != null && !isMaintenanceFee(maintenanceFee)) return null;
+  return {
+    deposit,
+    monthlyRent,
+    maintenanceFee,
+    index: m.index,
+    end: m.index + m[0].length,
+  };
+}
+
 const YESNO_VALUE =
   "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
   "가|불|" +
@@ -387,7 +476,7 @@ export const INTAKE_YESNO_FIELDS = {
   loan: ["대출"],
   insurance: ["보증보험", "전세보증보험", "보증 보험", "보증"],
   parking: ["주차"],
-  elevator: ["엘리베이터", "엘베", "E/V", "EV"],
+  elevator: ["엘리베이터", "엘레베이터", "엘베", "E/V", "EV"],
 } as const;
 
 export type IntakeYesNoField = keyof typeof INTAKE_YESNO_FIELDS;
@@ -446,7 +535,7 @@ export function parseAllYesNoFields(
       "보증",
     ]),
     parking: parseYesNo(text, ["주차"]),
-    elevator: parseYesNo(text, ["엘리베이터", "엘베", "E/V", "EV"]),
+    elevator: parseYesNo(text, ["엘리베이터", "엘레베이터", "엘베", "E/V", "EV"]),
   };
 }
 
@@ -692,7 +781,7 @@ function parseTildeMoneyRange(
 
   const bare = text.match(
     new RegExp(
-      `(?<![년월일${PAIR_SEP_CLS}\\d])(\\d{1,5}(?:\\.\\d+)?)\\s*[${TILDE_CLS}]\\s*(\\d{1,5}(?:\\.\\d+)?)(?!\\s*[년월일${PAIR_SEP_CLS}억만])`
+      `(?<![년월일${PAIR_SEP_CLS}\\d])(\\d{1,5}(?:\\.\\d+)?)\\s*[${TILDE_CLS}]\\s*(\\d{1,5}(?:\\.\\d+)?)(?!\\s*(?:년|월|일|억|만|원|개월|[${PAIR_SEP_CLS}]))`
     )
   );
   if (bare && bare.index != null) {
@@ -763,6 +852,16 @@ function parseSlashPairs(
 }
 
 function maskSlashDates(text: string): string {
+  const shortYearRe = new RegExp(
+    `(?<![\\d])(\\d{2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})(?!\\d)`,
+    "g"
+  );
+  let masked = text.replace(shortYearRe, (full, yy, month, day) => {
+    const year = expandShortYear(Number(yy));
+    return isYearMonthDayTriple(year, Number(month), Number(day))
+      ? " ".repeat(full.length)
+      : full;
+  });
   const yearRe = new RegExp(
     `(?<![${PAIR_SEP_CLS}\\d])(\\d{4})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
@@ -771,7 +870,7 @@ function maskSlashDates(text: string): string {
     `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
-  return text
+  return masked
     .replace(yearRe, (full, year, month, day) =>
       isYearMonthDayTriple(Number(year), Number(month), Number(day))
         ? " ".repeat(full.length)
@@ -819,19 +918,38 @@ function parseMoneyManwon(
   };
   const moneyText = maskSlashDates(text);
   let monthlyRent: number | undefined;
+  let deposit: number | undefined;
+  let depositTo: number | undefined;
+  let monthlyRentTo: number | undefined;
+  let maintenanceFee: number | undefined;
+  let twoPartSlash = false;
+  let fieldSlashHit = false;
+
+  if (!asSale) {
+    const fieldSlash = parseFieldEokSlashMoney(moneyText);
+    if (fieldSlash) {
+      fieldSlashHit = true;
+      deposit = fieldSlash.deposit;
+      monthlyRent = fieldSlash.monthlyRent;
+      if (fieldSlash.maintenanceFee != null) {
+        maintenanceFee = fieldSlash.maintenanceFee;
+      } else {
+        twoPartSlash = true;
+      }
+      pushSpan(fieldSlash.index, fieldSlash.end);
+    }
+  }
+
   const monthly =
     moneyText.match(/월세\s*(\d+(?:\.\d+)?)\s*만/) ||
     moneyText.match(/(?<!\d)월\s*(\d+(?:\.\d+)?)\s*만/) ||
     moneyText.match(/월세\s*(\d+(?:\.\d+)?)/) ||
     moneyText.match(/(?<!\d)월\s*(\d{1,4})(?!\d)(?!\s*(?:억|일))/);
-  if (monthly && !asSale && monthly.index != null) {
+  if (monthly && !asSale && !fieldSlashHit && monthly.index != null) {
     monthlyRent = Math.round(Number(monthly[1]));
     pushSpan(monthly.index, monthly.index + monthly[0].length);
   }
 
-  let deposit: number | undefined;
-  let depositTo: number | undefined;
-  let monthlyRentTo: number | undefined;
   const tildeMoney = parseTildeMoneyRange(
     moneyText,
     asSale,
@@ -875,7 +993,7 @@ function parseMoneyManwon(
     deposit = tildeMoney.from;
     depositTo = tildeMoney.to;
     pushSpan(tildeMoney.start, tildeMoney.end);
-  } else if (eok.length > 0) {
+  } else if (!fieldSlashHit && eok.length > 0) {
     const amounts = eok
       .filter((hit) => {
         const start = hit.index ?? 0;
@@ -941,7 +1059,6 @@ function parseMoneyManwon(
     }
   }
 
-  let maintenanceFee: number | undefined;
   const feeLabel = moneyText.match(/관리비\s*(\d+(?:\.\d+)?)/);
   if (feeLabel && feeLabel.index != null) {
     const n = Math.round(Number(feeLabel[1]));
@@ -950,9 +1067,18 @@ function parseMoneyManwon(
       pushSpan(feeLabel.index, feeLabel.index + feeLabel[0].length);
     }
   }
+  if (maintenanceFee == null) {
+    const feeShort = moneyText.match(/(?:^|[\s/／])관\s*(\d{1,2})(?!\d)/);
+    if (feeShort && feeShort.index != null) {
+      const n = Math.round(Number(feeShort[1]));
+      if (isMaintenanceFee(n)) {
+        maintenanceFee = n;
+        pushSpan(feeShort.index, feeShort.index + feeShort[0].length);
+      }
+    }
+  }
 
-  let twoPartSlash = false;
-  if (!asSale) {
+  if (!asSale && deposit == null) {
     const slashTriple = parseSlashTriples(text).find((t) =>
       isMoneySlashTriple(t.a, t.b, t.c)
     );
@@ -1384,6 +1510,8 @@ function parseDateToken(
     /(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})(?:\s*일(?!\d)|(?!\d))/
   );
   if (ymd) return dateHitToIso(ymd, today, after);
+  const shortYear = parseShortYearDateToken(chunk, today);
+  if (shortYear) return shortYear;
   const yslash = chunk.match(
     new RegExp(
       `(\\d{4})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})`
@@ -1442,6 +1570,18 @@ function parseMoveInDates(
   today: Date
 ): { from?: string; to?: string; immediate?: boolean } {
   const corrected = applyDateCorrectionSlice(text);
+  if (
+    /즉시\s*입주|바로\s*입주|즉시입주|바로입주|실\s*입주(?:\s*가능)?|실입주(?:\s*가능)?|즉시/.test(
+      corrected
+    )
+  ) {
+    return { immediate: true };
+  }
+  const shortDate = findShortYearDateSpan(corrected, today);
+  if (shortDate) {
+    const clamped = asFutureMoveIn(shortDate.from, shortDate.from, today);
+    if (clamped) return clamped;
+  }
   const fromTo = corrected.match(
     new RegExp(
       `(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))\\s*부터\\s*(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))`
@@ -1522,23 +1662,22 @@ function parseMoveInDates(
     const clamped = asFutureMoveIn(iso, iso, today);
     if (clamped) return clamped;
   }
-  if (/즉시\s*입주|바로\s*입주|즉시입주|바로입주|즉시/.test(text)) {
-    return { immediate: true };
-  }
   return {};
 }
 
 export function normalizeIntakeInput(raw: string): string {
   return collapseThousandCommas(
     expandSpokenPhones(
-      raw
-        .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
-        .replace(/[０-９]/g, (ch) =>
-          String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
-        )
-        .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
-        .replace(/\s+/g, " ")
-        .trim()
+      normalizeFieldShorthands(
+        raw
+          .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
+          .replace(/[０-９]/g, (ch) =>
+            String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+          )
+          .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
+          .replace(/\s+/g, " ")
+          .trim()
+      )
     )
   );
 }
@@ -1658,6 +1797,10 @@ export function parseIntakeText(
   result.options = options;
 
   result.notes = buildIntakeMemoNotes(body, labeledMemo);
+  const buildingMemo = extractBuildingNameMemo(fieldText);
+  if (buildingMemo) {
+    result.notes = appendMemoPart(result.notes, buildingMemo);
+  }
 
   return result;
 }
