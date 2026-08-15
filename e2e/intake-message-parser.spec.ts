@@ -75,6 +75,66 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
         .filter({ hasText: "엘리베이터 유무" })
         .getByRole("button", { name: "무", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
+
+    await expect(page.getByLabel("메모")).toHaveValue("");
+  } finally {
+    await purgeE2eUser(userId);
+  }
+});
+
+test("매물 메시지 입력: 라벨·의도 키워드만 메모에 넣고 주황 박스를 표시한다", async ({
+  page,
+}) => {
+  requireE2eBackendEnv(test);
+  const user = uniqueUser("msgmemo");
+  let userId: string | undefined;
+  try {
+    await prepareAppPage(page);
+    await signupViaUi(page, user);
+    await loginViaUi(page, user);
+
+    const auth = await getAppAuth(page);
+    userId = auth?.user?.id;
+
+    await page.goto("/properties/new");
+    await page.getByRole("button", { name: "메시지로 입력하기" }).click();
+    await page
+      .getByPlaceholder("메시지를 붙여넣으세요")
+      .fill("원룸 전세 2억 암사동 메모: 남향 저층");
+    await page.getByRole("button", { name: "반영하기" }).click();
+
+    await expect(page.getByLabel("메모")).toHaveValue("남향 저층");
+    await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
+      /border-amber-300/
+    );
+  } finally {
+    await purgeE2eUser(userId);
+  }
+});
+
+test("매물 메시지 입력: 의도 키워드만 메모에 넣는다", async ({ page }) => {
+  requireE2eBackendEnv(test);
+  const user = uniqueUser("msgintent");
+  let userId: string | undefined;
+  try {
+    await prepareAppPage(page);
+    await signupViaUi(page, user);
+    await loginViaUi(page, user);
+
+    const auth = await getAppAuth(page);
+    userId = auth?.user?.id;
+
+    await page.goto("/properties/new");
+    await page.getByRole("button", { name: "메시지로 입력하기" }).click();
+    await page
+      .getByPlaceholder("메시지를 붙여넣으세요")
+      .fill("원룸 전세 2억 암사동 남향");
+    await page.getByRole("button", { name: "반영하기" }).click();
+
+    await expect(page.getByLabel("메모")).toHaveValue("남향");
+    await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
+      /border-amber-300/
+    );
   } finally {
     await purgeE2eUser(userId);
   }
