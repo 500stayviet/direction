@@ -386,10 +386,13 @@ function compactOccupancyNote(raw: string, extraWords: string[]): string {
 }
 
 const YESNO_VALUE =
-  "(?:있음|있어요|있고|있습니다|가능|유|됨|돼요|돼|안됨|안돼요|안돼|안됩니다|없(?:음|어요)?|불가|무|불가능)";
+  "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
+  "안(?:됨|돼(?:요)?|됩니다|되)?|안\\s*돼(?:요)?|안\\s*됨|안돼(?:요)?|안됩니다|" +
+  "없(?:음|어요|어|습니다)?|불가(?:능)?(?:해요|합니다|함)?|무)";
 
 function yesNoFromToken(token: string): YesNo {
-  return /없|불가|무|안됨|안돼|불가능/.test(token) ? "무" : "유";
+  const compact = token.replace(/\s+/g, "");
+  return /없|불가|무|안돼|안됨|안되/.test(compact) ? "무" : "유";
 }
 
 function yesNoLabelPattern(label: string): string {
@@ -1201,7 +1204,10 @@ function expandSpokenPhones(text: string): string {
   );
 }
 
-function parseContacts(text: string): {
+function parseContacts(
+  text: string,
+  kind: IntakeKind = "property"
+): {
   name?: string;
   nameLabeled?: boolean;
   phone?: string;
@@ -1216,12 +1222,26 @@ function parseContacts(text: string): {
     labeledName && isNameCandidate(labeledName[1] ?? "")
       ? labeledName[1]
       : undefined;
-  const nameLabeled = Boolean(name);
+  let nameLabeled = Boolean(name);
+
+  if (!name && kind === "customer") {
+    const lead = text.match(/^([가-힣]{2,6})(?=\s)/);
+    if (lead && isNameCandidate(lead[1] ?? "")) {
+      name = lead[1];
+      nameLabeled = true;
+    }
+  }
 
   if (!name && phones[0]) {
-    const before = text.slice(Math.max(0, phones[0].index - 8), phones[0].index);
-    const near = before.match(/([가-힣]{2,4})\s*$/);
-    if (near && isNameCandidate(near[1] ?? "")) name = near[1];
+    const before = text.slice(
+      Math.max(0, phones[0].index - (kind === "customer" ? 12 : 8)),
+      phones[0].index
+    );
+    const near = before.match(/([가-힣]{2,6})\s*$/);
+    if (near && isNameCandidate(near[1] ?? "")) {
+      name = near[1];
+      if (kind === "customer") nameLabeled = true;
+    }
   }
 
   const tenantIdx = text.search(/임차인/);
@@ -1499,14 +1519,38 @@ function leftoverMemoText(text: string, extraWords: string[]): string {
     spans.push({ start: place.start, end: place.end });
   }
   pushWordSpans(text, [...SEOUL_GU_LIST, ...extraWords], spans);
+  const flagLabels = [
+    ["대출", YESNO_VALUE],
+    ["보증보험", YESNO_VALUE],
+    ["전세보증보험", YESNO_VALUE],
+    ["보증 보험", YESNO_VALUE],
+    ["주차(?:장)?", YESNO_VALUE],
+    ["엘리베이터", YESNO_VALUE],
+    ["엘베", YESNO_VALUE],
+    ["E/V", YESNO_VALUE],
+    ["EV", YESNO_VALUE],
+    ["팀공유", YESNO_VALUE],
+    ["팀 공유", YESNO_VALUE],
+  ] as const;
+  for (const [label, tail] of flagLabels) {
+    spans.push(
+      ...collectRegexSpans(text, [
+        new RegExp(
+          `${label}(?:\\s*(?:가입|입)?\\s*)?${tail}`,
+          "gi"
+        ),
+      ])
+    );
+  }
   spans.push(
     ...collectRegexSpans(text, [
       /\d+(?:\.\d+)?\s*억\s*\d+(?:\.\d+)?\s*(?:천|만)?/g,
       /\d+(?:\.\d+)?\s*억\s*\d+/g,
-      /\d+(?:\.\d+)?\s*억/g,
+      /\d+(?:\.\d+)?\s*억(?:원)?/g,
+      /매매(?:가)?\s*\d+(?:\.\d+)?\s*억(?:원)?/g,
       /\d+(?:\.\d+)?\s*만(?:원)?/g,
       /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/g,
-      /\d{1,2}\s*월\s*\d{1,2}\s*일/g,
+      /\d{1,2}\s*월\s*\d{1,2}(?:\s*일(?!\d)|(?!\d))/g,
       new RegExp(
         `\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}(?:\\s*[${PAIR_SEP_CLS}]\\s*\\d{2,4})?`,
         "g"
@@ -1660,7 +1704,7 @@ export function parseIntakeText(
   }
 
   const leftoverText = maskUsedSpans(fieldText, money.usedSpans);
-  const contacts = parseContacts(leftoverText);
+  const contacts = parseContacts(leftoverText, kind);
   result.name = contacts.name;
   if (contacts.nameLabeled) result.nameLabeled = true;
   result.phone = contacts.phone;

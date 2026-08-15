@@ -322,14 +322,17 @@ describe("parseIntakeText", () => {
     assert.ok(!next.landlordPhone);
   });
 
-  it("고객 전화는 넣고 이름은 칸에 넣지 않으며 길동을 주소로 보지 않는다", () => {
+  it("고객 메시지에서 이름·전화·동을 칸에 넣는다", () => {
     const parsed = parseIntakeText(
       "홍길동 010-1234-5678 원룸 전세 암사동",
       "customer"
     );
+    assert.equal(parsed.name, "홍길동");
+    assert.equal(parsed.nameLabeled, true);
     assert.equal(parsed.phone, "010-1234-5678");
     assert.equal(parsed.dong, "암사동");
     assert.equal(parsed.gu, "강동구");
+    assert.doesNotMatch(parsed.notes, /홍길동/);
   });
 
   it("전화번호 라벨이 있으면 전화를 읽는다", () => {
@@ -735,5 +738,31 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.parking, "무");
     assert.equal(parsed.elevator, "무");
     assert.doesNotMatch(parsed.notes, /1억|대출|보증보험|주차|엘베/);
+  });
+
+  it("구어체·오타에 가까운 유/무 표현도 칸에 넣는다", () => {
+    const parsed = parseIntakeText(
+      "원룸 전세 암사동 대출 안돼요 보증보험 불가 주차 안됨 엘베 없어요",
+      "property"
+    );
+    assert.equal(parsed.loan, "무");
+    assert.equal(parsed.insurance, "무");
+    assert.equal(parsed.parking, "무");
+    assert.equal(parsed.elevator, "무");
+    assert.doesNotMatch(parsed.notes, /대출|보증|주차|엘베/);
+  });
+
+  it("매매가 1억원·8월25부터 구어체 날짜도 칸에 넣는다", () => {
+    const today = new Date(2026, 7, 15);
+    const parsed = parseIntakeText(
+      "원룸 매매 성내동 매매가 1억원 8월25부터 9월15 대출 무",
+      "property",
+      today
+    );
+    assert.equal(parsed.deposit, 10000);
+    assert.equal(parsed.moveInFrom, "2026-08-25");
+    assert.equal(parsed.moveInTo, "2026-09-15");
+    assert.equal(parsed.loan, "무");
+    assert.doesNotMatch(parsed.notes, /1억|대출/);
   });
 });

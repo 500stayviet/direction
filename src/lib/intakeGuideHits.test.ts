@@ -21,12 +21,12 @@ describe("intakeGuideHitsFromText", () => {
     assert.equal(hits.money, "보증금 2억");
   });
 
-  it("라벨 있는 이름만 고객명 칸에 넣는다", () => {
+  it("고객 메시지에서 이름·라벨 없이도 고객명 칸에 넣는다", () => {
     const unlabeled = intakeGuideHitsFromText(
       "홍길동 010-1234-5678 원룸",
       "customer"
     );
-    assert.equal(unlabeled.name, undefined);
+    assert.equal(unlabeled.name, "홍길동");
     assert.equal(unlabeled.phone, "010-1234-5678");
     assert.equal(unlabeled.roomType, "원룸");
 

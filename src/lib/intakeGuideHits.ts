@@ -103,7 +103,7 @@ export function intakeGuideHits(
 ): Partial<Record<IntakeGuideKey, string>> {
   const hits: Partial<Record<IntakeGuideKey, string>> = {};
 
-  if (kind === "customer" && parsed.nameLabeled && parsed.name) {
+  if (kind === "customer" && parsed.name) {
     hits.name = parsed.name;
   }
   if (kind === "customer" && parsed.phone) {
