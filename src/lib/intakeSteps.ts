@@ -223,6 +223,33 @@ export function firstIncompleteGuideIndex(
   return idx < 0 ? Math.max(0, guide.length - 1) : idx;
 }
 
+const FLAG_FIELD_SHORT_LABELS: Record<IntakeYesNoField, string> = {
+  loan: "대출",
+  insurance: "보증",
+  parking: "주차",
+  elevator: "엘베",
+};
+
+export type FlagProgressPart = {
+  field: IntakeYesNoField;
+  filled: boolean;
+  text: string;
+};
+
+export function buildFlagsProgressParts(
+  partial: Partial<IntakeParseResult> | undefined
+): FlagProgressPart[] {
+  return FLAG_FIELDS.map((field) => {
+    const value = partial?.[field];
+    const label = FLAG_FIELD_SHORT_LABELS[field];
+    return {
+      field,
+      filled: Boolean(value),
+      text: value ? `${label}${formatTalkFlagValue(value)}` : label,
+    };
+  });
+}
+
 export function formatFlagsValueLine(
   partial: Partial<IntakeParseResult>,
   compact = true

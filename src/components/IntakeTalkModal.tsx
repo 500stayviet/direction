@@ -8,6 +8,7 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
+  buildFlagsProgressParts,
   firstIncompleteGuideIndex,
   flagsStepComplete,
   formatFlagsActiveExample,
@@ -556,8 +557,10 @@ export function IntakeTalkModal({
           const flagsExample = isFlags
             ? formatFlagsActiveExample(row?.partial)
             : "";
-          const stackValue = isFlags && Boolean(flagsValues);
-          const showColon = !stackValue && (done || active || Boolean(line.example));
+          const showFlagsProgress = isFlags && !done;
+          const stackValue = isFlags && done && Boolean(flagsValues);
+          const showColon =
+            !isFlags && (done || active || Boolean(line.example));
           return (
             <li
               key={line.key}
@@ -577,7 +580,7 @@ export function IntakeTalkModal({
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
-                  stackValue
+                  stackValue || showFlagsProgress
                     ? "flex flex-col gap-0.5"
                     : "flex min-w-0 items-baseline gap-2",
                   activeRowClass(active, filled),
@@ -587,13 +590,52 @@ export function IntakeTalkModal({
                   className={[
                     "text-[15px] font-bold leading-snug",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
-                    stackValue ? "" : "shrink-0",
+                    stackValue || showFlagsProgress ? "" : "shrink-0",
                   ].join(" ")}
                 >
                   {line.name}
                   {showColon ? ":" : ""}
                 </span>
-                {isFlags && stackValue ? (
+                {isFlags && showFlagsProgress ? (
+                  <div
+                    className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] leading-snug"
+                    data-testid="intake-flags-progress"
+                  >
+                    {buildFlagsProgressParts(row?.partial).map((part, partIndex) => (
+                      <span
+                        key={part.field}
+                        className="inline-flex items-center gap-x-1.5"
+                      >
+                        {partIndex > 0 ? (
+                          <span className="text-gray-300" aria-hidden>
+                            ·
+                          </span>
+                        ) : null}
+                        <span
+                          className={[
+                            part.filled
+                              ? "font-semibold text-green-700"
+                              : active
+                                ? "font-semibold text-red-500"
+                                : "font-medium text-gray-400",
+                          ].join(" ")}
+                        >
+                          {part.text}
+                        </span>
+                      </span>
+                    ))}
+                    {active && composedLive.trim() ? (
+                      <>
+                        <span className="text-gray-300" aria-hidden>
+                          ·
+                        </span>
+                        <span className="min-w-0 font-medium text-blue-600">
+                          {composedLive}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                ) : isFlags && stackValue ? (
                   <span
                     className={[
                       "min-w-0 break-words text-[13px] leading-snug",

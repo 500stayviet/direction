@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
+  buildFlagsProgressParts,
   parseIntakeStep,
   parseIntakeStepChain,
   firstIncompleteGuideIndex,
@@ -108,6 +109,23 @@ describe("intakeSteps", () => {
     assert.equal(step.partial.parking, "유");
     assert.equal(step.partial.loan, "무");
     assert.equal(step.partial.insurance, "유");
+  });
+
+  it("buildFlagsProgressParts는 채운 항목과 빈 항목을 구분한다", () => {
+    const parts = buildFlagsProgressParts({
+      loan: "유",
+      insurance: "무",
+      options: [],
+    });
+    assert.equal(parts.length, 4);
+    assert.equal(parts[0]?.filled, true);
+    assert.equal(parts[0]?.text, "대출가능");
+    assert.equal(parts[1]?.filled, true);
+    assert.equal(parts[1]?.text, "보증불가");
+    assert.equal(parts[2]?.filled, false);
+    assert.equal(parts[2]?.text, "주차");
+    assert.equal(parts[3]?.filled, false);
+    assert.equal(parts[3]?.text, "엘베");
   });
 
   it("보증 가·보증 가능·보증 유도 보증보험으로 받는다", () => {
