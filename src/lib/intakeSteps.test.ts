@@ -124,6 +124,21 @@ describe("intakeSteps", () => {
     assert.equal(built.notes, "");
   });
 
+  it("월세 뒤 매매가도 거래가액까지 연속 반영한다", () => {
+    const full = "원룸 월세 강동구 천호동 매매가 5억";
+    const chain = parseIntakeStepChain(full, 0, "property", {});
+    assert.equal(chain.commits.length, 4);
+    assert.equal(chain.commits[3]?.key, "money");
+    assert.equal(chain.commits[3]?.partial.deposit, 50000);
+    const built = buildIntakeFromSteps(
+      Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
+      "property"
+    );
+    assert.equal(built.dealType, "월세");
+    assert.equal(built.deposit, 50000);
+    assert.equal(built.notes, "");
+  });
+
   it("대화 고객명 줄은 첫 단어만 칸에 넣는다", () => {
     assert.equal(parseIntakeStep("홍길동", "name", "customer").partial.name, "홍길동");
     assert.equal(parseIntakeStep("명칭 성내", "name", "customer").partial.name, "성내");

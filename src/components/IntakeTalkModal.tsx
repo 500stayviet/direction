@@ -81,8 +81,6 @@ export function IntakeTalkModal({
 
   const recRef = useRef<SpeechRec | null>(null);
   const sessionFinalRef = useRef("");
-  const resultCursorRef = useRef(0);
-  const skipOnEndOnceRef = useRef(false);
   const listeningRef = useRef(false);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
@@ -90,7 +88,6 @@ export function IntakeTalkModal({
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
     sessionFinalRef.current = "";
-    resultCursorRef.current = 0;
   }, []);
 
   useEffect(() => {
@@ -107,7 +104,6 @@ export function IntakeTalkModal({
     setSteps({});
     setDialogueLog("");
     resetStepSpeech();
-    skipOnEndOnceRef.current = false;
   }, [resetStepSpeech]);
 
   const appendDialogue = (chunk: string) => {
@@ -139,7 +135,6 @@ export function IntakeTalkModal({
     });
     setStepLive("");
     sessionFinalRef.current = "";
-    resultCursorRef.current = 0;
   }, []);
 
   const processUtterance = useCallback(
@@ -193,16 +188,6 @@ export function IntakeTalkModal({
     [clearStep, commitStep, kind, guide, resetStepSpeech]
   );
 
-  const restartAfterUtterance = useCallback((rec: SpeechRec) => {
-    skipOnEndOnceRef.current = true;
-    resetStepSpeech();
-    try {
-      rec.stop();
-    } catch {
-      /* ignore */
-    }
-  }, [resetStepSpeech]);
-
   const setListeningBoth = (next: boolean) => {
     listeningRef.current = next;
     setListening(next);
@@ -228,41 +213,16 @@ export function IntakeTalkModal({
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (ev) => {
-      const spoken = readSpeechResultsSince(
-        ev.results,
-        resultCursorRef.current
-      );
+      const spoken = readSpeechResultsSince(ev.results, 0);
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
-      const composed = composeTalkText("", spoken.sessionFinal, spoken.live);
-      if (!spoken.sessionFinal.trim()) return;
-      processUtterance(composed, true);
-      resultCursorRef.current = ev.results.length;
-      restartAfterUtterance(rec);
     };
     rec.onend = () => {
-      if (skipOnEndOnceRef.current) {
-        skipOnEndOnceRef.current = false;
-        resetStepSpeech();
-        if (!listeningRef.current) return;
-        try {
-          rec.start();
-        } catch {
-          setListeningBoth(false);
-        }
-        return;
-      }
-      const pending = sessionFinalRef.current.trim();
-      sessionFinalRef.current = "";
-      setStepLive("");
-      if (pending.trim()) {
-        const ok = processUtterance(pending, false);
-        if (ok) {
-          restartAfterUtterance(rec);
-          return;
-        }
-      }
+      const pending = composeTalkText("", sessionFinalRef.current, "").trim();
       resetStepSpeech();
+      if (pending) {
+        processUtterance(pending, true);
+      }
       if (!listeningRef.current) return;
       try {
         rec.start();
@@ -276,7 +236,7 @@ export function IntakeTalkModal({
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     recRef.current = rec;
-  }, [open, processUtterance, resetWizard, restartAfterUtterance]);
+  }, [open, processUtterance, resetWizard, resetStepSpeech]);
 
   const toggleListen = () => {
     const rec = recRef.current;
@@ -288,7 +248,6 @@ export function IntakeTalkModal({
       return;
     }
     try {
-      resultCursorRef.current = 0;
       rec.start();
       setListeningBoth(true);
     } catch {
