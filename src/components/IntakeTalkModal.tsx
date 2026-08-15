@@ -364,18 +364,82 @@ export function IntakeTalkModal({
       dense
       className="max-h-[min(92dvh,720px)]"
       footer={
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" fullWidth onClick={onClose}>
-            취소
-          </Button>
-          <Button
-            fullWidth
-            disabled={!hasAnyStep}
-            onClick={handleApply}
-            data-testid="intake-talk-apply"
+        <div className="space-y-2">
+          {listening ? (
+            <p className="min-h-[1.25rem] break-words text-center text-[14px] font-medium text-gray-400">
+              {composedLive || "듣는 중…"}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
+          ) : null}
+          {listening ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={goPrevious}
+                className={[
+                  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
+                  "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
+                  "disabled:opacity-30 disabled:active:scale-100",
+                ].join(" ")}
+              >
+                <span className="text-[16px] font-bold leading-none">&lt;</span>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={skipCurrent}
+                className={[
+                  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
+                  "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
+                ].join(" ")}
+              >
+                건너뛰기
+                <span className="text-[16px] font-bold leading-none">&gt;</span>
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className={[
+              "inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
+              "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
+              listening
+                ? "border-2 border-red-500 bg-white text-red-600"
+                : "bg-red-500 text-white hover:bg-red-600",
+            ].join(" ")}
+            onClick={toggleListen}
+            disabled={!speechSupported}
           >
-            반영하기
-          </Button>
+            {listening ? (
+              <>
+                <span className="inline-flex items-center gap-0.5" aria-hidden>
+                  <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+                  <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+                </span>
+                일시정지
+              </>
+            ) : hasProgress ? (
+              "계속"
+            ) : (
+              "대화 시작"
+            )}
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" fullWidth onClick={onClose}>
+              취소
+            </Button>
+            <Button
+              fullWidth
+              disabled={!hasAnyStep}
+              onClick={handleApply}
+              data-testid="intake-talk-apply"
+            >
+              반영하기
+            </Button>
+          </div>
         </div>
       }
     >
@@ -496,70 +560,6 @@ export function IntakeTalkModal({
         placeholder="확정된 말이 여기에 쌓입니다"
         className="min-h-[56px]"
       />
-      {listening ? (
-        <p className="mt-1 min-h-[1.25rem] break-words text-[14px] font-medium text-gray-400">
-          {composedLive || "듣는 중…"}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="mt-1 text-[12px] font-semibold text-red-400">{error}</p>
-      ) : null}
-      {!listening ? (
-        <button
-          type="button"
-          className={[
-            "mt-2 inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
-            "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
-            "bg-red-500 text-white hover:bg-red-600",
-          ].join(" ")}
-          onClick={toggleListen}
-          disabled={!speechSupported}
-        >
-          {hasProgress ? "계속" : "대화 시작"}
-        </button>
-      ) : (
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-2xl border-2 border-red-500 bg-white px-1.5 py-2">
-          <button
-            type="button"
-            disabled={activeIndex === 0}
-            onClick={goPrevious}
-            className={[
-              "inline-flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl px-1",
-              "text-gray-700 active:scale-95 transition-transform",
-              "disabled:opacity-30 disabled:active:scale-100",
-            ].join(" ")}
-          >
-            <span className="text-[20px] font-bold leading-none">&lt;</span>
-            <span className="text-[11px] font-semibold leading-none">이전</span>
-          </button>
-          <button
-            type="button"
-            onClick={toggleListen}
-            aria-label="일시정지"
-            className={[
-              "inline-flex min-h-[48px] min-w-[96px] flex-col items-center justify-center gap-0.5 rounded-xl px-3",
-              "text-red-600 active:scale-[0.99] transition-transform",
-            ].join(" ")}
-          >
-            <span className="inline-flex items-center gap-0.5" aria-hidden>
-              <span className="h-3.5 w-1 rounded-sm bg-red-500" />
-              <span className="h-3.5 w-1 rounded-sm bg-red-500" />
-            </span>
-            <span className="text-[11px] font-semibold leading-none">일시정지</span>
-          </button>
-          <button
-            type="button"
-            onClick={skipCurrent}
-            className={[
-              "inline-flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-xl px-1",
-              "text-gray-700 active:scale-95 transition-transform",
-            ].join(" ")}
-          >
-            <span className="text-[20px] font-bold leading-none">&gt;</span>
-            <span className="text-[11px] font-semibold leading-none">건너뛰기</span>
-          </button>
-        </div>
-      )}
     </Modal>
   );
 }
