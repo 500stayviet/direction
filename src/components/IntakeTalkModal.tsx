@@ -8,6 +8,9 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
+  flagsStepComplete,
+  formatFlagsActiveExample,
+  formatFlagsValueLine,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -296,8 +299,17 @@ export function IntakeTalkModal({
       <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
           const row = steps[line.key];
-          const done = Boolean(row?.display);
+          const isFlags = line.key === "flags";
+          const done = isFlags
+            ? flagsStepComplete(row?.partial)
+            : Boolean(row?.display);
           const active = index === activeIndex;
+          const flagsValues = isFlags
+            ? formatFlagsValueLine(row?.partial ?? {})
+            : "";
+          const flagsExample = isFlags
+            ? formatFlagsActiveExample(row?.partial)
+            : "";
           return (
             <li
               key={line.key}
@@ -315,30 +327,53 @@ export function IntakeTalkModal({
               </span>
               <button
                 type="button"
-                disabled={!done && !active}
+                disabled={!done && !active && !flagsValues}
                 onClick={() => {
-                  if (done || active) jumpToStep(index);
+                  if (done || active || flagsValues) jumpToStep(index);
                 }}
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
-                  "flex items-baseline",
+                  isFlags ? "flex flex-col gap-0.5" : "flex items-baseline",
                   activeRowClass(active, done),
-                  done || active
+                  done || active || flagsValues
                     ? "cursor-pointer active:scale-[0.99] transition-transform"
                     : "cursor-default",
                 ].join(" ")}
               >
                 <span
                   className={[
-                    "shrink-0 text-[15px] font-bold",
+                    "text-[15px] font-bold",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
+                    isFlags ? "" : "shrink-0",
                   ].join(" ")}
                 >
                   {line.name}
-                  {done || line.example ? ":" : ""}
+                  {!isFlags && (done || line.example ? ":" : "")}
                 </span>
-                {done ? (
+                {isFlags ? (
+                  done || flagsValues || active ? (
+                    <span
+                      className={[
+                        "text-[13px] font-semibold",
+                        done
+                          ? "text-green-700"
+                          : active
+                            ? "text-blue-700 font-medium"
+                            : "text-green-700",
+                      ].join(" ")}
+                    >
+                      {active && composedLive.trim()
+                        ? composedLive
+                        : flagsValues ||
+                          (active && flagsExample ? `예) ${flagsExample}` : "")}
+                    </span>
+                  ) : (
+                    <span className="text-[13px] font-medium text-gray-500">
+                      예) {line.example}
+                    </span>
+                  )
+                ) : done ? (
                   <span className="ml-2.5 text-[13px] font-semibold text-green-700">
                     {row?.display}
                   </span>

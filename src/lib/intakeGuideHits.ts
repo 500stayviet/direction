@@ -23,10 +23,7 @@ export type IntakeGuideKey =
   | "location"
   | "money"
   | "dates"
-  | "loan"
-  | "insurance"
-  | "parking"
-  | "elevator"
+  | "flags"
   | "share"
   | "contacts"
   | "notes";
@@ -125,10 +122,12 @@ export function intakeGuideHits(
     if (move) hits.dates = formatMoveInRange(move.from, move.to);
   }
 
-  if (parsed.loan) hits.loan = `대출 ${parsed.loan}`;
-  if (parsed.insurance) hits.insurance = `보증보험 ${parsed.insurance}`;
-  if (parsed.parking) hits.parking = `주차 ${parsed.parking}`;
-  if (parsed.elevator) hits.elevator = `엘베 ${parsed.elevator}`;
+  const flagParts: string[] = [];
+  if (parsed.loan) flagParts.push(`대출 ${parsed.loan}`);
+  if (parsed.insurance) flagParts.push(`보증보험 ${parsed.insurance}`);
+  if (parsed.parking) flagParts.push(`주차 ${parsed.parking}`);
+  if (parsed.elevator) flagParts.push(`엘베 ${parsed.elevator}`);
+  if (flagParts.length > 0) hits.flags = flagParts.join(" · ");
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
 
   const notes = parsed.notes.trim();

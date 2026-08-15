@@ -72,19 +72,37 @@ describe("intakeSteps", () => {
     assert.equal(dates.ok, true);
     assert.equal(dates.partial.moveInFrom, "2026-09-15");
 
-    const loan = parseIntakeStep(full, "loan", "customer", prior);
-    assert.equal(loan.ok, true);
-    assert.equal(loan.partial.loan, "무");
+    const flags = parseIntakeStep(full, "flags", "customer", prior);
+    assert.equal(flags.ok, true);
+    assert.equal(flags.partial.loan, "무");
 
-    const parking = parseIntakeStep(full, "parking", "customer", prior);
-    assert.equal(parking.ok, true);
-    assert.equal(parking.partial.parking, "유");
+    const flagsAfterLoan = parseIntakeStep(
+      "보증보험 무",
+      "flags",
+      "customer",
+      flags.partial
+    );
+    assert.equal(flagsAfterLoan.partial.insurance, "무");
+
+    const flagsAfterInsurance = parseIntakeStep(
+      "주차 유",
+      "flags",
+      "customer",
+      flagsAfterLoan.partial
+    );
+    assert.equal(flagsAfterInsurance.partial.parking, "유");
   });
 
   it("대출 가·대출 가능도 유로 받는다", () => {
-    assert.equal(parseIntakeStep("대출 가", "loan", "property").partial.loan, "유");
-    assert.equal(parseIntakeStep("대출 가능", "loan", "property").partial.loan, "유");
-    assert.equal(parseIntakeStep("보증보험 불", "insurance", "property").partial.insurance, "무");
+    assert.equal(parseIntakeStep("대출 가", "flags", "property").partial.loan, "유");
+    assert.equal(parseIntakeStep("대출 가능", "flags", "property").partial.loan, "유");
+    assert.equal(
+      parseIntakeStep("보증보험 불", "flags", "property", {
+        loan: "유",
+        options: [],
+      }).partial.insurance,
+      "무"
+    );
   });
 
   it("유/무 줄은 한 항목씩 채운 뒤 다음 줄로 넘긴다", () => {
@@ -96,17 +114,17 @@ describe("intakeSteps", () => {
       money: { deposit: 20000, options: [] },
       dates: { moveInFrom: "2026-08-25", moveInTo: "2026-09-10", options: [] },
     };
-    const loanIndex = INTAKE_GUIDE_STEPS.property.findIndex(
-      (line) => line.key === "loan"
+    const flagsIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "flags"
     );
-    const chain = parseIntakeStepChain(full, loanIndex, "property", priorSteps);
+    const chain = parseIntakeStepChain(full, flagsIndex, "property", priorSteps);
     assert.equal(chain.commits.length, 4);
-    assert.equal(chain.commits[0]?.key, "loan");
-    assert.equal(chain.commits[0]?.partial.loan, "유");
-    assert.equal(chain.commits[1]?.key, "insurance");
-    assert.equal(chain.commits[1]?.partial.insurance, "무");
-    assert.equal(chain.commits[2]?.key, "parking");
-    assert.equal(chain.commits[3]?.key, "elevator");
+    assert.equal(chain.commits.every((row) => row.key === "flags"), true);
+    assert.equal(chain.commits[3]?.partial.loan, "유");
+    assert.equal(chain.commits[3]?.partial.insurance, "무");
+    assert.equal(chain.commits[3]?.partial.parking, "유");
+    assert.equal(chain.commits[3]?.partial.elevator, "무");
+    assert.match(chain.commits[3]?.display ?? "", /엘베 무/);
   });
 
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {

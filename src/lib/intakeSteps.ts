@@ -31,10 +31,11 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "입주희망일",
       example: "○○월 ○○일    부터    ○○월 ○○일",
     },
-    { key: "loan", name: "대출", example: "유 · 무 · 가능 · 가" },
-    { key: "insurance", name: "보증보험", example: "유 · 무 · 불" },
-    { key: "parking", name: "주차", example: "유 · 무 · 가능" },
-    { key: "elevator", name: "엘베", example: "유 · 무 · 가능" },
+    {
+      key: "flags",
+      name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)",
+      example: "대출 유 · 보증보험 무 · 주차 유 · 엘베 무",
+    },
     { key: "share", name: "팀공유 (유 / 무)" },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
@@ -48,10 +49,11 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임대가능일",
       example: "○○월 ○○일    부터    ○○월 ○○일",
     },
-    { key: "loan", name: "대출", example: "유 · 무 · 가능 · 가" },
-    { key: "insurance", name: "보증보험", example: "유 · 무 · 불" },
-    { key: "parking", name: "주차", example: "유 · 무 · 가능" },
-    { key: "elevator", name: "엘베", example: "유 · 무 · 가능" },
+    {
+      key: "flags",
+      name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)",
+      example: "대출 유 · 보증보험 무 · 주차 유 · 엘베 무",
+    },
     {
       key: "contacts",
       name: "임차인 · 임대인 전화번호",
@@ -172,23 +174,54 @@ function stepParseInput(
   return [prefix, text].filter(Boolean).join(" ");
 }
 
-const YESNO_STEP_KEYS = new Set<IntakeStepKey>([
+const FLAG_FIELDS: IntakeYesNoField[] = [
   "loan",
   "insurance",
   "parking",
   "elevator",
-]);
+];
 
-function isYesNoStep(step: IntakeStepKey): step is IntakeYesNoField {
-  return YESNO_STEP_KEYS.has(step);
+export function nextFlagField(
+  partial: Partial<IntakeParseResult>
+): IntakeYesNoField | null {
+  for (const field of FLAG_FIELDS) {
+    if (!partial[field]) return field;
+  }
+  return null;
 }
 
-function yesNoStepDisplay(step: IntakeYesNoField, value: string): string {
-  if (step === "loan") return `대출 ${value}`;
-  if (step === "insurance") return `보증보험 ${value}`;
-  if (step === "parking") return `주차 ${value}`;
-  return `엘베 ${value}`;
+export function flagsStepComplete(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  if (!partial) return false;
+  return FLAG_FIELDS.every((field) => partial[field]);
 }
+
+export function formatFlagsValueLine(
+  partial: Partial<IntakeParseResult>
+): string {
+  const parts: string[] = [];
+  if (partial.loan) parts.push(`대출 ${partial.loan}`);
+  if (partial.insurance) parts.push(`보증보험 ${partial.insurance}`);
+  if (partial.parking) parts.push(`주차 ${partial.parking}`);
+  if (partial.elevator) parts.push(`엘베 ${partial.elevator}`);
+  return parts.join(" · ");
+}
+
+const FLAG_FIELD_EXAMPLES: Record<IntakeYesNoField, string> = {
+  loan: "대출 유 · 무 · 가능 · 가",
+  insurance: "보증보험 유 · 무 · 불",
+  parking: "주차 유 · 무 · 가능",
+  elevator: "엘베 유 · 무 · 가능",
+};
+
+export function formatFlagsActiveExample(
+  partial: Partial<IntakeParseResult> | undefined
+): string {
+  const next = nextFlagField(partial ?? {});
+  return next ? FLAG_FIELD_EXAMPLES[next] : "";
+}
+
 
 function consumeAfterToken(
   text: string,
@@ -296,9 +329,14 @@ export function extractTalkStepRemainder(
     const end = datesConsumedEnd(text);
     return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
   }
-  if (isYesNoStep(step)) {
-    const hit = consumeYesNoField(text, step);
-    return hit?.remainder ?? "";
+  if (step === "flags") {
+    let remainder = text;
+    for (const field of FLAG_FIELDS) {
+      if (!partial[field]) break;
+      const hit = consumeYesNoField(remainder, field);
+      if (hit) remainder = hit.remainder;
+    }
+    return remainder;
   }
   if (step === "share" && partial.workspaceShared) {
     return consumeAfterToken(text, `팀공유 ${partial.workspaceShared}`, true);
@@ -346,7 +384,11 @@ export function parseIntakeStepChain(
     if (cancelText) text = cancelText;
 
     const prior = priorStepsMerged(steps, kind, index);
-    const parsed = parseIntakeStep(text, key, kind, prior, today);
+    const mergedPrior =
+      key === "flags" && steps.flags
+        ? { ...prior, ...steps.flags }
+        : prior;
+    const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) break;
 
     commits.push({
@@ -356,6 +398,9 @@ export function parseIntakeStepChain(
     });
     steps[key] = parsed.partial;
     text = extractTalkStepRemainder(text, key, parsed.partial, kind);
+    if (key === "flags" && !flagsStepComplete(parsed.partial)) {
+      continue;
+    }
     index += 1;
   }
 
@@ -394,17 +439,27 @@ export function parseIntakeStep(
     };
   }
 
-  if (isYesNoStep(step)) {
-    const value = parseYesNoField(text, step);
+  if (step === "flags") {
+    const existing: Partial<IntakeParseResult> = {
+      loan: prior?.loan,
+      insurance: prior?.insurance,
+      parking: prior?.parking,
+      elevator: prior?.elevator,
+      options: [],
+    };
+    const next = nextFlagField(existing);
+    if (!next) return { ok: false, partial: {}, display: "" };
+    const value = parseYesNoField(text, next);
     if (!value) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = {
-      [step]: value,
+      ...existing,
+      [next]: value,
       options: [],
     };
     return {
       ok: true,
       partial,
-      display: yesNoStepDisplay(step, value),
+      display: formatFlagsValueLine(partial),
     };
   }
 
