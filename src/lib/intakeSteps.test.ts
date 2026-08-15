@@ -5,6 +5,7 @@ import {
   buildIntakeFromSteps,
   parseIntakeStep,
   parseIntakeStepChain,
+  firstIncompleteGuideIndex,
   splitIntakeStepCancel,
 } from "./intakeSteps.ts";
 
@@ -229,5 +230,20 @@ describe("intakeSteps", () => {
     assert.equal(parseIntakeStep("홍길동입니다", "name", "customer").partial.name, "홍길동");
     assert.equal(parseIntakeStep("원룸", "name", "customer").partial.name, "원룸");
     assert.equal(parseIntakeStep("홍", "name", "customer").ok, false);
+  });
+
+  it("firstIncompleteGuideIndex는 미완료 flags에 머문다", () => {
+    const idx = firstIncompleteGuideIndex("property", {
+      roomType: { display: "원룸", partial: { roomType: "원룸", options: [] } },
+      dealType: { display: "매매", partial: { dealType: "매매", options: [] } },
+      location: { display: "강동구", partial: { gu: "강동구", options: [] } },
+      money: { display: "2억", partial: { deposit: 20000, options: [] } },
+      dates: { display: "8/25~9/15", partial: { moveInFrom: "2026-08-25" } },
+      flags: {
+        display: "대출가능",
+        partial: { loan: "유", options: [] },
+      },
+    });
+    assert.equal(INTAKE_GUIDE_STEPS.property[idx]?.key, "flags");
   });
 });

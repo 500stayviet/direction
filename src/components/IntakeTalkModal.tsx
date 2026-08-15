@@ -8,7 +8,7 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
-  flagsHasAny,
+  firstIncompleteGuideIndex,
   flagsStepComplete,
   formatFlagsActiveExample,
   formatFlagsValueLine,
@@ -43,8 +43,6 @@ type SpeechRec = {
   start: () => void;
   stop: () => void;
 };
-
-const STACK_VALUE_KEYS = new Set<IntakeStepKey>(["flags"]);
 
 function getSpeechRecognition(): SpeechRec | null {
   if (typeof window === "undefined") return null;
@@ -94,12 +92,14 @@ export function IntakeTalkModal({
   const [stepLive, setStepLive] = useState("");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
+  const [speechSupported, setSpeechSupported] = useState(true);
 
   const recRef = useRef<SpeechRec | null>(null);
   const sessionFinalRef = useRef("");
   const listeningRef = useRef(false);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
+  const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
@@ -222,27 +222,24 @@ export function IntakeTalkModal({
     [applySteps, clearStep, commitStep, kind, guide]
   );
 
+  useEffect(() => {
+    processUtteranceRef.current = processUtterance;
+  }, [processUtterance]);
+
   const setListeningBoth = (next: boolean) => {
     listeningRef.current = next;
     setListening(next);
   };
 
-  useEffect(() => {
-    if (!open) {
-      listeningRef.current = false;
-      recRef.current?.stop();
-      recRef.current = null;
-      setListening(false);
-      resetWizard();
-      setError("");
-      return;
-    }
-    resetWizard();
+  const stopRecognition = useCallback(() => {
+    const rec = recRef.current;
+    recRef.current = null;
+    rec?.stop();
+  }, []);
+
+  const buildRecognition = useCallback((): SpeechRec | null => {
     const rec = getSpeechRecognition();
-    if (!rec) {
-      setError("이 브라우저에서는 대화를 쓸 수 없습니다. 메시지로 입력해 주세요.");
-      return;
-    }
+    if (!rec) return null;
     rec.lang = "ko-KR";
     rec.interimResults = true;
     rec.continuous = true;
@@ -255,38 +252,79 @@ export function IntakeTalkModal({
       const pending = composeTalkText("", sessionFinalRef.current, "").trim();
       resetStepSpeech();
       if (pending) {
-        processUtterance(pending);
+        processUtteranceRef.current(pending);
       }
       if (!listeningRef.current) return;
-      try {
-        rec.start();
-      } catch {
+      const fresh = buildRecognition();
+      if (!fresh) {
         setListeningBoth(false);
+        setError("마이크를 시작할 수 없습니다.");
+        return;
+      }
+      recRef.current = fresh;
+      try {
+        fresh.start();
+      } catch {
+        recRef.current = null;
+        setListeningBoth(false);
+        setError("마이크를 시작할 수 없습니다.");
       }
     };
     rec.onerror = (ev) => {
       if (ev?.error === "aborted" || ev?.error === "no-speech") return;
+      stopRecognition();
       setListeningBoth(false);
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
-    recRef.current = rec;
-  }, [open, processUtterance, resetWizard, resetStepSpeech]);
+    return rec;
+  }, [resetStepSpeech, stopRecognition]);
 
-  const toggleListen = () => {
-    const rec = recRef.current;
-    if (!rec) return;
-    setError("");
-    if (listeningRef.current) {
-      setListeningBoth(false);
-      rec.stop();
+  useEffect(() => {
+    if (!open) {
+      listeningRef.current = false;
+      stopRecognition();
+      setListening(false);
+      resetWizard();
+      setError("");
       return;
     }
+    resetWizard();
+    const supported = Boolean(getSpeechRecognition());
+    setSpeechSupported(supported);
+    if (!supported) {
+      setError("이 브라우저에서는 대화를 쓸 수 없습니다. 메시지로 입력해 주세요.");
+    }
+  }, [open, resetWizard, resetStepSpeech, stopRecognition]);
+
+  const startListening = () => {
+    setError("");
+    const resumeIndex = firstIncompleteGuideIndex(kind, stepsRef.current);
+    setActiveIndex(resumeIndex);
+    activeIndexRef.current = resumeIndex;
+    resetStepSpeech();
+    stopRecognition();
+    const rec = buildRecognition();
+    if (!rec) {
+      setError("마이크를 시작할 수 없습니다.");
+      return;
+    }
+    recRef.current = rec;
     try {
       rec.start();
       setListeningBoth(true);
     } catch {
+      recRef.current = null;
       setError("마이크를 시작할 수 없습니다.");
     }
+  };
+
+  const toggleListen = () => {
+    if (listeningRef.current) {
+      setListeningBoth(false);
+      stopRecognition();
+      return;
+    }
+    startListening();
   };
 
   const goPrevious = () => {
@@ -340,7 +378,7 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
+      <ul className="mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-2 py-1.5">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
@@ -350,12 +388,13 @@ export function IntakeTalkModal({
           const flagsValues = isFlags
             ? formatFlagsValueLine(row?.partial ?? {})
             : "";
-          const filled = isFlags ? flagsHasAny(row?.partial) || done : done;
+          const filled = done;
           const active = index === activeIndex;
           const flagsExample = isFlags
             ? formatFlagsActiveExample(row?.partial)
             : "";
-          const stackValue = STACK_VALUE_KEYS.has(line.key);
+          const stackValue = isFlags && Boolean(flagsValues);
+          const showColon = !stackValue && (done || active || Boolean(line.example));
           return (
             <li
               key={line.key}
@@ -375,7 +414,9 @@ export function IntakeTalkModal({
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
-                  stackValue ? "flex flex-col gap-0.5" : "flex min-w-0 items-baseline gap-2",
+                  stackValue
+                    ? "flex flex-col gap-0.5"
+                    : "flex min-w-0 items-baseline gap-2",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
@@ -387,30 +428,38 @@ export function IntakeTalkModal({
                   ].join(" ")}
                 >
                   {line.name}
-                  {!stackValue && (done || active || line.example ? ":" : "")}
+                  {showColon ? ":" : ""}
                 </span>
-                {isFlags ? (
-                  done || flagsValues || active ? (
-                    <span
-                      className={[
-                        "min-w-0 break-words text-[13px] font-semibold leading-snug",
-                        done || flagsValues
-                          ? "text-green-700"
-                          : active
-                            ? "text-blue-700 font-medium"
-                            : "text-green-700",
-                      ].join(" ")}
-                    >
-                      {active && composedLive.trim()
-                        ? composedLive
-                        : flagsValues ||
-                          (active && flagsExample ? `예) ${flagsExample}` : "")}
-                    </span>
-                  ) : (
-                    <span className="text-[13px] font-medium text-gray-500">
-                      예) {line.example}
-                    </span>
-                  )
+                {isFlags && stackValue ? (
+                  <span
+                    className={[
+                      "min-w-0 break-words text-[13px] leading-snug",
+                      done
+                        ? "font-semibold text-green-700"
+                        : "font-semibold text-blue-700",
+                    ].join(" ")}
+                  >
+                    {active && composedLive.trim()
+                      ? composedLive
+                      : flagsValues}
+                  </span>
+                ) : isFlags ? (
+                  <span
+                    className={[
+                      "min-w-0 truncate text-[13px] leading-snug",
+                      active
+                        ? "font-medium text-blue-700"
+                        : "font-medium text-gray-500",
+                    ].join(" ")}
+                  >
+                    {active && composedLive.trim()
+                      ? composedLive
+                      : active && flagsExample
+                        ? `예) ${flagsExample}`
+                        : line.example
+                          ? `예) ${line.example}`
+                          : null}
+                  </span>
                 ) : done || active ? (
                   <span
                     className={[
@@ -444,15 +493,15 @@ export function IntakeTalkModal({
         value={dialogueLog}
         readOnly
         placeholder="확정된 말이 여기에 쌓입니다"
-        className="min-h-[72px]"
+        className="min-h-[56px]"
       />
       {listening ? (
-        <p className="mt-1.5 min-h-[1.25rem] break-words text-[14px] font-medium text-gray-400">
+        <p className="mt-1 min-h-[1.25rem] break-words text-[14px] font-medium text-gray-400">
           {composedLive || "말하는 중…"}
         </p>
       ) : null}
       {error ? (
-        <p className="mt-1.5 text-[12px] font-semibold text-red-400">{error}</p>
+        <p className="mt-1 text-[12px] font-semibold text-red-400">{error}</p>
       ) : null}
       {!listening ? (
         <button
@@ -463,7 +512,7 @@ export function IntakeTalkModal({
             "bg-red-500 text-white hover:bg-red-600",
           ].join(" ")}
           onClick={toggleListen}
-          disabled={!recRef.current && Boolean(error)}
+          disabled={!speechSupported}
         >
           대화 시작
         </button>

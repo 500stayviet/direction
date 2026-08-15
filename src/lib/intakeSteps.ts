@@ -205,6 +205,24 @@ export function flagsHasAny(
   return FLAG_FIELDS.some((field) => partial[field]);
 }
 
+export function firstIncompleteGuideIndex(
+  kind: IntakeKind,
+  steps: Partial<
+    Record<
+      IntakeStepKey,
+      { partial?: Partial<IntakeParseResult>; display?: string }
+    >
+  >
+): number {
+  const guide = INTAKE_GUIDE_STEPS[kind];
+  const idx = guide.findIndex((line) => {
+    const row = steps[line.key];
+    if (line.key === "flags") return !flagsStepComplete(row?.partial);
+    return !row?.display;
+  });
+  return idx < 0 ? Math.max(0, guide.length - 1) : idx;
+}
+
 export function formatFlagsValueLine(
   partial: Partial<IntakeParseResult>,
   compact = true
