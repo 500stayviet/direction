@@ -108,9 +108,17 @@ export function liveTail(locked: string, live: string): string {
 export function readSpeechResults(
   results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
 ): { sessionFinal: string; live: string } {
+  return readSpeechResultsSince(results, 0);
+}
+
+/** 마지막으로 확정한 단계 이후 새로 인식된 말만 읽는다 */
+export function readSpeechResultsSince(
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
+  fromIndex: number
+): { sessionFinal: string; live: string } {
   let sessionFinal = "";
   let live = "";
-  for (let i = 0; i < results.length; i += 1) {
+  for (let i = Math.max(0, fromIndex); i < results.length; i += 1) {
     const row = results[i];
     if (!row) continue;
     const piece = normalizeSpeech(row[0]?.transcript ?? "");

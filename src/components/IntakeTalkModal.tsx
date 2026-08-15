@@ -18,7 +18,7 @@ import {
   absorbCommitted,
   composeTalkText,
   liveTail,
-  readSpeechResults,
+  readSpeechResultsSince,
 } from "@/lib/speechTranscript";
 import { filledSectionClass } from "@/lib/uiInvalid";
 
@@ -86,9 +86,19 @@ export function IntakeTalkModal({
   const recRef = useRef<SpeechRec | null>(null);
   const stepDraftRef = useRef("");
   const sessionFinalRef = useRef("");
+  const resultCursorRef = useRef(0);
+  const skipOnEndOnceRef = useRef(false);
   const listeningRef = useRef(false);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
+
+  const resetStepSpeech = useCallback(() => {
+    setStepDraft("");
+    setStepLive("");
+    stepDraftRef.current = "";
+    sessionFinalRef.current = "";
+    resultCursorRef.current = 0;
+  }, []);
 
   useEffect(() => {
     stepsRef.current = steps;
@@ -96,17 +106,16 @@ export function IntakeTalkModal({
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
+    resetStepSpeech();
+  }, [activeIndex, resetStepSpeech]);
 
   const resetWizard = useCallback(() => {
     setActiveIndex(0);
     setSteps({});
     setDialogueLog("");
-    setStepDraft("");
-    setStepLive("");
-    stepDraftRef.current = "";
-    sessionFinalRef.current = "";
-  }, []);
+    resetStepSpeech();
+    skipOnEndOnceRef.current = false;
+  }, [resetStepSpeech]);
 
   const appendDialogue = (chunk: string) => {
     const next = chunk.trim();
@@ -124,12 +133,9 @@ export function IntakeTalkModal({
       if (idx >= 0 && idx < guide.length - 1) {
         setActiveIndex(idx + 1);
       }
-      setStepDraft("");
-      setStepLive("");
-      stepDraftRef.current = "";
-      sessionFinalRef.current = "";
+      resetStepSpeech();
     },
-    [guide]
+    [guide, resetStepSpeech]
   );
 
   const clearStep = useCallback((key: IntakeStepKey) => {
@@ -142,6 +148,7 @@ export function IntakeTalkModal({
     setStepLive("");
     stepDraftRef.current = "";
     sessionFinalRef.current = "";
+    resultCursorRef.current = 0;
   }, []);
 
   const processUtterance = useCallback(
@@ -166,7 +173,7 @@ export function IntakeTalkModal({
         );
         const parsed = parseIntakeStep(text, key, kind, prior);
         if (parsed.ok) {
-          if (fromSpeech) appendDialogue(trimmed);
+          if (fromSpeech) appendDialogue(parsed.display || text);
           commitStep(key, parsed.partial, parsed.display);
           return true;
         }
@@ -179,24 +186,11 @@ export function IntakeTalkModal({
 
       const notes = trimmed.replace(/^메모\s*[:：.]?\s*/, "").trim();
       if (!notes) return false;
-      if (fromSpeech) appendDialogue(trimmed);
+      if (fromSpeech) appendDialogue(notes);
       commitStep(key, { notes, options: [] }, notes);
       return true;
     },
     [clearStep, commitStep, kind, guide]
-  );
-
-  const tryAdvanceFromDraft = useCallback(
-    (includeLive: boolean) => {
-      const composed = composeTalkText(
-        stepDraftRef.current,
-        sessionFinalRef.current,
-        includeLive ? stepLive : ""
-      );
-      if (!composed.trim()) return;
-      processUtterance(composed, false);
-    },
-    [processUtterance, stepLive]
   );
 
   const setListeningBoth = (next: boolean) => {
@@ -224,7 +218,10 @@ export function IntakeTalkModal({
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (ev) => {
-      const spoken = readSpeechResults(ev.results);
+      const spoken = readSpeechResultsSince(
+        ev.results,
+        resultCursorRef.current
+      );
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
       const composed = composeTalkText(
@@ -232,18 +229,45 @@ export function IntakeTalkModal({
         spoken.sessionFinal,
         spoken.live
       );
-      if (spoken.sessionFinal.trim()) {
-        processUtterance(composed, true);
+      if (!spoken.sessionFinal.trim()) return;
+      const ok = processUtterance(composed, true);
+      if (!ok) return;
+      resultCursorRef.current = ev.results.length;
+      skipOnEndOnceRef.current = true;
+      try {
+        rec.stop();
+      } catch {
+        /* ignore */
       }
     };
     rec.onend = () => {
+      if (skipOnEndOnceRef.current) {
+        skipOnEndOnceRef.current = false;
+        resetStepSpeech();
+        if (!listeningRef.current) return;
+        try {
+          rec.start();
+        } catch {
+          setListeningBoth(false);
+        }
+        return;
+      }
       const locked = absorbCommitted(stepDraftRef.current, sessionFinalRef.current);
       stepDraftRef.current = locked;
       setStepDraft(locked);
       sessionFinalRef.current = "";
       setStepLive("");
       if (locked.trim()) {
-        processUtterance(locked, false);
+        const ok = processUtterance(locked, false);
+        if (ok) {
+          skipOnEndOnceRef.current = true;
+          try {
+            rec.stop();
+          } catch {
+            /* ignore */
+          }
+          return;
+        }
       }
       if (!listeningRef.current) return;
       try {
@@ -270,6 +294,7 @@ export function IntakeTalkModal({
       return;
     }
     try {
+      resultCursorRef.current = 0;
       rec.start();
       setListeningBoth(true);
     } catch {
@@ -279,10 +304,7 @@ export function IntakeTalkModal({
 
   const goPrevious = () => {
     setActiveIndex((idx) => Math.max(0, idx - 1));
-    setStepDraft("");
-    setStepLive("");
-    stepDraftRef.current = "";
-    sessionFinalRef.current = "";
+    resetStepSpeech();
   };
 
   const skipCurrent = () => {
@@ -296,18 +318,12 @@ export function IntakeTalkModal({
     if (activeIndex < guide.length - 1) {
       setActiveIndex((idx) => idx + 1);
     }
-    setStepDraft("");
-    setStepLive("");
-    stepDraftRef.current = "";
-    sessionFinalRef.current = "";
+    resetStepSpeech();
   };
 
   const jumpToStep = (index: number) => {
     setActiveIndex(index);
-    setStepDraft("");
-    setStepLive("");
-    stepDraftRef.current = "";
-    sessionFinalRef.current = "";
+    resetStepSpeech();
   };
 
   const handleApply = () => {
@@ -315,7 +331,6 @@ export function IntakeTalkModal({
   };
 
   const hasAnyStep = Object.values(steps).some((row) => row?.display);
-  const activeKey = guide[activeIndex]?.key;
   const composedLive = liveTail(stepDraft, stepLive);
 
   return (
@@ -323,7 +338,7 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="안내 순서대로 말해 주세요. 인식되면 자동으로 다음 항목으로 넘어갑니다."
+      description="한 항목씩 말해 주세요. 인식되면 다음 항목으로 넘어갑니다."
     >
       <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
@@ -391,12 +406,7 @@ export function IntakeTalkModal({
       <TextArea
         label="대화"
         value={dialogueLog}
-        onChange={(e) => {
-          setDialogueLog(e.target.value);
-          if (activeKey === "notes") {
-            processUtterance(e.target.value, false);
-          }
-        }}
+        readOnly
         placeholder="확정된 말이 여기에 쌓입니다"
         className="min-h-[72px]"
       />

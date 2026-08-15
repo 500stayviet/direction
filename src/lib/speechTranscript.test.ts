@@ -8,6 +8,7 @@ import {
   liveTail,
   mergeSpeech,
   readSpeechResults,
+  readSpeechResultsSince,
   spokenFromResults,
 } from "./speechTranscript.ts";
 
@@ -59,6 +60,16 @@ describe("speechTranscript", () => {
     assert.equal(liveTail("원룸", "원룸 매매"), "매매");
     assert.equal(liveTail("원룸 매매", "원룸 매매"), "");
     assert.equal(liveTail("원룸 매매", "암사동"), "암사동");
+  });
+
+  it("확정한 단계 이후 새로 인식된 말만 읽는다", () => {
+    const results = [
+      { isFinal: true, 0: { transcript: "원룸" } },
+      { isFinal: true, 0: { transcript: "전세" } },
+    ];
+    assert.equal(readSpeechResults(results).sessionFinal, "원룸 전세");
+    assert.equal(readSpeechResultsSince(results, 1).sessionFinal, "전세");
+    assert.equal(readSpeechResultsSince(results, 2).sessionFinal, "");
   });
 
   it("세션이 다시 시작된 메아리는 확정 글에 넣지 않는다", () => {
