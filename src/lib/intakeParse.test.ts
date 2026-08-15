@@ -335,6 +335,18 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(parsed.notes, /홍길동/);
   });
 
+  it("고객 메시지에서 이름만·라벨 없이도 고객명 칸에 넣는다", () => {
+    const alone = parseIntakeText("홍길동", "customer");
+    assert.equal(alone.name, "홍길동");
+    assert.equal(alone.nameLabeled, true);
+    assert.equal(alone.notes, "");
+
+    const middle = parseIntakeText("원룸 전세 홍길동 암사동", "customer");
+    assert.equal(middle.name, "홍길동");
+    assert.equal(middle.nameLabeled, true);
+    assert.doesNotMatch(middle.notes, /홍길동/);
+  });
+
   it("전화번호 라벨이 있으면 전화를 읽는다", () => {
     const parsed = parseIntakeText(
       "명칭 성내 전화번호 010-2222-3333 투룸 월세",

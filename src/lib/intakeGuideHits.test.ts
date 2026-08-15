@@ -30,6 +30,9 @@ describe("intakeGuideHitsFromText", () => {
     assert.equal(unlabeled.phone, "010-1234-5678");
     assert.equal(unlabeled.roomType, "원룸");
 
+    const alone = intakeGuideHitsFromText("홍길동", "customer");
+    assert.equal(alone.name, "홍길동");
+
     const labeled = intakeGuideHitsFromText(
       "고객명 홍길동 010-1234-5678 원룸",
       "customer"

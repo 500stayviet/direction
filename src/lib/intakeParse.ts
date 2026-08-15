@@ -1160,12 +1160,27 @@ const NAME_STOP = new Set([
   "유무",
   "즉시",
   "매물유형",
+  "남향",
+  "북향",
+  "동향",
+  "서향",
+  "역세권",
+  "신축",
+  "리모델링",
+  "보증보험",
+  "저층",
+  "고층",
+  "중층",
+  "희망층",
 ]);
 
 function isNameCandidate(word: string): boolean {
   if (!/^[가-힣]{2,6}$/.test(word)) return false;
   if (NAME_STOP.has(word)) return false;
+  if (/층$/.test(word)) return false;
   if (isKnownSeoulDong(word)) return false;
+  if (SEOUL_GU_LIST.includes(word)) return false;
+  if (SEOUL_GU_LIST.some((gu) => gu.replace(/구$/, "") === word)) return false;
   return true;
 }
 
@@ -1204,6 +1219,24 @@ function expandSpokenPhones(text: string): string {
   );
 }
 
+function findCustomerName(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (/^[가-힣]{2,6}$/.test(trimmed) && isNameCandidate(trimmed)) {
+    return trimmed;
+  }
+
+  const lead = trimmed.match(/^([가-힣]{2,6})(?:\s|$)/);
+  if (lead && isNameCandidate(lead[1] ?? "")) {
+    return lead[1];
+  }
+
+  for (const hit of trimmed.matchAll(/(?:^|\s)([가-힣]{2,6})(?=\s|$)/g)) {
+    const word = hit[1] ?? "";
+    if (isNameCandidate(word)) return word;
+  }
+  return undefined;
+}
+
 function parseContacts(
   text: string,
   kind: IntakeKind = "property"
@@ -1225,9 +1258,9 @@ function parseContacts(
   let nameLabeled = Boolean(name);
 
   if (!name && kind === "customer") {
-    const lead = text.match(/^([가-힣]{2,6})(?=\s)/);
-    if (lead && isNameCandidate(lead[1] ?? "")) {
-      name = lead[1];
+    const found = findCustomerName(text);
+    if (found) {
+      name = found;
       nameLabeled = true;
     }
   }
