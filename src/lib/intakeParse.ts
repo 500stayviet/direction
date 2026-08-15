@@ -375,12 +375,13 @@ function yesNoFromToken(token: string): YesNo {
 
 function yesNoLabelPattern(label: string): string {
   if (label === "주차") return "(?:주차(?:장)?)";
+  if (label === "보증") return "(?:보증(?!보험|금))";
   return label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export const INTAKE_YESNO_FIELDS = {
   loan: ["대출"],
-  insurance: ["보증보험", "전세보증보험", "보증 보험"],
+  insurance: ["보증보험", "전세보증보험", "보증 보험", "보증"],
   parking: ["주차"],
   elevator: ["엘리베이터", "엘베", "E/V", "EV"],
 } as const;
@@ -434,7 +435,12 @@ export function parseAllYesNoFields(
 ): Pick<IntakeParseResult, "loan" | "insurance" | "parking" | "elevator"> {
   return {
     loan: parseYesNo(text, ["대출"]),
-    insurance: parseYesNo(text, ["보증보험", "전세보증보험", "보증 보험"]),
+    insurance: parseYesNo(text, [
+      "보증보험",
+      "전세보증보험",
+      "보증 보험",
+      "보증",
+    ]),
     parking: parseYesNo(text, ["주차"]),
     elevator: parseYesNo(text, ["엘리베이터", "엘베", "E/V", "EV"]),
   };

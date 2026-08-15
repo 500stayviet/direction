@@ -302,6 +302,18 @@ export function formatMoveInRange(
   return fallback || "-";
 }
 
+/** 대화 가이드용 — 8/25~9/15 */
+export function formatGuideMoveInRange(from?: string, to?: string): string {
+  const compact = (iso: string) => {
+    const [, m, d] = iso.split("-").map(Number);
+    if (!m || !d) return iso;
+    return `${m}/${d}`;
+  };
+  if (!from) return "";
+  if (to && to !== from) return `${compact(from)}~${compact(to)}`;
+  return compact(from);
+}
+
 export function formatKoreanAmPmTime(time: string): string {
   const [hs, ms] = time.split(":").map(Number);
   if (!Number.isFinite(hs)) return time;

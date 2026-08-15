@@ -2,8 +2,8 @@ import type { IntakeGuideKey } from "@/lib/intakeGuideHits";
 import { intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
   normalizeIntakeInput,
+  parseAllYesNoFields,
   parseIntakeText,
-  parseYesNoField,
   consumeYesNoField,
   type IntakeKind,
   type IntakeParseResult,
@@ -197,29 +197,61 @@ export function flagsStepComplete(
   return FLAG_FIELDS.every((field) => partial[field]);
 }
 
+export function flagsHasAny(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  if (!partial) return false;
+  return FLAG_FIELDS.some((field) => partial[field]);
+}
+
 export function formatFlagsValueLine(
-  partial: Partial<IntakeParseResult>
+  partial: Partial<IntakeParseResult>,
+  compact = true
 ): string {
   const parts: string[] = [];
-  if (partial.loan) parts.push(`대출 ${partial.loan}`);
-  if (partial.insurance) parts.push(`보증보험 ${partial.insurance}`);
-  if (partial.parking) parts.push(`주차 ${partial.parking}`);
-  if (partial.elevator) parts.push(`엘베 ${partial.elevator}`);
+  if (partial.loan) parts.push(compact ? `대출${partial.loan}` : `대출 ${partial.loan}`);
+  if (partial.insurance) {
+    parts.push(
+      compact ? `보증${partial.insurance}` : `보증보험 ${partial.insurance}`
+    );
+  }
+  if (partial.parking) {
+    parts.push(compact ? `주차${partial.parking}` : `주차 ${partial.parking}`);
+  }
+  if (partial.elevator) {
+    parts.push(compact ? `엘베${partial.elevator}` : `엘베 ${partial.elevator}`);
+  }
   return parts.join(" · ");
 }
 
+function mergeFlagsFromText(
+  existing: Partial<IntakeParseResult>,
+  text: string
+): Partial<IntakeParseResult> | null {
+  const parsed = parseAllYesNoFields(text);
+  const partial: Partial<IntakeParseResult> = { ...existing, options: [] };
+  let foundAny = false;
+  for (const field of FLAG_FIELDS) {
+    if (partial[field] || !parsed[field]) continue;
+    partial[field] = parsed[field];
+    foundAny = true;
+  }
+  return foundAny ? partial : null;
+}
+
 const FLAG_FIELD_EXAMPLES: Record<IntakeYesNoField, string> = {
-  loan: "대출 유 · 무 · 가능 · 가",
-  insurance: "보증보험 유 · 무 · 불",
-  parking: "주차 유 · 무 · 가능",
-  elevator: "엘베 유 · 무 · 가능",
+  loan: "대출 유",
+  insurance: "보증 무",
+  parking: "주차 유",
+  elevator: "엘베 무",
 };
 
 export function formatFlagsActiveExample(
   partial: Partial<IntakeParseResult> | undefined
 ): string {
   const next = nextFlagField(partial ?? {});
-  return next ? FLAG_FIELD_EXAMPLES[next] : "";
+  if (!next) return "";
+  return `순서 상관없이 · 예) ${FLAG_FIELD_EXAMPLES[next]}`;
 }
 
 
@@ -447,19 +479,15 @@ export function parseIntakeStep(
       elevator: prior?.elevator,
       options: [],
     };
-    const next = nextFlagField(existing);
-    if (!next) return { ok: false, partial: {}, display: "" };
-    const value = parseYesNoField(text, next);
-    if (!value) return { ok: false, partial: {}, display: "" };
-    const partial: Partial<IntakeParseResult> = {
-      ...existing,
-      [next]: value,
-      options: [],
-    };
+    if (flagsStepComplete(existing)) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const merged = mergeFlagsFromText(existing, text);
+    if (!merged) return { ok: false, partial: {}, display: "" };
     return {
       ok: true,
-      partial,
-      display: formatFlagsValueLine(partial),
+      partial: merged,
+      display: formatFlagsValueLine(merged),
     };
   }
 

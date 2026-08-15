@@ -1,8 +1,8 @@
 import { needsRoomBathCounts } from "@/lib/constants";
 import {
   formatDepositRent,
+  formatGuideMoveInRange,
   formatMoney,
-  formatMoveInRange,
   formatPhoneInput,
 } from "@/lib/format";
 import {
@@ -119,14 +119,14 @@ export function intakeGuideHits(
     hits.dates = "바로입주";
   } else {
     const move = intakeMoveInPeriod(parsed);
-    if (move) hits.dates = formatMoveInRange(move.from, move.to);
+    if (move) hits.dates = formatGuideMoveInRange(move.from, move.to);
   }
 
   const flagParts: string[] = [];
-  if (parsed.loan) flagParts.push(`대출 ${parsed.loan}`);
-  if (parsed.insurance) flagParts.push(`보증보험 ${parsed.insurance}`);
-  if (parsed.parking) flagParts.push(`주차 ${parsed.parking}`);
-  if (parsed.elevator) flagParts.push(`엘베 ${parsed.elevator}`);
+  if (parsed.loan) flagParts.push(`대출${parsed.loan}`);
+  if (parsed.insurance) flagParts.push(`보증${parsed.insurance}`);
+  if (parsed.parking) flagParts.push(`주차${parsed.parking}`);
+  if (parsed.elevator) flagParts.push(`엘베${parsed.elevator}`);
   if (flagParts.length > 0) hits.flags = flagParts.join(" · ");
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
 

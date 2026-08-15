@@ -75,22 +75,17 @@ describe("intakeSteps", () => {
     const flags = parseIntakeStep(full, "flags", "customer", prior);
     assert.equal(flags.ok, true);
     assert.equal(flags.partial.loan, "무");
+    assert.equal(flags.partial.insurance, "무");
+    assert.equal(flags.partial.parking, "유");
+    assert.equal(flags.partial.elevator, "무");
 
-    const flagsAfterLoan = parseIntakeStep(
-      "보증보험 무",
-      "flags",
-      "customer",
-      flags.partial
-    );
-    assert.equal(flagsAfterLoan.partial.insurance, "무");
-
-    const flagsAfterInsurance = parseIntakeStep(
-      "주차 유",
-      "flags",
-      "customer",
-      flagsAfterLoan.partial
-    );
-    assert.equal(flagsAfterInsurance.partial.parking, "유");
+    const moreFlags = parseIntakeStep("엘베 유", "flags", "customer", {
+      loan: "유",
+      insurance: "무",
+      parking: "유",
+      options: [],
+    });
+    assert.equal(moreFlags.partial.elevator, "유");
   });
 
   it("대출 가·대출 가능도 유로 받는다", () => {
@@ -105,7 +100,22 @@ describe("intakeSteps", () => {
     );
   });
 
-  it("유/무 줄은 한 항목씩 채운 뒤 다음 줄로 넘긴다", () => {
+  it("flags는 순서 상관없이 한 발화에서 여러 항목을 채운다", () => {
+    const step = parseIntakeStep("주차 유 대출 무 보증 유", "flags", "property");
+    assert.equal(step.ok, true);
+    assert.equal(step.partial.parking, "유");
+    assert.equal(step.partial.loan, "무");
+    assert.equal(step.partial.insurance, "유");
+  });
+
+  it("보증만 말해도 보증보험 유/무로 받는다", () => {
+    assert.equal(
+      parseIntakeStep("보증 무", "flags", "property").partial.insurance,
+      "무"
+    );
+  });
+
+  it("유/무 줄은 한 발화에 모두 있으면 한 번에 채운다", () => {
     const full = "대출 유 보증보험 무 주차 유 엘베 무";
     const priorSteps = {
       roomType: { roomType: "원룸", options: [] },
@@ -118,13 +128,13 @@ describe("intakeSteps", () => {
       (line) => line.key === "flags"
     );
     const chain = parseIntakeStepChain(full, flagsIndex, "property", priorSteps);
-    assert.equal(chain.commits.length, 4);
-    assert.equal(chain.commits.every((row) => row.key === "flags"), true);
-    assert.equal(chain.commits[3]?.partial.loan, "유");
-    assert.equal(chain.commits[3]?.partial.insurance, "무");
-    assert.equal(chain.commits[3]?.partial.parking, "유");
-    assert.equal(chain.commits[3]?.partial.elevator, "무");
-    assert.match(chain.commits[3]?.display ?? "", /엘베 무/);
+    assert.equal(chain.commits.length, 1);
+    assert.equal(chain.commits[0]?.key, "flags");
+    assert.equal(chain.commits[0]?.partial.loan, "유");
+    assert.equal(chain.commits[0]?.partial.insurance, "무");
+    assert.equal(chain.commits[0]?.partial.parking, "유");
+    assert.equal(chain.commits[0]?.partial.elevator, "무");
+    assert.match(chain.commits[0]?.display ?? "", /엘베무/);
   });
 
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {

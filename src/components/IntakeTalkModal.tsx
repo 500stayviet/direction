@@ -8,6 +8,7 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
   buildIntakeFromSteps,
+  flagsHasAny,
   flagsStepComplete,
   formatFlagsActiveExample,
   formatFlagsValueLine,
@@ -43,6 +44,14 @@ type SpeechRec = {
   stop: () => void;
 };
 
+const STACK_VALUE_KEYS = new Set<IntakeStepKey>([
+  "phone",
+  "money",
+  "dates",
+  "contacts",
+  "flags",
+]);
+
 function getSpeechRecognition(): SpeechRec | null {
   if (typeof window === "undefined") return null;
   const Ctor =
@@ -53,12 +62,22 @@ function getSpeechRecognition(): SpeechRec | null {
   return Ctor ? new Ctor() : null;
 }
 
-function activeRowClass(active: boolean, done: boolean): string {
+function activeRowClass(active: boolean, filled: boolean): string {
   if (active) {
     return "rounded-xl border-2 border-blue-400 bg-blue-50/80 px-2 py-1";
   }
-  if (done) return filledSectionClass;
+  if (filled) return filledSectionClass;
   return "px-2 py-0.5";
+}
+
+function buildDialogueLogForKind(
+  kind: IntakeKind,
+  steps: Partial<Record<IntakeStepKey, StepRecord>>
+): string {
+  return INTAKE_GUIDE_STEPS[kind]
+    .map((line) => steps[line.key]?.display)
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function IntakeTalkModal({
@@ -93,6 +112,13 @@ export function IntakeTalkModal({
     sessionFinalRef.current = "";
   }, []);
 
+  const syncDialogueLog = useCallback(
+    (nextSteps: Partial<Record<IntakeStepKey, StepRecord>>) => {
+      setDialogueLog(buildDialogueLogForKind(kind, nextSteps));
+    },
+    [kind]
+  );
+
   useEffect(() => {
     stepsRef.current = steps;
   }, [steps]);
@@ -109,39 +135,72 @@ export function IntakeTalkModal({
     resetStepSpeech();
   }, [resetStepSpeech]);
 
-  const appendDialogue = (chunk: string) => {
-    const next = chunk.trim();
-    if (!next) return;
-    setDialogueLog((prev) => (prev.trim() ? `${prev.trim()} ${next}` : next));
-  };
-
   const commitStep = useCallback(
     (key: IntakeStepKey, partial: Partial<IntakeParseResult>, display: string) => {
-      setSteps((prev) => ({
-        ...prev,
-        [key]: { partial, display, skipped: false },
-      }));
+      setSteps((prev) => {
+        const next = {
+          ...prev,
+          [key]: { partial, display, skipped: false },
+        };
+        syncDialogueLog(next);
+        return next;
+      });
       const idx = guide.findIndex((line) => line.key === key);
       if (idx >= 0 && idx < guide.length - 1) {
         setActiveIndex(idx + 1);
       }
       resetStepSpeech();
     },
-    [guide, resetStepSpeech]
+    [guide, resetStepSpeech, syncDialogueLog]
   );
 
-  const clearStep = useCallback((key: IntakeStepKey) => {
-    setSteps((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-    setStepLive("");
-    sessionFinalRef.current = "";
-  }, []);
+  const applySteps = useCallback(
+    (
+      nextSteps: Partial<Record<IntakeStepKey, StepRecord>>,
+      nextIndex: number
+    ) => {
+      stepsRef.current = nextSteps;
+      setSteps(nextSteps);
+      syncDialogueLog(nextSteps);
+      setActiveIndex(
+        nextIndex >= guide.length ? guide.length - 1 : nextIndex
+      );
+      resetStepSpeech();
+    },
+    [guide.length, resetStepSpeech, syncDialogueLog]
+  );
+
+  const clearStep = useCallback(
+    (key: IntakeStepKey) => {
+      setSteps((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        syncDialogueLog(next);
+        return next;
+      });
+      setStepLive("");
+      sessionFinalRef.current = "";
+    },
+    [syncDialogueLog]
+  );
+
+  const clearStepsFromIndex = useCallback(
+    (fromIndex: number) => {
+      setSteps((prev) => {
+        const next = { ...prev };
+        for (let i = fromIndex; i < guide.length; i += 1) {
+          const key = guide[i]?.key;
+          if (key) delete next[key];
+        }
+        syncDialogueLog(next);
+        return next;
+      });
+    },
+    [guide, syncDialogueLog]
+  );
 
   const processUtterance = useCallback(
-    (raw: string, fromSpeech: boolean) => {
+    (raw: string) => {
       const startIndex = activeIndexRef.current;
       const key = guide[startIndex]?.key;
       if (!key) return false;
@@ -152,7 +211,6 @@ export function IntakeTalkModal({
       if (key === "notes") {
         const notes = trimmed.replace(/^메모\s*[:：.]?\s*/, "").trim();
         if (!notes) return false;
-        if (fromSpeech) appendDialogue(notes);
         commitStep(key, { notes, options: [] }, notes);
         return true;
       }
@@ -173,22 +231,16 @@ export function IntakeTalkModal({
 
       const nextSteps = { ...stepsRef.current };
       for (const row of chain.commits) {
-        if (fromSpeech) appendDialogue(row.display || text);
         nextSteps[row.key] = {
           partial: row.partial,
           display: row.display,
           skipped: false,
         };
       }
-      stepsRef.current = nextSteps;
-      setSteps(nextSteps);
-      setActiveIndex(
-        chain.nextIndex >= guide.length ? guide.length - 1 : chain.nextIndex
-      );
-      resetStepSpeech();
+      applySteps(nextSteps, chain.nextIndex);
       return true;
     },
-    [clearStep, commitStep, kind, guide, resetStepSpeech]
+    [applySteps, clearStep, commitStep, kind, guide]
   );
 
   const setListeningBoth = (next: boolean) => {
@@ -224,7 +276,7 @@ export function IntakeTalkModal({
       const pending = composeTalkText("", sessionFinalRef.current, "").trim();
       resetStepSpeech();
       if (pending) {
-        processUtterance(pending, true);
+        processUtterance(pending);
       }
       if (!listeningRef.current) return;
       try {
@@ -259,7 +311,13 @@ export function IntakeTalkModal({
   };
 
   const goPrevious = () => {
-    setActiveIndex((idx) => Math.max(0, idx - 1));
+    setActiveIndex((idx) => {
+      const next = Math.max(0, idx - 1);
+      if (next < idx) {
+        clearStepsFromIndex(next + 1);
+      }
+      return next;
+    });
     resetStepSpeech();
   };
 
@@ -269,6 +327,7 @@ export function IntakeTalkModal({
     setSteps((prev) => {
       const next = { ...prev };
       delete next[key];
+      syncDialogueLog(next);
       return next;
     });
     if (activeIndex < guide.length - 1) {
@@ -289,31 +348,33 @@ export function IntakeTalkModal({
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="한 번에 여러 항목을 말해도 순서대로 칸에 넣습니다. 앞 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
+      description="칸 순서대로 진행합니다. 유/무 4항목은 순서 상관없이 말해도 됩니다. 앞 칸에 맞지 않는 말은 버려지고, 메모만 그대로 받습니다."
     >
-      <ul className="mb-3 space-y-1 rounded-2xl bg-gray-50 px-2 py-2">
+      <ul className="mb-3 max-h-[min(52vh,420px)] space-y-1 overflow-y-auto rounded-2xl bg-gray-50 px-2 py-2">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
           const done = isFlags
             ? flagsStepComplete(row?.partial)
             : Boolean(row?.display);
-          const active = index === activeIndex;
           const flagsValues = isFlags
             ? formatFlagsValueLine(row?.partial ?? {})
             : "";
+          const filled = isFlags ? flagsHasAny(row?.partial) || done : done;
+          const active = index === activeIndex;
           const flagsExample = isFlags
             ? formatFlagsActiveExample(row?.partial)
             : "";
+          const stackValue = STACK_VALUE_KEYS.has(line.key);
           return (
             <li
               key={line.key}
               data-testid={`intake-guide-row-${line.key}`}
-              className="flex items-baseline gap-1"
+              className="flex items-start gap-1"
             >
               <span
                 className={[
-                  "w-4 shrink-0 text-center text-[14px] font-bold leading-none",
+                  "w-4 shrink-0 pt-1.5 text-center text-[14px] font-bold leading-none",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -324,26 +385,26 @@ export function IntakeTalkModal({
                 aria-current={active ? "step" : undefined}
                 className={[
                   "min-w-0 flex-1 text-left",
-                  isFlags ? "flex flex-col gap-0.5" : "flex items-baseline",
-                  activeRowClass(active, done),
+                  stackValue ? "flex flex-col gap-0.5" : "flex items-baseline gap-2",
+                  activeRowClass(active, filled),
                 ].join(" ")}
               >
                 <span
                   className={[
-                    "text-[15px] font-bold",
+                    "text-[15px] font-bold leading-snug",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
-                    isFlags ? "" : "shrink-0",
+                    stackValue ? "" : "shrink-0",
                   ].join(" ")}
                 >
                   {line.name}
-                  {!isFlags && (done || line.example ? ":" : "")}
+                  {!stackValue && (done || line.example ? ":" : "")}
                 </span>
                 {isFlags ? (
                   done || flagsValues || active ? (
                     <span
                       className={[
-                        "text-[13px] font-semibold",
-                        done
+                        "min-w-0 break-words text-[13px] font-semibold leading-snug",
+                        done || flagsValues
                           ? "text-green-700"
                           : active
                             ? "text-blue-700 font-medium"
@@ -361,14 +422,14 @@ export function IntakeTalkModal({
                     </span>
                   )
                 ) : done ? (
-                  <span className="ml-2.5 text-[13px] font-semibold text-green-700">
+                  <span className="min-w-0 break-words text-[13px] font-semibold leading-snug text-green-700">
                     {row?.display}
                   </span>
                 ) : active ? (
                   <span
                     className={[
-                      "ml-2.5 text-[13px] font-medium text-blue-700",
-                      !composedLive.trim() && line.example ? "whitespace-pre" : "",
+                      "min-w-0 break-words text-[13px] font-medium leading-snug text-blue-700",
+                      !composedLive.trim() && line.example ? "whitespace-pre-wrap" : "",
                     ].join(" ")}
                   >
                     {composedLive.trim()
@@ -378,7 +439,7 @@ export function IntakeTalkModal({
                         : null}
                   </span>
                 ) : line.example ? (
-                  <span className="ml-2.5 whitespace-pre text-[13px] font-medium text-gray-500">
+                  <span className="min-w-0 whitespace-pre-wrap text-[13px] font-medium leading-snug text-gray-500">
                     예) {line.example}
                   </span>
                 ) : null}
@@ -396,7 +457,7 @@ export function IntakeTalkModal({
         className="min-h-[72px]"
       />
       {listening ? (
-        <p className="mt-1.5 min-h-[1.25rem] text-[14px] font-medium text-gray-400">
+        <p className="mt-1.5 min-h-[1.25rem] break-words text-[14px] font-medium text-gray-400">
           {composedLive || "말하는 중…"}
         </p>
       ) : null}
