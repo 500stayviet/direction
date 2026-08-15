@@ -110,13 +110,8 @@ function parseRoomSpec(text: string): {
   roomCount?: number;
   bathroomCount?: number;
 } {
-  const typeHit = lastIndex(
-    text,
-    ROOM_ALIASES.flatMap((a) => a.keys)
-  );
-  const roomType = typeHit
-    ? ROOM_ALIASES.find((a) => a.keys.includes(typeHit.key))?.value
-    : undefined;
+  const typeHit = roomAliasHits(text)[0];
+  const roomType = typeHit?.value;
   const typeIndex = typeHit?.index ?? -1;
 
   const counts: { n: number; start: number; end: number }[] = [];
@@ -171,10 +166,10 @@ function parseRoomSpec(text: string): {
     return { roomType: "3룸+", roomCount: n, bathroomCount };
   };
 
-  if (roomType === "아파트" && lastCount) {
+  if (roomType === "아파트" && lastCount && lastCount.start >= typeIndex) {
     return { roomType: "아파트", roomCount: lastCount.n, bathroomCount };
   }
-  if (lastCount && (!roomType || lastCount.start >= typeIndex)) {
+  if (lastCount && (!roomType || lastCount.start < typeIndex)) {
     return typeFromCount(lastCount.n);
   }
   if (roomType === "3룸+") {
@@ -286,6 +281,40 @@ function lastIndex(text: string, keys: string[]): { key: string; index: number }
     }
   }
   return best;
+}
+
+function roomAliasHits(
+  text: string
+): { key: string; value: RoomType; index: number }[] {
+  const hits: { key: string; value: RoomType; index: number }[] = [];
+  for (const row of ROOM_ALIASES) {
+    for (const key of row.keys) {
+      let from = 0;
+      while (from < text.length) {
+        const index = text.indexOf(key, from);
+        if (index < 0) break;
+        hits.push({ key, value: row.value, index });
+        from = index + 1;
+      }
+    }
+  }
+  hits.sort((a, b) => a.index - b.index || b.key.length - a.key.length);
+  const unique: { key: string; value: RoomType; index: number }[] = [];
+  let lastEnd = -1;
+  for (const hit of hits) {
+    if (hit.index < lastEnd) continue;
+    unique.push(hit);
+    lastEnd = hit.index + hit.key.length;
+  }
+  return unique;
+}
+
+function laterRoomTypeMemo(text: string): string {
+  return roomAliasHits(text)
+    .slice(1)
+    .map((hit) => hit.key)
+    .join(" ")
+    .trim();
 }
 
 /** 전세대출 안의 전세는 거래종류가 아님 */
@@ -1625,6 +1654,8 @@ export function parseIntakeText(
     ...(contacts.name ? [contacts.name] : []),
   ]);
   if (leftover) notes.push(leftover);
+  const laterRooms = laterRoomTypeMemo(fieldText);
+  if (laterRooms) notes.push(laterRooms);
   for (const phone of extraPhonesForMemo(fieldText, [
     result.phone,
     result.tenantPhone,

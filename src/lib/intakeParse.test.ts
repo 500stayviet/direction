@@ -167,9 +167,14 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(labeled.notes, /010-1111-2222|010-3333-4444/);
   });
 
-  it("나중에 나온 유형이 이긴다", () => {
+  it("앞에 나온 유형만 칸에 넣고 뒤 유형은 메모로 남긴다", () => {
     const parsed = parseIntakeText("원룸 전세 투룸", "property");
-    assert.equal(parsed.roomType, "투룸");
+    assert.equal(parsed.roomType, "원룸");
+    assert.match(parsed.notes, /투룸/);
+
+    const apt = parseIntakeText("원룸 아파트", "customer");
+    assert.equal(apt.roomType, "원룸");
+    assert.match(apt.notes, /아파트/);
   });
 
   it("4룸·5룸·방 수는 3룸+와 방 개수로 넣는다", () => {

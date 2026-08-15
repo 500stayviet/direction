@@ -7,6 +7,7 @@ describe("intakeGuideHitsFromText", () => {
     const hits = intakeGuideHitsFromText("원룸", "customer");
     assert.equal(hits.roomType, "원룸");
     assert.equal(hits.dealType, undefined);
+    assert.equal(hits.notes, undefined);
   });
 
   it("고객 대화에서 유형·거래·위치·금액을 가이드에 넣는다", () => {
