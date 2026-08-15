@@ -331,7 +331,7 @@ export function IntakeTalkModal({
           const done = Boolean(row?.display);
           const active = index === activeIndex;
           return (
-            <li key={line.key}>
+            <li key={line.key} data-testid={`intake-guide-row-${line.key}`}>
               <button
                 type="button"
                 disabled={!done && !active}
@@ -436,7 +436,12 @@ export function IntakeTalkModal({
         <Button variant="secondary" fullWidth onClick={onClose}>
           취소
         </Button>
-        <Button fullWidth disabled={!hasAnyStep} onClick={handleApply}>
+        <Button
+          fullWidth
+          disabled={!hasAnyStep}
+          onClick={handleApply}
+          data-testid="intake-talk-apply"
+        >
           반영하기
         </Button>
       </div>

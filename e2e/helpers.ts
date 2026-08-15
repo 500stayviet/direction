@@ -21,6 +21,20 @@ export async function prepareAppPage(page: Page) {
   });
 }
 
+export function hasE2eBackendEnv(): boolean {
+  return Boolean(
+    (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim() &&
+      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").trim() &&
+      (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim()
+  );
+}
+
+export function requireE2eBackendEnv(test: { skip: () => void }) {
+  if (!hasE2eBackendEnv()) {
+    test.skip();
+  }
+}
+
 export function uniqueUser(prefix = "e2e"): TestUser {
   const suffix = randomBytes(3).toString("hex");
   return {
@@ -132,6 +146,66 @@ export function serviceSupabase(): SupabaseClient {
 }
 
 /** e2e 가입 계정·소유 고객/매물/일정 하드삭제 (테스트 후 DB 적재 방지) */
+
+/** Playwright: Web Speech API mock (대화 입력 E2E) */
+export async function prepareIntakeE2ePage(page: Page) {
+  await prepareAppPage(page);
+  await page.addInitScript(() => {
+    class MockSpeechRecognition {
+      lang = "ko-KR";
+      interimResults = true;
+      continuous = true;
+      onresult:
+        | ((ev: {
+            results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+          }) => void)
+        | null = null;
+      onend: (() => void) | null = null;
+      onerror: ((ev?: { error?: string }) => void) | null = null;
+
+      start() {
+        (
+          window as unknown as { __e2eEmitSpeech?: (text: string) => void }
+        ).__e2eEmitSpeech = (text: string) => {
+          const results = [{ isFinal: true, 0: { transcript: text } }];
+          this.onresult?.({ results });
+          this.onend?.();
+        };
+      }
+
+      stop() {
+        this.onend?.();
+      }
+    }
+    (
+      window as unknown as {
+        webkitSpeechRecognition: new () => MockSpeechRecognition;
+      }
+    ).webkitSpeechRecognition = MockSpeechRecognition;
+    (
+      window as unknown as { SpeechRecognition: new () => MockSpeechRecognition }
+    ).SpeechRecognition = MockSpeechRecognition;
+  });
+}
+
+export async function emitTalkStep(page: Page, text: string) {
+  await page.evaluate((spoken) => {
+    const emit = (
+      window as unknown as { __e2eEmitSpeech?: (t: string) => void }
+    ).__e2eEmitSpeech;
+    if (!emit) {
+      throw new Error("mock speech not ready — click 대화 시작 first");
+    }
+    emit(spoken);
+  }, text);
+}
+
+export async function skipTalkSteps(page: Page, count: number) {
+  for (let i = 0; i < count; i += 1) {
+    await page.getByRole("button", { name: "건너뛰기" }).click();
+  }
+}
+
 export async function purgeE2eUser(userId: string | null | undefined) {
   if (!userId) return;
   const admin = serviceSupabase();
