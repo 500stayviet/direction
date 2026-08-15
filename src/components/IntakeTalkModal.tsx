@@ -299,15 +299,30 @@ export function IntakeTalkModal({
           const done = Boolean(row?.display);
           const active = index === activeIndex;
           return (
-            <li key={line.key} data-testid={`intake-guide-row-${line.key}`}>
+            <li
+              key={line.key}
+              data-testid={`intake-guide-row-${line.key}`}
+              className="flex items-baseline gap-1"
+            >
+              <span
+                className={[
+                  "w-4 shrink-0 text-center text-[14px] font-bold leading-none",
+                  active ? "text-blue-600" : "text-transparent",
+                ].join(" ")}
+                aria-hidden={!active}
+              >
+                ▶
+              </span>
               <button
                 type="button"
                 disabled={!done && !active}
                 onClick={() => {
                   if (done || active) jumpToStep(index);
                 }}
+                aria-current={active ? "step" : undefined}
                 className={[
-                  "flex w-full items-baseline text-left",
+                  "min-w-0 flex-1 text-left",
+                  "flex items-baseline",
                   activeRowClass(active, done),
                   done || active
                     ? "cursor-pointer active:scale-[0.99] transition-transform"
