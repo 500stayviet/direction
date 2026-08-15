@@ -109,6 +109,35 @@ function priorContext(
   return bits.join(" ");
 }
 
+/** 거래종류 토큰이 단독으로 있는지 (매매가·전세대출 등은 제외) */
+function hasStandaloneDealType(
+  text: string,
+  dealType: IntakeParseResult["dealType"]
+): boolean {
+  if (!dealType) return false;
+  if (dealType === "매매") {
+    return /(?:^|\s)매매(?!\s*가)(?:\s|$)/.test(text);
+  }
+  if (dealType === "전세") {
+    return /(?:^|\s)전세(?!대출)(?:\s|$)/.test(text);
+  }
+  return new RegExp(`(?:^|\\s)${dealType}(?:\\s|$)`).test(text);
+}
+
+/** 짧은 답변에만 이전 단계 맥락을 붙인다. 전체 문장을 다시 말하면 중복 매매 등으로 파싱이 깨진다. */
+function stepParseInput(
+  text: string,
+  step: IntakeStepKey,
+  kind: IntakeKind,
+  prior?: Partial<IntakeParseResult>
+): string {
+  if (step === "dealType" || step === "roomType") return text;
+  const prefix = priorContext(prior, kind);
+  if (!prefix) return text;
+  if (prior?.dealType && hasStandaloneDealType(text, prior.dealType)) return text;
+  return [prefix, text].filter(Boolean).join(" ");
+}
+
 export function parseIntakeStep(
   raw: string,
   step: IntakeStepKey,
@@ -171,11 +200,7 @@ export function parseIntakeStep(
     };
   }
 
-  const prefix = priorContext(prior, kind);
-  const scoped =
-    step === "dealType" || step === "roomType"
-      ? text
-      : [prefix, text].filter(Boolean).join(" ");
+  const scoped = stepParseInput(text, step, kind, prior);
   const parsed = parseIntakeText(scoped, kind, today);
 
   if (step === "phone") {

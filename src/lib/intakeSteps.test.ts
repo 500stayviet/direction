@@ -50,4 +50,41 @@ describe("intakeSteps", () => {
     assert.equal(step.ok, true);
     assert.equal(step.partial.notes, "아니 9월 15일");
   });
+
+  it("전체 문장을 다시 말해도 거래가액·일정·플래그를 파싱한다", () => {
+    const prior = {
+      roomType: "원룸" as const,
+      dealType: "매매" as const,
+      dong: "성내동",
+      gu: "강동구",
+      options: [] as string[],
+    };
+    const full =
+      "원룸 매매 강동구 성내동 매매가 2억 9월 15일 대출 무 보증보험 무 주차 유 엘베 무";
+
+    const money = parseIntakeStep(full, "money", "customer", prior);
+    assert.equal(money.ok, true);
+    assert.equal(money.partial.deposit, 20000);
+
+    const dates = parseIntakeStep(full, "dates", "customer", prior);
+    assert.equal(dates.ok, true);
+    assert.equal(dates.partial.moveInFrom, "2026-09-15");
+
+    const flags = parseIntakeStep(full, "flags", "customer", prior);
+    assert.equal(flags.ok, true);
+    assert.equal(flags.partial.loan, "무");
+    assert.equal(flags.partial.parking, "유");
+  });
+
+  it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {
+    const prior = {
+      roomType: "원룸" as const,
+      dealType: "매매" as const,
+      dong: "성내동",
+      options: [] as string[],
+    };
+    const money = parseIntakeStep("매매가 2억", "money", "customer", prior);
+    assert.equal(money.ok, true);
+    assert.equal(money.partial.deposit, 20000);
+  });
 });
