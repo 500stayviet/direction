@@ -56,7 +56,7 @@ import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal } from "@/components/IntakeMessageModal";
 import { IntakeTalkModal } from "@/components/IntakeTalkModal";
-import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass } from "@/lib/uiInvalid";
+import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 
 const IntakePhotoPicker = dynamic(
   () =>
@@ -189,6 +189,9 @@ export function PropertyEditor({
       ? getMissingRequiredFields(property, { requireDong })
       : [];
   const isInvalid = (key: PropertyFieldKey) => missingFields.includes(key);
+  const memoSectionClass = (property.notes ?? "").trim()
+    ? memoFilledSectionClass
+    : "";
 
   const showContactFields = !property.hasPartnerAgency;
 
@@ -853,12 +856,14 @@ export function PropertyEditor({
               onChange={(v) => update({ elevator: v === "유" })}
             />
             </div>
-            <TextArea
-              label="메모"
-              value={property.notes ?? ""}
-              onChange={(e) => update({ notes: e.target.value })}
-              placeholder={propertyNotesPlaceholder(property.roomType)}
-            />
+            <div className={memoSectionClass}>
+              <TextArea
+                label="메모"
+                value={property.notes ?? ""}
+                onChange={(e) => update({ notes: e.target.value })}
+                placeholder={propertyNotesPlaceholder(property.roomType)}
+              />
+            </div>
             {showTeamShare ? (
               <>
                 <OptionToggle
@@ -894,12 +899,14 @@ export function PropertyEditor({
             invalidBuildingKind={isInvalid("buildingKind")}
           />
           <div className="mt-3 space-y-1.5">
-            <TextArea
-              label="메모"
-              value={property.notes ?? ""}
-              onChange={(e) => update({ notes: e.target.value })}
-              placeholder={propertyNotesPlaceholder(property.roomType)}
-            />
+            <div className={memoSectionClass}>
+              <TextArea
+                label="메모"
+                value={property.notes ?? ""}
+                onChange={(e) => update({ notes: e.target.value })}
+                placeholder={propertyNotesPlaceholder(property.roomType)}
+              />
+            </div>
             {showTeamShare ? (
               <>
                 <OptionToggle
@@ -1051,12 +1058,14 @@ export function PropertyEditor({
               </div>
             </div>
           )}
-          <TextArea
-            label="메모"
-            value={property.notes ?? ""}
-            onChange={(e) => update({ notes: e.target.value })}
-            placeholder={propertyNotesPlaceholder(property.roomType)}
-          />
+          <div className={memoSectionClass}>
+            <TextArea
+              label="메모"
+              value={property.notes ?? ""}
+              onChange={(e) => update({ notes: e.target.value })}
+              placeholder={propertyNotesPlaceholder(property.roomType)}
+            />
+          </div>
           {showTeamShare ? (
             <>
               <OptionToggle

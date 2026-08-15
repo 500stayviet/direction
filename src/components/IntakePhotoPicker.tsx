@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { normalizeOcrIntakeText } from "@/lib/intakeOcrNormalize";
 
 export function IntakePhotoPicker({
   requestId,
@@ -28,7 +28,7 @@ export function IntakePhotoPicker({
       const worker = await createWorker("kor+eng");
       const { data } = await worker.recognize(file);
       await worker.terminate();
-      const text = (data.text ?? "").replace(/\s+/g, " ").trim();
+      const text = normalizeOcrIntakeText((data.text ?? "").replace(/\s+/g, " ").trim());
       if (!text) {
         onError("사진에서 글을 읽지 못했습니다. 메시지로 입력해 주세요.");
         return;

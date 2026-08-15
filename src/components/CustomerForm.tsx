@@ -53,7 +53,7 @@ import {
   parseIntakeText,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
-import { filledSectionClass } from "@/lib/uiInvalid";
+import { filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal } from "@/components/IntakeMessageModal";
@@ -1061,12 +1061,14 @@ export function CustomerForm({
               onChange={setElevatorNeeded}
             />
           )}
-          <TextArea
-            label="메모"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={customerMemoPlaceholder(roomType)}
-          />
+          <div className={notes.trim() ? memoFilledSectionClass : ""}>
+            <TextArea
+              label="메모"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={customerMemoPlaceholder(roomType)}
+            />
+          </div>
           <div ref={setFieldRef("teamShare")}>
             <OptionToggle
               label="팀공유 유무"

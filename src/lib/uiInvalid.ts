@@ -10,6 +10,10 @@ export const invalidStarClass = "ml-0.5 text-red-400";
 export const filledSectionClass =
   "rounded-xl border border-green-400 bg-green-50 p-2";
 
+/** 선택 메모 — 필수 아님, 내용이 있을 때만 */
+export const memoFilledSectionClass =
+  "rounded-xl border border-amber-300 bg-amber-50 p-2";
+
 export function spaceClass(opts: { invalid?: boolean; filled?: boolean }) {
   if (opts.filled) return filledSectionClass;
   if (opts.invalid) return invalidWrapClass;

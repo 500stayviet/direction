@@ -185,92 +185,6 @@ const PET_WORDS =
   /(?:강아지|고양이|반려(?:견|묘)?|애완(?:동물)?|펫)(?:\s*키우[요움]?)?|개\s*키우[요움]?/;
 const LOAN_KIND = /디딤돌|버팀목|중금|보금자리|특례|전세대출|주택담보/;
 
-const MEMO_WEAK_TOKENS = new Set([
-  "유",
-  "무",
-  "있음",
-  "없어요",
-  "없고",
-  "있고",
-  "있어요",
-  "있습니다",
-  "가능",
-  "불가",
-  "없",
-  "없음",
-  "부터",
-  "까지",
-  "입주",
-  "키워요",
-  "키움",
-  "개",
-  "및",
-  "또",
-  "또는",
-  "등",
-  "좀",
-  "요",
-  "희망",
-  "선호",
-  "또는",
-  "등",
-]);
-
-const INTAKE_FIELD_LABELS = [
-  ...ROOM_ALIASES.flatMap((row) => row.keys),
-  ...ROOM_COUNT_WORDS.flatMap((row) => row.keys),
-  ...DEAL_TYPES,
-  ...PROPERTY_OPTIONS,
-  "3룸+",
-  "보증금",
-  "관리비",
-  "매가",
-  "보증",
-  "대출",
-  "주차",
-  "입주",
-  "엘리베이터",
-  "엘베",
-  "E/V",
-  "EV",
-  "보증보험",
-  "전세보증보험",
-  "보증 보험",
-  "팀공유",
-  "팀 공유",
-  "임차인",
-  "임대인",
-  "전화번호",
-  "연락처",
-  "고객명",
-  "명칭",
-  "이름",
-  "성함",
-  "성명",
-  "고객명 또는 명칭",
-  "바로입주",
-  "즉시입주",
-  "바로 입주",
-  "즉시 입주",
-  "즉시",
-  "화장실",
-  "메모",
-  "매물유형",
-  "매물 유형",
-  "거래종류",
-  "거래 종류",
-  "선호위치",
-  "선호 위치",
-  "거래가액",
-  "거래 가액",
-  "입주희망일",
-  "입주 희망일",
-  "임대가능일",
-  "임대 가능일",
-  "매매가",
-  "주소",
-];
-
 function lastIndex(text: string, keys: string[]): { key: string; index: number } | null {
   let best: { key: string; index: number } | null = null;
   for (const key of keys) {
@@ -307,14 +221,6 @@ function roomAliasHits(
     lastEnd = hit.index + hit.key.length;
   }
   return unique;
-}
-
-function laterRoomTypeMemo(text: string): string {
-  return roomAliasHits(text)
-    .slice(1)
-    .map((hit) => hit.key)
-    .join(" ")
-    .trim();
 }
 
 /** 전세대출 안의 전세는 거래종류가 아님 */
@@ -366,23 +272,82 @@ function firstDealFieldText(text: string): {
   };
 }
 
+const MEMO_LABEL_RE =
+  /(?:메모|내용|추가\s*내용|비고|특이\s*사항|참고|요청\s*사항|기타)\s*[.:：。]/gi;
+
 function splitLabeledMemo(text: string): { body: string; labeledMemo: string } {
-  const m = text.match(/메모\s*[.:：。]/);
-  if (!m || m.index == null) return { body: text, labeledMemo: "" };
+  MEMO_LABEL_RE.lastIndex = 0;
+  let earliest: { index: number; len: number } | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = MEMO_LABEL_RE.exec(text))) {
+    if (m.index == null) continue;
+    if (!earliest || m.index < earliest.index) {
+      earliest = { index: m.index, len: m[0].length };
+    }
+  }
+  if (!earliest) return { body: text, labeledMemo: "" };
   return {
-    body: text.slice(0, m.index).replace(/\s+/g, " ").trim(),
-    labeledMemo: text.slice(m.index + m[0].length).replace(/\s+/g, " ").trim(),
+    body: text.slice(0, earliest.index).replace(/\s+/g, " ").trim(),
+    labeledMemo: text
+      .slice(earliest.index + earliest.len)
+      .replace(/\s+/g, " ")
+      .trim(),
   };
 }
 
-function compactOccupancyNote(raw: string, extraWords: string[]): string {
-  let next = raw.replace(/\s+/g, " ").trim();
-  const words = [...extraWords].sort((a, b) => b.length - a.length);
-  for (const word of words) {
-    if (!word) continue;
-    next = next.split(word).join(" ");
+const INTENT_MEMO_PATTERNS: RegExp[] = [
+  PET_WORDS,
+  LOAN_KIND,
+  /(?:남향|북향|동향|서향)/,
+  /(?:저층|고층|중층|희망층)/,
+  /\d+\s*층\s*이상/,
+  /(?:저층|고층|중층)\s*싫어요/,
+  /역세권|신축|리모델링|올수리|깨끗|조용/,
+  /권리금(?:\s*협의)?|점포|인테리어/,
+];
+
+function extractIntentMemoNotes(text: string): string[] {
+  const hits: { index: number; text: string }[] = [];
+  for (const pattern of INTENT_MEMO_PATTERNS) {
+    const re = new RegExp(
+      pattern.source,
+      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
+    );
+    for (const m of text.matchAll(re)) {
+      if (m.index == null) continue;
+      const chunk = (m[0] ?? "").replace(/\s+/g, " ").trim();
+      if (!chunk) continue;
+      hits.push({ index: m.index, text: chunk });
+    }
   }
-  return next.replace(/\s+/g, " ").trim();
+  hits.sort((a, b) => a.index - b.index);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const hit of hits) {
+    if (seen.has(hit.text)) continue;
+    seen.add(hit.text);
+    out.push(hit.text);
+  }
+  return out;
+}
+
+function uniqueNoteParts(parts: string[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of parts) {
+    const next = part.replace(/\s+/g, " ").trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    out.push(next);
+  }
+  return out.join(" / ");
+}
+
+function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
+  const parts: string[] = [];
+  if (labeledMemo) parts.push(labeledMemo);
+  parts.push(...extractIntentMemoNotes(body));
+  return uniqueNoteParts(parts);
 }
 
 const YESNO_VALUE =
@@ -1507,158 +1472,6 @@ function parseMoveInDates(
   return {};
 }
 
-function collectRegexSpans(
-  text: string,
-  patterns: RegExp[]
-): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = [];
-  for (const pattern of patterns) {
-    const re = new RegExp(
-      pattern.source,
-      pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
-    );
-    for (const m of text.matchAll(re)) {
-      if (m.index == null) continue;
-      spans.push({ start: m.index, end: m.index + m[0].length });
-    }
-  }
-  return spans;
-}
-
-function pushWordSpans(
-  text: string,
-  words: string[],
-  spans: { start: number; end: number }[]
-) {
-  for (const word of words) {
-    if (!word) continue;
-    let from = 0;
-    while (from < text.length) {
-      const index = text.indexOf(word, from);
-      if (index < 0) break;
-      spans.push({ start: index, end: index + word.length });
-      from = index + Math.max(1, word.length);
-    }
-  }
-}
-
-/** 칸에 넣은 값·걸러낸 숫자 조각은 빼고, 남은 설명만 메모로 */
-function leftoverMemoText(text: string, extraWords: string[]): string {
-  const spans: { start: number; end: number }[] = [];
-  for (const hit of parsePhoneHits(text)) {
-    spans.push({ start: hit.index, end: hit.end });
-  }
-  for (const place of findAllDongsInText(text)) {
-    spans.push({ start: place.start, end: place.end });
-  }
-  pushWordSpans(text, [...SEOUL_GU_LIST, ...extraWords], spans);
-  const flagLabels = [
-    ["대출", YESNO_VALUE],
-    ["보증보험", YESNO_VALUE],
-    ["전세보증보험", YESNO_VALUE],
-    ["보증 보험", YESNO_VALUE],
-    ["주차(?:장)?", YESNO_VALUE],
-    ["엘리베이터", YESNO_VALUE],
-    ["엘베", YESNO_VALUE],
-    ["E/V", YESNO_VALUE],
-    ["EV", YESNO_VALUE],
-    ["팀공유", YESNO_VALUE],
-    ["팀 공유", YESNO_VALUE],
-  ] as const;
-  for (const [label, tail] of flagLabels) {
-    spans.push(
-      ...collectRegexSpans(text, [
-        new RegExp(
-          `${label}(?:\\s*(?:가입|입)?\\s*)?${tail}`,
-          "gi"
-        ),
-      ])
-    );
-  }
-  spans.push(
-    ...collectRegexSpans(text, [
-      /\d+(?:\.\d+)?\s*억\s*\d+(?:\.\d+)?\s*(?:천|만)?/g,
-      /\d+(?:\.\d+)?\s*억\s*\d+/g,
-      /\d+(?:\.\d+)?\s*억(?:원)?/g,
-      /매매(?:가)?\s*\d+(?:\.\d+)?\s*억(?:원)?/g,
-      /\d+(?:\.\d+)?\s*만(?:원)?/g,
-      /\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/g,
-      /\d{1,2}\s*월\s*\d{1,2}(?:\s*일(?!\d)|(?!\d))/g,
-      new RegExp(
-        `\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}(?:\\s*[${PAIR_SEP_CLS}]\\s*\\d{2,4})?`,
-        "g"
-      ),
-      new RegExp(`\\d+(?:\\.\\d+)?\\s*[${TILDE_CLS}\\-]\\s*\\d+(?:\\.\\d+)?`, "g"),
-      /물화\s*\d*/g,
-      /(?:화장실|화)\s*[1-9]\d*\s*개?/g,
-      /\d+\s*화(?:장실)?/g,
-      /방\s*[1-9]\d*\s*개?/g,
-      /[1-5]\s*룸/g,
-      /룸\s*화(?:장실)?\s*[1-4]\s*개?/g,
-      /\d+\s*동\s*\d+\s*호/g,
-      /\d+\s*층\s*\d+\s*호/g,
-      /\d{2,4}\s*호/g,
-      /\d+\s*번지/g,
-      /\d+(?!\s*층)/g,
-    ])
-  );
-
-  let next = maskUsedSpans(text, spans);
-  const labels = [...INTAKE_FIELD_LABELS].sort((a, b) => b.length - a.length);
-  for (const label of labels) {
-    next = next.split(label).join(" ");
-  }
-  next = next
-    .replace(/[:：]/g, " ")
-    .replace(/[^\uAC00-\uD7A30-9A-Za-z\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!next) return "";
-
-  const kept = next.split(" ").filter((token) => {
-    if (!token || MEMO_WEAK_TOKENS.has(token)) return false;
-    if (/^[A-Za-z]$/.test(token)) return false;
-    return true;
-  });
-  const joined = kept.join(" ").trim();
-  const hangul = joined.replace(/[^가-힣]/g, "");
-  if (hangul.length < 2) return "";
-  return joined;
-}
-
-function uniqueNoteParts(parts: string[]): string {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const part of parts) {
-    const next = part.replace(/\s+/g, " ").trim();
-    if (!next || seen.has(next)) continue;
-    seen.add(next);
-    out.push(next);
-  }
-  return out.join(" / ");
-}
-
-/** 칸에 넣은 번호 말고, 뒤에 또 나온 전화는 메모로 */
-function extraPhonesForMemo(
-  text: string,
-  used: (string | undefined)[]
-): string[] {
-  const usedDigits = new Set(
-    used
-      .filter((phone): phone is string => Boolean(phone))
-      .map((phone) => toKrPhoneDigits(phone))
-  );
-  const extras: string[] = [];
-  const seen = new Set<string>();
-  for (const hit of parsePhoneHits(text)) {
-    const digits = toKrPhoneDigits(hit.formatted);
-    if (!digits || usedDigits.has(digits) || seen.has(digits)) continue;
-    seen.add(digits);
-    extras.push(hit.formatted);
-  }
-  return extras;
-}
-
 export function normalizeIntakeInput(raw: string): string {
   return collapseThousandCommas(
     expandSpokenPhones(
@@ -1689,8 +1502,7 @@ export function parseIntakeText(
     return result;
   }
 
-  const { dealType: firstDeal, fieldText, laterText } =
-    firstDealFieldText(body);
+  const { dealType: firstDeal, fieldText } = firstDealFieldText(body);
   const room = parseRoomSpec(fieldText);
   if (room.roomType) result.roomType = room.roomType;
   if (room.roomCount) result.roomCount = room.roomCount;
@@ -1789,31 +1601,7 @@ export function parseIntakeText(
   }
   result.options = options;
 
-  const notes: string[] = [];
-  const loanKind = body.match(LOAN_KIND);
-  if (loanKind) notes.push(loanKind[0]);
-  const pet = body.match(PET_WORDS);
-  if (pet) notes.push(pet[0]);
-  const leftover = leftoverMemoText(fieldText, [
-    ...notes,
-    ...(contacts.name ? [contacts.name] : []),
-  ]);
-  if (leftover) notes.push(leftover);
-  const laterRooms = laterRoomTypeMemo(fieldText);
-  if (laterRooms) notes.push(laterRooms);
-  for (const phone of extraPhonesForMemo(fieldText, [
-    result.phone,
-    result.tenantPhone,
-    result.landlordPhone,
-  ])) {
-    notes.push(phone);
-  }
-  if (laterText) {
-    const laterNote = compactOccupancyNote(laterText, notes);
-    if (laterNote) notes.push(laterNote);
-  }
-  if (labeledMemo) notes.push(labeledMemo);
-  result.notes = uniqueNoteParts(notes);
+  result.notes = buildIntakeMemoNotes(body, labeledMemo);
 
   return result;
 }

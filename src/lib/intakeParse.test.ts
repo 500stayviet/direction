@@ -24,7 +24,7 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(parsed.notes, /있고|있음|바로입주/);
   });
 
-  it("칸에 못 넣은 설명만 메모로 남기고 걸러낸 숫자는 넣지 않는다", () => {
+  it("의도 키워드·라벨 메모만 남기고 파싱 잔여물은 메모에 넣지 않는다", () => {
     const note = parseIntakeText(
       "원룸 전세 2억 암사동 남향 저층 싫어요 희망층 3층 이상",
       "customer"
@@ -41,6 +41,12 @@ describe("parseIntakeText", () => {
       "property"
     );
     assert.equal(labeled.notes, "권리금 협의");
+
+    const contentLabel = parseIntakeText(
+      "원룸 전세 2억 암사동 내용: 남향 저층",
+      "customer"
+    );
+    assert.equal(contentLabel.notes, "남향 저층");
 
     const labeledMoney = parseIntakeText(
       "원룸 전세 2억 암사동 메모: 매매 5억 남향",
@@ -86,13 +92,13 @@ describe("parseIntakeText", () => {
     const road = parseIntakeText("성내동 올림픽로 123 원룸 전세", "property");
     assert.equal(road.dong, "성내동");
     assert.equal(road.jibun, undefined);
-    assert.match(road.notes, /올림픽로/);
+    assert.equal(road.notes, "");
 
     const typeLabel = parseIntakeText("매물유형 원룸 전세 2억 암사동", "customer");
     assert.equal(typeLabel.roomType, "원룸");
     assert.equal(typeLabel.dealType, "전세");
     assert.equal(typeLabel.deposit, 20000);
-    assert.doesNotMatch(typeLabel.notes, /매물유형|유형/);
+    assert.equal(typeLabel.notes, "");
 
     const nameLabel = parseIntakeText(
       "고객명 홍길동 원룸 전세 2억 암사동",
@@ -100,10 +106,10 @@ describe("parseIntakeText", () => {
     );
     assert.equal(nameLabel.name, "홍길동");
     assert.equal(nameLabel.nameLabeled, true);
-    assert.doesNotMatch(nameLabel.notes, /고객명|홍길동/);
+    assert.equal(nameLabel.notes, "");
   });
 
-  it("앞에 나온 거래만 칸에 넣고 뒤 거래·금액은 메모로 남긴다", () => {
+  it("앞에 나온 거래만 칸에 넣고 뒤 거래·금액은 메모에 넣지 않는다", () => {
     const jeonseFirst = parseIntakeText(
       "원룸 전세 2억 암사동 매매 5억 남향",
       "customer"
@@ -111,15 +117,13 @@ describe("parseIntakeText", () => {
     assert.equal(jeonseFirst.dealType, "전세");
     assert.equal(jeonseFirst.deposit, 20000);
     assert.equal(jeonseFirst.dong, "암사동");
-    assert.match(jeonseFirst.notes, /매매/);
-    assert.match(jeonseFirst.notes, /5억/);
+    assert.doesNotMatch(jeonseFirst.notes, /매매|5억/);
     assert.match(jeonseFirst.notes, /남향/);
 
     const saleFirst = parseIntakeText("원룸 매매 5 전세 2억", "customer");
     assert.equal(saleFirst.dealType, "매매");
     assert.equal(saleFirst.deposit, 50000);
-    assert.match(saleFirst.notes, /전세/);
-    assert.match(saleFirst.notes, /2억/);
+    assert.equal(saleFirst.notes, "");
 
     const saleWithRent = parseIntakeText(
       "건물 매매 5억 월세 1000/50 남향",
@@ -127,8 +131,7 @@ describe("parseIntakeText", () => {
     );
     assert.equal(saleWithRent.dealType, "매매");
     assert.equal(saleWithRent.deposit, 50000);
-    assert.match(saleWithRent.notes, /월세/);
-    assert.match(saleWithRent.notes, /1000\/50/);
+    assert.doesNotMatch(saleWithRent.notes, /월세|1000/);
     assert.match(saleWithRent.notes, /남향/);
 
     const laterKeptInMemo = parseIntakeText(
@@ -138,25 +141,24 @@ describe("parseIntakeText", () => {
     assert.equal(laterKeptInMemo.dealType, "전세");
     assert.equal(laterKeptInMemo.deposit, 20000);
     assert.equal(laterKeptInMemo.dong, undefined);
-    assert.match(laterKeptInMemo.notes, /매매/);
-    assert.match(laterKeptInMemo.notes, /천호동/);
+    assert.equal(laterKeptInMemo.notes, "");
   });
 
-  it("앞에 나온 전화만 칸에 넣고 뒤 번호는 메모로 남긴다", () => {
+  it("앞에 나온 전화만 칸에 넣고 뒤 번호는 메모에 넣지 않는다", () => {
     const parsed = parseIntakeText(
       "010-1234-5678 원룸 전세 암사동 010-9999-8888",
       "customer"
     );
     assert.equal(parsed.phone, "010-1234-5678");
-    assert.match(parsed.notes, /010-9999-8888/);
-    assert.doesNotMatch(parsed.notes, /010-1234-5678/);
+    assert.equal(parsed.notes, "");
+    assert.doesNotMatch(parsed.notes, /010-1234-5678|010-9999-8888/);
 
     const property = parseIntakeText(
       "원룸 전세 010-1234-5678 암사동 010-9999-8888",
       "property"
     );
     assert.equal(property.phone, "010-1234-5678");
-    assert.match(property.notes, /010-9999-8888/);
+    assert.equal(property.notes, "");
 
     const labeled = parseIntakeText(
       "원룸 전세 암사동 임차인 010-1111-2222 임대인 010-3333-4444",
@@ -164,17 +166,17 @@ describe("parseIntakeText", () => {
     );
     assert.equal(labeled.tenantPhone, "010-1111-2222");
     assert.equal(labeled.landlordPhone, "010-3333-4444");
-    assert.doesNotMatch(labeled.notes, /010-1111-2222|010-3333-4444/);
+    assert.equal(labeled.notes, "");
   });
 
-  it("앞에 나온 유형만 칸에 넣고 뒤 유형은 메모로 남긴다", () => {
+  it("앞에 나온 유형만 칸에 넣고 뒤 유형은 메모에 넣지 않는다", () => {
     const parsed = parseIntakeText("원룸 전세 투룸", "property");
     assert.equal(parsed.roomType, "원룸");
-    assert.match(parsed.notes, /투룸/);
+    assert.equal(parsed.notes, "");
 
     const apt = parseIntakeText("원룸 아파트", "customer");
     assert.equal(apt.roomType, "원룸");
-    assert.match(apt.notes, /아파트/);
+    assert.equal(apt.notes, "");
   });
 
   it("4룸·5룸·방 수는 3룸+와 방 개수로 넣는다", () => {
