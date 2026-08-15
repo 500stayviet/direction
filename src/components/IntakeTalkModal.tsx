@@ -352,6 +352,7 @@ export function IntakeTalkModal({
   };
 
   const hasAnyStep = Object.values(steps).some((row) => row?.display);
+  const hasProgress = hasAnyStep || activeIndex > 0;
   const composedLive = stepLive;
 
   return (
@@ -497,7 +498,7 @@ export function IntakeTalkModal({
       />
       {listening ? (
         <p className="mt-1 min-h-[1.25rem] break-words text-[14px] font-medium text-gray-400">
-          {composedLive || "말하는 중…"}
+          {composedLive || "듣는 중…"}
         </p>
       ) : null}
       {error ? (
@@ -514,7 +515,7 @@ export function IntakeTalkModal({
           onClick={toggleListen}
           disabled={!speechSupported}
         >
-          대화 시작
+          {hasProgress ? "계속" : "대화 시작"}
         </button>
       ) : (
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 rounded-2xl border-2 border-red-500 bg-white px-1.5 py-2">
@@ -534,16 +535,17 @@ export function IntakeTalkModal({
           <button
             type="button"
             onClick={toggleListen}
+            aria-label="일시정지"
             className={[
-              "inline-flex min-h-[48px] min-w-[96px] items-center justify-center gap-2 rounded-xl px-3",
-              "text-[15px] font-semibold text-red-600 active:scale-[0.99] transition-transform",
+              "inline-flex min-h-[48px] min-w-[96px] flex-col items-center justify-center gap-0.5 rounded-xl px-3",
+              "text-red-600 active:scale-[0.99] transition-transform",
             ].join(" ")}
           >
-            <span
-              className="rec-dot-blink h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
-              aria-hidden
-            />
-            듣는 중
+            <span className="inline-flex items-center gap-0.5" aria-hidden>
+              <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+              <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+            </span>
+            <span className="text-[11px] font-semibold leading-none">일시정지</span>
           </button>
           <button
             type="button"
