@@ -325,6 +325,10 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
     while (from < text.length) {
       const index = text.indexOf(key, from);
       if (index < 0) break;
+      if (key === "매매" && text.slice(index + key.length).startsWith("가")) {
+        from = index + key.length;
+        continue;
+      }
       if (!(key === "전세" && text.slice(index).startsWith("전세대출"))) {
         hits.push({ key, index });
       }
@@ -381,22 +385,45 @@ function compactOccupancyNote(raw: string, extraWords: string[]): string {
   return next.replace(/\s+/g, " ").trim();
 }
 
+const YESNO_VALUE =
+  "(?:있음|있어요|있고|있습니다|가능|유|됨|돼요|돼|안됨|안돼요|안돼|안됩니다|없(?:음|어요)?|불가|무|불가능)";
+
+function yesNoFromToken(token: string): YesNo {
+  return /없|불가|무|안됨|안돼|불가능/.test(token) ? "무" : "유";
+}
+
+function yesNoLabelPattern(label: string): string {
+  if (label === "주차") return "(?:주차(?:장)?)";
+  return label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function parseYesNo(text: string, labels: string[]): YesNo | undefined {
   let found: { index: number; value: YesNo } | null = null;
   for (const label of labels) {
     const re = new RegExp(
-      `${label}\\s*(있음|있어요|있고|있습니다|가능|유|없(?:음|어요)?|불가|무)`,
-      "g"
+      `${yesNoLabelPattern(label)}(?:\\s*(?:가입|입)?\\s*)?\\s*(${YESNO_VALUE})`,
+      "gi"
     );
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
       const token = m[1] ?? "";
-      const value: YesNo = /없|불가|무/.test(token) ? "무" : "유";
+      const value = yesNoFromToken(token);
       const index = m.index;
       if (!found || index >= found.index) found = { index, value };
     }
   }
   return found?.value;
+}
+
+export function parseAllYesNoFields(
+  text: string
+): Pick<IntakeParseResult, "loan" | "insurance" | "parking" | "elevator"> {
+  return {
+    loan: parseYesNo(text, ["대출"]),
+    insurance: parseYesNo(text, ["보증보험", "전세보증보험", "보증 보험"]),
+    parking: parseYesNo(text, ["주차"]),
+    elevator: parseYesNo(text, ["엘리베이터", "엘베", "E/V", "EV"]),
+  };
 }
 
 const PAIR_SEP_CLS = "\\/／.,．，";
@@ -792,9 +819,17 @@ function parseMoneyManwon(
   );
   const eokMan = moneyText.match(/(\d+(?:\.\d+)?)\s*억\s*(\d+(?:\.\d+)?)\s*만/);
   const eok = [...moneyText.matchAll(/(\d+(?:\.\d+)?)\s*억/g)];
+  const saleLabeled = moneyText.match(
+    /매매(?:가)?\s*(\d+(?:\.\d+)?)\s*억/
+  );
+  if (asSale && saleLabeled && saleLabeled.index != null && deposit == null) {
+    deposit = Math.round(Number(saleLabeled[1]) * 10000);
+    pushSpan(saleLabeled.index, saleLabeled.index + saleLabeled[0].length);
+  }
+
   const man = moneyText.match(
     new RegExp(
-      `(?:보증금|매가|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
+      `(?:보증금|매매(?:가)?|매가|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
     )
   );
 
@@ -1237,6 +1272,19 @@ function stripContactNoise(text: string, name?: string): string {
   return next.replace(/\s+/g, " ").trim();
 }
 
+function applyDateCorrectionSlice(text: string): string {
+  const re = /(?:^|\s)(?:아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?)\s+/g;
+  let sliceFrom = -1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    sliceFrom = m.index + m[0].length;
+  }
+  return sliceFrom >= 0 ? text.slice(sliceFrom).trim() : text;
+}
+
+const MDAY_RE =
+  /(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})(?:\s*일(?!\d)|(?!\d))/g;
+
 function dateHitToIso(
   hit: RegExpMatchArray,
   today: Date,
@@ -1259,7 +1307,7 @@ function parseDateToken(
   after?: string
 ): string | null {
   const ymd = chunk.match(
-    /(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/
+    /(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})(?:\s*일(?!\d)|(?!\d))/
   );
   if (ymd) return dateHitToIso(ymd, today, after);
   const yslash = chunk.match(
@@ -1319,14 +1367,29 @@ function parseMoveInDates(
   text: string,
   today: Date
 ): { from?: string; to?: string; immediate?: boolean } {
-  const tilde = parseTildeDateRange(text, today);
+  const corrected = applyDateCorrectionSlice(text);
+  const fromTo = corrected.match(
+    new RegExp(
+      `(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))\\s*부터\\s*(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))`
+    )
+  );
+  if (fromTo) {
+    const fromChunk = `${fromTo[1] ? `${fromTo[1]}년 ` : ""}${fromTo[2]}월 ${fromTo[3]}`;
+    const toChunk = `${fromTo[4] ? `${fromTo[4]}년 ` : ""}${fromTo[5]}월 ${fromTo[6]}`;
+    const from = parseDateToken(fromChunk, today);
+    const to = from ? parseDateToken(toChunk, today, from) : null;
+    if (from && to) {
+      const clamped = asFutureMoveIn(from, to, today);
+      if (clamped) return clamped;
+    }
+  }
+
+  const tilde = parseTildeDateRange(corrected, today);
   if (tilde) {
     const clamped = asFutureMoveIn(tilde.from, tilde.to, today);
     if (clamped) return clamped;
   }
-  const hits = [
-    ...text.matchAll(/(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/g),
-  ];
+  const hits = [...corrected.matchAll(MDAY_RE)];
   if (hits.length >= 2 && hits[0] && hits[1]) {
     const from = dateHitToIso(hits[0], today);
     const to = from ? dateHitToIso(hits[1], today, from) : null;
@@ -1340,7 +1403,7 @@ function parseMoveInDates(
     const clamped = asFutureMoveIn(iso, iso, today);
     if (clamped) return clamped;
   }
-  const ymds = parseSlashTriples(text)
+  const ymds = parseSlashTriples(corrected)
     .filter((t) => isYearMonthDayTriple(t.a, t.b, t.c))
     .map((t) => {
       const iso = isoFromYearMonthDay(t.a, t.b, t.c);
@@ -1355,7 +1418,7 @@ function parseMoveInDates(
     const clamped = asFutureMoveIn(ymds[0], ymds[0], today);
     if (clamped) return clamped;
   }
-  const slashDates = parseSlashPairs(text).filter((p) =>
+  const slashDates = parseSlashPairs(corrected).filter((p) =>
     isMonthDaySlash(p.left, p.right)
   );
   if (slashDates.length >= 2 && slashDates[0] && slashDates[1]) {
@@ -1519,12 +1582,8 @@ function extraPhonesForMemo(
   return extras;
 }
 
-export function parseIntakeText(
-  raw: string,
-  kind: IntakeKind,
-  today: Date = new Date()
-): IntakeParseResult {
-  const text = collapseThousandCommas(
+export function normalizeIntakeInput(raw: string): string {
+  return collapseThousandCommas(
     expandSpokenPhones(
       raw
         .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
@@ -1536,6 +1595,14 @@ export function parseIntakeText(
         .trim()
     )
   );
+}
+
+export function parseIntakeText(
+  raw: string,
+  kind: IntakeKind,
+  today: Date = new Date()
+): IntakeParseResult {
+  const text = normalizeIntakeInput(raw);
   const result: IntakeParseResult = { options: [], notes: "" };
   if (!text) return result;
 
@@ -1628,10 +1695,11 @@ export function parseIntakeText(
     result.moveInImmediate = true;
   }
 
-  result.loan = parseYesNo(fieldText, ["대출"]);
-  result.insurance = parseYesNo(fieldText, ["보증보험", "전세보증보험", "보증 보험"]);
-  result.parking = parseYesNo(fieldText, ["주차"]);
-  result.elevator = parseYesNo(fieldText, ["엘리베이터", "엘베", "E/V", "EV"]);
+  const allFlags = parseAllYesNoFields(fieldText);
+  result.loan = allFlags.loan;
+  result.insurance = allFlags.insurance;
+  result.parking = allFlags.parking;
+  result.elevator = allFlags.elevator;
   result.workspaceShared = parseYesNo(fieldText, ["팀공유", "팀 공유"]);
 
   if (LOAN_KIND.test(fieldText)) {

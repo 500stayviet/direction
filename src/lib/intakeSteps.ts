@@ -1,0 +1,386 @@
+import type { IntakeGuideKey } from "@/lib/intakeGuideHits";
+import { intakeGuideHits } from "@/lib/intakeGuideHits";
+import {
+  normalizeIntakeInput,
+  parseAllYesNoFields,
+  parseIntakeText,
+  type IntakeKind,
+  type IntakeParseResult,
+} from "@/lib/intakeParse";
+
+export type IntakeStepKey = IntakeGuideKey;
+
+export type IntakeStepLine = {
+  key: IntakeStepKey;
+  name: string;
+  example?: string;
+};
+
+export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
+  customer: [
+    { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
+    { key: "phone", name: "전화번호", example: "010-1234-5678" },
+    { key: "roomType", name: "매물유형", example: "원룸 등" },
+    { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+    { key: "location", name: "선호위치", example: "강동구 oo동" },
+    { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
+    {
+      key: "dates",
+      name: "입주희망일",
+      example: "○○월 ○○일    부터    ○○월 ○○일",
+    },
+    { key: "flags", name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
+    { key: "share", name: "팀공유 (유 / 무)" },
+    { key: "notes", name: "메모", example: "메모: 남향 저층" },
+  ],
+  property: [
+    { key: "roomType", name: "매물유형", example: "원룸 등" },
+    { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+    { key: "location", name: "주소", example: "강동구 oo동, 101동 102호" },
+    { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
+    {
+      key: "dates",
+      name: "임대가능일",
+      example: "○○월 ○○일    부터    ○○월 ○○일",
+    },
+    { key: "flags", name: "대출 · 보증보험 · 주차 · 엘베 (유 / 무)" },
+    {
+      key: "contacts",
+      name: "임차인 · 임대인 전화번호",
+      example: "010-1234-5678",
+    },
+    { key: "share", name: "팀공유 (유 / 무)" },
+    { key: "notes", name: "메모", example: "메모: 남향 저층" },
+  ],
+};
+
+export type IntakeStepParseOutcome = {
+  ok: boolean;
+  partial: Partial<IntakeParseResult>;
+  display: string;
+};
+
+export type IntakeStepCancelSplit = {
+  cancel: boolean;
+  remainder: string;
+};
+
+const CANCEL_ONLY =
+  /^(?:삭제|지워(?:주세요|줘)?|지우기|취소|없애(?:줘|주세요)?|아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?|다시)$/;
+
+export function splitIntakeStepCancel(text: string): IntakeStepCancelSplit {
+  const trimmed = text.trim();
+  if (!trimmed) return { cancel: false, remainder: "" };
+  const prefixed = trimmed.match(
+    /^(?:삭제|지워(?:주세요|줘)?|지우기|취소|없애(?:줘|주세요)?|아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?|다시)\s+(.+)$/
+  );
+  if (prefixed?.[1]) {
+    return { cancel: true, remainder: prefixed[1].trim() };
+  }
+  if (CANCEL_ONLY.test(trimmed)) {
+    return { cancel: true, remainder: "" };
+  }
+  return { cancel: false, remainder: trimmed };
+}
+
+function stepDisplay(
+  partial: Partial<IntakeParseResult>,
+  kind: IntakeKind,
+  key: IntakeStepKey
+): string {
+  const parsed = {
+    options: [],
+    notes: "",
+    ...partial,
+  } as IntakeParseResult;
+  return intakeGuideHits(parsed, kind)[key] ?? "";
+}
+
+function priorContext(
+  prior: Partial<IntakeParseResult> | undefined,
+  kind: IntakeKind
+): string {
+  if (!prior) return "";
+  const bits: string[] = [];
+  if (prior.roomType) bits.push(prior.roomType);
+  if (prior.dealType) bits.push(prior.dealType);
+  if (prior.dong) bits.push(prior.dong);
+  if (prior.gu && kind === "property") bits.push(prior.gu);
+  return bits.join(" ");
+}
+
+export function parseIntakeStep(
+  raw: string,
+  step: IntakeStepKey,
+  kind: IntakeKind,
+  prior?: Partial<IntakeParseResult>,
+  today: Date = new Date()
+): IntakeStepParseOutcome {
+  const text = normalizeIntakeInput(raw);
+  if (!text) return { ok: false, partial: {}, display: "" };
+
+  if (step === "notes") {
+    const notes = text.replace(/^메모\s*[:：.]?\s*/, "").trim();
+    if (!notes) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { notes, options: [] };
+    return { ok: true, partial, display: notes };
+  }
+
+  if (step === "name") {
+    const labeled = text.match(
+      /(?:고객명|명칭|이름|성함|성명)\s*[:\s]?\s*([가-힣]{2,6})/
+    );
+    const name = labeled?.[1] ?? (/^[가-힣]{2,6}$/.test(text) ? text : undefined);
+    if (!name) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      name,
+      nameLabeled: true,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step) || name,
+    };
+  }
+
+  if (step === "flags") {
+    const flags = parseAllYesNoFields(text);
+    const partial: Partial<IntakeParseResult> = { ...flags, options: [] };
+    const ok = Boolean(
+      flags.loan || flags.insurance || flags.parking || flags.elevator
+    );
+    return {
+      ok,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "share") {
+    const shared = parseIntakeText(text, kind, today).workspaceShared;
+    if (!shared) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      workspaceShared: shared,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  const prefix = priorContext(prior, kind);
+  const scoped =
+    step === "dealType" || step === "roomType"
+      ? text
+      : [prefix, text].filter(Boolean).join(" ");
+  const parsed = parseIntakeText(scoped, kind, today);
+
+  if (step === "phone") {
+    const phone = parsed.phone;
+    if (!phone) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { phone, options: [] };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "roomType") {
+    if (!parsed.roomType) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      roomType: parsed.roomType,
+      roomCount: parsed.roomCount,
+      bathroomCount: parsed.bathroomCount,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "dealType") {
+    if (!parsed.dealType) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      dealType: parsed.dealType,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: parsed.dealType,
+    };
+  }
+
+  if (step === "location") {
+    const hasCustomerLoc =
+      kind === "customer" &&
+      ((parsed.places?.length ?? 0) > 0 || parsed.dong || parsed.gu);
+    const hasPropertyLoc =
+      kind === "property" && (parsed.dong || parsed.jibun || parsed.roomNo);
+    if (!hasCustomerLoc && !hasPropertyLoc) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const partial: Partial<IntakeParseResult> = {
+      gu: parsed.gu,
+      dong: parsed.dong,
+      jibun: parsed.jibun,
+      places: parsed.places,
+      roomNo: parsed.roomNo,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "money") {
+    if (!parsed.deposit && !parsed.monthlyRent) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const partial: Partial<IntakeParseResult> = {
+      deposit: parsed.deposit,
+      depositTo: parsed.depositTo,
+      monthlyRent: parsed.monthlyRent,
+      monthlyRentTo: parsed.monthlyRentTo,
+      maintenanceFee: parsed.maintenanceFee,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay({ ...prior, ...partial, dealType: parsed.dealType ?? prior?.dealType }, kind, step),
+    };
+  }
+
+  if (step === "dates") {
+    if (!parsed.moveInFrom && !parsed.moveInImmediate) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const partial: Partial<IntakeParseResult> = {
+      moveInFrom: parsed.moveInFrom,
+      moveInTo: parsed.moveInTo,
+      moveInImmediate: parsed.moveInImmediate,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "contacts") {
+    if (!parsed.tenantPhone && !parsed.landlordPhone && !parsed.phone) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const partial: Partial<IntakeParseResult> = {
+      phone: parsed.phone,
+      tenantPhone: parsed.tenantPhone,
+      landlordPhone: parsed.landlordPhone,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  return { ok: false, partial: {}, display: "" };
+}
+
+function mergePartial(
+  target: IntakeParseResult,
+  partial: Partial<IntakeParseResult>
+) {
+  if (partial.name) {
+    target.name = partial.name;
+    if (partial.nameLabeled) target.nameLabeled = true;
+  }
+  if (partial.phone) target.phone = partial.phone;
+  if (partial.tenantPhone) target.tenantPhone = partial.tenantPhone;
+  if (partial.landlordPhone) target.landlordPhone = partial.landlordPhone;
+  if (partial.roomType) {
+    target.roomType = partial.roomType;
+    target.roomCount = partial.roomCount;
+    target.bathroomCount = partial.bathroomCount;
+  }
+  if (partial.dealType) target.dealType = partial.dealType;
+  if (partial.deposit) target.deposit = partial.deposit;
+  if (partial.depositTo) target.depositTo = partial.depositTo;
+  if (partial.monthlyRent) target.monthlyRent = partial.monthlyRent;
+  if (partial.monthlyRentTo) target.monthlyRentTo = partial.monthlyRentTo;
+  if (partial.maintenanceFee != null) {
+    target.maintenanceFee = partial.maintenanceFee;
+  }
+  if (partial.gu) target.gu = partial.gu;
+  if (partial.dong) target.dong = partial.dong;
+  if (partial.jibun) target.jibun = partial.jibun;
+  if (partial.places?.length) target.places = partial.places;
+  if (partial.roomNo) target.roomNo = partial.roomNo;
+  if (partial.moveInFrom) {
+    target.moveInFrom = partial.moveInFrom;
+    target.moveInTo = partial.moveInTo ?? partial.moveInFrom;
+  }
+  if (partial.moveInImmediate) target.moveInImmediate = true;
+  if (partial.loan) target.loan = partial.loan;
+  if (partial.insurance) target.insurance = partial.insurance;
+  if (partial.parking) target.parking = partial.parking;
+  if (partial.elevator) target.elevator = partial.elevator;
+  if (partial.workspaceShared) target.workspaceShared = partial.workspaceShared;
+  if (partial.notes) target.notes = partial.notes;
+  if (partial.options?.length) {
+    target.options = [...new Set([...target.options, ...partial.options])];
+  }
+}
+
+export function buildIntakeFromSteps(
+  steps: Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>>,
+  kind: IntakeKind
+): IntakeParseResult {
+  const result: IntakeParseResult = { options: [], notes: "" };
+  for (const line of INTAKE_GUIDE_STEPS[kind]) {
+    const partial = steps[line.key];
+    if (!partial) continue;
+    mergePartial(result, partial);
+  }
+  return result;
+}
+
+export function priorStepsMerged(
+  steps: Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>>,
+  kind: IntakeKind,
+  beforeIndex: number
+): Partial<IntakeParseResult> {
+  const lines = INTAKE_GUIDE_STEPS[kind];
+  const merged: Partial<IntakeParseResult> = { options: [] };
+  for (let i = 0; i < beforeIndex; i += 1) {
+    const key = lines[i]?.key;
+    if (!key || !steps[key]) continue;
+    mergePartial(merged as IntakeParseResult, steps[key]!);
+  }
+  return merged;
+}
+
+export function stepPartialsFromRecords(
+  steps: Partial<
+    Record<
+      IntakeStepKey,
+      { partial?: Partial<IntakeParseResult>; display?: string }
+    >
+  >
+): Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>> {
+  return Object.fromEntries(
+    Object.entries(steps)
+      .filter(([, row]) => row?.partial)
+      .map(([key, row]) => [key, row!.partial!])
+  ) as Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>>;
+}

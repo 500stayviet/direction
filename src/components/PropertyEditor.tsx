@@ -46,7 +46,11 @@ import {
 } from "@/lib/propertyValidation";
 import type { RoomType } from "@/lib/types";
 import { RoomBathCountFields } from "@/components/RoomBathCountFields";
-import { applyIntakeToProperty, parseIntakeText } from "@/lib/intakeParse";
+import {
+  applyIntakeToProperty,
+  parseIntakeText,
+  type IntakeParseResult,
+} from "@/lib/intakeParse";
 import { isPlaceholderAddress } from "@/lib/seoulRegions";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
@@ -294,12 +298,15 @@ export function PropertyEditor({
     setPhotoError("");
   };
 
-  const applyIntakeText = (raw: string) => {
-    const parsed = parseIntakeText(raw, "property");
+  const applyIntakeParsed = (parsed: IntakeParseResult) => {
     onChange(applyIntakeToProperty(property, parsed));
     setFilledFromIntake(true);
     setMessageOpen(false);
     setTalkOpen(false);
+  };
+
+  const applyIntakeText = (raw: string) => {
+    applyIntakeParsed(parseIntakeText(raw, "property"));
   };
 
   return (
@@ -1101,7 +1108,7 @@ export function PropertyEditor({
           open={talkOpen}
           kind="property"
           onClose={() => setTalkOpen(false)}
-          onApply={applyIntakeText}
+          onApply={applyIntakeParsed}
         />
       </>
     ) : null}

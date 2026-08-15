@@ -51,6 +51,7 @@ import {
   intakeMoveInPeriod,
   intakePreferredLocation,
   parseIntakeText,
+  type IntakeParseResult,
 } from "@/lib/intakeParse";
 import { filledSectionClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
@@ -331,8 +332,7 @@ export function CustomerForm({
     setPhotoError("");
   };
 
-  const applyIntakeText = (raw: string) => {
-    const parsed = parseIntakeText(raw, "customer");
+  const applyIntakeParsed = (parsed: IntakeParseResult) => {
     const nextPhone =
       parsed.phone || parsed.tenantPhone || parsed.landlordPhone || "";
     if (nextPhone) {
@@ -393,6 +393,10 @@ export function CustomerForm({
     setValidationActive(true);
     setMessageOpen(false);
     setTalkOpen(false);
+  };
+
+  const applyIntakeText = (raw: string) => {
+    applyIntakeParsed(parseIntakeText(raw, "customer"));
   };
 
   const customerInput = {
@@ -1124,7 +1128,7 @@ export function CustomerForm({
         open={talkOpen}
         kind="customer"
         onClose={() => setTalkOpen(false)}
-        onApply={applyIntakeText}
+        onApply={applyIntakeParsed}
       />
     </>
   );

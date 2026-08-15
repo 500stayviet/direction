@@ -707,4 +707,33 @@ describe("parseIntakeText", () => {
       "010-1111-1111"
     );
   });
+
+  it("유/무는 순서와 표현에 상관없이 각각 읽는다", () => {
+    const parsed = parseIntakeText(
+      "주차 무 대출 유 보증보험 무 엘베 무",
+      "property"
+    );
+    assert.equal(parsed.loan, "유");
+    assert.equal(parsed.insurance, "무");
+    assert.equal(parsed.parking, "무");
+    assert.equal(parsed.elevator, "무");
+  });
+
+  it("매매가·날짜 수정·유/무를 칸에 넣는다", () => {
+    const today = new Date(2026, 7, 15);
+    const parsed = parseIntakeText(
+      "원룸 매매 성내동 매매가 1억 8월 25일 8월 25일부터 8월 15일 아니 9월 15일 대출 무 보증보험 무 주차 무 엘베 무",
+      "property",
+      today
+    );
+    assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.dealType, "매매");
+    assert.equal(parsed.deposit, 10000);
+    assert.equal(parsed.moveInFrom, "2026-09-15");
+    assert.equal(parsed.loan, "무");
+    assert.equal(parsed.insurance, "무");
+    assert.equal(parsed.parking, "무");
+    assert.equal(parsed.elevator, "무");
+    assert.doesNotMatch(parsed.notes, /1억|대출|보증보험|주차|엘베/);
+  });
 });
