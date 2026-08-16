@@ -18,7 +18,7 @@ function withDemoDisplayNames(
   table: "customers" | "listed_properties" | "schedules",
   payload: Record<string, unknown>
 ): Record<string, unknown> {
-  const next = { ...payload, createdByName: DEMO_CREATOR_NAME };
+  const next: Record<string, unknown> = { ...payload, createdByName: DEMO_CREATOR_NAME };
   if (table === "customers") {
     const name = String(next.name ?? "").trim();
     if (!name || name === "테스트") next.name = DEMO_CUSTOMER_NAME;
