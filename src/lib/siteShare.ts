@@ -1,7 +1,7 @@
 /**
  * 사이트내공유(현장동선 네트워크) UI 노출 여부.
- * false면 등록 폼에 「준비중」 표시·선택 불가. 리스트 카드 뱃지는 숨김.
- * 매칭/저장 로직은 그대로 두어 이후 바로 켤 수 있음.
+ * false면 등록 폼 칸·리스트 뱃지를 숨김. true로 바꾸면 등록 페이지에
+ * 「사이트내 공유하기」 버튼이 다시 나옴. 매칭/저장 로직은 그대로 둠.
  */
 export const SITE_SHARE_UI_ENABLED = false;
 
@@ -9,4 +9,3 @@ export const SITE_SHARE_UI_ENABLED = false;
 export const SITE_SHARE_CARD_BADGE_ENABLED = false;
 
 export const SITE_SHARE_DEV_LABEL = "사이트내공유 준비중";
-export const SITE_SHARE_FORM_LABEL = "사이트내공유 유무";

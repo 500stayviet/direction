@@ -431,8 +431,8 @@ export default function SignupPage() {
             </Link>
             에 동의합니다.
             <span className="mt-1 block text-[12px] text-gray-400">
-              업무 편의 도구이며, 필요한 분만 자발적으로 이용합니다. 향후 유료
-              요금제가 도입될 수 있습니다.
+              업무 편의 도구이며, 고객·매물·방문 일정을 현장에서 편하게 정리할 수
+              있습니다.
             </span>
           </span>
         </label>

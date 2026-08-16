@@ -24,6 +24,8 @@ interface ModalProps {
   overlayClassName?: string;
   /** 패널 전체를 덮는 중앙 오버레이 (분석 중 등) */
   cover?: ReactNode;
+  /** 설명 글자 크기 등 */
+  descriptionClassName?: string;
 }
 
 export function Modal({
@@ -40,6 +42,7 @@ export function Modal({
   footer,
   overlayClassName = "z-50",
   cover,
+  descriptionClassName,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -129,7 +132,14 @@ export function Modal({
           </div>
         ) : null}
         {description && (
-          <p className="mt-1 shrink-0 text-sm text-gray-500">{description}</p>
+          <p
+            className={[
+              "mt-1 shrink-0 text-gray-500",
+              descriptionClassName || "text-sm",
+            ].join(" ")}
+          >
+            {description}
+          </p>
         )}
         <div
           className={[

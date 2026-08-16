@@ -43,7 +43,7 @@ export type CustomerValidationInput = {
   loanNeeded?: "유" | "무" | "";
   insuranceNeeded?: "유" | "무" | "";
   workspaceShared?: boolean;
-  /** false면 팀 없을 때 팀공유 유무를 필수에서 뺌 */
+  /** true면 팀공유를 필수 칸으로 봄. 등록 페이지는 버튼이라 기본은 필수 아님 */
   requireTeamShare?: boolean;
   preferredGus?: string[];
   preferredDongs?: string[];
@@ -167,7 +167,7 @@ export function getMissingCustomerFields(
     }
   }
   if (
-    input.requireTeamShare !== false &&
+    input.requireTeamShare === true &&
     input.workspaceShared !== true &&
     input.workspaceShared !== false
   ) {

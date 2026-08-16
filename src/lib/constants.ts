@@ -16,11 +16,11 @@ export const DEAL_TYPES: DealType[] = ["매매", "전세", "월세"];
 export const MAX_SCHEDULE_PROPERTIES = 6;
 
 export const ROOM_TYPES: RoomType[] = [
+  "아파트",
   "원룸",
   "투룸",
   "3룸+",
   "오피스텔",
-  "아파트",
   "상가",
   "사무실",
   "토지",

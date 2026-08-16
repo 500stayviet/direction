@@ -356,7 +356,6 @@ export function PropertyEditor({
   const teamShareFields = showTeamShare ? (
     <>
       <TeamShareFormField
-        compact={filledFromIntake}
         value={property.workspaceShared}
         onChange={(next) => update({ workspaceShared: next })}
         hasTeam={hasTeam}

@@ -460,7 +460,7 @@ export function CustomerForm({
     loanNeeded,
     insuranceNeeded,
     workspaceShared,
-    requireTeamShare: hasTeam,
+    requireTeamShare: false,
     preferredGus,
     preferredDongs,
   };
@@ -1112,20 +1112,12 @@ export function CustomerForm({
               placeholder={customerMemoPlaceholder(roomType)}
             />
           </div>
-          <div ref={setFieldRef("teamShare")}>
-            <TeamShareFormField
-              required
-              compact={filledFromIntake}
-              invalid={isInvalid("teamShare")}
-              value={workspaceShared}
-              onChange={setWorkspaceShared}
-              hasTeam={hasTeam}
-            />
-          </div>
-          <SiteShareFormField
-            value={false}
-            onChange={() => {}}
+          <TeamShareFormField
+            value={workspaceShared}
+            onChange={setWorkspaceShared}
+            hasTeam={hasTeam}
           />
+          <SiteShareFormField value={false} onChange={() => {}} />
           </div>
         </Card>
       </form>

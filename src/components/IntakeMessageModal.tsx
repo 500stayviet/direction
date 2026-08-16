@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { IntakeAiBusyCover } from "@/components/IntakeAiBusyOverlay";
 
+const AREA_MIN_PX = 144;
+const AREA_MAX_PX = 280;
+const MESSAGE_MAX_LENGTH = 200;
+
 export function IntakeMessageModal({
   open,
   busy = false,
@@ -19,24 +23,38 @@ export function IntakeMessageModal({
   const [text, setText] = useState("");
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
+  const resizeArea = () => {
+    const el = areaRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, AREA_MIN_PX), AREA_MAX_PX)}px`;
+  };
+
   useEffect(() => {
     if (!open) return;
     setText("");
-    const id = window.setTimeout(() => {
+    const focus = () => {
       const el = areaRef.current;
       if (!el) return;
       el.focus();
-      el.setSelectionRange(0, el.value.length);
-    }, 50);
+      el.select();
+      resizeArea();
+    };
+    const id = window.setTimeout(focus, 80);
     return () => window.clearTimeout(id);
   }, [open]);
+
+  useEffect(() => {
+    resizeArea();
+  }, [text]);
 
   return (
     <Modal
       open={open}
       onClose={busy ? () => {} : onClose}
       title="메시지로 입력"
-      description="AI가 분석해 각 칸에 넣습니다."
+      description="메시지를 작성 또는 내용을 가져와 붙여넣으세요"
+      descriptionClassName="text-[12px] font-medium leading-snug"
       dense
       overlayClassName="z-50 overflow-x-hidden"
       className="max-h-[min(82dvh,640px)]"
@@ -51,22 +69,25 @@ export function IntakeMessageModal({
             disabled={busy || !text.trim()}
             onClick={() => onApply(text)}
           >
-            AI 반영하기
+            반영하기
           </Button>
         </div>
       }
     >
-      <div className="flex min-h-0 flex-col rounded-2xl bg-gray-50 px-2 py-2">
+      <div className="-mx-2 rounded-2xl bg-gray-50 px-1 py-1.5">
         <textarea
           ref={areaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="메시지를 작성 또는 붙여넣으세요"
+          onChange={(e) => setText(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
+          maxLength={MESSAGE_MAX_LENGTH}
+          aria-label="메시지"
+          autoFocus
           disabled={busy}
-          className="h-[28vh] max-h-[220px] min-h-[160px] w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[16px] leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/20 disabled:opacity-60"
+          rows={6}
+          className="w-full resize-none overflow-y-auto rounded-xl border border-blue-400 bg-white p-2 text-[15px] font-bold leading-snug text-gray-800 outline-none disabled:opacity-60"
         />
-        <p className="mt-2 px-0.5 text-[12px] font-medium leading-snug text-gray-400">
-          작성하거나 붙여 넣은 글을 AI가 분석해 매물·고객 각 칸에 넣습니다.
+        <p className="mt-1 px-2 text-right text-[11px] font-medium tabular-nums text-gray-400">
+          {text.length}/{MESSAGE_MAX_LENGTH}
         </p>
       </div>
     </Modal>

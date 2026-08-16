@@ -504,12 +504,10 @@ function ScheduleCreateInner() {
           + 매물 추가
         </Button>
 
-        <Card className="space-y-2.5">
-          <TeamShareFormField
-            value={workspaceShared}
-            onChange={setWorkspaceShared}
-          />
-        </Card>
+        <TeamShareFormField
+          value={workspaceShared}
+          onChange={setWorkspaceShared}
+        />
       </form>
 
       <StickyActionBar aboveTab>

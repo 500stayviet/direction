@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   SITE_SHARE_CARD_BADGE_ENABLED,
   SITE_SHARE_DEV_LABEL,
-  SITE_SHARE_FORM_LABEL,
   SITE_SHARE_UI_ENABLED,
 } from "@/lib/siteShare";
 import { Button } from "@/components/ui/Button";
@@ -58,7 +57,7 @@ function DevStrikeLabel({
   );
 }
 
-/** 등록 폼용 — 준비중일 때 비활성 표시 */
+/** 등록 폼용 — 기능 꺼져 있으면 칸 자체를 숨김 */
 export function SiteShareFormField({
   value,
   onChange,
@@ -66,45 +65,22 @@ export function SiteShareFormField({
   value: boolean;
   onChange: (next: boolean) => void;
 }) {
-  if (!SITE_SHARE_UI_ENABLED) {
-    return (
-      <div className="space-y-1">
-        <p className="text-[13px] font-semibold text-gray-600">
-          {SITE_SHARE_FORM_LABEL}
-        </p>
-        <div className="flex min-h-[44px] items-center justify-center rounded-xl bg-gray-100 px-3 text-[15px]">
-          <span className="text-[15px] font-bold text-gray-400">준비중</span>
-        </div>
-      </div>
-    );
-  }
+  if (!SITE_SHARE_UI_ENABLED) return null;
 
+  const shared = value === true;
   return (
-    <div className="space-y-1">
-      <p className="text-[13px] font-semibold text-gray-600">
-        {SITE_SHARE_FORM_LABEL}
-      </p>
-      <div className="grid grid-cols-2 gap-1.5">
-        {(["유", "무"] as const).map((option) => {
-          const active = (value ? "유" : "무") === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onChange(option === "유")}
-              className={[
-                "min-h-[44px] rounded-xl text-[15px] font-bold transition-all duration-150 active:scale-95",
-                active
-                  ? "bg-[#3182F6] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-600",
-              ].join(" ")}
-            >
-              {option}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={() => onChange(!shared)}
+      className={[
+        "flex min-h-[44px] w-full items-center justify-center rounded-xl text-[15px] font-bold transition-all duration-150 active:scale-95",
+        shared
+          ? "bg-emerald-500 text-white shadow-sm"
+          : "bg-gray-100 text-gray-700",
+      ].join(" ")}
+    >
+      {shared ? "사이트내 공유 중" : "사이트내 공유하기"}
+    </button>
   );
 }
 

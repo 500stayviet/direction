@@ -18,17 +18,21 @@ function MessageIcon({ className }: { className?: string }) {
 function TalkIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 4.5a7.5 7.5 0 0 1 0 15 8.6 8.6 0 0 1-3.7-.84L5 20l.7-3.2A7.5 7.5 0 0 1 12 4.5Z"
+      <rect
+        x="9"
+        y="3.5"
+        width="6"
+        height="10"
+        rx="3"
         stroke="currentColor"
         strokeWidth="1.8"
-        strokeLinejoin="round"
       />
       <path
-        d="M9 11.5h.01M12 11.5h.01M15 11.5h.01"
+        d="M7 11a5 5 0 0 0 10 0M12 16v3.2M8.5 20.5h7"
         stroke="currentColor"
-        strokeWidth="2.4"
+        strokeWidth="1.8"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
