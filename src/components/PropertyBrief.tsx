@@ -181,9 +181,9 @@ export function PropertyBrief({
             <span className="shrink-0 text-[14px] font-extrabold text-[#3182F6]">
               원터치 네비게이션
             </span>
-            <span className="ml-auto whitespace-nowrap text-[10px] font-medium leading-none text-[#1B64DA]/70">
-              주소를 누르면 네비게이션으로 이동합니다
-            </span>
+          </span>
+          <span className="mt-1 block text-[11px] font-medium leading-snug text-[#1B64DA]/70">
+            주소 칸을 눌러 네비게이션으로 이동하세요
           </span>
           <span className="mt-1.5 block text-[19px] font-extrabold leading-snug tracking-tight text-[#1B64DA]">
             {toNaviAddress(property.address) || property.address || "주소 없음"}
