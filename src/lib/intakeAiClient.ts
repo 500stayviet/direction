@@ -1,12 +1,14 @@
 import {
   INTAKE_AI_MIN_WAIT_MS,
   intakeAiLeftover,
+  leftoverNeedsAi,
   listEmptyIntakeAiFields,
   mergeIntakeAi,
   type IntakeAiPatch,
   type IntakeAiSource,
 } from "@/lib/intakeAi";
 import {
+  appendIntakeMemo,
   parseIntakeText,
   type IntakeKind,
   type IntakeParseResult,
@@ -63,6 +65,13 @@ export async function resolveIntakeWithAi(opts: {
   const parsed = parseIntakeText(opts.raw, opts.kind);
   const leftover = intakeAiLeftover(opts.raw, parsed, opts.source);
   if (!leftover) return parsed;
+  if (!leftoverNeedsAi(leftover, parsed)) {
+    return {
+      ...parsed,
+      options: [...parsed.options],
+      notes: appendIntakeMemo(parsed.notes, leftover),
+    };
+  }
   const patch = await requestIntakeAi({
     leftover,
     kind: opts.kind,

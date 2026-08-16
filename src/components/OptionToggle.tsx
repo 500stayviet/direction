@@ -23,6 +23,7 @@ interface OptionToggleProps<T extends string> {
   compact?: boolean;
   /** 반영되어 값이 있는 구역 */
   filled?: boolean;
+  disabled?: boolean;
 }
 
 export function OptionToggle<T extends string>({
@@ -37,6 +38,7 @@ export function OptionToggle<T extends string>({
   invalid,
   compact = false,
   filled,
+  disabled = false,
 }: OptionToggleProps<T>) {
   const dimOthers = compact && Boolean(value);
 
@@ -87,9 +89,16 @@ export function OptionToggle<T extends string>({
             <button
               key={option}
               type="button"
-              onClick={() => onChange(option)}
+              disabled={disabled}
+              onClick={() => {
+                if (disabled) return;
+                onChange(option);
+              }}
               className={[
-                "relative z-[1] min-h-[36px] rounded-xl font-bold pointer-events-auto active:scale-95 transition-all duration-150",
+                "relative z-[1] min-h-[36px] rounded-xl font-bold pointer-events-auto transition-all duration-150",
+                disabled
+                  ? "cursor-not-allowed opacity-50"
+                  : "active:scale-95",
                 faint ? "opacity-[0.22]" : "",
                 fit
                   ? "min-w-0 flex-1 px-1.5 text-[12px] leading-snug tracking-tight"

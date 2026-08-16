@@ -33,6 +33,7 @@ import { Card } from "@/components/ui/Card";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { SiteShareFormField } from "@/components/SiteShareUi";
+import { TeamShareFormField } from "@/components/TeamShareFormField";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
 import { RoomBathCountFields } from "@/components/RoomBathCountFields";
 import { CircleCheck } from "@/components/ui/CircleCheck";
@@ -58,6 +59,7 @@ import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
+import { useHasTeam } from "@/hooks/useHasTeam";
 
 const IntakePhotoPicker = dynamic(
   () =>
@@ -79,6 +81,7 @@ export function CustomerForm({
   submitLabel = "저장하기",
 }: CustomerFormProps) {
   const { items: customers } = useCustomersList();
+  const hasTeam = useHasTeam();
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(formatPhoneInput(initial?.phone ?? ""));
   const [dealType, setDealType] = useState<DealType | "">(
@@ -390,7 +393,9 @@ export function CustomerForm({
     if (parsed.insurance) setInsuranceNeeded(parsed.insurance);
     if (parsed.parking) setParkingType(parsed.parking);
     if (parsed.elevator) setElevatorNeeded(parsed.elevator);
-    if (parsed.workspaceShared) setWorkspaceShared(parsed.workspaceShared === "유");
+    if (parsed.workspaceShared && hasTeam) {
+      setWorkspaceShared(parsed.workspaceShared === "유");
+    }
     if (parsed.notes) {
       setNotes((prev) => (prev.trim() ? `${prev.trim()}\n${parsed.notes}` : parsed.notes));
     }
@@ -403,8 +408,8 @@ export function CustomerForm({
   const applyIntakeText = async (raw: string, source: IntakeSampleSource) => {
     if (applyingIntakeRef.current) return;
     applyingIntakeRef.current = true;
-    setMessageOpen(false);
     setAiBusy(true);
+    if (source !== "message") setMessageOpen(false);
     const started = Date.now();
     try {
       const accessToken = await getAccessToken();
@@ -455,6 +460,7 @@ export function CustomerForm({
     loanNeeded,
     insuranceNeeded,
     workspaceShared,
+    requireTeamShare: hasTeam,
     preferredGus,
     preferredDongs,
   };
@@ -602,7 +608,7 @@ export function CustomerForm({
 
   return (
     <>
-      <IntakeAiBusyOverlay open={aiBusy} />
+      <IntakeAiBusyOverlay open={aiBusy && !messageOpen} />
       <form
         id={FORM_ID}
         noValidate
@@ -1107,22 +1113,13 @@ export function CustomerForm({
             />
           </div>
           <div ref={setFieldRef("teamShare")}>
-            <OptionToggle
-              label="팀공유 유무"
-              hint="팀에 공유가 필요할 때 사용하세요"
+            <TeamShareFormField
               required
               compact={filledFromIntake}
               invalid={isInvalid("teamShare")}
-              columns={2}
-              value={
-                workspaceShared === true
-                  ? "유"
-                  : workspaceShared === false
-                    ? "무"
-                    : undefined
-              }
-              options={["유", "무"] as const}
-              onChange={(v) => setWorkspaceShared(v === "유")}
+              value={workspaceShared}
+              onChange={setWorkspaceShared}
+              hasTeam={hasTeam}
             />
           </div>
           <SiteShareFormField
@@ -1161,7 +1158,11 @@ export function CustomerForm({
       {messageOpen ? (
         <IntakeMessageModal
           open={messageOpen}
-          onClose={() => setMessageOpen(false)}
+          busy={aiBusy}
+          onClose={() => {
+            if (aiBusy) return;
+            setMessageOpen(false);
+          }}
           onApply={(text) => void applyIntakeText(text, "message")}
         />
       ) : null}

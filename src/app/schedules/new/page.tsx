@@ -21,7 +21,7 @@ import { CustomerBrief } from "@/components/CustomerBrief";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { OptionToggle } from "@/components/OptionToggle";
+import { TeamShareFormField } from "@/components/TeamShareFormField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import {
   createEmptyProperty,
@@ -505,13 +505,9 @@ function ScheduleCreateInner() {
         </Button>
 
         <Card className="space-y-2.5">
-          <OptionToggle
-            label="팀공유 유무"
-            hint="팀에 공유가 필요할 때 사용하세요"
-            columns={2}
-            value={workspaceShared ? "유" : "무"}
-            options={["유", "무"] as const}
-            onChange={(v) => setWorkspaceShared(v === "유")}
+          <TeamShareFormField
+            value={workspaceShared}
+            onChange={setWorkspaceShared}
           />
         </Card>
       </form>

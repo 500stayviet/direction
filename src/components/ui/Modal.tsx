@@ -22,6 +22,8 @@ interface ModalProps {
   footer?: ReactNode;
   /** 오버레이 z-index (기본 z-50) */
   overlayClassName?: string;
+  /** 패널 전체를 덮는 중앙 오버레이 (분석 중 등) */
+  cover?: ReactNode;
 }
 
 export function Modal({
@@ -37,6 +39,7 @@ export function Modal({
   headerRight,
   footer,
   overlayClassName = "z-50",
+  cover,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -71,7 +74,7 @@ export function Modal({
       />
       <div
         className={[
-          "relative flex w-full max-w-[430px] flex-col bg-white shadow-xl animate-in",
+          "relative flex w-full max-w-[430px] flex-col overflow-x-hidden bg-white shadow-xl animate-in",
           dense ? "px-4 pt-4" : "px-5 pt-5",
           footer ? (dense ? "pb-3" : "pb-4") : dense ? "pb-4" : "pb-5",
           centered ? "rounded-3xl" : "rounded-t-3xl",
@@ -131,7 +134,7 @@ export function Modal({
         <div
           className={[
             title || description ? (dense ? "mt-3" : "mt-5") : "",
-            footer ? "min-h-0 flex-1 overflow-y-auto" : "",
+            footer ? "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto" : "",
           ].join(" ")}
         >
           {children}
@@ -139,6 +142,11 @@ export function Modal({
         {footer ? (
           <div className="shrink-0 border-t border-gray-100 pt-3">
             {footer}
+          </div>
+        ) : null}
+        {cover ? (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-[inherit] bg-white/90">
+            {cover}
           </div>
         ) : null}
       </div>

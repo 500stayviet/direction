@@ -6,7 +6,7 @@ import {
 } from "@/lib/intakeParse";
 import { isKnownSeoulDong, SEOUL_GU_LIST } from "@/lib/seoulRegions";
 
-export const INTAKE_AI_MIN_WAIT_MS = 500;
+export const INTAKE_AI_MIN_WAIT_MS = 3_000;
 export const INTAKE_AI_LEFTOVER_MAX = 200;
 export const INTAKE_AI_LEFTOVER_MAX_OCR = 280;
 
@@ -142,7 +142,7 @@ export function intakeAiLeftover(
   }
 
   const noteBits = parsed.notes
-    .split(/[\/|,]+/)
+    .split(/\n+|[\/|,]+/)
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter((part) => part.length >= 2);
   text = replaceLongest(text, noteBits);
@@ -155,6 +155,46 @@ export function intakeAiLeftover(
 
   if (!/[가-힣]{2,}/.test(text)) return "";
   return text.slice(0, leftoverMaxForSource(source));
+}
+
+const DATE_HINT =
+  /\d{2,4}\s*[.\-/]\s*\d{1,2}|\d+\s*월\s*\d+\s*일|즉시|바로\s*입주|실입주/;
+const JIBUN_HINT = /\d{1,5}\s*-\s*\d{1,5}/;
+const ROOM_HINT = /\d+\s*(?:동|층|호)/;
+
+/** 주소·이름·날짜처럼 빈 칸을 채울 잔여일 때만 DeepSeek를 부른다. 메모만이면 내용에 붙인다. */
+export function leftoverNeedsAi(
+  leftover: string,
+  parsed: IntakeParseResult
+): boolean {
+  const text = leftover.replace(/\s+/g, " ").trim();
+  if (text.length < 2) return false;
+
+  const needName = !parsed.name?.trim();
+  const needGu = !parsed.gu?.trim();
+  const needDong = !parsed.dong?.trim();
+  const needJibun = !parsed.jibun?.trim();
+  const needRoom = !parsed.roomNo?.trim();
+  const needMove = !parsed.moveInFrom && !parsed.moveInImmediate;
+
+  if (needDong) {
+    for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {
+      if (isKnownSeoulDong(m[0] ?? "")) return true;
+    }
+  }
+  if (needGu && SEOUL_GU_LIST.some((gu) => text.includes(gu))) return true;
+  if (needJibun && JIBUN_HINT.test(text)) return true;
+  if (needRoom && ROOM_HINT.test(text)) return true;
+  if (needMove && DATE_HINT.test(text)) return true;
+  if (
+    needName &&
+    /^[가-힣]{2,6}$/.test(text) &&
+    !text.endsWith("동") &&
+    !isKnownSeoulDong(text)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isIsoDate(value: string): boolean {

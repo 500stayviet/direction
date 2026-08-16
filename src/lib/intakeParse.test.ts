@@ -854,6 +854,8 @@ describe("parseIntakeText", () => {
     assert.match(parsed.notes, /제이디파크빌/);
     assert.match(parsed.notes, /거실/);
     assert.match(parsed.notes, /이사 협의/);
+    assert.doesNotMatch(parsed.notes, / \/ /);
+    assert.match(parsed.notes, /\n/);
   });
 
   it("현장 월세 메시지: YY.MM.DD·1억/110/관5·주차1대", () => {

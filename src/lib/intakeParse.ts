@@ -378,16 +378,24 @@ function extractIntentMemoNotes(text: string): string[] {
   return out;
 }
 
+function splitNoteChunks(value: string): string[] {
+  return value
+    .split(/\n+|\s*\/\s*/)
+    .map((part) => part.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean);
+}
+
 function uniqueNoteParts(parts: string[]): string {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const part of parts) {
-    const next = part.replace(/\s+/g, " ").trim();
-    if (!next || seen.has(next)) continue;
-    seen.add(next);
-    out.push(next);
+    for (const chunk of splitNoteChunks(part)) {
+      if (seen.has(chunk)) continue;
+      seen.add(chunk);
+      out.push(chunk);
+    }
   }
-  return out.join(" / ");
+  return out.join("\n");
 }
 
 function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
@@ -398,9 +406,8 @@ function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
 }
 
 function appendMemoPart(notes: string, extra: string): string {
-  const next = extra.replace(/\s+/g, " ").trim();
-  if (!next) return notes;
-  return uniqueNoteParts([notes, next].filter(Boolean));
+  if (!extra.trim()) return notes;
+  return uniqueNoteParts([notes, extra].filter(Boolean));
 }
 
 export function appendIntakeMemo(notes: string, extra: string): string {

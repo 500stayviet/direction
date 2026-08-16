@@ -40,6 +40,7 @@ import {
   PropertyLoadPicker,
 } from "@/components/PropertyLoadPicker";
 import { SiteShareFormField } from "@/components/SiteShareUi";
+import { TeamShareFormField } from "@/components/TeamShareFormField";
 import {
   getMissingRequiredFields,
   type PropertyFieldKey,
@@ -56,6 +57,7 @@ import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
+import { useHasTeam } from "@/hooks/useHasTeam";
 import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 
 const IntakePhotoPicker = dynamic(
@@ -154,6 +156,7 @@ export function PropertyEditor({
   const [aiBusy, setAiBusy] = useState(false);
   const applyingIntakeRef = useRef(false);
   const propertyRef = useRef(property);
+  const hasTeam = useHasTeam(showTeamShare);
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);
@@ -309,7 +312,9 @@ export function PropertyEditor({
 
   const applyIntakeParsed = async (parsed: IntakeParseResult) => {
     const { applyIntakeToProperty } = await import("@/lib/intakeParse");
-    onChange(applyIntakeToProperty(propertyRef.current, parsed));
+    const next = applyIntakeToProperty(propertyRef.current, parsed);
+    if (!hasTeam) next.workspaceShared = false;
+    onChange(next);
     setFilledFromIntake(true);
     setMessageOpen(false);
     setTalkOpen(false);
@@ -318,8 +323,8 @@ export function PropertyEditor({
   const applyIntakeText = async (raw: string, source: IntakeSampleSource) => {
     if (applyingIntakeRef.current) return;
     applyingIntakeRef.current = true;
-    setMessageOpen(false);
     setAiBusy(true);
+    if (source !== "message") setMessageOpen(false);
     const started = Date.now();
     try {
       const accessToken = await getAccessToken();
@@ -348,9 +353,21 @@ export function PropertyEditor({
     }
   };
 
+  const teamShareFields = showTeamShare ? (
+    <>
+      <TeamShareFormField
+        compact={filledFromIntake}
+        value={property.workspaceShared}
+        onChange={(next) => update({ workspaceShared: next })}
+        hasTeam={hasTeam}
+      />
+      <SiteShareFormField value={false} onChange={() => {}} />
+    </>
+  ) : null;
+
   return (
     <>
-    <IntakeAiBusyOverlay open={aiBusy} />
+    <IntakeAiBusyOverlay open={aiBusy && !messageOpen} />
     {enableIntake ? (
       <div className="mb-3 space-y-1">
         <IntakeSourceBar onSelect={requestIntake} />
@@ -903,29 +920,7 @@ export function PropertyEditor({
                 placeholder={propertyNotesPlaceholder(property.roomType)}
               />
             </div>
-            {showTeamShare ? (
-              <>
-                <OptionToggle
-                  label="팀공유 유무"
-                  hint="팀에 공유가 필요할 때 사용하세요"
-                  compact={filledFromIntake}
-                  columns={2}
-                  value={
-                    property.workspaceShared === true
-                      ? "유"
-                      : property.workspaceShared === false
-                        ? "무"
-                        : undefined
-                  }
-                  options={["유", "무"] as const}
-                  onChange={(v) => update({ workspaceShared: v === "유" })}
-                />
-                <SiteShareFormField
-                  value={false}
-                  onChange={() => {}}
-                />
-              </>
-            ) : null}
+            {teamShareFields}
           </div>
         </div>
       )}
@@ -946,29 +941,7 @@ export function PropertyEditor({
                 placeholder={propertyNotesPlaceholder(property.roomType)}
               />
             </div>
-            {showTeamShare ? (
-              <>
-                <OptionToggle
-                  label="팀공유 유무"
-                  hint="팀에 공유가 필요할 때 사용하세요"
-                  compact={filledFromIntake}
-                  columns={2}
-                  value={
-                    property.workspaceShared === true
-                      ? "유"
-                      : property.workspaceShared === false
-                        ? "무"
-                        : undefined
-                  }
-                  options={["유", "무"] as const}
-                  onChange={(v) => update({ workspaceShared: v === "유" })}
-                />
-                <SiteShareFormField
-                  value={false}
-                  onChange={() => {}}
-                />
-              </>
-            ) : null}
+            {teamShareFields}
           </div>
         </div>
       )}
@@ -1105,29 +1078,7 @@ export function PropertyEditor({
               placeholder={propertyNotesPlaceholder(property.roomType)}
             />
           </div>
-          {showTeamShare ? (
-            <>
-              <OptionToggle
-                label="팀공유 유무"
-                hint="팀에 공유가 필요할 때 사용하세요"
-                compact={filledFromIntake}
-                columns={2}
-                value={
-                  property.workspaceShared === true
-                    ? "유"
-                    : property.workspaceShared === false
-                      ? "무"
-                      : undefined
-                }
-                options={["유", "무"] as const}
-                onChange={(v) => update({ workspaceShared: v === "유" })}
-              />
-              <SiteShareFormField
-                value={false}
-                onChange={() => {}}
-              />
-            </>
-          ) : null}
+          {teamShareFields}
         </div>
       )}
     </Card>
@@ -1150,7 +1101,11 @@ export function PropertyEditor({
         {messageOpen ? (
           <IntakeMessageModal
             open={messageOpen}
-            onClose={() => setMessageOpen(false)}
+            busy={aiBusy}
+            onClose={() => {
+              if (aiBusy) return;
+              setMessageOpen(false);
+            }}
             onApply={(text) => void applyIntakeText(text, "message")}
           />
         ) : null}

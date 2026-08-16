@@ -5,7 +5,8 @@ import {
   type IntakeStepKey,
 } from "@/lib/intakeSteps";
 
-export const TALK_IDLE_MS = 15_000;
+export const TALK_IDLE_MS = 10_000;
+export const TALK_LOCATION_HOLD_MS = 2_000;
 
 export type TalkPrimaryKind = "start" | "pause" | "finish";
 

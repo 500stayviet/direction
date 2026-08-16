@@ -101,6 +101,71 @@ main {
   animation: slide-up 0.22s ease-out;
 }
 
+@keyframes intake-globe-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.intake-globe {
+  width: 4.5rem;
+  height: 4.5rem;
+  perspective: 220px;
+}
+
+.intake-globe-ball {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  animation: intake-globe-spin 4.8s linear infinite;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5), transparent 30%),
+    radial-gradient(circle at 50% 50%, #38bdf8 0%, #0284c7 46%, #0c4a6e 100%);
+  box-shadow:
+    inset -12px -14px 22px rgba(15, 23, 42, 0.38),
+    0 10px 24px rgba(14, 165, 233, 0.28);
+}
+
+.intake-globe-ball::before,
+.intake-globe-ball::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.32);
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.intake-globe-ball::after {
+  inset: 22% 8%;
+}
+
+.intake-globe-lat {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.28);
+  top: 50%;
+}
+
+.intake-globe-lat:nth-child(1) {
+  top: 28%;
+}
+.intake-globe-lat:nth-child(2) {
+  top: 50%;
+}
+.intake-globe-lat:nth-child(3) {
+  top: 72%;
+}
+
 @keyframes rec-dot-blink {
   0%,
   100% {

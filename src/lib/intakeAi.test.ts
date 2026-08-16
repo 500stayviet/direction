@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   intakeAiLeftover,
+  leftoverNeedsAi,
   mergeIntakeAi,
   sanitizeIntakeAiPatch,
 } from "./intakeAi.ts";
@@ -34,6 +35,28 @@ describe("intakeAiLeftover", () => {
     const parsed = parseIntakeText(raw, "property");
     assert.match(parsed.notes, /제이디파크빌/);
     assert.equal(intakeAiLeftover(raw, parsed, "message"), "");
+  });
+
+  it("일요일 불가 같은 메모 잔여는 API를 부르지 않는다", () => {
+    const raw = [
+      "천호동 314-7 제이디파크빌 403호",
+      "방2 거실 주방 화장실 다용도실",
+      "엘레베이터 주차",
+      "매매 32,000만원 실입주 가능",
+      "(이사 협의 2~3개월)",
+      "집 보는거는 저녁타임 미리 예약 하고 가능합니다. 집보는건 일요일불가",
+    ].join("\n");
+    const parsed = parseIntakeText(raw, "property");
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.match(leftover, /일요일불가/);
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
+  it("동이 비어 있고 잔여에 동이 있으면 API가 필요하다", () => {
+    const leftover = "성내동 파크힐";
+    const parsed = parseIntakeText("원룸 전세 2억", "property");
+    assert.equal(parsed.dong, undefined);
+    assert.equal(leftoverNeedsAi(leftover, parsed), true);
   });
 
   it("사진 잔여는 280자에서 자른다", () => {

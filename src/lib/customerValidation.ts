@@ -43,6 +43,8 @@ export type CustomerValidationInput = {
   loanNeeded?: "유" | "무" | "";
   insuranceNeeded?: "유" | "무" | "";
   workspaceShared?: boolean;
+  /** false면 팀 없을 때 팀공유 유무를 필수에서 뺌 */
+  requireTeamShare?: boolean;
   preferredGus?: string[];
   preferredDongs?: string[];
 };
@@ -164,7 +166,11 @@ export function getMissingCustomerFields(
       missing.push("carType");
     }
   }
-  if (input.workspaceShared !== true && input.workspaceShared !== false) {
+  if (
+    input.requireTeamShare !== false &&
+    input.workspaceShared !== true &&
+    input.workspaceShared !== false
+  ) {
     missing.push("teamShare");
   }
   const dongs = input.preferredDongs ?? [];

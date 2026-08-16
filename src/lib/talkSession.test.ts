@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   applyNotesUtterance,
   TALK_IDLE_MS,
+  TALK_LOCATION_HOLD_MS,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "./talkSession.ts";
@@ -66,7 +67,8 @@ describe("talkSession", () => {
       }),
       "pause"
     );
-    assert.equal(TALK_IDLE_MS, 15_000);
+    assert.equal(TALK_IDLE_MS, 10_000);
+    assert.equal(TALK_LOCATION_HOLD_MS, 2_000);
   });
 
   it("메모는 말을 쌓고 삭제는 비운다", () => {

@@ -38,9 +38,11 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
       "대출 무 보증보험 무 주차 무 엘베 무",
     ].join("\n");
 
-    await page.getByPlaceholder("메시지를 붙여넣으세요").fill(message);
-    await page.getByRole("button", { name: "반영하기" }).click();
-    await expect(page.getByRole("heading", { name: "메시지로 입력" })).toBeHidden();
+    await page.getByPlaceholder("메시지를 작성 또는 붙여넣으세요").fill(message);
+    await page.getByRole("button", { name: "AI 반영하기" }).click();
+    await expect(page.getByRole("heading", { name: "메시지로 입력" })).toBeHidden({
+      timeout: 15_000,
+    });
 
     await expect(
       page.getByRole("button", { name: "원룸", exact: true })
@@ -99,11 +101,13 @@ test("매물 메시지 입력: 라벨·의도 키워드만 메모에 넣고 주�
     await page.goto("/properties/new");
     await page.getByRole("button", { name: "메시지로 입력하기" }).click();
     await page
-      .getByPlaceholder("메시지를 붙여넣으세요")
+      .getByPlaceholder("메시지를 작성 또는 붙여넣으세요")
       .fill("원룸 전세 2억 암사동 메모: 남향 저층");
-    await page.getByRole("button", { name: "반영하기" }).click();
+    await page.getByRole("button", { name: "AI 반영하기" }).click();
 
-    await expect(page.getByLabel("메모")).toHaveValue("남향 저층");
+    await expect(page.getByLabel("메모")).toHaveValue("남향 저층", {
+      timeout: 15_000,
+    });
     await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
       /border-amber-300/
     );
@@ -127,11 +131,13 @@ test("매물 메시지 입력: 의도 키워드만 메모에 넣는다", async (
     await page.goto("/properties/new");
     await page.getByRole("button", { name: "메시지로 입력하기" }).click();
     await page
-      .getByPlaceholder("메시지를 붙여넣으세요")
+      .getByPlaceholder("메시지를 작성 또는 붙여넣으세요")
       .fill("원룸 전세 2억 암사동 남향");
-    await page.getByRole("button", { name: "반영하기" }).click();
+    await page.getByRole("button", { name: "AI 반영하기" }).click();
 
-    await expect(page.getByLabel("메모")).toHaveValue("남향");
+    await expect(page.getByLabel("메모")).toHaveValue("남향", {
+      timeout: 15_000,
+    });
     await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
       /border-amber-300/
     );

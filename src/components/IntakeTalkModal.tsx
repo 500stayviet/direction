@@ -26,6 +26,7 @@ import {
 import {
   applyNotesUtterance,
   TALK_IDLE_MS,
+  TALK_LOCATION_HOLD_MS,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "@/lib/talkSession";
@@ -158,9 +159,13 @@ export function IntakeTalkModal({
   const processedResultIndexRef = useRef(0);
   const listeningRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
+  const scheduleLocationHoldRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
 
   const resetStepSpeech = useCallback(() => {
@@ -199,6 +204,37 @@ export function IntakeTalkModal({
     resetStepSpeech();
   }, [resetStepSpeech, setNotesDraftBoth]);
 
+  const clearLocationHoldTimer = useCallback(() => {
+    if (locationHoldTimerRef.current == null) return;
+    clearTimeout(locationHoldTimerRef.current);
+    locationHoldTimerRef.current = null;
+  }, []);
+
+  const scheduleLocationHoldAdvance = useCallback(() => {
+    clearLocationHoldTimer();
+    if (kind !== "customer") return;
+    if (!listeningRef.current) return;
+    const idx = activeIndexRef.current;
+    if (guide[idx]?.key !== "location") return;
+    const rec = stepsRef.current.location;
+    if (!rec?.display || rec.skipped) return;
+    locationHoldTimerRef.current = setTimeout(() => {
+      locationHoldTimerRef.current = null;
+      if (!listeningRef.current) return;
+      if (guide[activeIndexRef.current]?.key !== "location") return;
+      const held = stepsRef.current.location;
+      if (!held?.display || held.skipped) return;
+      if (activeIndexRef.current >= guide.length - 1) return;
+      const next = activeIndexRef.current + 1;
+      activeIndexRef.current = next;
+      setActiveIndex(next);
+    }, TALK_LOCATION_HOLD_MS);
+  }, [clearLocationHoldTimer, guide, kind]);
+
+  useEffect(() => {
+    scheduleLocationHoldRef.current = scheduleLocationHoldAdvance;
+  }, [scheduleLocationHoldAdvance]);
+
   const applySteps = useCallback(
     (
       nextSteps: Partial<Record<IntakeStepKey, StepRecord>>,
@@ -216,19 +252,29 @@ export function IntakeTalkModal({
       }
       if (nextIndex === fromIndex) {
         resetStepSpeech();
+        if (fromKey === "location") scheduleLocationHoldAdvance();
         return;
       }
-      setActiveIndex(
-        nextIndex >= guide.length ? guide.length - 1 : nextIndex
-      );
+      clearLocationHoldTimer();
+      const clamped =
+        nextIndex >= guide.length ? guide.length - 1 : nextIndex;
+      activeIndexRef.current = clamped;
+      setActiveIndex(clamped);
       clearStepSpeechBuffer();
       resetStepSpeech();
     },
-    [clearStepSpeechBuffer, guide, resetStepSpeech]
+    [
+      clearLocationHoldTimer,
+      clearStepSpeechBuffer,
+      guide,
+      resetStepSpeech,
+      scheduleLocationHoldAdvance,
+    ]
   );
 
   const clearStep = useCallback(
     (key: IntakeStepKey) => {
+      if (key === "location") clearLocationHoldTimer();
       setSteps((prev) => {
         const next = { ...prev };
         delete next[key];
@@ -238,7 +284,7 @@ export function IntakeTalkModal({
       sessionFinalRef.current = "";
       clearStepSpeechBuffer();
     },
-    [clearStepSpeechBuffer]
+    [clearLocationHoldTimer, clearStepSpeechBuffer]
   );
 
   const processUtterance = useCallback(
@@ -323,6 +369,8 @@ export function IntakeTalkModal({
         if (piece) {
           if (processUtteranceRef.current(piece)) {
             processedResultIndexRef.current = i + 1;
+          } else {
+            scheduleLocationHoldRef.current();
           }
         }
       }
@@ -356,9 +404,10 @@ export function IntakeTalkModal({
       setListeningBoth(false);
       stopRecognition();
       clearIdleTimer();
+      clearLocationHoldTimer();
       if (reason === "idle") setIdlePaused(true);
     },
-    [clearIdleTimer, stopRecognition]
+    [clearIdleTimer, clearLocationHoldTimer, stopRecognition]
   );
 
   const bumpIdleTimer = useCallback(() => {
@@ -382,6 +431,7 @@ export function IntakeTalkModal({
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
       processNewFinalResults(ev.results);
+      if (spoken.live) scheduleLocationHoldAdvance();
     };
     rec.onend = () => {
       resetStepSpeech();
@@ -408,13 +458,20 @@ export function IntakeTalkModal({
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     return rec;
-  }, [bumpIdleTimer, pauseListening, processNewFinalResults, resetStepSpeech]);
+  }, [
+    bumpIdleTimer,
+    pauseListening,
+    processNewFinalResults,
+    resetStepSpeech,
+    scheduleLocationHoldAdvance,
+  ]);
 
   useEffect(() => {
     if (!open) {
       listeningRef.current = false;
       stopRecognition();
       clearIdleTimer();
+      clearLocationHoldTimer();
       setListening(false);
       resetWizard();
       setError("");
@@ -426,7 +483,14 @@ export function IntakeTalkModal({
     if (!supported) {
       setError("이 브라우저에서는 대화를 쓸 수 없습니다. 메시지로 입력해 주세요.");
     }
-  }, [open, resetWizard, resetStepSpeech, stopRecognition, clearIdleTimer]);
+  }, [
+    open,
+    resetWizard,
+    resetStepSpeech,
+    stopRecognition,
+    clearIdleTimer,
+    clearLocationHoldTimer,
+  ]);
 
   useEffect(() => {
     const hideMic = () => {
@@ -450,6 +514,10 @@ export function IntakeTalkModal({
       if (idleTimerRef.current != null) {
         clearTimeout(idleTimerRef.current);
         idleTimerRef.current = null;
+      }
+      if (locationHoldTimerRef.current != null) {
+        clearTimeout(locationHoldTimerRef.current);
+        locationHoldTimerRef.current = null;
       }
       const rec = recRef.current;
       recRef.current = null;
@@ -500,6 +568,7 @@ export function IntakeTalkModal({
     setListeningBoth(false);
     stopRecognition();
     clearIdleTimer();
+    clearLocationHoldTimer();
     setIdlePaused(false);
     const key = guide[activeIndexRef.current]?.key;
     if (key === "notes" && !guideStepComplete("notes", stepsRef.current.notes)) {
@@ -507,7 +576,13 @@ export function IntakeTalkModal({
     } else if (key === "notes" && notesDraftRef.current.trim()) {
       commitNotesDraft();
     }
-  }, [clearIdleTimer, commitNotesDraft, guide, stopRecognition]);
+  }, [
+    clearIdleTimer,
+    clearLocationHoldTimer,
+    commitNotesDraft,
+    guide,
+    stopRecognition,
+  ]);
 
   const allComplete = allGuideStepsComplete(kind, steps);
   const currentKey = guide[activeIndex]?.key;
@@ -532,10 +607,12 @@ export function IntakeTalkModal({
   };
 
   const goPrevious = () => {
+    clearLocationHoldTimer();
     setActiveIndex((idx) => Math.max(0, idx - 1));
   };
 
   const skipCurrent = () => {
+    clearLocationHoldTimer();
     if (activeIndex < guide.length - 1) {
       setActiveIndex((idx) => idx + 1);
     }
@@ -607,7 +684,7 @@ export function IntakeTalkModal({
             </p>
           ) : idlePaused ? (
             <p className="min-h-[1.25rem] text-center text-[14px] font-medium text-gray-400">
-              말이 없어 일시정지했습니다.
+              대화가 인식되지 않아 일시정지 되었습니다.
             </p>
           ) : null}
           {error ? (

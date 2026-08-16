@@ -29,7 +29,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "선호위치", example: "강동구 oo동" },
-    { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
+    { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
     {
       key: "dates",
       name: "입주희망일",
@@ -46,7 +46,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "주소", example: "강동구 oo동, 101동 102호" },
-    { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
+    { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
     {
       key: "dates",
       name: "임대가능일",
