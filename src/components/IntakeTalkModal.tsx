@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import type { DealType } from "@/lib/types";
 import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
+import { applyDealTypeToMoney, isDealMoneyCleared } from "@/lib/dealTypeMoney";
+import { intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
   INTAKE_GUIDE_STEPS,
   allGuideStepsComplete,
@@ -167,6 +170,7 @@ export function IntakeTalkModal({
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
   const scheduleLocationHoldRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
+  const lastDealTypeRef = useRef<DealType | "">("");
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
@@ -200,6 +204,7 @@ export function IntakeTalkModal({
     stepSpeechRef.current = "";
     processedResultIndexRef.current = 0;
     heardCommittedRef.current = false;
+    lastDealTypeRef.current = "";
     resetStepSpeech();
   }, [resetStepSpeech, setNotesDraftBoth]);
 
@@ -341,6 +346,54 @@ export function IntakeTalkModal({
           display: row.display,
           skipped: false,
         };
+      }
+      const dealCommit = chain.commits.find((row) => row.key === "dealType");
+      if (dealCommit) {
+        const prevDeal = lastDealTypeRef.current;
+        const nextDeal = dealCommit.partial.dealType ?? "";
+        lastDealTypeRef.current = nextDeal;
+        const moneyAlsoCommitted = chain.commits.some((row) => row.key === "money");
+        const moneyPartial = nextSteps.money?.partial;
+        if (
+          !moneyAlsoCommitted &&
+          moneyPartial &&
+          (moneyPartial.deposit || moneyPartial.monthlyRent)
+        ) {
+          const money = applyDealTypeToMoney(prevDeal, nextDeal, {
+            deposit: moneyPartial.deposit ?? 0,
+            depositTo: moneyPartial.depositTo ?? moneyPartial.deposit ?? 0,
+            monthlyRent: moneyPartial.monthlyRent ?? 0,
+            monthlyRentTo:
+              moneyPartial.monthlyRentTo ?? moneyPartial.monthlyRent ?? 0,
+          });
+          if (isDealMoneyCleared(money)) {
+            delete nextSteps.money;
+          } else {
+            const partial: Partial<IntakeParseResult> = {
+              ...moneyPartial,
+              deposit: money.deposit || undefined,
+              depositTo:
+                money.depositTo && money.depositTo !== money.deposit
+                  ? money.depositTo
+                  : undefined,
+              monthlyRent: money.monthlyRent || undefined,
+              monthlyRentTo:
+                money.monthlyRentTo && money.monthlyRentTo !== money.monthlyRent
+                  ? money.monthlyRentTo
+                  : undefined,
+              dealType: nextDeal || moneyPartial.dealType,
+            };
+            nextSteps.money = {
+              partial,
+              display:
+                intakeGuideHits(
+                  { options: [], notes: "", ...partial },
+                  kind
+                ).money ?? nextSteps.money?.display ?? "",
+              skipped: false,
+            };
+          }
+        }
       }
       applySteps(nextSteps, chain.nextIndex, startIndex);
       return true;

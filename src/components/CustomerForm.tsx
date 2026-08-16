@@ -19,6 +19,7 @@ import {
 } from "@/lib/constants";
 import { createId } from "@/lib/id";
 import { formatDepositRent, formatMoveInRange, formatPhoneInput, onlyDigits, resolveCustomerLoanNeeded } from "@/lib/format";
+import { applyDealTypeToMoney, isDealMoneyCleared } from "@/lib/dealTypeMoney";
 import { findCustomerBySamePhone } from "@/lib/duplicateEntity";
 import {
   getCustomerFieldMessage,
@@ -235,11 +236,22 @@ export function CustomerForm({
     : dealType;
 
   const handleDealTypeChange = (next: DealType | "") => {
+    const prev = effectiveDealType || dealType;
+    const money = applyDealTypeToMoney(prev, next, {
+      deposit,
+      depositTo,
+      monthlyRent,
+      monthlyRentTo,
+    });
     setDealType(next);
     if (next !== "매매") setNonOccupancy(false);
-    if (next !== "월세") {
-      setMonthlyRent(0);
-      setMonthlyRentTo(0);
+    setDeposit(money.deposit);
+    setDepositTo(money.depositTo);
+    setMonthlyRent(money.monthlyRent);
+    setMonthlyRentTo(money.monthlyRentTo);
+    if (isDealMoneyCleared(money)) {
+      setDepositSingle(true);
+      setMonthlyRentSingle(true);
     }
   };
 
@@ -254,12 +266,10 @@ export function CustomerForm({
       setLoanNeeded("무");
     }
     if (next === "토지" || next === "건물") {
-      setDealType("매매");
-      setMonthlyRent(0);
-      setMonthlyRentTo(0);
+      handleDealTypeChange("매매");
       setParkingType("무");
     } else if (roomType === "토지" || roomType === "건물") {
-      setDealType("");
+      handleDealTypeChange("");
     }
     if (next !== "건물") {
       setBuildingKind("");

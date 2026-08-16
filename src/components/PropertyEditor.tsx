@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
+import { applyDealTypeToMoney } from "@/lib/dealTypeMoney";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
 import { propertyNotesPlaceholder } from "@/lib/memoPlaceholders";
 import { ModalChoice } from "@/components/ModalChoice";
@@ -190,7 +191,20 @@ export function PropertyEditor({
     const next: Property = { ...property, ...patch };
     if (isBuildingType(next.roomType) || isLandType(next.roomType)) {
       next.dealType = "매매";
-      next.monthlyRent = 0;
+    }
+    if (property.dealType !== next.dealType) {
+      const money = applyDealTypeToMoney(
+        property.dealType,
+        next.dealType ?? "",
+        {
+          deposit: next.deposit,
+          depositTo: next.deposit,
+          monthlyRent: next.monthlyRent ?? 0,
+          monthlyRentTo: next.monthlyRent ?? 0,
+        }
+      );
+      next.deposit = money.deposit;
+      next.monthlyRent = money.monthlyRent;
     } else if (next.dealType === "전세" || next.dealType === "매매") {
       next.monthlyRent = 0;
     }
