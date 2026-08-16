@@ -120,7 +120,6 @@ function ScheduleCreateInner() {
       applyCustomerDealType(found);
       setPickOpen(true);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetCustomerId]);
 
   const filtered = useMemo(() => {

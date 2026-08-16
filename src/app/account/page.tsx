@@ -119,7 +119,7 @@ export default function AccountPage() {
   const codeRemainLabel = useMemo(
     () => formatRemain(workspace?.shareCodeExpiresAt),
     // nowTick keeps the label fresh
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nowTick forces the countdown to tick
     [workspace?.shareCodeExpiresAt, nowTick]
   );
   const codeValid =

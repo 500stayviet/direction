@@ -130,7 +130,7 @@ async function __GET_handler(request: Request) {
         ? Math.floor((Date.now() - deletedAt) / 86400000)
         : null;
       const owner = profileMap.get(String(row.user_id));
-      let title =
+      const title =
         type === "customers"
           ? String(payload.name ?? row.id)
           : type === "properties"

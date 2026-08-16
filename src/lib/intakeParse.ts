@@ -973,7 +973,7 @@ function maskSlashDates(text: string): string {
     `(?<![\\d])(\\d{2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})(?!\\d)`,
     "g"
   );
-  let masked = text.replace(shortYearRe, (full, yy, month, day) => {
+  const masked = text.replace(shortYearRe, (full, yy, month, day) => {
     const year = expandShortYear(Number(yy));
     return isYearMonthDayTriple(year, Number(month), Number(day))
       ? " ".repeat(full.length)
