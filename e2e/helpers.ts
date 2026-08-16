@@ -15,10 +15,25 @@ export async function prepareAppPage(page: Page) {
   await page.addInitScript(() => {
     try {
       sessionStorage.setItem("realty_boot_splash_done", "1");
+      const granted = String(Date.now());
+      localStorage.setItem("direction.deviceConsent.microphone", granted);
+      localStorage.setItem("direction.deviceConsent.photos", granted);
     } catch {
       /* ignore */
     }
   });
+}
+
+/** 마이크·사진 앱 안내 모달이 있으면 허용 */
+export async function allowDeviceConsentIfShown(page: Page) {
+  const heading = page.getByRole("heading", { name: /허용하시겠습니까/ });
+  try {
+    await heading.waitFor({ state: "visible", timeout: 4000 });
+    await page.getByRole("button", { name: "허용", exact: true }).click();
+    await heading.waitFor({ state: "hidden", timeout: 4000 });
+  } catch {
+    /* already granted this month */
+  }
 }
 
 export function hasE2eBackendEnv(): boolean {
@@ -102,7 +117,9 @@ export async function loginViaUi(
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(page).toHaveURL(/\/(\?|$)/);
   const greet = user.name ? `${user.name}님,` : /님,/;
-  await expect(page.getByText(greet)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: greet })).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 export async function logoutViaHome(page: Page) {
@@ -351,10 +368,10 @@ export async function insertSharedProperty(opts: {
     loanAvailable: "무" as const,
     insuranceType: "무" as const,
     landUse: "",
-    moveInFrom: "",
-    moveInTo: "",
-    moveInSingle: false,
-    moveInDate: "",
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    moveInDate: "2026.12.01",
     partnerAgencyShared: false,
     workspaceShared: shared,
     createdAt: now,

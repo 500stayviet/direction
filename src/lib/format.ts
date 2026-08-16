@@ -188,6 +188,30 @@ export function formatMoneyWon(amount: number): string {
   return `${n}만원`;
 }
 
+/**
+ * 만원 입력 → 파란 칸 표시 (매매가·보증금)
+ * - 10000 → 1억
+ * - 15000 → 1억 5천
+ * - 15500 → 1억 5500만원
+ * - 5000 → 5천
+ * - 200 → 200만원
+ */
+export function formatManReadable(amount: number): string {
+  const n = Math.round(amount);
+  if (!n) return "";
+  const eok = Math.floor(n / 10000);
+  const man = n % 10000;
+  const tail = formatManRemainder(man);
+  if (eok > 0) return tail ? `${eok}억 ${tail}` : `${eok}억`;
+  return formatManRemainder(n);
+}
+
+function formatManRemainder(man: number): string {
+  if (man <= 0) return "";
+  if (man % 1000 === 0) return `${man / 1000}천`;
+  return `${man}만원`;
+}
+
 function formatMoneyRange(from: number, to?: number): string {
   if (to != null && to > 0 && to !== from) {
     return `${formatMoney(from)}~${formatMoney(to)}`;
@@ -210,7 +234,7 @@ export function formatDepositRent(
   monthlyRentTo?: number
 ): string {
   const amount = formatMoneyRange(deposit, depositTo);
-  if (dealType === "매매") return `매가 ${amount}`;
+  if (dealType === "매매") return `매매가 ${amount}`;
   if (dealType === "전세") return `보증금 ${amount}`;
   const rent = formatMoneyRange(monthlyRent ?? 0, monthlyRentTo);
   return `보증금 ${amount} · 월 ${rent}`;
@@ -382,14 +406,11 @@ export function getCustomerLoanLabel(customer: {
   return resolveCustomerLoanNeeded(customer);
 }
 
-/** 표시용: 무 / 유 · 세단 */
+/** 표시용: 유 / 무 */
 export function getCustomerParkingLabel(customer: {
   parkingType?: string;
-  carType?: string;
 }): string {
-  if (customer.parkingType !== "유") return "무";
-  const car = (customer.carType ?? "").trim();
-  return car ? `유 · ${car}` : "유";
+  return customer.parkingType === "유" ? "유" : "무";
 }
 
 export function isInsuranceJoined(insuranceType?: string): boolean {
@@ -400,4 +421,9 @@ export function isInsuranceJoined(insuranceType?: string): boolean {
 export function yesNoLabel(value?: string | boolean | null): string {
   if (value === true || value === "유") return "유";
   return "무";
+}
+
+/** 상세·일정 표시: 유 → 가능. 그 외는 그대로 */
+export function availLabel(value: string): string {
+  return value === "유" ? "가능" : value;
 }

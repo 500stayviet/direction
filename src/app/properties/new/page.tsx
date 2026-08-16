@@ -30,7 +30,6 @@ export default function NewPropertyPage() {
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveProperty = async () => {
@@ -43,7 +42,6 @@ export default function NewPropertyPage() {
     };
     try {
       await upsertListedProperty(saved);
-      setSavedId(saved.id);
       setSavedOpen(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : "매물 저장에 실패했습니다.");
@@ -137,7 +135,7 @@ export default function NewPropertyPage() {
         message="등록이 완료되었습니다"
         onClose={() => {
           setSavedOpen(false);
-          if (savedId) router.push(`/properties/${savedId}`);
+          router.replace("/properties");
         }}
       />
     </main>

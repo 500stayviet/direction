@@ -44,7 +44,7 @@ import {
   findPropertiesValidationIssue,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
+import { addMinutesToHHmm, applyVisitTimeToArriveTimes, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { Modal } from "@/components/ui/Modal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { MatchingPropertyPickModal } from "@/components/MatchingPropertyPickModal";
@@ -169,7 +169,12 @@ function ScheduleCreateInner() {
   const applyPickedProperties = (picked: ListedProperty[]) => {
     setPickOpen(false);
     if (picked.length === 0) return;
-    setProperties(picked.map(listedToScheduleProperty));
+    setProperties(
+      applyVisitTimeToArriveTimes(
+        picked.map(listedToScheduleProperty),
+        visitTime
+      )
+    );
   };
 
   const addProperty = () => {
@@ -178,7 +183,7 @@ function ScheduleCreateInner() {
     const last = properties[properties.length - 1];
     const arriveTime = last?.arriveTime
       ? addMinutesToHHmm(last.arriveTime, 30)
-      : "";
+      : visitTime || "";
     setProperties((prev) => [
       ...prev,
       {
@@ -329,7 +334,14 @@ function ScheduleCreateInner() {
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="font-bold text-gray-900">고객 불러오기</p>
+              <div className="flex min-w-0 items-baseline gap-2">
+                <p className="shrink-0 font-bold text-gray-900">고객 불러오기</p>
+                {mode !== "selected" ? (
+                  <p className="min-w-0 text-[11px] leading-snug text-gray-400">
+                    고객없음을 체크하면 성함만 입력할 수 있어요
+                  </p>
+                ) : null}
+              </div>
               {mode === "selected" ? (
                 <Button
                   type="button"
@@ -339,7 +351,7 @@ function ScheduleCreateInner() {
                   변경하기
                 </Button>
               ) : (
-                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                <label className="flex shrink-0 items-center gap-2 active:scale-95 transition-all duration-150">
                   <CircleCheck
                     checked={mode === "guest"}
                     onChange={(e) => {
@@ -374,9 +386,8 @@ function ScheduleCreateInner() {
               <>
                 <CustomerSearchInput value={query} onChange={setQuery} />
                 {query.trim() && filtered.length === 0 ? (
-                  <p className="py-1 text-sm text-gray-500">
-                    검색 결과가 없습니다. 고객없음을 체크하면 성함만 입력할 수
-                    있어요.
+                  <p className="py-3 text-center text-sm text-gray-500">
+                    검색 결과가 없습니다
                   </p>
                 ) : null}
               </>
@@ -440,7 +451,12 @@ function ScheduleCreateInner() {
                   required
                   invalid={validationFocus?.target === "visitTime"}
                   value={visitTime}
-                  onChange={setVisitTime}
+                  onChange={(time) => {
+                    setVisitTime(time);
+                    setProperties((prev) =>
+                      applyVisitTimeToArriveTimes(prev, time)
+                    );
+                  }}
                 />
               </div>
             </div>
@@ -466,6 +482,7 @@ function ScheduleCreateInner() {
                 allProperties={properties}
                 onSwapWith={(target) => swapProperty(index, target)}
                 enableLoad
+                highlightLoaded={Boolean(property.listedFromId)}
                 showTeamShare={false}
                 validationActive={
                   validationFocus?.target === "property" &&

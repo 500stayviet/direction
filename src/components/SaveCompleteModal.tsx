@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function SaveCompleteModal({
   open,
@@ -11,11 +11,14 @@ export function SaveCompleteModal({
   onClose: () => void;
   message?: string;
 }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const t = window.setTimeout(onClose, 1600);
+    const t = window.setTimeout(() => onCloseRef.current(), 1600);
     return () => window.clearTimeout(t);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

@@ -68,9 +68,26 @@ export const EMPTY_BATHROOM_COUNTS: BuildingBathroomCounts = {
   "3룸+": 1,
 };
 
-export const ROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5"] as const;
-export const ROOM_COUNT_OPTIONS_3PLUS = ["3", "4", "5"] as const;
-export const BATHROOM_COUNT_OPTIONS = ["1", "2", "3", "4"] as const;
+export const ROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5", "6"] as const;
+export const ROOM_COUNT_OPTIONS_3PLUS = [
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+] as const;
+export const BATHROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5", "6"] as const;
+export const BATHROOM_COUNT_OPTIONS_3PLUS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+] as const;
 
 /** 투룸·3룸+·오피스텔·아파트 — 방/화장실 수 입력 */
 export function needsRoomBathCounts(roomType?: string | null): boolean {
@@ -87,12 +104,21 @@ export function isRoomCountFixed(roomType?: string | null): boolean {
   return roomType === "투룸";
 }
 
-/** 유형별 선택 가능한 방 수 (3룸+는 3개부터) */
+/** 유형별 선택 가능한 방 수 (투룸 2 고정 · 3룸+는 3~8 · 오피스텔·아파트 1~6) */
 export function roomCountOptionsForType(
   roomType?: string | null
 ): readonly string[] {
+  if (roomType === "투룸") return ["2"];
   if (roomType === "3룸+") return ROOM_COUNT_OPTIONS_3PLUS;
   return ROOM_COUNT_OPTIONS;
+}
+
+/** 유형별 선택 가능한 화장실 수 (3룸+는 8개까지 · 그 외 6개까지) */
+export function bathroomCountOptionsForType(
+  roomType?: string | null
+): readonly string[] {
+  if (roomType === "3룸+") return BATHROOM_COUNT_OPTIONS_3PLUS;
+  return BATHROOM_COUNT_OPTIONS;
 }
 
 export function defaultRoomBathCounts(roomType: string): {

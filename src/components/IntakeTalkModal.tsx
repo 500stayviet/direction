@@ -27,6 +27,7 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_LOCATION_HOLD_MS,
+  TALK_STOP_HINT,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "@/lib/talkSession";
@@ -149,7 +150,6 @@ export function IntakeTalkModal({
   const [talkStarted, setTalkStarted] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState("");
-  const [idlePaused, setIdlePaused] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
 
   const recRef = useRef<SpeechRec | null>(null);
@@ -197,7 +197,6 @@ export function IntakeTalkModal({
     setSteps({});
     setTalkStarted(false);
     setNotesDraftBoth("");
-    setIdlePaused(false);
     stepSpeechRef.current = "";
     processedResultIndexRef.current = 0;
     heardCommittedRef.current = false;
@@ -278,13 +277,15 @@ export function IntakeTalkModal({
       setSteps((prev) => {
         const next = { ...prev };
         delete next[key];
+        stepsRef.current = next;
         return next;
       });
+      if (key === "notes") setNotesDraftBoth("");
       setStepLive("");
       sessionFinalRef.current = "";
       clearStepSpeechBuffer();
     },
-    [clearLocationHoldTimer, clearStepSpeechBuffer]
+    [clearLocationHoldTimer, clearStepSpeechBuffer, setNotesDraftBoth]
   );
 
   const processUtterance = useCallback(
@@ -399,25 +400,29 @@ export function IntakeTalkModal({
     rec?.stop();
   }, []);
 
-  const pauseListening = useCallback(
-    (reason?: "idle" | "hidden") => {
-      setListeningBoth(false);
-      stopRecognition();
-      clearIdleTimer();
-      clearLocationHoldTimer();
-      if (reason === "idle") setIdlePaused(true);
-    },
-    [clearIdleTimer, clearLocationHoldTimer, stopRecognition]
-  );
+  const haltListening = useCallback(() => {
+    setListeningBoth(false);
+    stopRecognition();
+    clearIdleTimer();
+    clearLocationHoldTimer();
+    processedResultIndexRef.current = 0;
+    resetStepSpeech();
+  }, [clearIdleTimer, clearLocationHoldTimer, resetStepSpeech, stopRecognition]);
+
+  const stopCurrentTake = useCallback(() => {
+    haltListening();
+    const key = guide[activeIndexRef.current]?.key;
+    if (key) clearStep(key);
+  }, [clearStep, guide, haltListening]);
 
   const bumpIdleTimer = useCallback(() => {
     clearIdleTimer();
     if (!listeningRef.current) return;
     idleTimerRef.current = setTimeout(() => {
       if (!listeningRef.current) return;
-      pauseListening("idle");
+      stopCurrentTake();
     }, TALK_IDLE_MS);
-  }, [clearIdleTimer, pauseListening]);
+  }, [clearIdleTimer, stopCurrentTake]);
 
   const buildRecognition = useCallback((): SpeechRec | null => {
     const rec = getSpeechRecognition();
@@ -439,7 +444,7 @@ export function IntakeTalkModal({
       if (!listeningRef.current) return;
       const fresh = buildRecognition();
       if (!fresh) {
-        pauseListening();
+        haltListening();
         setError("마이크를 시작할 수 없습니다.");
         return;
       }
@@ -448,19 +453,19 @@ export function IntakeTalkModal({
         fresh.start();
       } catch {
         recRef.current = null;
-        pauseListening();
+        haltListening();
         setError("마이크를 시작할 수 없습니다.");
       }
     };
     rec.onerror = (ev) => {
       if (ev?.error === "aborted" || ev?.error === "no-speech") return;
-      pauseListening();
+      haltListening();
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     return rec;
   }, [
     bumpIdleTimer,
-    pauseListening,
+    haltListening,
     processNewFinalResults,
     resetStepSpeech,
     scheduleLocationHoldAdvance,
@@ -495,7 +500,7 @@ export function IntakeTalkModal({
   useEffect(() => {
     const hideMic = () => {
       if (!listeningRef.current) return;
-      pauseListening("hidden");
+      stopCurrentTake();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") hideMic();
@@ -506,7 +511,7 @@ export function IntakeTalkModal({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", hideMic);
     };
-  }, [pauseListening]);
+  }, [stopCurrentTake]);
 
   useEffect(() => {
     return () => {
@@ -526,8 +531,9 @@ export function IntakeTalkModal({
   }, []);
 
   const startListening = () => {
+    const key = guide[activeIndexRef.current]?.key;
+    if (key) clearStep(key);
     setError("");
-    setIdlePaused(false);
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
@@ -569,7 +575,6 @@ export function IntakeTalkModal({
     stopRecognition();
     clearIdleTimer();
     clearLocationHoldTimer();
-    setIdlePaused(false);
     const key = guide[activeIndexRef.current]?.key;
     if (key === "notes" && !guideStepComplete("notes", stepsRef.current.notes)) {
       commitNotesDraft();
@@ -600,10 +605,29 @@ export function IntakeTalkModal({
       return;
     }
     if (listeningRef.current) {
-      pauseListening();
+      stopCurrentTake();
       return;
     }
     startListening();
+  };
+
+  const selectGuideRow = (index: number) => {
+    const key = guide[index]?.key;
+    if (!key) return;
+    const fromKey = guide[activeIndexRef.current]?.key;
+    if (listeningRef.current) {
+      haltListening();
+      if (
+        fromKey === "notes" &&
+        !guideStepComplete("notes", stepsRef.current.notes)
+      ) {
+        setNotesDraftBoth("");
+      }
+    }
+    clearLocationHoldTimer();
+    activeIndexRef.current = index;
+    setActiveIndex(index);
+    clearStep(key);
   };
 
   const goPrevious = () => {
@@ -627,7 +651,7 @@ export function IntakeTalkModal({
   );
   const composedLive = stepLive;
   const notesPreview = composeTalkText(notesDraft, "", composedLive);
-  const showRecordIcon = talkStarted && !listening && primaryKind === "pause";
+  const showRecordIcon = talkStarted && !listening && primaryKind === "stop";
   const primaryButton = (
     <button
       type="button"
@@ -644,13 +668,13 @@ export function IntakeTalkModal({
       data-testid="intake-talk-primary"
       aria-label={
         showRecordIcon
-          ? "이어서 말하기"
-          : listening && primaryKind === "pause"
-            ? "일시정지"
+          ? "녹화"
+          : listening && primaryKind === "stop"
+            ? "정지"
             : primaryLabel
       }
     >
-      {listening && primaryKind === "pause" ? (
+      {listening && primaryKind === "stop" ? (
         <>
           <span className="inline-flex items-center gap-0.5" aria-hidden>
             <span className="h-3 w-0.5 rounded-sm bg-red-500" />
@@ -682,11 +706,13 @@ export function IntakeTalkModal({
               <ListeningMicMeter live={composedLive} />
               <span>{composedLive || "듣는 중…"}</span>
             </p>
-          ) : idlePaused ? (
-            <p className="min-h-[1.25rem] text-center text-[14px] font-medium text-gray-400">
-              대화가 인식되지 않아 일시정지 되었습니다.
+          ) : talkStarted && !allComplete ? (
+            <p className="min-h-[1.25rem] text-center text-[14px] font-medium leading-snug text-gray-400">
+              {TALK_STOP_HINT}
             </p>
-          ) : null}
+          ) : (
+            <p className="min-h-[1.25rem]" aria-hidden />
+          )}
           {error ? (
             <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
           ) : null}
@@ -747,6 +773,8 @@ export function IntakeTalkModal({
             : "";
           const showFlagsProgress = isFlags && !done;
           const stackValue = isFlags && done && Boolean(flagsValues);
+          const stackContacts = line.key === "contacts";
+          const stackLayout = stackValue || showFlagsProgress || stackContacts;
           const showColon =
             !isFlags && (done || active || Boolean(line.example));
           return (
@@ -754,20 +782,20 @@ export function IntakeTalkModal({
               key={line.key}
               data-testid={`intake-guide-row-${line.key}`}
             >
-              <div
+              <button
+                type="button"
                 aria-current={active ? "step" : undefined}
+                onClick={() => selectGuideRow(index)}
                 className={[
-                  "flex min-w-0 items-center gap-1.5 text-left",
-                  stackValue || showFlagsProgress
-                    ? "items-start"
-                    : "",
+                  "flex w-full min-w-0 items-center gap-1.5 text-left",
+                  stackLayout ? "items-start" : "",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
               <span
                 className={[
                   "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
-                  stackValue || showFlagsProgress ? "pt-0.5" : "",
+                  stackLayout ? "pt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -777,7 +805,7 @@ export function IntakeTalkModal({
               <div
                 className={[
                   "min-w-0 flex-1",
-                  stackValue || showFlagsProgress
+                  stackLayout
                     ? "flex flex-col gap-0.5"
                     : "flex min-w-0 items-baseline gap-2",
                 ].join(" ")}
@@ -786,7 +814,7 @@ export function IntakeTalkModal({
                   className={[
                     "text-[15px] font-bold leading-snug",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
-                    stackValue || showFlagsProgress ? "" : "shrink-0",
+                    stackLayout ? "" : "shrink-0",
                   ].join(" ")}
                 >
                   {line.name}
@@ -864,7 +892,8 @@ export function IntakeTalkModal({
                 ) : done || active ? (
                   <span
                     className={[
-                      "min-w-0 truncate text-[13px] leading-snug",
+                      "min-w-0 text-[13px] leading-snug",
+                      stackContacts ? "break-words" : "truncate",
                       done
                         ? "font-semibold text-green-700"
                         : "font-medium text-blue-700",
@@ -883,12 +912,17 @@ export function IntakeTalkModal({
                           : null}
                   </span>
                 ) : line.example ? (
-                  <span className="min-w-0 truncate text-[13px] font-medium leading-snug text-gray-500">
+                  <span
+                    className={[
+                      "min-w-0 text-[13px] font-medium leading-snug text-gray-500",
+                      stackContacts ? "break-words" : "truncate",
+                    ].join(" ")}
+                  >
                     예) {line.example}
                   </span>
                 ) : null}
               </div>
-              </div>
+              </button>
             </li>
           );
         })}

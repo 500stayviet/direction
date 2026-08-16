@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Modal } from "@/components/ui/Modal";
 import {
-  BATHROOM_COUNT_OPTIONS,
+  bathroomCountOptionsForType,
+  defaultRoomBathCounts,
   isRoomCountFixed,
   needsRoomBathCounts,
   roomCountOptionsForType,
 } from "@/lib/constants";
+import {
+  emptyRequiredClass,
+  invalidHintClass,
+  invalidLabelClass,
+  requiredStarClass,
+} from "@/lib/uiInvalid";
 
 type Props = {
   roomType?: string | null;
@@ -15,139 +20,109 @@ type Props = {
   bathroomCount?: number;
   onChange: (next: { roomCount: number; bathroomCount: number }) => void;
   invalidRoomCount?: boolean;
-  filled?: boolean;
+  /** true면 유형 모달 안에 숫자 칸을 바로 보여 줌 */
+  embedded?: boolean;
+  /** 폼의 방/화장실 버튼을 누르면 유형 모달을 염 */
+  onEdit?: () => void;
 };
 
-function CountPicker({
-  label,
-  required,
-  invalid,
-  valueLabel,
-  placeholder = "선택",
-  disabled,
-  options,
-  selected,
-  onPick,
-  filled,
-}: {
-  label: string;
-  required?: boolean;
-  invalid?: boolean;
-  valueLabel: string;
-  placeholder?: string;
-  disabled?: boolean;
-  options: readonly string[];
-  selected: string;
-  onPick: (value: string) => void;
-  filled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const empty = !valueLabel;
+function countsFor(roomType?: string | null, roomCount?: number, bathroomCount?: number) {
+  const fixedRooms = isRoomCountFixed(roomType);
+  const minRooms = roomType === "3룸+" ? 3 : 1;
+  const defaults = roomType ? defaultRoomBathCounts(roomType) : null;
+  const rooms = fixedRooms
+    ? 2
+    : roomCount && roomCount >= minRooms
+      ? roomCount
+      : defaults && needsRoomBathCounts(roomType)
+        ? defaults.roomCount
+        : 0;
+  const baths =
+    bathroomCount && bathroomCount > 0
+      ? bathroomCount
+      : defaults && needsRoomBathCounts(roomType)
+        ? defaults.bathroomCount
+        : 0;
+  return {
+    fixedRooms,
+    roomOptions: roomCountOptionsForType(roomType),
+    bathOptions: bathroomCountOptionsForType(roomType),
+    rooms,
+    baths,
+  };
+}
+
+export function RoomBathCountGrids({
+  roomType,
+  roomCount,
+  bathroomCount,
+  onChange,
+  invalidRoomCount,
+}: Props) {
+  if (!needsRoomBathCounts(roomType)) return null;
+  const { fixedRooms, roomOptions, bathOptions, rooms, baths } = countsFor(
+    roomType,
+    roomCount,
+    bathroomCount
+  );
 
   return (
-    <div className="min-w-0 space-y-1">
-      <p
-        className={[
-          "text-[13px] font-semibold",
-          invalid ? "text-red-600" : "text-gray-600",
-        ].join(" ")}
-      >
-        {label}
-        {required ? (
-          <span
-            className={
-              invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"
-            }
-          >
-            *
-          </span>
-        ) : null}
-      </p>
-
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          if (!disabled) setOpen(true);
-        }}
-        className={[
-          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
-          "transition-all duration-150",
-          disabled
-            ? filled && !empty
-              ? "cursor-default"
-              : "cursor-default border-gray-200 bg-gray-100"
-            : "active:scale-[0.99]",
-          invalid
-            ? "border-red-500 bg-red-50"
-            : filled && !empty
-              ? "border-green-400 bg-white"
-              : disabled
-                ? ""
-                : "border-gray-200 bg-gray-50",
-        ].join(" ")}
-      >
-        <span
+    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+      <div className="min-w-0 space-y-1">
+        <p
           className={[
-            "truncate text-[16px] font-semibold",
-            empty ? "text-gray-400" : "text-gray-900",
+            "text-[13px] font-semibold",
+            invalidRoomCount && !fixedRooms
+              ? invalidLabelClass
+              : "text-gray-600",
           ].join(" ")}
         >
-          {empty ? placeholder : valueLabel}
-        </span>
-        {!disabled ? (
-          <span
-            className={[
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
-              invalid ? "bg-red-100 text-red-600" : "bg-blue-50 text-[#3182F6]",
-            ].join(" ")}
-          >
-            ▾
-          </span>
-        ) : (
-          <span
-            className={[
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold",
-              filled
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-200 text-gray-500",
-            ].join(" ")}
-          >
-            —
-          </span>
-        )}
-      </button>
-
-      {invalid ? (
-        <p className="text-xs font-semibold text-red-500">미입력</p>
-      ) : null}
-
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        position="center"
-        dense
-        title={`${label} 선택`}
-        className="!max-w-[320px]"
-      >
-        <div
-          className={[
-            "grid gap-1.5",
-            options.length <= 4 ? "grid-cols-4" : "grid-cols-5",
-          ].join(" ")}
-        >
-          {options.map((opt) => {
-            const active = selected === opt;
+          방 수
+          <span className={requiredStarClass}>*</span>
+        </p>
+        <div className="grid grid-cols-3 gap-1.5" data-testid="room-count-options">
+          {roomOptions.map((opt) => {
+            const active = String(rooms) === opt;
             return (
               <button
                 key={opt}
                 type="button"
-                onClick={() => {
-                  onPick(opt);
-                  setOpen(false);
-                }}
+                disabled={fixedRooms}
+                onClick={() =>
+                  onChange({ roomCount: Number(opt), bathroomCount: baths })
+                }
                 className={[
-                  "min-h-[48px] rounded-xl text-[15px] font-bold",
+                  "min-h-[40px] rounded-xl text-[14px] font-bold",
+                  "active:scale-95 transition-all duration-150",
+                  fixedRooms ? "cursor-default" : "",
+                  active
+                    ? "bg-[#3182F6] text-white shadow-sm"
+                    : "bg-gray-100 text-gray-600",
+                ].join(" ")}
+              >
+                {opt}개
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[13px] font-semibold text-gray-600">화장실 수</p>
+        <div className="grid grid-cols-3 gap-1.5" data-testid="bathroom-count-options">
+          {bathOptions.map((opt) => {
+            const active = String(baths) === opt;
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    roomCount: fixedRooms ? 2 : rooms,
+                    bathroomCount: Number(opt),
+                  })
+                }
+                className={[
+                  "min-h-[40px] rounded-xl text-[14px] font-bold",
                   "active:scale-95 transition-all duration-150",
                   active
                     ? "bg-[#3182F6] text-white shadow-sm"
@@ -159,7 +134,61 @@ function CountPicker({
             );
           })}
         </div>
-      </Modal>
+      </div>
+    </div>
+  );
+}
+
+function CountButton({
+  label,
+  required,
+  invalid,
+  valueLabel,
+  onClick,
+}: {
+  label: string;
+  required?: boolean;
+  invalid?: boolean;
+  valueLabel: string;
+  onClick: () => void;
+}) {
+  const empty = !valueLabel;
+  return (
+    <div
+      className={[
+        "min-w-0",
+        invalid ? emptyRequiredClass({ invalid: true }) : "space-y-1",
+      ].join(" ")}
+    >
+      <p
+        className={[
+          "text-[13px] font-semibold",
+          invalid ? invalidLabelClass : "text-gray-600",
+        ].join(" ")}
+      >
+        {label}
+        {required ? (
+          <span className={requiredStarClass}>
+            *
+          </span>
+        ) : null}
+      </p>
+      {invalid ? (
+        <p className={`text-xs ${invalidHintClass}`}>미입력</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={onClick}
+        className={[
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3 text-[15px] font-bold",
+          "transition-all duration-150 active:scale-95",
+          empty
+            ? "bg-gray-100 text-gray-700"
+            : "bg-[#3182F6] text-white shadow-sm",
+        ].join(" ")}
+      >
+        {empty ? `${label} 선택` : valueLabel}
+      </button>
     </div>
   );
 }
@@ -170,50 +199,43 @@ export function RoomBathCountFields({
   bathroomCount,
   onChange,
   invalidRoomCount,
-  filled,
+  embedded,
+  onEdit,
 }: Props) {
   if (!needsRoomBathCounts(roomType)) return null;
 
-  const fixedRooms = isRoomCountFixed(roomType);
-  const roomOptions = roomCountOptionsForType(roomType);
-  const minRooms = roomType === "3룸+" ? 3 : 1;
-  const rooms = fixedRooms
-    ? 2
-    : roomCount && roomCount >= minRooms
-      ? roomCount
-      : 0;
-  const baths = bathroomCount && bathroomCount > 0 ? bathroomCount : 1;
+  if (embedded) {
+    return (
+      <RoomBathCountGrids
+        roomType={roomType}
+        roomCount={roomCount}
+        bathroomCount={bathroomCount}
+        invalidRoomCount={invalidRoomCount}
+        onChange={onChange}
+      />
+    );
+  }
+
+  const { fixedRooms, rooms, baths } = countsFor(
+    roomType,
+    roomCount,
+    bathroomCount
+  );
+  const openEdit = () => onEdit?.();
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      <CountPicker
+      <CountButton
         label="방 수"
         required
-        disabled={fixedRooms}
         invalid={!fixedRooms && Boolean(invalidRoomCount)}
         valueLabel={rooms > 0 ? `${rooms}개` : ""}
-        options={roomOptions}
-        selected={rooms > 0 ? String(rooms) : ""}
-        filled={filled}
-        onPick={(v) =>
-          onChange({
-            roomCount: Number(v),
-            bathroomCount: baths,
-          })
-        }
+        onClick={openEdit}
       />
-      <CountPicker
+      <CountButton
         label="화장실 수"
-        valueLabel={`${baths}개`}
-        options={BATHROOM_COUNT_OPTIONS}
-        selected={String(baths)}
-        filled={filled}
-        onPick={(v) =>
-          onChange({
-            roomCount: fixedRooms ? 2 : rooms > 0 ? rooms : minRooms,
-            bathroomCount: Number(v),
-          })
-        }
+        valueLabel={baths > 0 ? `${baths}개` : ""}
+        onClick={openEdit}
       />
     </div>
   );

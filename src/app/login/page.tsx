@@ -14,6 +14,7 @@ import {
   setAutoLoginEnabled,
   setRememberedUsername,
 } from "@/lib/loginPrefs";
+import { requiredStarClass } from "@/lib/uiInvalid";
 
 export default function LoginPage() {
   return (
@@ -397,7 +398,7 @@ function AuthField({
     <label className="block space-y-1.5">
       <span className="text-[13px] font-semibold text-gray-600">
         {label}
-        {required && <span className="ml-0.5 text-[#3182F6]">*</span>}
+        {required && <span className={requiredStarClass}>*</span>}
       </span>
       <div className="flex min-h-[52px] items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 transition focus-within:border-[#3182F6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#3182F6]/20">
         {icon && (

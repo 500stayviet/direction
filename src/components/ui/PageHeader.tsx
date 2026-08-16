@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type PageHeaderTitleTone = "customer" | "property" | "schedule";
+export type PageHeaderTitleTone = "customer" | "property" | "schedule" | "navi";
 
 interface PageHeaderProps {
   title: string;
@@ -29,6 +29,7 @@ const titleToneText: Record<PageHeaderTitleTone, string> = {
   customer: "text-[#3182F6]",
   property: "text-violet-600",
   schedule: "text-orange-600",
+  navi: "text-[#3182F6]",
 };
 
 export function PageHeader({

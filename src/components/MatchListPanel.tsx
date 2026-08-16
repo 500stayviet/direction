@@ -40,7 +40,7 @@ function CloseXButton({ onClick }: { onClick: () => void }) {
         e.stopPropagation();
         onClick();
       }}
-      className="absolute right-2 bottom-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[15px] font-bold text-gray-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500"
+      className="relative z-20 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-[15px] font-bold text-gray-500 shadow-sm transition-colors hover:bg-red-50 hover:text-red-500"
     >
       ×
     </button>
@@ -122,21 +122,28 @@ export function MatchingPropertiesSection({
               id={customerId ? `match-property-${p.id}` : undefined}
               className="relative"
             >
-              <CloseXButton onClick={() => setPendingDelete(p)} />
               <PropertyListCard
                 property={p}
                 className="!mb-1.5"
                 showSavedDate={false}
                 showAgencyBadge
                 alertHighlight={matchNew ? "match" : null}
+                right={<CloseXButton onClick={() => setPendingDelete(p)} />}
                 renderCard={(card) => (
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className="w-full cursor-pointer text-left transition-transform duration-150 active:scale-[0.98]"
                     onClick={() => openPreview(p)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openPreview(p);
+                      }
+                    }}
                   >
                     {card}
-                  </button>
+                  </div>
                 )}
               />
             </div>
@@ -270,21 +277,28 @@ export function MatchingCustomersSection({
               id={propertyId ? `match-customer-${c.id}` : undefined}
               className="relative"
             >
-              <CloseXButton onClick={() => setPendingDelete(c)} />
               <CustomerListCard
                 customer={c}
                 className="!mb-1.5"
                 showDeadline={false}
                 showSavedDate={false}
                 alertHighlight={matchNew ? "match" : null}
+                right={<CloseXButton onClick={() => setPendingDelete(c)} />}
                 renderCard={(card) => (
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className="w-full cursor-pointer text-left transition-transform duration-150 active:scale-[0.98]"
                     onClick={() => openPreview(c)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openPreview(c);
+                      }
+                    }}
                   >
                     {card}
-                  </button>
+                  </div>
                 )}
               />
             </div>

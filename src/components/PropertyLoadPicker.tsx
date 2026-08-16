@@ -134,7 +134,12 @@ export function applyListedToProperty(
     ...rest,
     id: currentId,
     arriveTime,
+    listedFromId: listed.id,
   };
+}
+
+export function isLockedListedProperty(property: Property): boolean {
+  return Boolean(property.listedFromId?.trim());
 }
 
 /** 리스트 매물 → 새 일정 칸 (방문 약속 시간은 일정에서 따로) */

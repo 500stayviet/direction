@@ -91,14 +91,18 @@ export function TeamShareChip({
   disabled,
   locked,
   onToggle,
+  tone = "default",
 }: {
   shared: boolean;
   done?: boolean;
   disabled?: boolean;
   locked?: boolean;
   onToggle: () => void;
+  /** quiet: 고객리스트 — 흰 카드 위 알약 버튼 */
+  tone?: "default" | "quiet";
 }) {
   const [hintOpen, setHintOpen] = useState(false);
+  const quiet = tone === "quiet";
   return (
     <>
       <button
@@ -115,8 +119,21 @@ export function TeamShareChip({
           onToggle();
         }}
         className={[
-          "inline-flex shrink-0 cursor-pointer rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
-          done ? "bg-gray-400" : shared ? "bg-emerald-500" : "bg-gray-500",
+          "inline-flex shrink-0 cursor-pointer items-center justify-center font-semibold transition-opacity hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
+          quiet
+            ? "min-h-[28px] rounded-full px-2.5 text-[12px]"
+            : "rounded-lg px-1.5 py-0.5 text-[11px] font-extrabold text-white shadow-sm",
+          quiet
+            ? done
+              ? "border border-gray-200 bg-gray-50 text-gray-400"
+              : shared
+                ? "bg-emerald-500 text-white"
+                : "border border-gray-300 bg-white text-gray-700"
+            : done
+              ? "bg-gray-400"
+              : shared
+                ? "bg-emerald-500"
+                : "bg-gray-500",
         ].join(" ")}
       >
         {shared ? "팀 공유 중" : "팀 공유하기"}

@@ -100,13 +100,11 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
   const userId = appAuth?.user?.id;
   if (!userId) return;
 
-  if (isDemoSeedExpired(appAuth.user.createdAt)) {
-    purgeExpiredDemoFromCache();
-    return;
-  }
-
   try {
     if (sessionStorage.getItem(seedSkipKey(userId))) {
+      if (isDemoSeedExpired(appAuth.user.createdAt)) {
+        purgeExpiredDemoFromCache();
+      }
       injectDemoAlertsOnce(userId);
       return;
     }

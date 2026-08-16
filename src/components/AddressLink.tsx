@@ -9,6 +9,7 @@ interface AddressLinkProps {
   /** 네비에 전달할 주소 (지번까지). 호실·건물명 넣지 말 것 */
   address: string;
   className?: string;
+  showIcon?: boolean;
   /** 화면에만 보이는 텍스트 (호실 등 포함 가능) */
   children?: React.ReactNode;
 }
@@ -16,6 +17,7 @@ interface AddressLinkProps {
 export function AddressLink({
   address,
   className = "",
+  showIcon = true,
   children,
 }: AddressLinkProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -45,17 +47,24 @@ export function AddressLink({
         type="button"
         onClick={handleClick}
         className={[
-          "relative z-10 flex w-full cursor-pointer items-start gap-2 text-left font-semibold text-[#3182F6]",
+          "relative z-10 flex w-full cursor-pointer text-left font-semibold text-[#3182F6]",
+          showIcon ? "items-start gap-2" : "flex-col items-stretch",
           "active:scale-[0.99] transition-all duration-150",
           className,
         ].join(" ")}
       >
-        <span className="shrink-0" aria-hidden>
-          📍
-        </span>
-        <span className="min-w-0 flex-1 break-words">
-          {children ?? naviAddress}
-        </span>
+        {showIcon ? (
+          <>
+            <span className="shrink-0" aria-hidden>
+              📍
+            </span>
+            <span className="min-w-0 flex-1 break-words">
+              {children ?? naviAddress}
+            </span>
+          </>
+        ) : (
+          (children ?? naviAddress)
+        )}
       </button>
       <NaviAppModal
         open={modalOpen}

@@ -17,7 +17,6 @@ export type CustomerFieldKey =
   | "loan"
   | "insurance"
   | "parking"
-  | "carType"
   | "teamShare"
   | "preferredLocation";
 
@@ -39,7 +38,6 @@ export type CustomerValidationInput = {
   moveInTo: string;
   moveInSingle: boolean;
   parkingType?: "유" | "무" | "";
-  carType: string;
   loanNeeded?: "유" | "무" | "";
   insuranceNeeded?: "유" | "무" | "";
   workspaceShared?: boolean;
@@ -55,24 +53,23 @@ function requiredInputMessage(label: string): string {
 
 const MESSAGES: Record<CustomerFieldKey, (dealType: DealType) => string> = {
   name: () => requiredInputMessage("고객명 또는 명칭"),
-  phone: () => requiredInputMessage("전화번호"),
+  phone: () => requiredInputMessage("고객 전화번호"),
   buildingKind: () => requiredInputMessage("건물 종류"),
   roomCount: () => requiredInputMessage("방 수"),
   roomType: () => requiredInputMessage("매물 유형"),
   dealType: () => requiredInputMessage("거래종류"),
   deposit: (dealType) =>
-    requiredInputMessage(dealType === "매매" ? "매가" : "보증금"),
+    requiredInputMessage(dealType === "매매" ? "매매가" : "보증금"),
   depositTo: (dealType) =>
-    requiredInputMessage(dealType === "매매" ? "매가 까지" : "보증금 까지"),
+    requiredInputMessage(dealType === "매매" ? "매매가 까지" : "보증금 까지"),
   monthlyRent: () => requiredInputMessage("월세"),
   monthlyRentTo: () => requiredInputMessage("월세 까지"),
   moveIn: () => requiredInputMessage("입주희망일"),
-  loan: () => requiredInputMessage("대출 유무"),
+  loan: () => requiredInputMessage("대출"),
   insurance: () => requiredInputMessage("전세보증보험 가입 가능 여부"),
-  parking: () => requiredInputMessage("주차 유무"),
-  carType: () => requiredInputMessage("차종"),
+  parking: () => requiredInputMessage("주차"),
   teamShare: () => requiredInputMessage("팀공유 유무"),
-  preferredLocation: () => requiredInputMessage("선호위치"),
+  preferredLocation: () => requiredInputMessage("선호지역"),
 };
 
 /** 화면 위→아래 순서. 모달·스크롤은 이 배열의 첫 빠진 칸 */
@@ -92,7 +89,6 @@ export const CUSTOMER_FIELD_ORDER: CustomerFieldKey[] = [
   "loan",
   "insurance",
   "parking",
-  "carType",
   "teamShare",
 ];
 
@@ -157,13 +153,6 @@ export function getMissingCustomerFields(
   if (!isLand && !isBuilding) {
     if (input.parkingType !== "유" && input.parkingType !== "무") {
       missing.push("parking");
-    }
-    if (
-      input.parkingType === "유" &&
-      input.carType !== "세단" &&
-      input.carType !== "SUV"
-    ) {
-      missing.push("carType");
     }
   }
   if (

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { displayRoomType, normalizeRoomType } from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
 
-function roomTypeChipClass(roomType?: RoomType | string, done?: boolean) {
+export function roomTypeChipClass(roomType?: RoomType | string, done?: boolean) {
   if (done) return "bg-gray-400";
   switch (normalizeRoomType(roomType) ?? roomType) {
     case "원룸":
@@ -25,6 +25,36 @@ function roomTypeChipClass(roomType?: RoomType | string, done?: boolean) {
       return "bg-slate-600";
     default:
       return "bg-gray-600";
+  }
+}
+
+/** 고객카드 거래종류 글자 — 바와 같은 색 */
+export function dealTypeTextClass(dealType?: string | null, done?: boolean) {
+  if (done) return "text-gray-500";
+  switch (dealType) {
+    case "매매":
+      return "text-red-500";
+    case "전세":
+      return "text-sky-500";
+    case "월세":
+      return "text-emerald-500";
+    default:
+      return "text-gray-900";
+  }
+}
+
+/** 고객리스트 왼쪽 줄 — 매매 빨강 · 전세 하늘 · 월세 초록 */
+export function dealTypeBarClass(dealType?: string | null, done?: boolean) {
+  if (done) return "bg-gray-400";
+  switch (dealType) {
+    case "매매":
+      return "bg-red-500";
+    case "전세":
+      return "bg-sky-400";
+    case "월세":
+      return "bg-emerald-500";
+    default:
+      return "bg-gray-300";
   }
 }
 

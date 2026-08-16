@@ -14,6 +14,7 @@ export type PropertyFieldKey =
   | "buildingKind"
   | "dealType"
   | "deposit"
+  | "moveIn"
   | "loan"
   | "insurance"
   | "parking"
@@ -56,12 +57,13 @@ const FIELD_MESSAGES: Record<PropertyFieldKey, (p: Property) => string> = {
   dealType: () => requiredInputMessage("거래종류"),
   deposit: (p) =>
     requiredInputMessage(
-      p.dealType === "매매" ? "매가" : "보증금"
+      p.dealType === "매매" ? "매매가" : "보증금"
     ),
-  loan: () => requiredInputMessage("대출 유무"),
+  moveIn: () => requiredInputMessage("임대희망일"),
+  loan: () => requiredInputMessage("대출"),
   insurance: () => requiredInputMessage("전세보증보험 가입 가능 여부"),
-  parking: () => requiredInputMessage("주차 유무"),
-  elevator: () => requiredInputMessage("엘리베이터 유무"),
+  parking: () => requiredInputMessage("주차"),
+  elevator: () => requiredInputMessage("엘리베이터"),
 };
 
 /** 화면 위→아래 순서. 모달·스크롤은 이 배열의 첫 빠진 칸 */
@@ -74,6 +76,7 @@ export const PROPERTY_FIELD_ORDER: PropertyFieldKey[] = [
   "roomCount",
   "dealType",
   "deposit",
+  "moveIn",
   "address",
   "buildingKind",
   "loan",
@@ -127,6 +130,21 @@ export function getMissingRequiredFields(
 
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
+  if (!isLand && !isBuilding) {
+    const from =
+      property.moveInFrom?.trim() ||
+      (property.moveInDate && /^\d{4}-\d{2}-\d{2}$/.test(property.moveInDate)
+        ? property.moveInDate
+        : "");
+    const to = property.moveInTo?.trim() || "";
+    const single =
+      property.moveInSingle ?? Boolean(from && to && from === to);
+    if (!from || (!single && !to)) {
+      missing.push("moveIn");
+    } else if (!single && to < from) {
+      missing.push("moveIn");
+    }
+  }
   if (!isLand && !isBuilding) {
     if (!skipsResidentialExtras(property.roomType)) {
       if (property.loanAvailable !== "유" && property.loanAvailable !== "무") {
@@ -184,6 +202,7 @@ export function findPropertiesValidationIssue(
 ): PropertyValidationIssue | null {
   for (let i = 0; i < properties.length; i += 1) {
     const property = properties[i];
+    if (property.listedFromId?.trim()) continue;
     const fields = getMissingRequiredFields(property, options);
     if (fields.length === 0) continue;
     const focusField = fields[0];

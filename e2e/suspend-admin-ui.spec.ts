@@ -67,7 +67,7 @@ test("관리자 화면에서 정지 → 앱 차단 → 정지 해제", async ({ 
   await expect(page.getByText("계정 이용 제한")).toBeVisible({
     timeout: 20_000,
   });
-  await page.getByRole("button", { name: "확인" }).click();
+  await page.getByRole("button", { name: "확인" }).last().click();
   await logoutViaHome(page);
 
   await adminLogin();

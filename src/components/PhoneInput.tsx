@@ -17,6 +17,9 @@ interface PhoneInputProps {
   invalidHint?: string;
   /** 라벨 우측 안내 (예: 동일 고객 존재) */
   labelRight?: React.ReactNode;
+  chipWhenFilled?: boolean;
+  chipTone?: "blue" | "green";
+  labelHint?: string;
 }
 
 export function PhoneInput({
@@ -28,8 +31,10 @@ export function PhoneInput({
   placeholder = "010-1234-5678",
   invalid,
   accent,
-  invalidHint = "미입력",
   labelRight,
+  chipWhenFilled = true,
+  chipTone = "blue",
+  labelHint,
 }: PhoneInputProps) {
   return (
     <Input
@@ -37,7 +42,10 @@ export function PhoneInput({
       required={required}
       invalid={invalid}
       accent={Boolean(accent)}
+      chipWhenFilled={chipWhenFilled}
+      chipTone={chipTone}
       labelRight={labelRight}
+      labelHint={labelHint}
       type="text"
       autoComplete="off"
       autoCorrect="off"
@@ -49,13 +57,7 @@ export function PhoneInput({
       value={formatPhoneInput(value)}
       onChange={(e) => onChange(formatPhoneInput(e.target.value))}
       placeholder={placeholder}
-      hint={
-        invalid
-          ? invalidHint
-          : hint === undefined
-            ? "숫자만 입력해도 - 가 자동으로 붙어요"
-            : hint || undefined
-      }
+      hint={invalid ? undefined : hint || undefined}
     />
   );
 }

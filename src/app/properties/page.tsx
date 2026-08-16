@@ -181,6 +181,7 @@ export default function PropertyListPage() {
           onChange={setQuery}
           placeholder="주소 · 호실 · 유형"
           aria-label="매물 검색"
+          className="min-h-[44px] rounded-full border-transparent bg-white px-4 shadow-none"
         />
 
         {filtered.length === 0 ? (
@@ -213,6 +214,7 @@ export default function PropertyListPage() {
                         done={done}
                         disabled={busy}
                         locked={foreign}
+                        tone="quiet"
                         onToggle={() => void toggleTeamShare(p)}
                       />
                     ) : null

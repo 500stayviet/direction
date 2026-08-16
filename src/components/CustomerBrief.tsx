@@ -2,6 +2,7 @@
 
 import type { Customer } from "@/lib/types";
 import {
+  displayRoomType,
   needsRoomBathCounts,
   normalizeRoomType,
 } from "@/lib/constants";
@@ -11,10 +12,11 @@ import {
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
   yesNoLabel,
+  availLabel,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
-import { ListEdgeChips } from "@/components/ListEdgeChips";
+import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
 import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
 import { preferredLocationRows } from "@/lib/preferredLocation";
 
@@ -57,24 +59,36 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
   const loanLabel = getCustomerLoanLabel(customer);
   const insuranceLabel = yesNoLabel(customer.insuranceNeeded);
   const elevatorLabel = yesNoLabel(customer.elevatorNeeded);
+  const dealLabel = customer.dealType?.trim() || "";
+  const typeLabel = displayRoomType(customer.roomType, customer.buildingKind);
+  const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
 
   return (
-    <div className="relative pt-3">
-      <div className="pointer-events-none absolute inset-x-2 top-3 z-10 flex -translate-y-1/2 items-center gap-1 overflow-hidden">
-        <ListEdgeChips
-          placement="inline"
-          roomType={customer.roomType}
-          buildingKind={customer.buildingKind}
-          dealType={customer.dealType}
+    <Card className="space-y-0 !overflow-hidden !p-0">
+      <div className="flex">
+        <div
+          className={["w-1.5 shrink-0", dealTypeBarClass(customer.dealType)].join(
+            " "
+          )}
+          aria-hidden
         />
-      </div>
-
-      <Card className="space-y-0 !overflow-visible !p-0">
-        <div className="relative z-10 pt-4" />
-
-        <div className="space-y-3 px-4 pb-4 pt-2">
-          {/* 이름 · 전화 — 카드(원룸·전세 칩) 안, 별도 박스 없음 */}
-          <div className="flex items-center justify-between gap-3 pt-1">
+        <div className="min-w-0 flex-1 space-y-3 px-4 pb-4 pt-3">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {dealLabel ? (
+              <span
+                className={[
+                  "text-[22px] font-extrabold leading-none tracking-tight",
+                  dealTypeTextClass(customer.dealType),
+                ].join(" ")}
+              >
+                {dealLabel}
+              </span>
+            ) : null}
+            <span className="inline-flex max-w-[8.5rem] shrink-0 truncate rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[16px] font-bold leading-none text-gray-600">
+              {typeText}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
             <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
               {customer.name.trim() || "이름 미입력"}
             </p>
@@ -90,7 +104,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             )}
           </div>
 
-          {/* 금액 → 선호위치 → 지목 → 방 → 입주희망 */}
+          {/* 금액 → 선호지역 → 지목 → 방 → 입주희망 */}
           <div
             className="grid grid-cols-2 gap-2"
             data-testid="customer-brief-meta"
@@ -156,21 +170,21 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             {showLoanInsurancePet ? (
               <StatusChip
                 label="대출"
-                value={loanLabel}
+                value={availLabel(loanLabel)}
                 active={loanLabel !== "무" && loanLabel !== "-"}
               />
             ) : null}
             {showLoanInsurancePet ? (
               <StatusChip
                 label="보증보험"
-                value={insuranceLabel}
+                value={availLabel(insuranceLabel)}
                 active={insuranceLabel === "유"}
               />
             ) : null}
             {showParking ? (
               <StatusChip
                 label="주차"
-                value={parkingLabel}
+                value={availLabel(parkingLabel)}
                 active={
                   parkingLabel !== "무" &&
                   parkingLabel !== "-" &&
@@ -194,7 +208,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             </p>
           </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 }

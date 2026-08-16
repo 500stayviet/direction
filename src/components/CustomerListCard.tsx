@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactElement, ReactNode } from "react";
-import { Card } from "@/components/ui/Card";
-import { PhoneLink } from "@/components/PhoneLink";
-import { ListEdgeChips } from "@/components/ListEdgeChips";
+import { PhoneChip } from "@/components/PhoneLink";
+import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
+import { displayRoomType } from "@/lib/constants";
 import {
   getCustomerBudgetLabel,
   getCustomerMoveInLabel,
@@ -12,7 +12,6 @@ import { formatSavedDate } from "@/lib/date";
 import { getContractDeadlineLabel } from "@/lib/deadline";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
-import { alertHighlightClass } from "@/lib/teamAlerts";
 import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
 import type { Customer } from "@/lib/types";
 
@@ -29,6 +28,45 @@ interface CustomerListCardProps {
   showSavedDate?: boolean;
   /** 공유 신규(정적) | 매칭 신규(반짝임) */
   alertHighlight?: "share" | "match" | null;
+}
+
+function MoneyPhoneRow({
+  moneyText,
+  phone,
+  done,
+}: {
+  moneyText: string;
+  phone: string;
+  done: boolean;
+}) {
+  return (
+    <div className="mt-1.5 flex w-full items-center gap-2">
+      {moneyText ? (
+        <p
+          title={moneyText}
+          className={[
+            "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[22px] font-extrabold leading-none tracking-tight",
+            done ? "text-gray-500" : "text-gray-900",
+          ].join(" ")}
+        >
+          {moneyText}
+        </p>
+      ) : (
+        <span className="min-w-0 flex-1" />
+      )}
+      <PhoneChip phone={phone} done={done} />
+    </div>
+  );
+}
+
+function frameClass(
+  done: boolean,
+  highlight: "share" | "match" | null | undefined
+): string {
+  if (done) return "border-gray-200 bg-gray-50";
+  if (highlight === "share") return "border-emerald-400 bg-white";
+  if (highlight === "match") return "animate-border-sparkle bg-white";
+  return "border-gray-200 bg-white";
 }
 
 export function CustomerListCard({
@@ -50,105 +88,123 @@ export function CustomerListCard({
     peekCurrentUser()?.id
   );
   const preferredLabel = formatPreferredLocationLabel(c);
+  const moveInLabel = getCustomerMoveInLabel(c);
+  const typeLabel = displayRoomType(c.roomType, c.buildingKind);
+  const dealLabel = c.dealType?.trim() || "";
+  const moneyLabel = getCustomerBudgetLabel(c).trim();
+  const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
+  const moneyText = moneyLabel && moneyLabel !== "-" ? moneyLabel : "";
 
   const card = (
-    <Card
+    <article
       className={[
-        "relative !rounded-2xl !px-3 !pb-2 !pt-3",
-        alertHighlightClass(done ? null : alertHighlight, done, "customers"),
+        "flex overflow-hidden rounded-xl border",
+        frameClass(done, done ? null : alertHighlight),
       ].join(" ")}
     >
-      <div className="relative">
-        <div className="flex items-center justify-between gap-2">
-          <p
-            className={[
-              "min-w-0 truncate text-[11px] leading-tight",
-              done ? "text-gray-500" : "text-gray-600",
-            ].join(" ")}
-          >
-            입주희망 {getCustomerMoveInLabel(c)}
-          </p>
-          {deadlineLabel ? (
-            <p className="shrink-0 text-[11px] font-extrabold text-emerald-500">
-              {deadlineLabel}
-            </p>
+      <div
+        className={[
+          "w-1.5 shrink-0",
+          dealTypeBarClass(c.dealType, done),
+        ].join(" ")}
+        aria-hidden
+      />
+      <div
+        className={[
+          "min-w-0 flex-1 px-3 pb-2.5",
+          deadlineLabel ? "pt-3.5" : "pt-2.5",
+        ].join(" ")}
+      >
+        <div
+          data-testid="customer-card-conditions"
+          className="flex items-start gap-2"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {dealLabel ? (
+                <span
+                  className={[
+                    "text-[22px] font-extrabold leading-none tracking-tight",
+                    dealTypeTextClass(c.dealType, done),
+                  ].join(" ")}
+                >
+                  {dealLabel}
+                </span>
+              ) : null}
+              <span
+                className={[
+                  "inline-flex max-w-[8.5rem] shrink-0 truncate rounded-md border px-2 py-1 text-[16px] font-bold leading-none",
+                  done
+                    ? "border-gray-200 bg-gray-100 text-gray-400"
+                    : "border-gray-200 bg-gray-50 text-gray-600",
+                ].join(" ")}
+              >
+                {typeText}
+              </span>
+            </div>
+          </div>
+          {right ? (
+            <div className="relative z-[1] -mt-1 shrink-0">{right}</div>
           ) : null}
         </div>
 
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <p
-            className={[
-              "min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight leading-none",
-              done ? "text-gray-600" : "text-gray-900",
-            ].join(" ")}
-          >
-            {c.name}
-          </p>
-          <PhoneLink
-            phone={c.phone}
-            className={[
-              "relative z-[1]",
-              done
-                ? "!shrink-0 !text-[16px] !font-bold !text-gray-500"
-                : "!shrink-0 !text-[16px] !font-extrabold",
-            ].join(" ")}
-          />
-        </div>
+        <MoneyPhoneRow moneyText={moneyText} phone={c.phone} done={done} />
 
         {preferredLabel ? (
           <p
             data-testid="customer-card-preferred"
+            title={`선호지역: ${preferredLabel}`}
             className={[
-              "mt-1.5 truncate text-[12px] font-semibold leading-snug",
+              "mt-1.5 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-semibold leading-snug",
               done ? "text-gray-500" : "text-gray-700",
             ].join(" ")}
           >
-            {preferredLabel}
+            {`선호지역: ${preferredLabel}`}
           </p>
         ) : null}
-
-        {sharer || saved ? (
-        <div
-          className={[
-            "flex items-center justify-between gap-2",
-            preferredLabel ? "mt-0.5" : "mt-4",
-          ].join(" ")}
-        >
-          <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
-            {sharer}
-          </p>
-          {saved ? (
-          <p
+        {moveInLabel || sharer || saved ? (
+          <div
             className={[
-              "shrink-0 text-[11px] font-bold leading-none",
-              done ? "text-gray-500" : "text-gray-400",
+              "flex items-center gap-2",
+              preferredLabel ? "mt-0.5" : "mt-1.5",
             ].join(" ")}
           >
-            {`등록일 · ${saved}`}
-          </p>
-          ) : null}
-        </div>
+            {moveInLabel ? (
+              <p
+                className={[
+                  "min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug",
+                  done ? "text-gray-500" : "text-gray-700",
+                ].join(" ")}
+              >
+                {moveInLabel}
+              </p>
+            ) : (
+              <span className="min-w-0 flex-1" />
+            )}
+            {sharer || saved ? (
+              <p className="ml-auto flex shrink-0 items-center justify-end gap-1 text-[11px] text-gray-400">
+                {sharer ? (
+                  <span className="max-w-[5.5rem] truncate">{sharer}</span>
+                ) : null}
+                {sharer && saved ? <span className="shrink-0">·</span> : null}
+                {saved ? <span className="shrink-0">{saved}</span> : null}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
-    </Card>
+    </article>
   );
 
   return (
     <div
-      className={[
-        "relative mb-2.5 overflow-visible pb-0.5 pt-2",
-        className,
-      ].join(" ")}
+      className={["relative", deadlineLabel ? "pt-2" : "", className].join(" ")}
     >
-      <ListEdgeChips
-        roomType={c.roomType}
-        buildingKind={c.buildingKind}
-        dealType={c.dealType}
-        moneyLabel={getCustomerBudgetLabel(c)}
-        depositMan={Math.max(c.deposit ?? 0, c.depositTo ?? 0)}
-        done={done}
-        right={right}
-      />
+      {deadlineLabel ? (
+        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-amber-700 shadow-sm ring-2 ring-[#F9FAFB]">
+          {deadlineLabel}
+        </span>
+      ) : null}
       {renderCard(card)}
     </div>
   );

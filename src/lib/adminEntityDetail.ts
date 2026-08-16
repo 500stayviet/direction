@@ -283,7 +283,7 @@ export function buildAdminCustomerDetail(args: {
         return `${raw.slice(0, i)} ${raw.slice(i + 1)}`;
       })
       .join(", ");
-    push(fields, "선호위치", loc || undefined);
+    push(fields, "선호지역", loc || undefined);
   }
   if (c.roomType === "토지" && c.landCategory?.trim()) {
     push(fields, "지목", c.landCategory.trim());

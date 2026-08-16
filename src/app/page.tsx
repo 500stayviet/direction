@@ -69,7 +69,7 @@ const menus = [
     title: "네비 시작하기",
     description: "원터치 네비 · 원터치 전화",
     icon: "🧭",
-    accent: "bg-orange-50 text-orange-600",
+    accent: "bg-blue-50 text-[#3182F6]",
   },
 ] as const;
 

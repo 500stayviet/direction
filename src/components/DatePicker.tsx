@@ -13,7 +13,7 @@ import {
   parseISODate,
   todayISO,
 } from "@/lib/date";
-import { filledBoxClass } from "@/lib/uiInvalid";
+import { filledBoxClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 
 interface DatePickerProps {
   label: string;
@@ -25,8 +25,6 @@ interface DatePickerProps {
   minDate?: string;
   placeholder?: string;
   invalid?: boolean;
-  /** 반영된 값 — 파란 칸 */
-  accent?: boolean;
 }
 
 export function DatePicker({
@@ -38,7 +36,6 @@ export function DatePicker({
   minDate = todayISO(),
   placeholder = "년월일 선택",
   invalid,
-  accent,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const now = new Date();
@@ -73,48 +70,47 @@ export function DatePicker({
     setOpen(false);
   };
 
+  const openPicker = () => {
+    setOpen(true);
+  };
+
+  const wrapInvalid = Boolean(invalid && label);
+
   return (
-    <div className="space-y-1">
+    <div className={wrapInvalid ? emptyRequiredClass({ invalid: true }) : "space-y-1"}>
       {label ? (
         <p
           className={[
             "text-[13px] font-semibold",
-            invalid ? "text-red-500" : "text-gray-600",
+            invalid ? invalidLabelClass : "text-gray-600",
           ].join(" ")}
         >
           {label}
           {required && (
-            <span className={invalid ? "ml-0.5 text-red-400" : "ml-0.5 text-[#3182F6]"}>
+            <span className={requiredStarClass}>
               *
             </span>
           )}
         </p>
       ) : null}
-      {invalid ? (
-        <p className="text-xs font-semibold text-red-400">미입력</p>
+      {wrapInvalid ? (
+        <p className={`text-xs ${invalidHintClass}`}>미입력</p>
       ) : hint ? (
         <p className="text-xs text-gray-400">{hint}</p>
       ) : null}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openPicker}
         className={[
-          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
-          "active:scale-[0.99] transition-all duration-150",
-          invalid
-            ? "border-red-300 bg-red-50/70 text-gray-900"
-            : accent && value
-              ? filledBoxClass
-              : value
-                ? "border-gray-200 bg-white text-gray-900"
-                : "border-gray-200 bg-gray-50 text-gray-400",
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
+          "active:scale-95 transition-all duration-150",
+          value
+            ? filledBoxClass
+            : "border border-gray-200 bg-gray-100 text-gray-700",
         ].join(" ")}
       >
-        <span className="text-[16px] font-semibold">
+        <span className="text-center leading-snug">
           {value ? formatDisplayDate(value) : placeholder}
-        </span>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#3182F6]">
-          <CalendarIcon />
         </span>
       </button>
 
@@ -222,33 +218,5 @@ export function DatePicker({
         </div>
       </Modal>
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="3"
-        y="5"
-        width="18"
-        height="16"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M3 10h18"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 3v4M16 3v4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

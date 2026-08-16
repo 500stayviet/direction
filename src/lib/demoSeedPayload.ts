@@ -5,13 +5,16 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v20";
+export const DEMO_SEED_VERSION = "demo_v22";
 
 /** 체험 카드 생성자 표시 — 가입자가 아니라 관리자 */
 export const DEMO_CREATOR_NAME = "관리자";
 
 /** 생성자 표기 일괄 변경 — 시드 내용을 다시 쓰지 않고 이름만 맞춤 */
-export const DEMO_CREATOR_LABEL_VERSION = "admin_1";
+export const DEMO_CREATOR_LABEL_VERSION = "hong_1";
+
+export const DEMO_CUSTOMER_NAME = "홍길동";
+export const DEMO_SCHEDULE_TITLE = "홍길동 고객 방문";
 
 export const DEMO_CORE_IDS = [
   "demo_cust_1",
@@ -184,7 +187,7 @@ export function buildDemoSeedData(
   const customers: Customer[] = [
     makeCustomer({
       id: "demo_cust_1",
-      name: "테스트",
+      name: DEMO_CUSTOMER_NAME,
       phone: DEMO_TEST_PHONE,
       dealType: "전세",
       roomType: "원룸",
@@ -203,7 +206,7 @@ export function buildDemoSeedData(
       preferredGus: ["강동구"],
       preferredDongs: ["강동구|성내동"],
       notes:
-        "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
+        "체험용 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdByName: DEMO_CREATOR_NAME,
       workspaceShared: false,
       createdAt: iso(1000 * 60 * 60),
@@ -269,7 +272,7 @@ export function buildDemoSeedData(
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
-      title: "테스트 고객 방문",
+      title: DEMO_SCHEDULE_TITLE,
       visitDate,
       visitTime: "10:00",
       properties: scheduleProps,

@@ -5,12 +5,35 @@ import { withApiErrorLog } from "@/lib/appErrorLog";
 import {
   DEMO_CORE_IDS,
   DEMO_CREATOR_NAME,
+  DEMO_CUSTOMER_NAME,
+  DEMO_SCHEDULE_TITLE,
   DEMO_SEED_VERSION,
   buildDemoSeedData,
   demoSeedBaseDate,
   isDemoSeedExpired,
   type DemoSeedActor,
 } from "@/lib/demoSeedPayload";
+
+function withDemoDisplayNames(
+  table: "customers" | "listed_properties" | "schedules",
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  const next = { ...payload, createdByName: DEMO_CREATOR_NAME };
+  if (table === "customers") {
+    const name = String(next.name ?? "").trim();
+    if (!name || name === "테스트") next.name = DEMO_CUSTOMER_NAME;
+    if (typeof next.notes === "string" && next.notes.includes("테스트 고객")) {
+      next.notes = next.notes.replace("체험용 테스트 고객", "체험용 고객");
+    }
+  }
+  if (table === "schedules") {
+    const title = String(next.title ?? "").trim();
+    if (!title || title === "테스트 고객 방문") {
+      next.title = DEMO_SCHEDULE_TITLE;
+    }
+  }
+  return next;
+}
 
 async function relabelExistingDemoCreators(
   admin: ReturnType<typeof createAdminClient>,
@@ -23,11 +46,6 @@ async function relabelExistingDemoCreators(
       ["schedules", DEMO_CORE_IDS[2]],
     ];
   for (const [table, id] of tables) {
-    await admin
-      .from(table)
-      .update({ created_by_name: DEMO_CREATOR_NAME })
-      .eq("id", id);
-
     const { data: row } = await admin
       .from(table)
       .select("payload")
@@ -35,10 +53,10 @@ async function relabelExistingDemoCreators(
       .eq("id", id)
       .maybeSingle();
     if (!row?.payload || typeof row.payload !== "object") continue;
-    const payload = {
-      ...(row.payload as Record<string, unknown>),
-      createdByName: DEMO_CREATOR_NAME,
-    };
+    const payload = withDemoDisplayNames(
+      table,
+      row.payload as Record<string, unknown>
+    );
     await admin
       .from(table)
       .update({

@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/Input";
-import { OptionToggle } from "@/components/OptionToggle";
+import { ModalChoice } from "@/components/ModalChoice";
 import {
   BUILDING_KINDS,
   EMPTY_UNIT_COUNTS,
@@ -80,19 +80,16 @@ export function BuildingLandFields({
     <div className="space-y-1.5">
       <p className="text-sm font-bold text-gray-800">건물 정보</p>
 
-      <OptionToggle
+      <ModalChoice
         label="건물 종류"
         required
         invalid={invalidBuildingKind}
-        value={
-          (normalizeBuildingKind(property.buildingKind) ??
-            ("—" as BuildingKind))
-        }
+        value={normalizeBuildingKind(property.buildingKind) ?? ""}
         options={BUILDING_KINDS}
-        fit
         onChange={(buildingKind) =>
           onChange({ buildingKind: buildingKind as BuildingKind })
         }
+        columns={1}
       />
 
       <div className="grid grid-cols-2 gap-2">

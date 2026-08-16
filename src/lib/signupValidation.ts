@@ -23,11 +23,11 @@ export type SignupValidationInput = {
 
 /** 화면 위→아래 순서. 스크롤 대상은 이 배열의 첫 빠진 칸 */
 export const SIGNUP_FIELD_ORDER: SignupFieldKey[] = [
+  "agreed",
   "username",
   "password",
   "passwordConfirm",
   "passwordHint",
-  "agreed",
 ];
 
 const MESSAGES: Record<SignupFieldKey, (input: SignupValidationInput) => string> =
@@ -45,7 +45,7 @@ const MESSAGES: Record<SignupFieldKey, (input: SignupValidationInput) => string>
         ? "비밀번호 확인이 일치하지 않습니다."
         : "비밀번호 확인 칸 입력은 필수입니다.",
     passwordHint: () => "비밀번호 힌트 칸 입력은 필수입니다.",
-    agreed: () => "이용약관 및 면책 안내 칸 입력은 필수입니다.",
+    agreed: () => "이용약관에 동의해 주세요.",
   };
 
 export function getMissingSignupFields(

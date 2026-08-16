@@ -1,4 +1,4 @@
-/** 선호위치 구·동 인코딩/표시 (UI 비의존) */
+/** 선호지역 구·동 인코딩/표시 (UI 비의존) */
 
 const SEP = "|";
 
@@ -6,12 +6,14 @@ export function encodePreferredDong(gu: string, dong: string) {
   return `${gu}${SEP}${dong}`;
 }
 
-export const DEFAULT_PREFERRED_GU = "강동구";
+export function encodedDongsForGu(gu: string, dongs: string[]): string[] {
+  return dongs.map((d) => encodePreferredDong(gu, d));
+}
+
 export { SEP as PREFERRED_DONG_SEP };
 
 /**
- * 신규 폼 저장값 초기 — 하단 결과에는 넣지 않음.
- * 구 박스 표시만 강동구(PreferredLocationPicker).
+ * 신규 폼 저장값 초기 — 고르기 전에는 결과에 넣지 않음.
  */
 export function defaultPreferredLocation(): {
   preferredGus: string[];

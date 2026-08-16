@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type {
   BuildingKind,
-  CarType,
   Customer,
   DealType,
   ParkingType,
@@ -28,6 +27,7 @@ import {
 } from "@/lib/customerValidation";
 import { useCustomersList } from "@/hooks/useEntityList";
 import { Input, TextArea } from "@/components/ui/Input";
+import { ManAmountInput } from "@/components/ManAmountInput";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
@@ -35,8 +35,9 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { SiteShareFormField } from "@/components/SiteShareUi";
 import { TeamShareFormField } from "@/components/TeamShareFormField";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
-import { RoomBathCountFields } from "@/components/RoomBathCountFields";
+import { RoomBathCountFields, RoomBathCountGrids } from "@/components/RoomBathCountFields";
 import { CircleCheck } from "@/components/ui/CircleCheck";
+import { ModalChoice } from "@/components/ModalChoice";
 import { OptionToggle } from "@/components/OptionToggle";
 import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -54,7 +55,7 @@ import {
   type IntakeSampleSource,
 } from "@/lib/intakeSampleCollect";
 import { getAccessToken } from "@/lib/auth";
-import { filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
+import { filledSectionClass, memoFilledSectionClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
@@ -106,10 +107,8 @@ export function CustomerForm({
     if (initial?.bathroomCount && initial.bathroomCount > 0) {
       return initial.bathroomCount;
     }
-    if (needsRoomBathCounts(type)) {
-      return defaultRoomBathCounts(type).bathroomCount;
-    }
-    return 1;
+    if (needsRoomBathCounts(type)) return defaultRoomBathCounts(type).bathroomCount;
+    return 0;
   });
   const [deposit, setDeposit] = useState<number>(initial?.deposit ?? 0);
   const [depositTo, setDepositTo] = useState<number>(
@@ -168,9 +167,6 @@ export function CustomerForm({
         ? "무"
         : ""
   );
-  const [carType, setCarType] = useState<CarType>(
-    () => (initial?.carType === "SUV" ? "SUV" : "세단")
-  );
   const [insuranceNeeded, setInsuranceNeeded] = useState<"유" | "무" | "">(
     initial?.insuranceNeeded === "유" || initial?.insuranceNeeded === "무"
       ? initial.insuranceNeeded
@@ -225,6 +221,7 @@ export function CustomerForm({
   const [photoRequestId, setPhotoRequestId] = useState(0);
   const [photoError, setPhotoError] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [roomTypeOpen, setRoomTypeOpen] = useState(false);
   const applyingIntakeRef = useRef(false);
 
   const duplicateCustomer = useMemo(
@@ -237,7 +234,7 @@ export function CustomerForm({
     ? "매매"
     : dealType;
 
-  const handleDealTypeChange = (next: DealType) => {
+  const handleDealTypeChange = (next: DealType | "") => {
     setDealType(next);
     if (next !== "매매") setNonOccupancy(false);
     if (next !== "월세") {
@@ -273,7 +270,7 @@ export function CustomerForm({
       setBathroomCount(defaults.bathroomCount);
     } else {
       setRoomCount(0);
-      setBathroomCount(1);
+      setBathroomCount(0);
     }
   };
 
@@ -309,7 +306,7 @@ export function CustomerForm({
     setRoomType("");
     setBuildingKind("");
     setRoomCount(0);
-    setBathroomCount(1);
+    setBathroomCount(0);
     setDeposit(0);
     setDepositTo(0);
     setDepositSingle(true);
@@ -323,7 +320,6 @@ export function CustomerForm({
     setLoanNeeded("");
     setInsuranceNeeded("");
     setParkingType("");
-    setCarType("세단");
     setElevatorNeeded("");
     setNotes("");
     setLandCategory("");
@@ -348,12 +344,13 @@ export function CustomerForm({
       setPhoneNonce((n) => n + 1);
     }
     if (parsed.name) setName(parsed.name);
-    if (parsed.roomType) applyRoomType(parsed.roomType);
-    if (parsed.roomCount && needsRoomBathCounts(parsed.roomType)) {
-      setRoomCount(parsed.roomCount);
-    }
-    if (parsed.bathroomCount && needsRoomBathCounts(parsed.roomType)) {
-      setBathroomCount(parsed.bathroomCount);
+    if (parsed.roomType) {
+      applyRoomType(parsed.roomType);
+      if (needsRoomBathCounts(parsed.roomType)) {
+        const defaults = defaultRoomBathCounts(parsed.roomType);
+        setRoomCount(parsed.roomCount ?? defaults.roomCount);
+        setBathroomCount(parsed.bathroomCount ?? defaults.bathroomCount);
+      }
     }
     if (parsed.dealType) handleDealTypeChange(parsed.dealType);
     if (parsed.deposit && parsed.deposit > 0) {
@@ -456,7 +453,6 @@ export function CustomerForm({
     moveInTo,
     moveInSingle,
     parkingType,
-    carType,
     loanNeeded,
     insuranceNeeded,
     workspaceShared,
@@ -531,9 +527,15 @@ export function CustomerForm({
       roomCount: needsRoomBathCounts(roomType)
         ? roomType === "투룸"
           ? 2
-          : roomCount
+          : roomCount > 0
+            ? roomCount
+            : defaultRoomBathCounts(roomType).roomCount
         : undefined,
-      bathroomCount: needsRoomBathCounts(roomType) ? bathroomCount : undefined,
+      bathroomCount: needsRoomBathCounts(roomType)
+        ? bathroomCount > 0
+          ? bathroomCount
+          : defaultRoomBathCounts(roomType).bathroomCount
+        : undefined,
       deposit,
       depositTo: savedDepositTo,
       depositSingle,
@@ -585,10 +587,7 @@ export function CustomerForm({
         roomType === "토지" || roomType === "건물"
           ? "무"
           : (parkingType as ParkingType),
-      carType:
-        roomType === "토지" || roomType === "건물" || parkingType === "무"
-          ? undefined
-          : carType,
+      carType: undefined,
       petAllowed: "무",
       notes: notes.trim(),
       landCategory:
@@ -634,61 +633,68 @@ export function CustomerForm({
               label="고객명 또는 명칭"
               required
               invalid={isInvalid("name")}
-              hint={isInvalid("name") ? "직접 입력" : undefined}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="홍길동"
+              chipWhenFilled
+              chipTone="green"
             />
           </div>
-          <div
-            ref={setFieldRef("phone")}
-            className={
-              filledFromIntake && phone && !isInvalid("phone")
-                ? filledSectionClass
-                : ""
-            }
-          >
+          <div ref={setFieldRef("phone")}>
             <PhoneInput
               key={phoneNonce}
-              label="전화번호"
+              label="고객 전화번호"
               required
               invalid={isInvalid("phone")}
-              invalidHint="직접 입력"
-              accent={filledFromIntake && Boolean(phone)}
               value={phone}
               onChange={setPhone}
+              chipTone="green"
+              labelHint="원터치 전화걸기에 사용됩니다."
               labelRight={
                 duplicateCustomer ? "동일 고객이 존재합니다" : undefined
               }
-              hint="숫자만 입력해도 - 가 자동으로 붙어요 · 저장 후 원클릭 전화"
+              hint=""
             />
           </div>
           <div ref={setFieldRef("roomType")}>
-          <OptionToggle
+          <ModalChoice
             label="매물 유형"
             required
-            compact={filledFromIntake}
             filled={filledFromIntake && Boolean(roomType)}
             invalid={isInvalid("roomType")}
             value={roomType || undefined}
             options={ROOM_TYPES}
             onChange={applyRoomType}
             columns={4}
+            keepOpen={(type) => needsRoomBathCounts(type)}
+            open={roomTypeOpen}
+            onOpenChange={setRoomTypeOpen}
+            extra={
+              <RoomBathCountGrids
+                roomType={roomType}
+                roomCount={roomCount}
+                bathroomCount={bathroomCount}
+                invalidRoomCount={isInvalid("roomCount")}
+                onChange={({ roomCount: nextRooms, bathroomCount: nextBaths }) => {
+                  setRoomCount(nextRooms);
+                  setBathroomCount(nextBaths);
+                }}
+              />
+            }
           />
           </div>
 
           {roomType === "건물" ? (
             <div ref={setFieldRef("buildingKind")}>
-              <OptionToggle
+              <ModalChoice
                 label="건물 종류"
                 required
-                compact={filledFromIntake}
                 filled={filledFromIntake && Boolean(buildingKind)}
                 invalid={isInvalid("buildingKind")}
-                value={buildingKind || ("—" as BuildingKind)}
+                value={buildingKind || undefined}
                 options={BUILDING_KINDS}
-                fit
                 onChange={setBuildingKind}
+                columns={1}
               />
             </div>
           ) : null}
@@ -696,7 +702,9 @@ export function CustomerForm({
           <div
             ref={setFieldRef("roomCount")}
             className={
-              filledFromIntake && needsRoomBathCounts(roomType)
+              filledFromIntake &&
+              needsRoomBathCounts(roomType) &&
+              (roomType === "투룸" || roomCount > 0)
                 ? filledSectionClass
                 : ""
             }
@@ -706,7 +714,7 @@ export function CustomerForm({
               roomCount={roomCount}
               bathroomCount={bathroomCount}
               invalidRoomCount={isInvalid("roomCount")}
-              filled={filledFromIntake && needsRoomBathCounts(roomType)}
+              onEdit={() => setRoomTypeOpen(true)}
               onChange={({ roomCount: nextRooms, bathroomCount: nextBaths }) => {
                 setRoomCount(nextRooms);
                 setBathroomCount(nextBaths);
@@ -725,7 +733,6 @@ export function CustomerForm({
           <DealTypeToggle
             label="거래종류"
             required
-            compact={filledFromIntake}
             invalid={isInvalid("dealType")}
             value={effectiveDealType}
             onChange={handleDealTypeChange}
@@ -752,7 +759,6 @@ export function CustomerForm({
               preferredGus={preferredGus}
               preferredDongs={preferredDongs}
               invalid={isInvalid("preferredLocation")}
-              accent={filledFromIntake}
               onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
                 preferredRef.current = {
                   preferredGus: nextGus,
@@ -766,23 +772,29 @@ export function CustomerForm({
 
           <div className="space-y-2">
             <div
-              className={[
-                "space-y-1",
-                filledFromIntake && deposit > 0 && !isInvalid("deposit")
-                  ? filledSectionClass
-                  : "",
-              ].join(" ")}
+              className={emptyRequiredClass({
+                invalid: isInvalid("deposit") || isInvalid("depositTo"),
+              })}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-gray-600">
-                  {effectiveDealType === "매매" ? "매가 (만원)" : "보증금 (만원)"}
-                  <span className="ml-0.5 text-[#3182F6]">*</span>
+                <p
+                  className={[
+                    "flex min-w-0 flex-1 items-baseline gap-1 text-[13px] font-semibold",
+                    isInvalid("deposit") || isInvalid("depositTo")
+                      ? invalidLabelClass
+                      : "text-gray-600",
+                  ].join(" ")}
+                >
+                  <span className="shrink-0">
+                    {effectiveDealType === "매매" ? "매매가" : "보증금"}
+                    <span className={requiredStarClass}>*</span>
+                  </span>
                   {effectiveDealType === "매매" ? (
-                    <span className="ml-2 font-medium text-gray-400">
+                    <span className="min-w-0 truncate font-medium text-gray-400">
                       예: 5억 → 50000
                     </span>
                   ) : effectiveDealType === "전세" ? (
-                    <span className="ml-2 font-medium text-gray-400">
+                    <span className="min-w-0 truncate font-medium text-gray-400">
                       예: 1억 → 10000
                     </span>
                   ) : null}
@@ -803,18 +815,16 @@ export function CustomerForm({
                   </span>
                 </label>
               </div>
+              {isInvalid("deposit") || isInvalid("depositTo") ? (
+                <p className={`text-xs ${invalidHintClass}`}>미입력</p>
+              ) : null}
               {depositSingle ? (
                 <div ref={setFieldRef("deposit")}>
-                  <Input
+                  <ManAmountInput
                     label=""
                     required
-                    invalid={isInvalid("deposit")}
-                    type="number"
-                    inputMode="numeric"
-                    value={deposit || ""}
-                    accent={filledFromIntake && deposit > 0}
-                    onChange={(e) => {
-                      const next = Number(e.target.value) || 0;
+                    value={deposit}
+                    onChange={(next) => {
                       setDeposit(next);
                       setDepositTo(next);
                     }}
@@ -826,34 +836,22 @@ export function CustomerForm({
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <div ref={setFieldRef("deposit")}>
-                    <Input
+                    <ManAmountInput
                       label="부터"
                       required
-                      invalid={isInvalid("deposit")}
-                      type="number"
-                      inputMode="numeric"
-                      value={deposit || ""}
-                      accent={filledFromIntake && deposit > 0}
-                      onChange={(e) =>
-                        setDeposit(Number(e.target.value) || 0)
-                      }
+                      value={deposit}
+                      onChange={setDeposit}
                       placeholder={
                         effectiveDealType === "매매" ? "40000" : "8000"
                       }
                     />
                   </div>
                   <div ref={setFieldRef("depositTo")}>
-                    <Input
+                    <ManAmountInput
                       label="까지"
                       required
-                      invalid={isInvalid("depositTo")}
-                      type="number"
-                      inputMode="numeric"
-                      value={depositTo || ""}
-                      accent={filledFromIntake && depositTo > 0}
-                      onChange={(e) =>
-                        setDepositTo(Number(e.target.value) || 0)
-                      }
+                      value={depositTo}
+                      onChange={setDepositTo}
                       placeholder={
                         effectiveDealType === "매매" ? "50000" : "10000"
                       }
@@ -865,17 +863,22 @@ export function CustomerForm({
 
             {effectiveDealType === "월세" ? (
               <div
-                className={[
-                  "space-y-1",
-                  filledFromIntake && monthlyRent > 0 && !isInvalid("monthlyRent")
-                    ? filledSectionClass
-                    : "",
-                ].join(" ")}
+                className={emptyRequiredClass({
+                  invalid:
+                    isInvalid("monthlyRent") || isInvalid("monthlyRentTo"),
+                })}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[13px] font-semibold text-gray-600">
-                    월세 (만원)
-                    <span className="ml-0.5 text-[#3182F6]">*</span>
+                  <p
+                    className={[
+                      "text-[13px] font-semibold",
+                      isInvalid("monthlyRent") || isInvalid("monthlyRentTo")
+                        ? invalidLabelClass
+                        : "text-gray-600",
+                    ].join(" ")}
+                  >
+                    월세
+                    <span className={requiredStarClass}>*</span>
                   </p>
                   <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
                     <CircleCheck
@@ -893,22 +896,25 @@ export function CustomerForm({
                     </span>
                   </label>
                 </div>
+                {isInvalid("monthlyRent") || isInvalid("monthlyRentTo") ? (
+                  <p className={`text-xs ${invalidHintClass}`}>미입력</p>
+                ) : null}
                 {monthlyRentSingle ? (
                   <div ref={setFieldRef("monthlyRent")}>
                     <Input
                       label=""
                       required
-                      invalid={isInvalid("monthlyRent")}
                       type="number"
                       inputMode="numeric"
                       value={monthlyRent || ""}
-                      accent={filledFromIntake && monthlyRent > 0}
+                      accent={monthlyRent > 0}
                       onChange={(e) => {
                         const next = Number(e.target.value) || 0;
                         setMonthlyRent(next);
                         setMonthlyRentTo(next);
                       }}
                       placeholder="50"
+                      suffix="만원"
                     />
                   </div>
                 ) : (
@@ -917,30 +923,30 @@ export function CustomerForm({
                       <Input
                         label="부터"
                         required
-                        invalid={isInvalid("monthlyRent")}
                         type="number"
                         inputMode="numeric"
                         value={monthlyRent || ""}
-                        accent={filledFromIntake && monthlyRent > 0}
+                        accent={monthlyRent > 0}
                         onChange={(e) =>
                           setMonthlyRent(Number(e.target.value) || 0)
                         }
                         placeholder="40"
+                        suffix="만원"
                       />
                     </div>
                     <div ref={setFieldRef("monthlyRentTo")}>
                       <Input
                         label="까지"
                         required
-                        invalid={isInvalid("monthlyRentTo")}
                         type="number"
                         inputMode="numeric"
                         value={monthlyRentTo || ""}
-                        accent={filledFromIntake && monthlyRentTo > 0}
+                        accent={monthlyRentTo > 0}
                         onChange={(e) =>
                           setMonthlyRentTo(Number(e.target.value) || 0)
                         }
                         placeholder="60"
+                        suffix="만원"
                       />
                     </div>
                   </div>
@@ -969,17 +975,19 @@ export function CustomerForm({
           {!(effectiveDealType === "매매" && nonOccupancy) && (
             <div
               ref={setFieldRef("moveIn")}
-              className={[
-                "space-y-1",
-                filledFromIntake && moveInFrom && !isInvalid("moveIn")
-                  ? filledSectionClass
-                  : "",
-              ].join(" ")}
+              className={emptyRequiredClass({
+                invalid: isInvalid("moveIn"),
+              })}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[13px] font-semibold text-gray-600">
+                <p
+                  className={[
+                    "text-[13px] font-semibold",
+                    isInvalid("moveIn") ? invalidLabelClass : "text-gray-600",
+                  ].join(" ")}
+                >
                   입주희망일
-                  <span className="ml-0.5 text-[#3182F6]">*</span>
+                  <span className={requiredStarClass}>*</span>
                 </p>
                 <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
                   <CircleCheck
@@ -989,6 +997,8 @@ export function CustomerForm({
                       setMoveInSingle(on);
                       if (on && moveInFrom) {
                         setMoveInTo(moveInFrom);
+                      } else if (!on) {
+                        setMoveInTo("");
                       }
                     }}
                   />
@@ -997,12 +1007,14 @@ export function CustomerForm({
                   </span>
                 </label>
               </div>
+              {isInvalid("moveIn") ? (
+                <p className={`text-xs ${invalidHintClass}`}>미입력</p>
+              ) : null}
               {moveInSingle ? (
                 <DatePicker
                   label=""
                   required
                   invalid={isInvalid("moveIn")}
-                  accent={filledFromIntake && Boolean(moveInFrom)}
                   value={moveInFrom}
                   onChange={(next) => {
                     setMoveInFrom(next);
@@ -1015,16 +1027,14 @@ export function CustomerForm({
                   label=""
                   required
                   invalid={isInvalid("moveIn")}
-                  accent={filledFromIntake && Boolean(moveInFrom)}
                   from={moveInFrom}
                   to={moveInTo}
                   onChange={({ from, to }) => {
-                    setMoveInFrom(from);
-                    setMoveInTo(to);
-                    if (from && to && from === to) {
-                      setMoveInSingle(true);
-                    }
-                  }}
+                  const single = Boolean(from && (!to || from === to));
+                  setMoveInSingle(single);
+                  setMoveInFrom(from);
+                  setMoveInTo(single ? from : to);
+                }}
                 />
               )}
             </div>
@@ -1040,7 +1050,7 @@ export function CustomerForm({
             <>
               <div ref={setFieldRef("loan")}>
                 <OptionToggle
-                  label="대출 유무"
+                  label="대출"
                   required
                   compact={filledFromIntake}
                   invalid={isInvalid("loan")}
@@ -1068,7 +1078,7 @@ export function CustomerForm({
             <>
               <div ref={setFieldRef("parking")}>
                 <OptionToggle
-                  label="주차 유무"
+                  label="주차"
                   required
                   compact={filledFromIntake}
                   invalid={isInvalid("parking")}
@@ -1078,25 +1088,11 @@ export function CustomerForm({
                   onChange={setParkingType}
                 />
               </div>
-              {parkingType === "유" ? (
-                <div ref={setFieldRef("carType")}>
-                  <OptionToggle
-                    label="차종"
-                    required
-                    compact={filledFromIntake}
-                    invalid={isInvalid("carType")}
-                    columns={2}
-                    value={carType}
-                    options={["세단", "SUV"] as const}
-                    onChange={setCarType}
-                  />
-                </div>
-              ) : null}
             </>
           )}
           {roomType !== "토지" && (
             <OptionToggle
-              label="엘리베이터 유무"
+              label="엘리베이터"
               compact={filledFromIntake}
               columns={2}
               value={elevatorNeeded || undefined}

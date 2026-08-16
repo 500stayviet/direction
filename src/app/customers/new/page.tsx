@@ -11,13 +11,11 @@ import type { Customer } from "@/lib/types";
 export default function NewCustomerPage() {
   const router = useRouter();
   const [savedOpen, setSavedOpen] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
 
   const handleSubmit = async (customer: Customer) => {
     try {
       await upsertCustomer(customer);
       await touchRecentCustomer(customer.id);
-      setSavedId(customer.id);
       setSavedOpen(true);
     } catch (e) {
       alert(e instanceof Error ? e.message : "고객 저장에 실패했습니다.");
@@ -45,7 +43,7 @@ export default function NewCustomerPage() {
         message="등록이 완료되었습니다"
         onClose={() => {
           setSavedOpen(false);
-          if (savedId) router.push(`/customers/${savedId}`);
+          router.replace("/customers");
         }}
       />
     </main>

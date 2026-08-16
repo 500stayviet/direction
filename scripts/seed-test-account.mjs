@@ -52,7 +52,7 @@ function formatMoney(n) {
 }
 
 function formatDepositRent(dealType, deposit, monthlyRent) {
-  if (dealType === "매매") return `매가 ${formatMoney(deposit)}`;
+  if (dealType === "매매") return `매매가 ${formatMoney(deposit)}`;
   if (dealType === "전세") {
     if (monthlyRent && monthlyRent > 0) {
       return `보증 ${formatMoney(deposit)} · 월 ${formatMoney(monthlyRent)}`;
@@ -146,7 +146,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
   const customers = [
     makeCustomer({
       id: "demo_cust_1",
-      name: "테스트",
+      name: "홍길동",
       phone: DEMO_TEST_PHONE,
       dealType: "전세",
       roomType: "원룸",
@@ -159,7 +159,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
       parkingType: "유",
       petAllowed: "무",
       notes:
-        "체험용 테스트 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
+        "체험용 고객입니다. 전화·검색·일정·계약마감 알림을 눌러 사용해 보세요.",
       createdAt: iso(1000 * 60 * 60),
     }),
   ];
@@ -218,7 +218,7 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
     {
       id: "demo_sch_1",
       customerId: "demo_cust_1",
-      title: "테스트 고객 방문",
+      title: "홍길동 고객 방문",
       visitDate,
       visitTime: "10:00",
       properties: scheduleProps,

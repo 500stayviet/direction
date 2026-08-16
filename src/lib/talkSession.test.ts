@@ -4,6 +4,7 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_LOCATION_HOLD_MS,
+  TALK_STOP_HINT,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "./talkSession.ts";
@@ -22,7 +23,7 @@ describe("talkSession", () => {
     assert.equal(talkPrimaryLabel("start"), "대화 시작");
   });
 
-  it("앞 칸에서는 일시정지이고 계속은 없다", () => {
+  it("앞 칸에서는 정지이고 계속은 없다", () => {
     assert.equal(
       talkPrimaryKind({
         talkStarted: true,
@@ -30,9 +31,9 @@ describe("talkSession", () => {
         currentKey: "roomType",
         allComplete: false,
       }),
-      "pause"
+      "stop"
     );
-    assert.equal(talkPrimaryLabel("pause"), "일시정지");
+    assert.equal(talkPrimaryLabel("stop"), "정지");
   });
 
   it("메모를 듣는 중이거나 모두 초록이면 입력완료다", () => {
@@ -57,7 +58,7 @@ describe("talkSession", () => {
     assert.equal(talkPrimaryLabel("finish"), "입력완료");
   });
 
-  it("침묵·숨김으로 꺼진 메모는 일시정지여서 이어 듣는다", () => {
+  it("침묵·숨김으로 꺼진 메모는 정지라서 다시 녹음한다", () => {
     assert.equal(
       talkPrimaryKind({
         talkStarted: true,
@@ -65,10 +66,12 @@ describe("talkSession", () => {
         currentKey: "notes",
         allComplete: false,
       }),
-      "pause"
+      "stop"
     );
     assert.equal(TALK_IDLE_MS, 10_000);
     assert.equal(TALK_LOCATION_HOLD_MS, 2_000);
+    assert.match(TALK_STOP_HINT, /빨간 버튼/);
+    assert.match(TALK_STOP_HINT, /대화를 이어가세요/);
   });
 
   it("메모는 말을 쌓고 삭제는 비운다", () => {

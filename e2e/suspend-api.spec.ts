@@ -32,7 +32,7 @@ test("관리자 API 정지 → 홈 외 차단 → 해제 후 복귀", async ({
   await expect(
     page.getByText(/현재 계정이 정지되어 홈 외 기능을 이용할 수 없습니다/)
   ).toBeVisible();
-  await page.getByRole("button", { name: "확인" }).click();
+  await page.getByRole("button", { name: "확인" }).last().click();
   await expect(page).toHaveURL(/\/(\?|$)/);
 
   await adminSetSuspended(request, token, accountId, false);

@@ -16,6 +16,7 @@ import {
   getSignupFieldMessage,
   type SignupFieldKey,
 } from "@/lib/signupValidation";
+import { requiredStarClass } from "@/lib/uiInvalid";
 
 type UsernameCheck =
   | { status: "idle" }
@@ -231,15 +232,7 @@ export default function SignupPage() {
           회원가입
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          아이디·비밀번호·확인·힌트만 필수예요. 나머지는 선택입니다.
-          가입 전{" "}
-          <Link
-            href="/terms"
-            className="font-semibold text-[#3182F6] underline-offset-2 hover:underline"
-          >
-            약관·광고 안내
-          </Link>
-          를 확인해 주세요.
+          약관 동의와 아이디·비밀번호·확인·힌트만 필수예요. 나머지는 선택입니다.
         </p>
       </div>
 
@@ -250,29 +243,42 @@ export default function SignupPage() {
         className="space-y-3"
       >
         <Card className="space-y-2.5">
-          <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
-            업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
-            필요할 때 쓰이니 가능하면 적어 주세요. (선택)
-          </p>
-          <Input
-            label="업장명"
-            value={shopName}
-            onChange={(e) => setShopName(e.target.value)}
-            placeholder="예: 천호동 (선택)"
-            hint="「부동산」「공인중개사사무소」가 없으면 저장 시 공인중개사사무소가 붙습니다"
-          />
-          <Input
-            label="이름"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동 (선택)"
-          />
-          <PhoneInput
-            label="전화번호"
-            value={phone}
-            onChange={setPhone}
-            hint="선택 입력 · 매물 공유 시 사용"
-          />
+          <p className="text-sm font-bold text-gray-800">필수</p>
+          <div ref={setFieldRef("agreed")} className="space-y-1.5">
+            <p className="text-[13px] font-bold text-gray-700">
+              이용약관 동의
+              <span className={requiredStarClass}>*</span>
+            </p>
+            <label
+              className={[
+                "flex cursor-pointer items-start gap-3 rounded-2xl border px-3.5 py-3 active:scale-[0.99] transition-all duration-150",
+                isInvalid("agreed")
+                  ? "border-red-500 bg-red-50"
+                  : "border-gray-100 bg-gray-50",
+              ].join(" ")}
+            >
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-1 h-5 w-5 shrink-0 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
+              />
+              <span className="text-[13px] leading-relaxed text-gray-600">
+                <Link
+                  href="/terms"
+                  className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  이용약관 · 개인정보 · 광고 · 면책 안내
+                </Link>
+                에 동의합니다.
+                <span className="mt-1 block text-[12px] text-gray-400">
+                  업무 편의 도구이며, 고객·매물·방문 일정을 현장에서 편하게
+                  정리할 수 있습니다.
+                </span>
+              </span>
+            </label>
+          </div>
           <div ref={setFieldRef("username")} className="space-y-1.5">
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
@@ -360,6 +366,33 @@ export default function SignupPage() {
               }
             />
           </div>
+        </Card>
+
+        <Card className="space-y-2.5">
+          <p className="text-sm font-bold text-gray-800">선택</p>
+          <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
+            업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
+            필요할 때 쓰이니 가능하면 적어 주세요.
+          </p>
+          <Input
+            label="업장명"
+            value={shopName}
+            onChange={(e) => setShopName(e.target.value)}
+            placeholder="예: 천호동 (선택)"
+            hint="「부동산」「공인중개사사무소」가 없으면 저장 시 공인중개사사무소가 붙습니다"
+          />
+          <Input
+            label="이름"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="홍길동 (선택)"
+          />
+          <PhoneInput
+            label="전화번호"
+            value={phone}
+            onChange={setPhone}
+            hint="선택 입력 · 매물 공유 시 사용"
+          />
           <div className="overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50/80">
             <button
               type="button"
@@ -399,43 +432,12 @@ export default function SignupPage() {
               </div>
             ) : null}
           </div>
-          {error && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
-              {error}
-            </p>
-          )}
         </Card>
-
-        <label
-          ref={setFieldRef("agreed")}
-          className={[
-            "flex cursor-pointer items-start gap-3 rounded-2xl border px-3.5 py-3 active:scale-[0.99] transition-all duration-150",
-            isInvalid("agreed")
-              ? "border-red-500 bg-red-50"
-              : "border-gray-100 bg-white",
-          ].join(" ")}
-        >
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-1 h-5 w-5 shrink-0 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
-          />
-          <span className="text-[13px] leading-relaxed text-gray-600">
-            <Link
-              href="/terms"
-              className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
-              onClick={(e) => e.stopPropagation()}
-            >
-              이용약관 · 개인정보 · 광고 · 면책 안내
-            </Link>
-            에 동의합니다.
-            <span className="mt-1 block text-[12px] text-gray-400">
-              업무 편의 도구이며, 고객·매물·방문 일정을 현장에서 편하게 정리할 수
-              있습니다.
-            </span>
-          </span>
-        </label>
+        {error && (
+          <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+            {error}
+          </p>
+        )}
       </form>
 
       <StickyActionBar>

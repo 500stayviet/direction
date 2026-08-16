@@ -1,5 +1,13 @@
 "use client";
 
+import { useState } from "react";
+import { DeviceConsentModal } from "@/components/DeviceConsentModal";
+import {
+  consentKindForIntake,
+  grantDeviceConsent,
+  hasValidDeviceConsent,
+} from "@/lib/deviceConsent";
+
 export type IntakeMethod = "message" | "talk" | "photo";
 
 function MessageIcon({ className }: { className?: string }) {
@@ -87,22 +95,64 @@ export function IntakeSourceBar({
 }: {
   onSelect: (method: IntakeMethod) => void;
 }) {
+  const [consentKind, setConsentKind] = useState<
+    ReturnType<typeof consentKindForIntake> | null
+  >(null);
+  const [pendingMethod, setPendingMethod] = useState<"talk" | "photo" | null>(
+    null
+  );
+
+  const selectAfterConsent = (method: IntakeMethod) => {
+    onSelect(method);
+  };
+
+  const requestMethod = (method: IntakeMethod) => {
+    if (method === "message") {
+      selectAfterConsent(method);
+      return;
+    }
+    const kind = consentKindForIntake(method);
+    if (hasValidDeviceConsent(kind)) {
+      selectAfterConsent(method);
+      return;
+    }
+    setPendingMethod(method);
+    setConsentKind(kind);
+  };
+
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {ITEMS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => onSelect(item.id)}
-          className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-1.5 py-2.5 text-[16px] font-bold leading-tight text-gray-800 shadow-sm active:scale-95 transition-all duration-150"
-        >
-          <item.Icon className="h-[28px] w-[28px] shrink-0 text-[#3182F6]" />
-          <span className="mt-1 text-center">{item.label}</span>
-          <span className="mt-0.5 text-center text-[10px] font-medium leading-snug text-gray-400">
-            {item.hint}
-          </span>
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        {ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => requestMethod(item.id)}
+            className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-1.5 py-2.5 text-[16px] font-bold leading-tight text-gray-800 shadow-sm active:scale-95 transition-all duration-150"
+          >
+            <item.Icon className="h-[28px] w-[28px] shrink-0 text-[#3182F6]" />
+            <span className="mt-1 text-center">{item.label}</span>
+            <span className="mt-0.5 text-center text-[10px] font-medium leading-snug text-gray-400">
+              {item.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+      <DeviceConsentModal
+        kind={consentKind}
+        onDeny={() => {
+          setConsentKind(null);
+          setPendingMethod(null);
+        }}
+        onAllow={() => {
+          if (!consentKind || !pendingMethod) return;
+          grantDeviceConsent(consentKind);
+          const method = pendingMethod;
+          setConsentKind(null);
+          setPendingMethod(null);
+          selectAfterConsent(method);
+        }}
+      />
+    </>
   );
 }

@@ -19,7 +19,7 @@ describe("preferredLocation", () => {
     });
   });
 
-  it("기본 저장값은 비어 있다(박스는 강동구만)", () => {
+  it("기본 저장값은 비어 있다", () => {
     assert.deepEqual(defaultPreferredLocation(), {
       preferredGus: [],
       preferredDongs: [],

@@ -17,34 +17,40 @@ export function LandCategoryPicker({
   return (
     <div className="space-y-1">
       <p className="text-[13px] font-semibold text-gray-600">지목</p>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={[
-          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
-          "border-gray-200 bg-gray-50 active:scale-[0.99] transition-all duration-150",
-          value ? "border-[#3182F6]/55" : "",
-        ].join(" ")}
-      >
-        <span
-          className={[
-            "text-[15px] font-semibold",
-            value ? "text-gray-900" : "text-gray-400",
-          ].join(" ")}
-        >
-          {value || "지목 선택"}
-        </span>
-        <span className="text-[12px] font-bold text-[#3182F6]">선택</span>
-      </button>
       {value ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className={[
+              "min-h-[36px] max-w-full rounded-xl px-4 text-[15px] font-bold",
+              "bg-[#3182F6] text-white shadow-sm",
+              "active:scale-95 transition-all duration-150",
+            ].join(" ")}
+          >
+            {value}
+          </button>
+          <button
+            type="button"
+            className="text-[12px] font-semibold text-gray-400"
+            onClick={() => onChange("")}
+          >
+            지목 지우기
+          </button>
+        </>
+      ) : (
         <button
           type="button"
-          className="text-[12px] font-semibold text-gray-400"
-          onClick={() => onChange("")}
+          onClick={() => setOpen(true)}
+          className={[
+            "min-h-[36px] rounded-xl px-4 text-[15px] font-bold",
+            "bg-gray-100 text-gray-700",
+            "active:scale-95 transition-all duration-150",
+          ].join(" ")}
         >
-          지목 지우기
+          지목선택
         </button>
-      ) : null}
+      )}
 
       <Modal
         open={open}

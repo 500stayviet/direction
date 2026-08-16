@@ -13,7 +13,7 @@ import {
   parseISODate,
   todayISO,
 } from "@/lib/date";
-import { filledBoxClass } from "@/lib/uiInvalid";
+import { filledBoxClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 
 interface DateRangePickerProps {
   label?: string;
@@ -25,8 +25,6 @@ interface DateRangePickerProps {
   /** true면 종료일 없이도 완료 가능 */
   optionalTo?: boolean;
   invalid?: boolean;
-  /** 반영된 값 — 파란 칸 */
-  accent?: boolean;
 }
 
 type Step = "from" | "to";
@@ -40,7 +38,6 @@ export function DateRangePicker({
   minDate = todayISO(),
   optionalTo = false,
   invalid,
-  accent,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("from");
@@ -77,17 +74,21 @@ export function DateRangePicker({
 
   const finish = (nextFrom: string, nextTo: string) => {
     if (!nextFrom) return;
-    if (nextTo && nextTo < nextFrom) return;
-    if (!optionalTo && !nextTo) return;
-    onChange({ from: nextFrom, to: nextTo });
+    const end = nextTo || nextFrom;
+    if (end < nextFrom) return;
+    onChange({ from: nextFrom, to: end });
     setOpen(false);
   };
 
   const selectDay = (iso: string) => {
     if (step === "from") {
-      const nextTo = draftTo && draftTo >= iso ? draftTo : "";
+      if (draftFrom === iso) {
+        setDraftFrom("");
+        setDraftTo("");
+        return;
+      }
       setDraftFrom(iso);
-      setDraftTo(nextTo);
+      setDraftTo("");
       setStep("to");
       toClickReadyAt.current = Date.now() + 450;
       const base = parseISODate(iso);
@@ -98,6 +99,14 @@ export function DateRangePicker({
       return;
     }
     if (Date.now() < toClickReadyAt.current) return;
+    if (iso === draftFrom) {
+      finish(draftFrom, draftFrom);
+      return;
+    }
+    if (draftTo === iso) {
+      setDraftTo("");
+      return;
+    }
     setDraftTo(iso);
   };
 
@@ -105,9 +114,7 @@ export function DateRangePicker({
     finish(draftFrom, draftTo);
   };
 
-  const canConfirm = optionalTo
-    ? !!draftFrom && (!draftTo || draftTo >= draftFrom)
-    : !!draftFrom && !!draftTo && draftTo >= draftFrom;
+  const canConfirm = !!draftFrom && (!draftTo || draftTo >= draftFrom);
 
   const selected = step === "from" ? draftFrom : draftTo;
 
@@ -121,47 +128,46 @@ export function DateRangePicker({
     return "";
   })();
 
+  const openPicker = () => {
+    setOpen(true);
+  };
+
+  const wrapInvalid = Boolean(invalid && label);
+
   return (
-    <div className="space-y-1">
+    <div className={wrapInvalid ? emptyRequiredClass({ invalid: true }) : "space-y-1"}>
       {label ? (
         <p
           className={[
             "text-[13px] font-semibold",
-            invalid ? "text-red-500" : "text-gray-600",
+            invalid ? invalidLabelClass : "text-gray-600",
           ].join(" ")}
         >
           {label}
           {required && (
-            <span className={invalid ? "ml-0.5 text-red-400" : "ml-0.5 text-[#3182F6]"}>
+            <span className={requiredStarClass}>
               *
             </span>
           )}
         </p>
       ) : null}
-      {invalid ? (
-        <p className="text-xs font-semibold text-red-400">미입력</p>
+      {wrapInvalid ? (
+        <p className={`text-xs ${invalidHintClass}`}>미입력</p>
       ) : null}
 
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openPicker}
         className={[
-          "flex min-h-[38px] w-full items-center justify-between rounded-xl border px-3.5",
-          "active:scale-[0.99] transition-all duration-150",
-          invalid
-            ? "border-red-300 bg-red-50/70 text-gray-900"
-            : accent && summary
-              ? filledBoxClass
-              : summary
-                ? "border-gray-200 bg-white text-gray-900"
-                : "border-gray-200 bg-gray-50 text-gray-400",
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
+          "active:scale-95 transition-all duration-150",
+          summary
+            ? filledBoxClass
+            : "border border-gray-200 bg-gray-100 text-gray-700",
         ].join(" ")}
       >
-        <span className="truncate text-left text-[16px] font-semibold">
+        <span className="text-center leading-snug">
           {summary || "날짜 선택"}
-        </span>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#3182F6]">
-          <CalendarIcon />
         </span>
       </button>
 
@@ -173,10 +179,10 @@ export function DateRangePicker({
           step === "from"
             ? optionalTo
               ? "시작일을 고른 뒤, 종료일은 필요할 때만 선택하세요"
-              : "시작일을 고른 뒤 종료일을 고르고, 선택 완료를 눌러 주세요"
+              : "시작일을 고른 뒤, 같은 날을 누르면 단일 · 다른 날을 누르면 기간입니다"
             : optionalTo
               ? `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} · 종료일은 선택 사항`
-              : `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} 이후 · 고른 뒤 선택 완료`
+              : `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} · 같은 날이면 단일, 다른 날이면 까지`
         }
       >
         <div className="mb-3 grid grid-cols-2 gap-2">
@@ -270,12 +276,13 @@ export function DateRangePicker({
                 return <div key={`empty-${idx}`} className="h-11" />;
               }
               const disabled = cell.iso < activeMin;
-              const isSelected = selected === cell.iso;
+              const isFrom = cell.iso === draftFrom;
+              const isCurrent = selected === cell.iso;
               const inRange =
                 !!draftFrom &&
                 !!draftTo &&
-                cell.iso >= draftFrom &&
-                cell.iso <= draftTo;
+                cell.iso > draftFrom &&
+                cell.iso < draftTo;
               const weekday = idx % 7;
 
               return (
@@ -289,17 +296,19 @@ export function DateRangePicker({
                     "active:scale-95 transition-all duration-150",
                     disabled
                       ? "text-gray-300"
-                      : isSelected
+                      : isCurrent
                         ? "bg-[#3182F6] text-white shadow-sm"
-                        : inRange
-                          ? "bg-blue-50 text-[#3182F6]"
-                          : cell.isToday
-                            ? "ring-1 ring-[#3182F6] text-[#3182F6]"
-                            : weekday === 0
-                              ? "text-red-500"
-                              : weekday === 6
-                                ? "text-[#3182F6]"
-                                : "text-gray-800",
+                        : isFrom
+                          ? "bg-sky-400 text-sky-950 font-bold shadow-sm"
+                          : inRange
+                            ? "bg-sky-200 text-sky-800"
+                            : cell.isToday
+                              ? "ring-1 ring-[#3182F6] text-[#3182F6]"
+                              : weekday === 0
+                                ? "text-red-500"
+                                : weekday === 6
+                                  ? "text-[#3182F6]"
+                                  : "text-gray-800",
                   ].join(" ")}
                 >
                   {cell.day}
@@ -336,33 +345,5 @@ export function DateRangePicker({
         </div>
       </Modal>
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="3"
-        y="5"
-        width="18"
-        height="16"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M3 10h18"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8 3v4M16 3v4"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

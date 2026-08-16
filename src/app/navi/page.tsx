@@ -8,30 +8,22 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
-import { PhoneLink } from "@/components/PhoneLink";
-import { ListEdgeChips } from "@/components/ListEdgeChips";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { formatSavedDate, todayISO } from "@/lib/date";
-import {
-  formatVisitDateTime,
-  getCustomerBudgetLabel,
-} from "@/lib/format";
+import { NaviListCard, scheduleTitle } from "@/components/NaviListCard";
+import { isScheduleEnded, todayISO } from "@/lib/date";
 import {
   consumeCustomerSwipeNudge,
   markCustomerSwipeUsed,
 } from "@/lib/customerSwipeHint";
-import { parseSeoulAddress } from "@/lib/seoulRegions";
 import { deleteSchedule, setScheduleWorkspaceShared, upsertSchedule } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
   confirmForeignTeamDelete,
   confirmForeignTeamEdit,
   isForeignTeamItem,
-  teamSharerLabel,
 } from "@/lib/teamActionGuard";
 import {
-  alertHighlightClass,
   getTeamAlertsSnapshot,
   listCardHighlight,
   markShareSeen,
@@ -48,41 +40,6 @@ type PendingAction = {
   type: "complete" | "delete";
 };
 
-function scheduleTitle(
-  schedule: Schedule,
-  customers: Record<string, Customer>
-): string {
-  if (schedule.guestName?.trim()) return schedule.guestName.trim();
-  if (schedule.customerId) {
-    const name = customers[schedule.customerId]?.name;
-    if (name) return name;
-  }
-  return "고객 미지정";
-}
-
-function schedulePhone(
-  schedule: Schedule,
-  customers: Record<string, Customer>
-): string {
-  if (schedule.customerId) {
-    return customers[schedule.customerId]?.phone?.trim() || "";
-  }
-  return "";
-}
-
-/** 매물 주소에서 선택한 동만 모음. 방문 약속 시간 순 · 쉼표 구분 */
-function visitDongsLabel(schedule: Schedule): string {
-  return [...schedule.properties]
-    .sort((a, b) =>
-      (a.arriveTime?.trim() || "99:99").localeCompare(
-        b.arriveTime?.trim() || "99:99"
-      )
-    )
-    .map((p) => parseSeoulAddress(p.address).dong.trim())
-    .filter(Boolean)
-    .join(", ");
-}
-
 function visitStamp(schedule: Schedule): string {
   const date = schedule.visitDate || "9999-12-31";
   const time = schedule.visitTime || "00:00";
@@ -92,8 +49,8 @@ function visitStamp(schedule: Schedule): string {
 function sortSchedules(list: Schedule[], mode: SortMode): Schedule[] {
   const items = [...list];
   const byDone = (a: Schedule, b: Schedule) => {
-    const aDone = Boolean(a.visitCompleted);
-    const bDone = Boolean(b.visitCompleted);
+    const aDone = isScheduleEnded(a);
+    const bDone = isScheduleEnded(b);
     if (aDone !== bDone) return aDone ? 1 : -1;
     return 0;
   };
@@ -241,6 +198,7 @@ export default function NaviEntryPage() {
       <PageHeader
         title="네비 시작하기"
         backHref="/"
+        titleTone="navi"
         subtitle="만든 방문 일정을 고르고 현장으로 이동하세요"
       />
 
@@ -280,132 +238,43 @@ export default function NaviEntryPage() {
           </Card>
         ) : (
           sorted.map((s, index) => {
-            const dongs = visitDongsLabel(s);
-            const name = scheduleTitle(s, customers);
-            const phone = schedulePhone(s, customers);
-            const customer = s.customerId ? customers[s.customerId] : null;
-            const saved = formatSavedDate(s.createdAt);
-            const done = Boolean(s.visitCompleted);
-            const propertyLine = [
-              `매물 ${s.properties.length}곳`,
-              dongs || null,
-            ]
-              .filter(Boolean)
-              .join(" · ");
-
+            const done = isScheduleEnded(s);
             const href = `/schedules/${s.id}?from=navi`;
             return (
-              <div
-                key={s.id}
-                className="relative mb-1.5 overflow-visible pb-0.5 pt-1.5"
-              >
+              <div key={s.id}>
                 <PrefetchHref href={href} />
-                <ListEdgeChips
-                  roomType={customer?.roomType}
-                  buildingKind={customer?.buildingKind}
-                  dealType={customer?.dealType}
-                  moneyLabel={
-                    customer ? getCustomerBudgetLabel(customer) : null
-                  }
-                  depositMan={
-                    customer
-                      ? Math.max(customer.deposit ?? 0, customer.depositTo ?? 0)
-                      : null
-                  }
-                  done={done}
+                <NaviListCard
+                  schedule={s}
+                  customers={customers}
+                  alertHighlight={listCardHighlight("navi", s.id)}
                   right={
                     <TeamShareChip
                       shared={Boolean(s.workspaceShared)}
                       done={done}
                       disabled={busy}
                       locked={isForeignTeamItem(s.createdBy, myId)}
+                      tone="quiet"
                       onToggle={() => void toggleTeamShare(s)}
                     />
                   }
+                  renderCard={(card) => (
+                    <SwipeRevealRow
+                      hintNudge={nudgeFirstCard && index === 0}
+                      onTap={() => {
+                        markShareSeen("navi", s.id);
+                        router.push(href);
+                      }}
+                      onSwipeLeft={() =>
+                        setPending({ id: s.id, type: "complete" })
+                      }
+                      onSwipeRight={() =>
+                        setPending({ id: s.id, type: "delete" })
+                      }
+                    >
+                      {card}
+                    </SwipeRevealRow>
+                  )}
                 />
-
-                <SwipeRevealRow
-                  hintNudge={nudgeFirstCard && index === 0}
-                  onTap={() => {
-                    markShareSeen("navi", s.id);
-                    router.push(href);
-                  }}
-                  onSwipeLeft={() =>
-                    setPending({ id: s.id, type: "complete" })
-                  }
-                  onSwipeRight={() =>
-                    setPending({ id: s.id, type: "delete" })
-                  }
-                >
-                  <Card
-                    className={[
-                      "relative !rounded-2xl !px-3 !pb-2 !pt-2.5",
-                      alertHighlightClass(
-                        done ? null : listCardHighlight("navi", s.id),
-                        done,
-                        "navi"
-                      ),
-                    ].join(" ")}
-                  >
-                    <div className="relative">
-                      <p
-                        className={[
-                          "min-w-0 text-[15px] font-extrabold leading-snug tracking-tight",
-                          done ? "text-gray-500" : "text-[#3182F6]",
-                        ].join(" ")}
-                      >
-                        {formatVisitDateTime(s.visitDate, s.visitTime)}
-                      </p>
-
-                      <div className="mt-1.5 flex items-center justify-between gap-3">
-                        <p
-                          className={[
-                            "min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight leading-none",
-                            done ? "text-gray-600" : "text-gray-900",
-                          ].join(" ")}
-                        >
-                          {name}
-                        </p>
-                        {phone ? (
-                          <PhoneLink
-                            phone={phone}
-                            className={[
-                              "relative z-[1] !shrink-0 !text-[16px] !font-extrabold",
-                              done ? "!text-gray-500" : "",
-                            ].join(" ")}
-                          />
-                        ) : (
-                          <span className="shrink-0 text-[13px] font-semibold text-gray-300">
-                            번호 없음
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-2">
-                        <p
-                          className={[
-                            "min-w-0 truncate text-[13px] font-semibold leading-snug",
-                            done ? "text-gray-500" : "text-gray-600",
-                          ].join(" ")}
-                        >
-                          {propertyLine}
-                        </p>
-                        <div className="mt-0.5 flex items-center justify-between gap-2">
-                          <p className="min-w-0 truncate text-[11px] font-bold leading-none text-gray-500">
-                            {teamSharerLabel(
-                              s.createdByName,
-                              s.createdBy,
-                              peekCurrentUser()?.id
-                            )}
-                          </p>
-                          <p className="shrink-0 text-[11px] font-bold leading-none text-gray-400">
-                            {saved ? `등록일 · ${saved}` : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </SwipeRevealRow>
               </div>
             );
           })

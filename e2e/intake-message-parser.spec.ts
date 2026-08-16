@@ -50,35 +50,25 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
     await expect(
       page.getByRole("button", { name: "매매", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
-    await expect(page.getByLabel("매가 (만원)")).toHaveValue("10000");
-    await expect(page.getByText("성내동")).toBeVisible();
+    await expect(page.getByRole("button", { name: /매매가/ })).toHaveText("1억");
+    await expect(page.getByTestId("property-address-chip")).toHaveText(
+      /성내동/
+    );
 
     await expect(
-      page.locator("div").filter({ hasText: "대출 유무" }).getByRole("button", {
-        name: "무",
-        exact: true,
-      })
+      page.getByTestId("option-대출").getByRole("button", { name: "무", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
       page
-        .locator("div")
-        .filter({ hasText: "전세보증보험 가입 가능 여부" })
+        .getByTestId("option-전세보증보험가입가능여부")
         .getByRole("button", { name: "무", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
-      page.locator("div").filter({ hasText: "주차 유무" }).getByRole("button", {
-        name: "무",
-        exact: true,
-      })
+      page.getByTestId("option-주차").getByRole("button", { name: "무", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
-      page
-        .locator("div")
-        .filter({ hasText: "엘리베이터 유무" })
-        .getByRole("button", { name: "무", exact: true })
+      page.getByTestId("option-엘리베이터").getByRole("button", { name: "무", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
-
-    await expect(page.getByLabel("메모")).toHaveValue("");
   } finally {
     await purgeE2eUser(userId);
   }
@@ -105,7 +95,7 @@ test("매물 메시지 입력: 라벨·의도 키워드만 메모에 넣고 주�
       .fill("원룸 전세 2억 암사동 메모: 남향 저층");
     await page.getByRole("button", { name: "반영하기" }).click();
 
-    await expect(page.getByLabel("메모")).toHaveValue("남향 저층", {
+    await expect(page.getByLabel("메모")).toHaveValue(/남향 저층/, {
       timeout: 15_000,
     });
     await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { OptionPicker } from "@/components/OptionPicker";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import {
   SEOUL_DONG_BY_GU,
   SEOUL_GU_LIST,
@@ -10,8 +11,14 @@ import {
   composeSeoulAddress,
   parseJibunDetail,
   parseSeoulAddress,
-  isPlaceholderAddress,
 } from "@/lib/seoulRegions";
+import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
+import {
+  requiredStarClass,
+  emptyRequiredClass,
+  invalidHintClass,
+  invalidLabelClass,
+} from "@/lib/uiInvalid";
 
 interface SeoulAddressFieldProps {
   value: string;
@@ -21,13 +28,9 @@ interface SeoulAddressFieldProps {
   /** false면 동 필수 표시/검증 UI 제외. 기본 true */
   requireDong?: boolean;
   invalid?: boolean;
-  /** 메시지·대화·사진으로 반영된 뒤에만 파란 박스 */
-  accent?: boolean;
   /** 라벨 우측 경고 (동일 매물 등) */
   labelRight?: React.ReactNode;
 }
-
-const DEFAULT_GU = "강동구";
 
 export function SeoulAddressField({
   value,
@@ -36,56 +39,33 @@ export function SeoulAddressField({
   required,
   requireDong = true,
   invalid,
-  accent,
   labelRight,
 }: SeoulAddressFieldProps) {
   const parsed = useMemo(() => parseSeoulAddress(value), [value]);
-  const initialGu = parsed.gu || DEFAULT_GU;
   const initialJibun = parseJibunDetail(parsed.detail);
-  const [gu, setGu] = useState(initialGu);
-  const [dong, setDong] = useState(parsed.dong || "");
+  const [gu, setGu] = useState(parsed.gu);
+  const [dong, setDong] = useState(parsed.dong);
   const [jibunMain, setJibunMain] = useState(initialJibun.main);
   const [jibunSub, setJibunSub] = useState(initialJibun.sub);
-  /** 사용자가 구·동을 선택한 뒤에만 완료(초록) 표시 */
-  const [guComplete, setGuComplete] = useState(
-    Boolean(parsed.gu) && !isPlaceholderAddress(value)
-  );
-  const [dongComplete, setDongComplete] = useState(Boolean(parsed.dong));
+  const [guOpen, setGuOpen] = useState(false);
+  const [dongOpen, setDongOpen] = useState(false);
+  const [draftGu, setDraftGu] = useState("");
 
-  // 외부 value가 바뀌면(매물 불러오기 등) 구·동·상세 동기화
   useEffect(() => {
     const next = parseSeoulAddress(value);
-    if (next.gu) {
-      setGu(next.gu);
-      setDong(next.dong || "");
-      const jibun = parseJibunDetail(next.detail);
-      setJibunMain(jibun.main);
-      setJibunSub(jibun.sub);
-      setGuComplete(!isPlaceholderAddress(value));
-      setDongComplete(Boolean(next.dong));
-      return;
-    }
-    if (!value) {
-      const nextGu = DEFAULT_GU;
-      setGu(nextGu);
-      setDong("");
-      setJibunMain("");
-      setJibunSub("");
-      setGuComplete(false);
-      setDongComplete(false);
-      onChange(composeSeoulAddress(nextGu, "", ""));
-      onDongChange?.("");
-    } else {
-      const jibun = parseJibunDetail(next.detail);
-      setJibunMain(jibun.main);
-      setJibunSub(jibun.sub);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setGu(next.gu);
+    setDong(next.dong || "");
+    const jibun = parseJibunDetail(next.detail);
+    setJibunMain(jibun.main);
+    setJibunSub(jibun.sub);
   }, [value]);
 
-  const dongs = gu ? SEOUL_DONG_BY_GU[gu] ?? [] : [];
+  const hasSelection = requireDong ? Boolean(gu && dong) : Boolean(gu);
+  const selectedLabel = dong ? `${gu} · ${dong}` : gu;
+  const dongList = SEOUL_DONG_BY_GU[draftGu] ?? [];
+  const addressInvalid = Boolean(invalid);
 
-  const emitSelectAddress = (
+  const emitAddress = (
     nextGu: string,
     nextDong: string,
     nextMain: string,
@@ -93,6 +73,7 @@ export function SeoulAddressField({
   ) => {
     if (!nextGu) {
       onChange("");
+      onDongChange?.("");
       return;
     }
     onChange(
@@ -102,32 +83,61 @@ export function SeoulAddressField({
         composeJibunDetail(nextMain, nextSub)
       )
     );
+    onDongChange?.(nextDong);
   };
 
-  const guInvalid = Boolean(invalid && !guComplete);
-  const dongInvalid = Boolean(invalid && requireDong && !dongComplete);
-  const mainInvalid = Boolean(invalid && !jibunMain.trim());
-  const addressInvalid = Boolean(invalid);
+  const pickGu = (nextGu: string) => {
+    setDraftGu(nextGu);
+    setGuOpen(false);
+    if (!requireDong) {
+      setGu(nextGu);
+      setDong("");
+      emitAddress(nextGu, "", jibunMain, jibunSub);
+      return;
+    }
+    setDongOpen(true);
+  };
+
+  const pickDong = (nextDong: string) => {
+    const nextGu = draftGu;
+    if (!nextGu) return;
+    setGu(nextGu);
+    setDong(nextDong);
+    emitAddress(nextGu, nextDong, jibunMain, jibunSub);
+    setDongOpen(false);
+    setDraftGu("");
+  };
+
+  const closeDongModal = () => {
+    setDongOpen(false);
+    setDraftGu("");
+    setGuOpen(true);
+  };
+
+  const openPicker = () => {
+    setDraftGu(gu);
+    setGuOpen(true);
+  };
 
   return (
-    <div className="space-y-2">
-      <p
-        className={[
-          "flex flex-wrap items-baseline justify-between gap-x-1.5 gap-y-1 text-[13px] font-semibold",
-          addressInvalid ? "text-red-600" : "text-gray-600",
-        ].join(" ")}
-      >
-        <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-          <span>
+    <div
+      className={
+        addressInvalid
+          ? emptyRequiredClass({ invalid: true })
+          : "space-y-2"
+      }
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <p
+          className={[
+            "flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] font-semibold",
+            addressInvalid ? invalidLabelClass : "text-gray-600",
+          ].join(" ")}
+        >
+          <span className="shrink-0">
             매물 주소
             {required && (
-              <span
-                className={
-                  addressInvalid
-                    ? "ml-0.5 text-red-500"
-                    : "ml-0.5 text-[#3182F6]"
-                }
-              >
+              <span className={requiredStarClass}>
                 *
               </span>
             )}
@@ -135,60 +145,39 @@ export function SeoulAddressField({
           <span className="text-[11px] font-bold text-red-500">
             도로명 주소 사용불가
           </span>
-        </span>
-        {labelRight ? (
+        </p>
+        {hasSelection ? (
+          <p className={reselectHintClass}>{reselectHint("매물주소", selectedLabel)}</p>
+        ) : labelRight ? (
           <span className="shrink-0 text-[12px] font-bold text-red-500">
             {labelRight}
           </span>
         ) : null}
-      </p>
+      </div>
       {addressInvalid && (
-        <p className="text-xs font-semibold text-red-500">
-          {requireDong
-            ? "미입력 · 구·동·지번 본번을 입력해 주세요"
-            : "미입력 · 구·지번 본번을 입력해 주세요"}
-        </p>
+        <p className={`text-xs ${invalidHintClass}`}>미입력</p>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <OptionPicker
-          label="구"
-          required={required}
-          invalid={guInvalid}
-          complete={Boolean(accent && guComplete)}
-          value={guComplete ? gu : ""}
-          options={SEOUL_GU_LIST}
-          placeholder="선택구"
-          title="구 선택"
-          description="서울시 자치구"
-          onChange={(nextGu) => {
-            setGu(nextGu);
-            setDong("");
-            setGuComplete(true);
-            setDongComplete(false);
-            onDongChange?.("");
-            emitSelectAddress(nextGu, "", jibunMain, jibunSub);
-          }}
-        />
-        <OptionPicker
-          label="동"
-          required={required && requireDong}
-          invalid={dongInvalid}
-          complete={Boolean(accent && dongComplete)}
-          value={dong}
-          options={dongs}
-          disabled={!gu}
-          placeholder={gu ? "선택동" : "구 먼저 선택"}
-          title="동 선택"
-          description={gu ? `${gu} 법정동` : "구를 먼저 선택해 주세요"}
-          onChange={(nextDong) => {
-            setDong(nextDong);
-            setDongComplete(true);
-            onDongChange?.(nextDong);
-            emitSelectAddress(gu, nextDong, jibunMain, jibunSub);
-          }}
-        />
-      </div>
+      {hasSelection ? (
+        <button
+          type="button"
+          data-testid="property-address-chip"
+          onClick={openPicker}
+          className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-[#3182F6] px-4 text-[15px] font-bold text-white active:scale-95 transition-all duration-150"
+        >
+          {selectedLabel}
+        </button>
+      ) : (
+        <button
+          type="button"
+          data-testid="property-address-select"
+          onClick={openPicker}
+          className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-4 text-[15px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+        >
+          매물주소선택
+        </button>
+      )}
+
       <div className="space-y-1">
         <p className="text-[13px] font-semibold text-gray-600">
           나머지 주소 (지번)
@@ -197,13 +186,13 @@ export function SeoulAddressField({
           <Input
             label="본번"
             required={required}
-            invalid={mainInvalid}
+            invalid={false}
             inputMode="numeric"
             value={jibunMain}
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunMain(next);
-              emitSelectAddress(gu, dong, next, jibunSub);
+              if (hasSelection) emitAddress(gu, dong, next, jibunSub);
             }}
             placeholder="123"
           />
@@ -215,12 +204,82 @@ export function SeoulAddressField({
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunSub(next);
-              emitSelectAddress(gu, dong, jibunMain, next);
+              if (hasSelection) emitAddress(gu, dong, jibunMain, next);
             }}
             placeholder="45"
           />
         </div>
       </div>
+
+      <Modal
+        open={guOpen}
+        onClose={() => setGuOpen(false)}
+        title="구 선택"
+        description="구를 고른 뒤 동을 선택합니다."
+        position="center"
+        dense
+        footer={
+          <Button fullWidth variant="secondary" onClick={() => setGuOpen(false)}>
+            닫기
+          </Button>
+        }
+      >
+        <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
+          {SEOUL_GU_LIST.map((item) => {
+            const active = (draftGu || gu) === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => pickGu(item)}
+                className={[
+                  "min-h-[44px] rounded-xl text-[13px] font-bold transition-all active:scale-95",
+                  active
+                    ? "bg-[#3182F6] text-white"
+                    : "bg-gray-100 text-gray-700",
+                ].join(" ")}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
+
+      <Modal
+        open={dongOpen}
+        onClose={closeDongModal}
+        title={`${draftGu} · 동 선택`}
+        description="동을 누르면 바로 선택됩니다"
+        position="center"
+        dense
+        footer={
+          <Button fullWidth variant="secondary" onClick={closeDongModal}>
+            취소
+          </Button>
+        }
+      >
+        <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
+          {dongList.map((item) => {
+            const active = draftGu === gu && dong === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => pickDong(item)}
+                className={[
+                  "min-h-[44px] rounded-xl text-[13px] font-bold transition-all active:scale-95",
+                  active
+                    ? "bg-[#3182F6] text-white"
+                    : "bg-gray-100 text-gray-700",
+                ].join(" ")}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -185,7 +185,7 @@ export interface Property extends SharedMeta {
   dealType?: DealType;
   /** 방/매물 유형 (고객 유형을 기본으로 불러옴) */
   roomType?: RoomType;
-  /** 방 수 (투룸은 2 고정 · 3룸+/아파트 선택, 필수 · 최대 5) */
+  /** 방 수 (투룸은 2 고정 · 3룸+ 3~8 · 오피스텔·아파트 1~6) */
   roomCount?: number;
   /** 화장실 수 (투룸·3룸+·아파트) */
   bathroomCount?: number;
@@ -217,6 +217,8 @@ export interface Property extends SharedMeta {
   partnerAgencyShared?: boolean;
   /** 리스트 매물: 팀공유 여부 (유=공유중) */
   workspaceShared?: boolean;
+  /** 매물리스트에서 불러온 원본 id. 있으면 방문일정 폼에서 수정 잠금 */
+  listedFromId?: string;
   /** 실사용면적 평 (원룸·상가 등 단일 유형) */
   usableArea?: number;
   /** 토지 대지면적 평 / 건물 토지면적 평 */

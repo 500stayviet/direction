@@ -53,7 +53,7 @@ export function IntakeMessageModal({
       open={open}
       onClose={busy ? () => {} : onClose}
       title="메시지로 입력"
-      description="메시지를 작성 또는 내용을 가져와 붙여넣으세요"
+      description="메시지를 작성 또는 내용을 가져와 붙여넣으세요. AI로 내용을 분석하여 반영합니다."
       descriptionClassName="text-[12px] font-medium leading-snug"
       dense
       overlayClassName="z-50 overflow-x-hidden"

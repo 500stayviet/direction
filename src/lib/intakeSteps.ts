@@ -24,11 +24,11 @@ export type IntakeStepLine = {
 
 export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
   customer: [
-    { key: "name", name: "고객명 또는 명칭", example: "홍길동  ·  명칭 성내" },
+    { key: "name", name: "고객명 또는 명칭", example: "홍길동  ·  명칭" },
     { key: "phone", name: "전화번호", example: "010-1234-5678" },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
-    { key: "location", name: "선호위치", example: "강동구 oo동" },
+    { key: "location", name: "선호지역", example: "강동구 oo동" },
     { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
     {
       key: "dates",
@@ -49,7 +49,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
     {
       key: "dates",
-      name: "임대가능일",
+      name: "임대희망일",
       example: "○○월 ○○일    부터    ○○월 ○○일",
     },
     {
@@ -60,7 +60,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "contacts",
       name: "임차인 · 임대인 전화번호",
-      example: "010-1234-5678",
+      example: "임차인 010-1234-5678, 임대인 010-9876-5432",
     },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
@@ -490,7 +490,7 @@ function mergeTalkDates(
   return { moveInFrom: newFrom, moveInTo: newTo };
 }
 
-/** 고객 선호위치: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다 */
+/** 고객 선호지역: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다 */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,

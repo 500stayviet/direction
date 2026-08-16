@@ -18,15 +18,22 @@ import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { PhoneLink } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { ListEdgeChips } from "@/components/ListEdgeChips";
+import {
+  dealTypeBarClass,
+  dealTypeTextClass,
+} from "@/components/ListEdgeChips";
 import { Modal } from "@/components/ui/Modal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import { SharePropertyModal } from "@/components/SharePropertyModal";
 import { DetailHeaderButton } from "@/components/DetailHeaderButton";
 import { TeamShareButton } from "@/components/SiteShareUi";
-import { createEmptyProperty, MAX_SCHEDULE_PROPERTIES } from "@/lib/constants";
-import { addMinutesToHHmm, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
+import {
+  createEmptyProperty,
+  displayRoomType,
+  MAX_SCHEDULE_PROPERTIES,
+} from "@/lib/constants";
+import { addMinutesToHHmm, applyVisitTimeToArriveTimes, cascadeArriveTimes, sortPropertiesByArriveTime, swapPropertySlots } from "@/lib/arriveTime";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { buildRouteSummary, findSmarterRouteHint } from "@/lib/distance";
 import {
@@ -51,6 +58,7 @@ import {
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
   yesNoLabel,
+  availLabel,
   matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
@@ -229,6 +237,17 @@ function ScheduleDetailInner() {
       if (singleNavDoneTimer.current) clearTimeout(singleNavDoneTimer.current);
     };
   }, [params.id, router]);
+
+  const customerTypeLabel = customer
+    ? displayRoomType(customer.roomType, customer.buildingKind)
+    : "";
+  const customerTypeText =
+    customerTypeLabel && customerTypeLabel !== "-"
+      ? customerTypeLabel
+      : "유형";
+  const customerMoneyLabel = customer
+    ? getCustomerBudgetLabel(customer).trim()
+    : "";
 
   const routeSummary = useMemo(
     () => (editing ? buildRouteSummary(properties) : schedule?.routeSummary ?? []),
@@ -588,7 +607,14 @@ function ScheduleDetailInner() {
               ].join(" ")}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="font-bold text-gray-900">고객 불러오기</p>
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <p className="shrink-0 font-bold text-gray-900">고객 불러오기</p>
+                  {customerMode !== "selected" ? (
+                    <p className="min-w-0 text-[11px] leading-snug text-gray-400">
+                      고객없음을 체크하면 성함만 입력할 수 있어요
+                    </p>
+                  ) : null}
+                </div>
                 {customerMode === "selected" ? (
                   <Button
                     type="button"
@@ -598,7 +624,7 @@ function ScheduleDetailInner() {
                     변경하기
                   </Button>
                 ) : (
-                  <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <label className="flex shrink-0 items-center gap-2 active:scale-95 transition-all duration-150">
                     <CircleCheck
                       checked={customerMode === "guest"}
                       onChange={(e) => {
@@ -635,9 +661,8 @@ function ScheduleDetailInner() {
                     onChange={setCustomerQuery}
                   />
                   {customerQuery.trim() && filteredCustomers.length === 0 ? (
-                    <p className="py-1 text-sm text-gray-500">
-                      검색 결과가 없습니다. 고객없음을 체크하면 성함만 입력할 수
-                      있어요.
+                    <p className="py-3 text-center text-sm text-gray-500">
+                      검색 결과가 없습니다
                     </p>
                   ) : null}
                 </>
@@ -700,7 +725,12 @@ function ScheduleDetailInner() {
                   required
                   invalid={validationFocus?.target === "visitTime"}
                   value={visitTime}
-                  onChange={setVisitTime}
+                  onChange={(time) => {
+                    setVisitTime(time);
+                    setProperties((prev) =>
+                      applyVisitTimeToArriveTimes(prev, time)
+                    );
+                  }}
                 />
               </div>
             </Card>
@@ -786,7 +816,7 @@ function ScheduleDetailInner() {
                   const last = prev[prev.length - 1];
                   const arriveTime = last?.arriveTime
                     ? addMinutesToHHmm(last.arriveTime, 30)
-                    : "";
+                    : visitTime || "";
                   return [
                     ...prev,
                     { ...createEmptyProperty(), arriveTime },
@@ -811,68 +841,75 @@ function ScheduleDetailInner() {
         </>
       ) : (
         <div className="space-y-2.5">
-          <div className="relative pt-2">
-            <div className="absolute inset-x-4 top-2 z-10 -translate-y-1/2">
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#3182F6] px-3 py-1 text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)] ring-2 ring-[#F9FAFB]">
-                <span className="shrink-0 text-white/80">방문 시간</span>
-                <span className="truncate tracking-tight">
-                  {formatVisitDateTime(schedule.visitDate, schedule.visitTime)}
-                </span>
+          <div className="space-y-2">
+            <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-[#3182F6] px-3 py-2 text-white">
+              <span className="shrink-0 text-[12px] font-bold text-white/75">
+                방문 시간
+              </span>
+              <span className="truncate text-[16px] font-extrabold tracking-tight">
+                {formatVisitDateTime(schedule.visitDate, schedule.visitTime)}
               </span>
             </div>
-            <Card className="!overflow-visible space-y-2 !px-3 !pb-3 !pt-4">
-              {customer ? (
-                <>
-                  <ListEdgeChips
-                    placement="inline"
-                    roomType={customer.roomType}
-                    buildingKind={customer.buildingKind}
-                    dealType={customer.dealType}
-                    moneyLabel={getCustomerBudgetLabel(customer)}
-                    depositMan={Math.max(
-                      customer.deposit ?? 0,
-                      customer.depositTo ?? 0
-                    )}
-                  />
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-[20px] font-extrabold tracking-tight text-gray-900">
-                        {customer.name}
-                      </p>
-                      {customer.nonOccupancy ? (
-                        <p className="mt-1 text-[12px] font-semibold text-gray-500">
-                          비입주
-                        </p>
-                      ) : null}
-                    </div>
-                    <PhoneLink
-                      phone={customer.phone}
-                      className="!shrink-0 !rounded-xl !bg-[#E8F8F1] !px-2.5 !py-1.5 !text-[14px] !font-extrabold !text-[#03B26C]"
-                    />
+            {customer ? (
+              <article className="flex overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <div
+                  className={[
+                    "w-1.5 shrink-0",
+                    dealTypeBarClass(customer.dealType),
+                  ].join(" ")}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1 px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {customer.dealType?.trim() ? (
+                      <span
+                        className={[
+                          "text-[22px] font-extrabold leading-none tracking-tight",
+                          dealTypeTextClass(customer.dealType),
+                        ].join(" ")}
+                      >
+                        {customer.dealType}
+                      </span>
+                    ) : null}
+                    <span className="inline-flex max-w-[8.5rem] shrink-0 truncate rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[16px] font-bold leading-none text-gray-600">
+                      {customerTypeText}
+                    </span>
+                    {customerMoneyLabel && customerMoneyLabel !== "-" ? (
+                      <span className="ml-auto min-w-0 truncate text-right text-[22px] font-extrabold leading-none tracking-tight text-gray-900">
+                        {customerMoneyLabel}
+                      </span>
+                    ) : null}
                   </div>
-                  {(customer.preferredDongs?.length ?? 0) > 0 ||
-                  (customer.roomType === "토지" &&
-                    customer.landCategory?.trim()) ? (
-                    <div className="space-y-1.5 rounded-xl bg-[#F9FAFB] px-2.5 py-2">
-                      <CustomerPreferredLocationBlock customer={customer} />
-                      {customer.roomType === "토지" &&
-                      customer.landCategory?.trim() ? (
-                        <CustomerMeta
-                          label="지목"
-                          value={customer.landCategory.trim()}
-                        />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <p className="min-w-0 truncate text-[14px] font-bold leading-snug text-gray-700">
+                      {customer.name}
+                      {customer.nonOccupancy ? (
+                        <span className="ml-1.5 text-[11px] font-semibold text-gray-400">
+                          비입주
+                        </span>
                       ) : null}
-                    </div>
-                  ) : null}
-                  <div className="rounded-xl bg-[#F9FAFB]">
+                    </p>
+                    {customer.phone?.trim() ? (
+                      <PhoneLink
+                        phone={customer.phone}
+                        showIcon={false}
+                        className="ml-auto !shrink-0 !text-[16px] !font-extrabold !leading-none !tracking-tight !text-[#03B26C]"
+                      />
+                    ) : (
+                      <p className="ml-auto shrink-0 text-[13px] font-semibold text-gray-400">
+                        번호 없음
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-1.5 rounded-xl bg-[#F9FAFB]">
                     <button
                       type="button"
                       onClick={() => setCustomerDetailOpen((v) => !v)}
-                      className="flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left active:scale-[0.99] transition-all duration-150"
+                      className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
                       aria-expanded={customerDetailOpen}
                     >
                       <span className="text-[13px] font-bold text-gray-600">
-                        입주희망·대출·보증보험·주차 등
+                        상세정보
                       </span>
                       <span className="text-[12px] font-bold text-[#3182F6]">
                         {customerDetailOpen
@@ -882,6 +919,20 @@ function ScheduleDetailInner() {
                     </button>
                     {customerDetailOpen ? (
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-gray-100 px-2.5 py-2">
+                        {(customer.preferredDongs?.length ?? 0) > 0 ? (
+                          <div className="col-span-2 min-w-0">
+                            <CustomerPreferredLocationBlock
+                              customer={customer}
+                            />
+                          </div>
+                        ) : null}
+                        {customer.roomType === "토지" &&
+                        customer.landCategory?.trim() ? (
+                          <CustomerMeta
+                            label="지목"
+                            value={customer.landCategory.trim()}
+                          />
+                        ) : null}
                         <CustomerMeta
                           label="입주희망"
                           value={getCustomerMoveInLabel(customer)}
@@ -895,11 +946,13 @@ function ScheduleDetailInner() {
                           <>
                             <CustomerMeta
                               label="대출"
-                              value={getCustomerLoanLabel(customer)}
+                              value={availLabel(getCustomerLoanLabel(customer))}
                             />
                             <CustomerMeta
                               label="보증보험"
-                              value={yesNoLabel(customer.insuranceNeeded)}
+                              value={availLabel(
+                                yesNoLabel(customer.insuranceNeeded)
+                              )}
                             />
                           </>
                         ) : null}
@@ -907,7 +960,7 @@ function ScheduleDetailInner() {
                         customer.roomType !== "건물" ? (
                           <CustomerMeta
                             label="주차"
-                            value={getCustomerParkingLabel(customer)}
+                            value={availLabel(getCustomerParkingLabel(customer))}
                           />
                         ) : null}
                         {customer.roomType !== "토지" ? (
@@ -929,18 +982,18 @@ function ScheduleDetailInner() {
                       </div>
                     ) : null}
                   </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-[20px] font-extrabold tracking-tight text-gray-900">
-                    {schedule.guestName || "이름 없음"}
-                  </p>
-                  <p className="text-[13px] font-medium text-gray-500">
-                    고객없음 · 성함만 등록
-                  </p>
-                </>
-              )}
-            </Card>
+                </div>
+              </article>
+            ) : (
+              <Card className="space-y-1 !px-3 !py-3">
+                <p className="text-[20px] font-extrabold tracking-tight text-gray-900">
+                  {schedule.guestName || "이름 없음"}
+                </p>
+                <p className="text-[13px] font-medium text-gray-500">
+                  고객없음 · 성함만 등록
+                </p>
+              </Card>
+            )}
           </div>
 
           {schedule.properties.map((property, index) => (

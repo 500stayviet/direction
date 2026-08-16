@@ -82,6 +82,22 @@ export function cascadeArriveTimes(
   return next;
 }
 
+/** 만나는 시간 → 1번 매물 방문 약속. 뒤 매물은 +30분씩 */
+export function applyVisitTimeToArriveTimes(
+  list: Property[],
+  visitTime: string
+): Property[] {
+  if (isUnsetArriveTime(visitTime) || list.length === 0) return list;
+  const prevArrive = list[0].arriveTime ?? "";
+  const next =
+    prevArrive === visitTime
+      ? list
+      : list.map((p, i) => (i === 0 ? { ...p, arriveTime: visitTime } : p));
+  return sortPropertiesByArriveTime(
+    cascadeArriveTimes(next, 0, prevArrive, visitTime)
+  );
+}
+
 /** 방문 약속 시간이 빠른 순으로 정렬 (미입력은 맨 뒤) */
 export function sortPropertiesByArriveTime(list: Property[]): Property[] {
   return [...list].sort((a, b) =>

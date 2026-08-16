@@ -1,8 +1,57 @@
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
+/** 서울 벽시계 YYYY-MM-DD + HH:mm → UTC ms (KST=UTC+9) */
+function seoulWallClockMs(dateISO: string, timeHHmm: string): number | null {
+  const [y, m, d] = dateISO.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const [hhRaw, mmRaw] = timeHHmm.split(":");
+  const hh = Number(hhRaw);
+  const mm = Number(mmRaw);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return Date.UTC(y, m - 1, d, hh - 9, mm, 0);
+}
+
+/** 방문 시각 후 이 시간이 지나면 목록에서 종료·회색 */
+export const VISIT_LAPSE_HOURS = 12;
+
+export function isVisitLapsed(
+  visitDate?: string,
+  visitTime?: string,
+  now: Date = new Date()
+): boolean {
+  if (!visitDate) return false;
+  const raw = (visitTime ?? "").trim();
+  const time = /^\d{1,2}:\d{2}$/.test(raw) ? raw : "00:00";
+  const start = seoulWallClockMs(visitDate, time);
+  if (start == null) return false;
+  return now.getTime() >= start + VISIT_LAPSE_HOURS * 60 * 60 * 1000;
+}
+
+export function isScheduleEnded(
+  schedule: {
+    visitCompleted?: boolean;
+    visitDate?: string;
+    visitTime?: string;
+  },
+  now: Date = new Date()
+): boolean {
+  return (
+    Boolean(schedule.visitCompleted) ||
+    isVisitLapsed(schedule.visitDate, schedule.visitTime, now)
+  );
+}
+
+/** 서울(Asia/Seoul) 달력 기준 오늘 YYYY-MM-DD */
 export function todayISO(): string {
-  const d = new Date();
-  return toISODate(d);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 export function toISODate(date: Date): string {

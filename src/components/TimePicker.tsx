@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { requiredStarClass } from "@/lib/uiInvalid";
 
 type Period = "오전" | "오후";
 
@@ -300,7 +301,7 @@ export function TimePicker({
           >
             {label}
             {required && (
-              <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+              <span className={requiredStarClass}>
                 *
               </span>
             )}
@@ -339,7 +340,7 @@ export function TimePicker({
           >
             {label}
             {required && (
-              <span className={invalid ? "ml-0.5 text-red-500" : "ml-0.5 text-[#3182F6]"}>
+              <span className={requiredStarClass}>
                 *
               </span>
             )}

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { ListSearchInput } from "@/components/CustomerSearchInput";
 import { CustomerListCard } from "@/components/CustomerListCard";
@@ -169,31 +168,38 @@ export default function CustomerListPage() {
   };
 
   return (
-    <main className="-mx-4 min-h-dvh bg-[#E8F8F1] px-4 pb-4">
+    <main className="-mx-4 min-h-dvh bg-[#F5F6F8] px-4 pb-4">
       <PageHeader
         title="고객리스트"
         backHref="/"
+        titleTone="customer"
         subtitle={`등록 ${customers.length}명`}
       />
 
-      <div className="space-y-2 pb-4">
+      <div className="space-y-3 pb-4">
         <ListSearchInput
           value={query}
           onChange={setQuery}
           placeholder="이름 · 전화 · 보증금"
           aria-label="고객 검색"
+          className="min-h-[44px] rounded-full border-transparent bg-white px-4 shadow-none"
         />
 
         {filtered.length === 0 ? (
-          <Card>
-            <p className="text-sm text-gray-500">
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center">
+            <p className="text-[15px] font-semibold text-gray-500">
               {customers.length === 0
-                ? "등록된 고객이 없습니다. 아래 버튼으로 추가해 주세요."
+                ? "등록된 고객이 없습니다."
                 : "검색 결과가 없습니다."}
             </p>
-          </Card>
+            {customers.length === 0 ? (
+              <p className="mt-1 text-[13px] text-gray-400">
+                아래 버튼으로 추가해 주세요.
+              </p>
+            ) : null}
+          </div>
         ) : (
-          <div className="space-y-2 overflow-visible pr-2">
+          <div className="space-y-2">
             {filtered.map((c, index) => {
               const done = Boolean(c.contractCompleted);
               const showTeamChip =
@@ -214,6 +220,7 @@ export default function CustomerListPage() {
                         done={done}
                         disabled={busy}
                         locked={foreign}
+                        tone="quiet"
                         onToggle={() => void toggleWorkspaceShare(c)}
                       />
                     ) : null

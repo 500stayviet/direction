@@ -15,7 +15,7 @@ export function CustomerPreferredLocationBlock({
   return (
     <div className="min-w-0 space-y-1">
       <p className="text-[11px] font-bold leading-none text-gray-400">
-        선호위치
+        선호지역
       </p>
       {rows.map((row) => (
         <p
