@@ -66,8 +66,8 @@ export function PhoneChip({
       phone={value}
       showIcon={false}
       className={[
-        "relative z-[1] ml-auto !shrink-0 !gap-1 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 sm:!gap-0.5 sm:px-1",
-        "!text-[18px] !font-bold !leading-none !tracking-tight tabular-nums sm:!text-[16px] sm:!tracking-[-0.08em] sm:normal-nums",
+        "relative z-[1] ml-auto !shrink-0 !gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5",
+        "!text-[18px] !font-bold !leading-none !tracking-[-0.08em] sm:!text-[16px]",
         done ? "!text-gray-400" : "!text-[#2F9E66]",
         className,
       ].join(" ")}
