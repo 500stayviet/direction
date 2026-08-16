@@ -110,7 +110,7 @@ export function IntakeTalkModal({
   const [talkStarted, setTalkStarted] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState("");
-  const [idleHint, setIdleHint] = useState("");
+  const [idlePaused, setIdlePaused] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
 
   const recRef = useRef<SpeechRec | null>(null);
@@ -163,7 +163,7 @@ export function IntakeTalkModal({
     setDialoguePreview("");
     setTalkStarted(false);
     setNotesDraftBoth("");
-    setIdleHint("");
+    setIdlePaused(false);
     stepSpeechRef.current = "";
     processedResultIndexRef.current = 0;
     resetStepSpeech();
@@ -344,7 +344,7 @@ export function IntakeTalkModal({
       stopRecognition();
       clearIdleTimer();
       if (reason === "idle") {
-        setIdleHint("말이 없어 일시정지했습니다.");
+        setIdlePaused(true);
       }
     },
     [clearIdleTimer, stopRecognition]
@@ -449,7 +449,7 @@ export function IntakeTalkModal({
 
   const startListening = () => {
     setError("");
-    setIdleHint("");
+    setIdlePaused(false);
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
@@ -493,7 +493,7 @@ export function IntakeTalkModal({
     setListeningBoth(false);
     stopRecognition();
     clearIdleTimer();
-    setIdleHint("");
+    setIdlePaused(false);
     const key = guide[activeIndexRef.current]?.key;
     if (key === "notes" && !guideStepComplete("notes", stepsRef.current.notes)) {
       commitNotesDraft();
@@ -558,13 +558,15 @@ export function IntakeTalkModal({
   );
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
       title="대화로 입력"
       description="순서대로 마이크에 입력하세요."
       dense
-      className="max-h-[min(92dvh,720px)]"
+      overlayClassName="z-50 max-sm:!px-0"
+      className="h-[100dvh] !max-h-[100dvh] max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
       footer={
         <div className="space-y-2">
           {listening ? (
@@ -574,8 +576,6 @@ export function IntakeTalkModal({
           ) : null}
           {error ? (
             <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
-          ) : idleHint ? (
-            <p className="text-center text-[12px] font-semibold text-gray-400">{idleHint}</p>
           ) : null}
           {listening ? (
             <div className="grid grid-cols-2 gap-2">
@@ -806,8 +806,33 @@ export function IntakeTalkModal({
         value={dialogueDisplay}
         readOnly
         placeholder="대화가 여기에 표시됩니다"
-        className="min-h-[56px]"
+        className="min-h-[40px] sm:min-h-[56px]"
       />
     </Modal>
+    <Modal
+      open={idlePaused}
+      onClose={() => setIdlePaused(false)}
+      overlayClassName="z-[60]"
+      position="center"
+      dense
+      title="말이 없어 일시정지했습니다."
+      description="입력한 칸은 그대로입니다. 이어서 말하려면 「이어서 말하기」를 누르세요."
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" fullWidth onClick={() => setIdlePaused(false)}>
+          닫기
+        </Button>
+        <Button
+          fullWidth
+          onClick={() => {
+            setIdlePaused(false);
+            startListening();
+          }}
+        >
+          이어서 말하기
+        </Button>
+      </div>
+    </Modal>
+    </>
   );
 }

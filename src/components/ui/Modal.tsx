@@ -20,6 +20,8 @@ interface ModalProps {
   headerRight?: React.ReactNode;
   /** 본문과 겹치지 않게 하단에 고정 */
   footer?: ReactNode;
+  /** 오버레이 z-index (기본 z-50) */
+  overlayClassName?: string;
 }
 
 export function Modal({
@@ -34,6 +36,7 @@ export function Modal({
   showClose = false,
   headerRight,
   footer,
+  overlayClassName = "z-50",
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -55,7 +58,8 @@ export function Modal({
   return (
     <div
       className={[
-        "fixed inset-0 z-50 flex justify-center px-4",
+        "fixed inset-0 flex justify-center px-4",
+        overlayClassName,
         centered ? "items-center" : "items-end",
       ].join(" ")}
     >
