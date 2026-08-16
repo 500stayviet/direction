@@ -1,17 +1,18 @@
 # Agent Handoff: Intake Parser · Sample Collection · AI Strategy
 
 > **용도:** 다음 Cursor Agent가 이 파일을 읽고 대화·작업을 이어가기 위한 문서.  
-> **작성:** 2026-08-16 (커밋 `d2897fb` on `cursor/intake-samples-admin-3f06` 기준)
+> **작성:** 2026-08-16 (커밋 `d2897fb` on `cursor/intake-samples-admin-3f06` 기준)  
+> **동기화:** 2026-08-16 — 이 브랜치는 `origin/main` `a15ba82` 위에 리베이스됨. 워크스페이스도 이 브랜치로 맞춤. 다음 대화는 이 파일 + `.cursor/rules/intake-parser-handoff.mdc`를 읽으면 이어감.
 
 ---
 
 ## 0. 빠른 시작 (다음 Agent에게)
 
-1. 브랜치: `cursor/intake-samples-admin-3f06` (main 대비 +3 commits, pushed)
+1. 브랜치: `cursor/intake-samples-admin-3f06` — **최신 `main`(`a15ba82`) 포함** + 파서/OCR/수집 커밋 (pushed)
 2. PR: [#7](https://github.com/500stayviet/direction/pull/7) 메시지 파서, [#8](https://github.com/500stayviet/direction/pull/8) 샘플 수집·관리자 파서 탭
 3. 배포 전: `supabase/migrations/021_intake_parse_samples.sql` Supabase 적용 필수
 4. **미구현:** DeepSeek AI (단지명·메모) — 설계만 확정, 코드 없음
-5. **마이크:** AI 불필요 — 건드리지 말 것
+5. **마이크:** AI 불필요 — `IntakeTalkModal` / `intakeSteps.ts` 건드리지 말 것 (main의 talk 수정은 이미 이 브랜치에 있음)
 
 ---
 
@@ -88,13 +89,16 @@
 
 ## 3. Git · PR
 
-### 브랜치 `cursor/intake-samples-admin-3f06` (main +3, pushed)
+### 브랜치 `cursor/intake-samples-admin-3f06` (`origin/main` `a15ba82` +4, pushed)
 
 ```
+701020a  Add agent handoff doc for intake parser and AI strategy
 d2897fb  Add intake parser sample collection and admin 파서 tab
 5e6237c  Align photo OCR normalization with message parser field formats
 482ea2a  Improve message parser for field listing formats
 ```
+
+`main`의 마이크/대화 입력 커밋은 이 브랜치에 이미 포함됨. 로컬 `main`도 `a15ba82`로 fast-forward됨. 다음 작업은 이 브랜치에서 이어갈 것.
 
 ### PR
 

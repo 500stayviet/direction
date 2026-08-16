@@ -1,0 +1,15 @@
+---
+description: Intake parser handoff — continue message/photo parser + DeepSeek AI; do not touch mic
+alwaysApply: true
+---
+
+# Intake parser — continue this work
+
+Read `docs/AGENT_HANDOFF_INTAKE_PARSER.md` before changing intake parsing.
+
+- **Branch:** `cursor/intake-samples-admin-3f06` (latest `main` + parser/OCR/samples). Stay here unless merging PRs.
+- **PRs (draft):** [#7](https://github.com/500stayviet/direction/pull/7) message parser, [#8](https://github.com/500stayviet/direction/pull/8) sample collection + admin 파서 tab
+- **Deploy:** `supabase/migrations/021_intake_parse_samples.sql` must be applied before prod collection/admin tab
+- **Next (P1):** message + photo only — keep `parseIntakeText` for money/date/address/flags; add server-side DeepSeek V4 Flash JSON `{ buildingName?, memo }` (200–300 char cap). Env: `DEEPSEEK_API_KEY` (never client)
+- **Never touch mic:** `IntakeTalkModal`, `intakeSteps.ts`, talk/speech paths. Do not collect talk samples.
+- Existing `extractBuildingNameMemo` / intent-memo rules: feature-flag or remove only after AI is stable
