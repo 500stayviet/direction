@@ -138,7 +138,6 @@ function buildDemoSeedData(baseDate = startOfLocalDay(new Date())) {
   const visitDate = daysFrom(base, 0);
   const moveInFrom = daysFrom(base, CONTRACT_DEADLINE_DAYS);
   const moveInTo = daysFrom(base, CONTRACT_DEADLINE_DAYS + 14);
-  const moveInDate = formatMoveInRange(moveInFrom, moveInTo);
   const propMoveInFrom = daysFrom(base, 14);
   const propMoveInTo = daysFrom(base, CONTRACT_DEADLINE_DAYS + 14);
   const propMoveInDate = formatMoveInRange(propMoveInFrom, propMoveInTo);

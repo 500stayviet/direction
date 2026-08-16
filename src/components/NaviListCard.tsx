@@ -13,6 +13,7 @@ import {
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { parseSeoulAddress } from "@/lib/seoulRegions";
+import { listCardFrameClass } from "@/lib/teamAlerts";
 import type { Customer, Schedule } from "@/lib/types";
 
 export function scheduleTitle(
@@ -78,16 +79,6 @@ function visitWhenKind(date: string | undefined, done: boolean): WhenKind {
   return "other";
 }
 
-function frameClass(
-  done: boolean,
-  highlight: "share" | "match" | null | undefined
-): string {
-  if (done) return "border-gray-200 bg-gray-50";
-  if (highlight === "share") return "border-emerald-400 bg-white";
-  if (highlight === "match") return "animate-border-sparkle bg-white";
-  return "border-gray-200 bg-white";
-}
-
 interface NaviListCardProps {
   schedule: Schedule;
   customers: Record<string, Customer>;
@@ -124,8 +115,8 @@ export function NaviListCard({
   const card = (
     <article
       className={[
-        "flex overflow-hidden rounded-xl border",
-        frameClass(done, done ? null : alertHighlight),
+        "flex overflow-hidden rounded-xl",
+        listCardFrameClass(done, done ? null : alertHighlight),
       ].join(" ")}
     >
       <div

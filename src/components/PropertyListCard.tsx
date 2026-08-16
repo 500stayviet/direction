@@ -10,6 +10,7 @@ import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatCardAddress } from "@/lib/seoulRegions";
 import { getPropertyDeadlineLabel } from "@/lib/deadline";
+import { listCardFrameClass } from "@/lib/teamAlerts";
 import type { ListedProperty } from "@/lib/types";
 
 export function getPropertyListContact(p: ListedProperty): {
@@ -44,16 +45,6 @@ interface PropertyListCardProps {
   showAgencyBadge?: boolean;
   /** 공유 신규(정적) | 매칭 신규(반짝임) */
   alertHighlight?: "share" | "match" | null;
-}
-
-function frameClass(
-  done: boolean,
-  highlight: "share" | "match" | null | undefined
-): string {
-  if (done) return "border-gray-200 bg-gray-50";
-  if (highlight === "share") return "border-emerald-400 bg-white";
-  if (highlight === "match") return "animate-border-sparkle bg-white";
-  return "border-gray-200 bg-white";
 }
 
 export function PropertyListCard({
@@ -95,8 +86,8 @@ export function PropertyListCard({
   const card = (
     <article
       className={[
-        "flex overflow-hidden rounded-xl border",
-        frameClass(done, done ? null : alertHighlight),
+        "flex overflow-hidden rounded-xl",
+        listCardFrameClass(done, done ? null : alertHighlight),
         cardClassName,
       ].join(" ")}
     >

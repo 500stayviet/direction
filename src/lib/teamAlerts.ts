@@ -402,21 +402,37 @@ export function getAlertBadgeCounts(): {
   };
 }
 
-/** 리스트 카드 강조: 공유 미열람 또는 내부 신규 매칭 있음 */
+/**
+ * 리스트 카드 강조.
+ * 공유 미열람·고객↔매물 매칭 미열람 모두 초록 박스("share").
+ * 상세 안 매칭 패널의 반짝임("match")과 구분한다.
+ */
 export function listCardHighlight(
   tab: AlertTab,
   id: string
-): "share" | null {
+): "share" | "match" | null {
   if (isShareUnseen(tab, id)) return "share";
   if (tab === "customers" && hasUnseenMatchForCustomer(id)) return "share";
   if (tab === "properties" && hasUnseenMatchForProperty(id)) return "share";
   return null;
 }
 
+/** 리스트 카드 테두리: 알람이 온 카드는 초록 박스 */
+export function listCardFrameClass(
+  done: boolean,
+  highlight: "share" | "match" | null | undefined
+): string {
+  if (done) return "border border-gray-200 bg-gray-50";
+  if (highlight === "share") {
+    return "border-2 border-solid border-emerald-500 bg-emerald-50";
+  }
+  if (highlight === "match") return "animate-border-sparkle bg-white";
+  return "border border-gray-200 bg-white";
+}
+
 export function alertHighlightClass(
   highlight: "share" | "match" | null | undefined,
-  done?: boolean,
-  _kind?: AlertTab
+  done?: boolean
 ): string {
   if (done) {
     return "!border-2 !border-solid !bg-gray-200 !border-gray-300 !shadow-none text-gray-500";

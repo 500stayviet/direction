@@ -125,9 +125,9 @@ export function applyListedToProperty(
   arriveTime = ""
 ): Property {
   const {
-    createdAt: _c,
-    updatedAt: _u,
-    contractCompleted: _done,
+    createdAt,
+    updatedAt,
+    contractCompleted,
     ...rest
   } = listed;
   return {

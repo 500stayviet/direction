@@ -29,6 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         pathname === "/customers/new" ||
         pathname === "/properties" ||
         pathname === "/properties/new" ||
+        pathname === "/navi" ||
         pathname === "/account/edit" ||
         /^\/customers\/[^/]+$/.test(pathname) ||
         /^\/properties\/[^/]+$/.test(pathname) ||

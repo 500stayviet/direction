@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type UIEvent,
 } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -149,7 +148,7 @@ function WheelColumn<T extends string | number>({
     if (next !== undefined && next !== value) onChange(next);
   };
 
-  const onScroll = (_e: UIEvent<HTMLDivElement>) => {
+  const onScroll = () => {
     if (ignore.current) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(commit, 80);

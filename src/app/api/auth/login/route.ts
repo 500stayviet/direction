@@ -174,7 +174,7 @@ async function __POST_handler(request: Request) {
       JSON.stringify({ ...user, passwordHint: "" }),
       {
         path: "/",
-        maxAge: AUTO_LOGIN_MAX_AGE_SEC,
+        ...(autoLogin ? { maxAge: AUTO_LOGIN_MAX_AGE_SEC } : {}),
         sameSite: "lax",
         httpOnly: false,
         secure: process.env.NODE_ENV === "production",

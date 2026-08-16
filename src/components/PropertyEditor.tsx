@@ -175,7 +175,8 @@ export function PropertyEditor({
   }, [property]);
 
   const reorderList = allProperties ?? [];
-  const canReorder = Boolean(onSwapWith);
+  const canReorder =
+    Boolean(onSwapWith) && (propertyCount ?? reorderList.length) > 1;
 
   const update = (patch: Partial<Property>) => {
     if (lockedListedId) {

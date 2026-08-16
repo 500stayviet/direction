@@ -13,6 +13,7 @@ import { getContractDeadlineLabel } from "@/lib/deadline";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
+import { listCardFrameClass } from "@/lib/teamAlerts";
 import type { Customer } from "@/lib/types";
 
 interface CustomerListCardProps {
@@ -69,16 +70,6 @@ function MoneyPhoneRow({
   );
 }
 
-function frameClass(
-  done: boolean,
-  highlight: "share" | "match" | null | undefined
-): string {
-  if (done) return "border-gray-200 bg-gray-50";
-  if (highlight === "share") return "border-emerald-400 bg-white";
-  if (highlight === "match") return "animate-border-sparkle bg-white";
-  return "border-gray-200 bg-white";
-}
-
 export function CustomerListCard({
   customer: c,
   right,
@@ -108,8 +99,8 @@ export function CustomerListCard({
   const card = (
     <article
       className={[
-        "flex overflow-hidden rounded-xl border",
-        frameClass(done, done ? null : alertHighlight),
+        "flex overflow-hidden rounded-xl",
+        listCardFrameClass(done, done ? null : alertHighlight),
       ].join(" ")}
     >
       <div

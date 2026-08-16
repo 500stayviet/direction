@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 const SWIPE_THRESHOLD = 56;
 const MAX_DRAG = 112;
@@ -54,14 +54,15 @@ export function SwipeRevealRow({
     setOffset(value);
   };
 
-  const reset = () => {
+  const reset = useCallback(() => {
     active.current = false;
     locking.current = null;
     pointerId.current = null;
     skipGesture.current = false;
-    setDragOffset(0);
+    offsetRef.current = 0;
+    setOffset(0);
     setDragging(false);
-  };
+  }, []);
 
   const onTapRef = useRef(onTap);
   const onSwipeLeftRef = useRef(onSwipeLeft);
@@ -223,7 +224,7 @@ export function SwipeRevealRow({
       el.removeEventListener("pointercancel", finish);
       el.removeEventListener("dragstart", onDragStart, true);
     };
-  }, [disabled]);
+  }, [disabled, reset]);
 
   return (
     <div className="relative overflow-hidden rounded-2xl">

@@ -30,7 +30,6 @@ const supabase = createClient(
 );
 
 const DEMO_PREFIX = "demo_";
-const ADMIN_TEST_PREFIX = "admin_test_soft";
 
 async function deleteNonDemoRows(table) {
   const { data: rows, error: listErr } = await supabase

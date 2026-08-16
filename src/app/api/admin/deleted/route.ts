@@ -212,7 +212,7 @@ async function __GET_handler(request: Request) {
       q,
       limit: pageLimit,
       total: totalMatched,
-      rows: rows.map(({ _searchHay: _, ...rest }) => rest),
+      rows: rows.map(({ _searchHay, ...rest }) => rest),
     });
   } catch (e) {
     return NextResponse.json(

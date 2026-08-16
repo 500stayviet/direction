@@ -16,7 +16,7 @@ export function StickyActionBar({
       className="pointer-events-none fixed inset-x-0 z-[45] flex justify-center"
       style={{
         bottom: aboveTab
-          ? "calc(56px + env(safe-area-inset-bottom))"
+          ? "calc(60px + env(safe-area-inset-bottom))"
           : "env(safe-area-inset-bottom)",
       }}
     >
