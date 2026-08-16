@@ -79,78 +79,31 @@ function navStepButtonClass(disabled = false): string {
 
 const MIC_LEVEL_WEIGHTS = [0.35, 0.65, 1, 0.65, 0.35];
 
-function ListeningMicMeter({ active }: { active: boolean }) {
+function ListeningMicMeter({ live }: { live: string }) {
   const barsRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (!active) return;
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      return;
-    }
-
-    let cancelled = false;
     let raf = 0;
-    let stream: MediaStream | null = null;
-    let ctx: AudioContext | null = null;
-
-    const paint = (level: number) => {
+    let tick = 0;
+    const talking = live.trim().length > 0;
+    const paint = () => {
+      tick += talking ? 0.22 : 0.08;
+      const pulse = talking
+        ? 0.4 + 0.6 * Math.abs(Math.sin(tick))
+        : 0.08 + 0.1 * Math.abs(Math.sin(tick));
       const nodes = barsRef.current?.children;
-      if (!nodes) return;
-      for (let i = 0; i < nodes.length; i += 1) {
-        const el = nodes[i] as HTMLElement;
-        const weight = MIC_LEVEL_WEIGHTS[i] ?? 1;
-        el.style.height = `${3 + Math.round(level * 13 * weight)}px`;
-      }
-    };
-
-    const start = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
+      if (nodes) {
+        for (let i = 0; i < nodes.length; i += 1) {
+          const el = nodes[i] as HTMLElement;
+          const weight = MIC_LEVEL_WEIGHTS[i] ?? 1;
+          el.style.height = `${3 + Math.round(pulse * 13 * weight)}px`;
         }
-        const AudioCtx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext;
-        if (!AudioCtx) return;
-        ctx = new AudioCtx();
-        if (ctx.state === "suspended") await ctx.resume();
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.72;
-        source.connect(analyser);
-        const data = new Uint8Array(analyser.fftSize);
-        const tick = () => {
-          if (cancelled) return;
-          analyser.getByteTimeDomainData(data);
-          let sum = 0;
-          for (let i = 0; i < data.length; i += 1) {
-            const v = ((data[i] ?? 128) - 128) / 128;
-            sum += v * v;
-          }
-          paint(Math.min(1, Math.sqrt(sum / data.length) * 4.5));
-          raf = requestAnimationFrame(tick);
-        };
-        tick();
-      } catch {
-        paint(0);
       }
+      raf = requestAnimationFrame(paint);
     };
-
-    void start();
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((track) => track.stop());
-      void ctx?.close();
-      paint(0);
-    };
-  }, [active]);
+    paint();
+    return () => cancelAnimationFrame(raf);
+  }, [live]);
 
   return (
     <span className="inline-flex items-end gap-1" aria-hidden>
@@ -649,7 +602,7 @@ export function IntakeTalkModal({
         <div className="space-y-2">
           {listening ? (
             <p className="flex min-h-[1.25rem] items-center justify-center gap-2 break-words text-[14px] font-medium text-gray-400">
-              <ListeningMicMeter active={listening} />
+              <ListeningMicMeter live={composedLive} />
               <span>{composedLive || "듣는 중…"}</span>
             </p>
           ) : idlePaused ? (
