@@ -66,7 +66,8 @@ export function PhoneChip({
       phone={value}
       showIcon={false}
       className={[
-        "relative z-[1] ml-auto !shrink-0 !gap-1 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 !text-[16px] !font-bold !leading-none !tracking-tight tabular-nums",
+        "relative z-[1] ml-auto !shrink-0 !gap-0.5 rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5 sm:!gap-1 sm:px-1.5",
+        "!text-[14px] !font-bold !leading-none sm:!text-[16px]",
         done ? "!text-gray-400" : "!text-[#2F9E66]",
         className,
       ].join(" ")}
@@ -74,7 +75,7 @@ export function PhoneChip({
       <svg
         viewBox="0 0 20 20"
         fill="currentColor"
-        className="h-3.5 w-3.5 shrink-0"
+        className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5"
         aria-hidden
       >
         <path
@@ -83,7 +84,9 @@ export function PhoneChip({
           clipRule="evenodd"
         />
       </svg>
-      <span>{formatPhone(value)}</span>
+      <span className="tracking-[-0.08em] sm:tracking-tight sm:tabular-nums">
+        {formatPhone(value)}
+      </span>
     </PhoneLink>
   );
 }
