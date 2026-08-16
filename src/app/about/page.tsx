@@ -96,6 +96,24 @@ export default function AboutPage() {
               </p>
             </GuideItem>
 
+            <GuideItem title="메시지·대화·사진으로 칸 채우기">
+              <p>
+                고객·매물 등록에서 메시지 붙여넣기, 대화(마이크), 사진으로 칸을
+                채울 수 있습니다. 「반영하기」는{" "}
+                <strong className="font-bold text-gray-800">화면에만</strong>{" "}
+                넣고, 맨 아래{" "}
+                <strong className="font-bold text-gray-800">
+                  고객등록하기 · 매물등록하기
+                </strong>
+                를 눌러야 저장됩니다. 반영 뒤 빠진 칸은 손으로 고치세요.
+              </p>
+              <p>
+                대화는 순서대로 말하고, 사진은 글자를 읽습니다. 메시지·사진은
+                규칙으로 못 채운 짧은 글만 입력 보조에 쓰일 수 있고, 마이크
+                대화는 그 보조에 보내지 않습니다.
+              </p>
+            </GuideItem>
+
             <GuideItem title="고객·매물·네비 리스트 스와이프">
               <p>
                 카드를{" "}
@@ -188,6 +206,9 @@ export default function AboutPage() {
               </p>
               <p>
                 네비 화면에서 일정을 고르고 원클릭으로 전화·길안내를 시작합니다.
+                길안내에 넘기는 주소는{" "}
+                <strong className="font-bold text-gray-800">서울특별시</strong>로
+                맞춥니다. 목록 카드 주소는 앞에 붙은 「서울」을 빼고 보여 줍니다.
               </p>
             </GuideItem>
 
@@ -204,11 +225,15 @@ export default function AboutPage() {
               </p>
             </GuideItem>
 
-            <GuideItem title="고객 희망입주 · 기한">
+            <GuideItem title="희망입주 · 임대희망일 기한">
               <p>
-                고객 카드에 희망입주일이 있고, 시작일 기준 45일 전이면 호박색
-                글씨로 기한이 표시됩니다. 계약 마감이 가까운 고객은 홈에서
-                안내될 수 있습니다.
+                고객 희망입주일·매물 임대희망일의{" "}
+                <strong className="font-bold text-gray-800">
+                  시작일 기준 정확히 45일 전
+                </strong>
+                인 날에만 카드 위 기한 안내가 뜹니다. 계약 마감이 가까운 고객은
+                홈에서도 안내될 수 있습니다. 44일 전·46일 전에는 나오지
+                않습니다.
               </p>
             </GuideItem>
 
@@ -234,6 +259,7 @@ export default function AboutPage() {
           <h2 className="text-[16px] font-bold text-gray-900">주요 기능</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-4">
             <li>고객·희망 조건·입주 일정 등록과 검색</li>
+            <li>메시지·대화·사진으로 칸 채운 뒤 등록하기</li>
             <li>매물 주소·금액·관리비·비밀번호 등 현장 브리핑</li>
             <li>조건에 맞는 매물·고객 매칭과 리스트 관리</li>
             <li>방문 일정·도착 시간 기준 동선 구성</li>
