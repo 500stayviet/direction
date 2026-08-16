@@ -51,6 +51,11 @@ import {
   parseIntakeText,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
+import {
+  recordIntakeSample,
+  type IntakeSampleSource,
+} from "@/lib/intakeSampleCollect";
+import { getAccessToken } from "@/lib/auth";
 import { isPlaceholderAddress } from "@/lib/seoulRegions";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
@@ -308,8 +313,18 @@ export function PropertyEditor({
     setTalkOpen(false);
   };
 
-  const applyIntakeText = (raw: string) => {
-    applyIntakeParsed(parseIntakeText(raw, "property"));
+  const applyIntakeText = (raw: string, source: IntakeSampleSource) => {
+    const parsed = parseIntakeText(raw, "property");
+    void getAccessToken().then((accessToken) =>
+      recordIntakeSample({
+        raw,
+        kind: "property",
+        source,
+        parsed,
+        accessToken,
+      })
+    );
+    applyIntakeParsed(parsed);
   };
 
   return (
@@ -322,7 +337,7 @@ export function PropertyEditor({
         ) : null}
         <IntakePhotoPicker
           requestId={photoRequestId}
-          onText={applyIntakeText}
+          onText={(text) => applyIntakeText(text, "photo")}
           onError={setPhotoError}
         />
       </div>
@@ -1111,7 +1126,7 @@ export function PropertyEditor({
         <IntakeMessageModal
           open={messageOpen}
           onClose={() => setMessageOpen(false)}
-          onApply={applyIntakeText}
+          onApply={(text) => applyIntakeText(text, "message")}
         />
         <IntakeTalkModal
           open={talkOpen}

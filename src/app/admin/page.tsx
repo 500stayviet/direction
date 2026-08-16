@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { formatSeoulDateTime, todayISO, toISODate } from "@/lib/date";
 import { planDisplayForUser } from "@/lib/planDisplay";
 import { PlanBadge } from "@/components/PlanBadge";
+import { IntakeParserAdminPanel } from "@/components/admin/IntakeParserAdminPanel";
 
 function daysAgoISO(days: number): string {
   const d = new Date();
@@ -38,7 +39,7 @@ function writeErrorSeenAt(iso: string) {
 }
 
 type AdminRole = "super" | "staff";
-type Tab = "accounts" | "properties" | "search" | "teams" | "deleted" | "staff" | "events" | "errors" | "logs";
+type Tab = "accounts" | "properties" | "search" | "teams" | "deleted" | "staff" | "events" | "parser" | "errors" | "logs";
 
 type Session = {
   id: string;
@@ -351,6 +352,7 @@ export default function AdminPage() {
   );
   const [copiedErrorId, setCopiedErrorId] = useState<string | null>(null);
   const [errorBadge, setErrorBadge] = useState(0);
+  const [parserNewBadge, setParserNewBadge] = useState(0);
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   const [promoCodes, setPromoCodes] = useState<PromoCodeRow[]>([]);
@@ -680,6 +682,26 @@ export default function AdminPage() {
     [clearSession]
   );
 
+  const loadParserBadge = useCallback(
+    async (token: string) => {
+      const res = await fetch("/api/admin/intake-samples?status=new&limit=1", {
+        headers: authHeaders(token),
+      });
+      if (checkAdminUnauthorized(res)) {
+        clearSession();
+        return;
+      }
+      const body = (await res.json()) as {
+        ok?: boolean;
+        stats?: { newCount?: number };
+      };
+      if (res.ok && body.ok) {
+        setParserNewBadge(body.stats?.newCount ?? 0);
+      }
+    },
+    [clearSession]
+  );
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(AUTH_STORAGE);
@@ -693,6 +715,7 @@ export default function AdminPage() {
           await loadAccounts(saved.token);
           if (saved.role === "super") {
             await loadErrorBadge(saved.token);
+            await loadParserBadge(saved.token);
           }
         } catch {
           sessionStorage.removeItem(AUTH_STORAGE);
@@ -702,7 +725,7 @@ export default function AdminPage() {
     } catch {
       /* ignore */
     }
-  }, [loadAccounts, loadErrorBadge, loadSummary]);
+  }, [loadAccounts, loadErrorBadge, loadParserBadge, loadSummary]);
 
   useEffect(() => {
     if (!session || session.role !== "super") return;
@@ -738,6 +761,7 @@ export default function AdminPage() {
       await loadAccounts(next.token);
       if (next.role === "super") {
         await loadErrorBadge(next.token);
+        await loadParserBadge(next.token);
       }
     } catch {
       setError("서버에 연결할 수 없습니다.");
@@ -944,7 +968,7 @@ export default function AdminPage() {
   }
 
   const tabs: {
-    id: Exclude<Tab, "staff" | "events" | "errors" | "logs">;
+    id: Exclude<Tab, "staff" | "events" | "parser" | "errors" | "logs">;
     label: string;
   }[] = [
     { id: "accounts", label: "가입자" },
@@ -972,6 +996,21 @@ export default function AdminPage() {
                   onClick={() => void switchTab("events")}
                 >
                   이벤트
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    "inline-flex items-center gap-0.5 text-[11px] font-bold whitespace-nowrap sm:text-[12px]",
+                    tab === "parser" ? "text-[#3182F6]" : "text-gray-500",
+                  ].join(" ")}
+                  onClick={() => void switchTab("parser")}
+                >
+                  파서
+                  {parserNewBadge > 0 ? (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3182F6] px-1 text-[9px] font-extrabold leading-none text-white">
+                      {parserNewBadge > 99 ? "99+" : parserNewBadge}
+                    </span>
+                  ) : null}
                 </button>
                 <button
                   type="button"
@@ -2264,6 +2303,13 @@ export default function AdminPage() {
               )}
             </div>
           </Card>
+        ) : null}
+
+        {tab === "parser" && isSuper && session ? (
+          <IntakeParserAdminPanel
+            token={session.token}
+            onNewCount={setParserNewBadge}
+          />
         ) : null}
 
         {tab === "errors" && isSuper ? (

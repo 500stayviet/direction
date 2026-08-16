@@ -53,6 +53,11 @@ import {
   parseIntakeText,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
+import {
+  recordIntakeSample,
+  type IntakeSampleSource,
+} from "@/lib/intakeSampleCollect";
+import { getAccessToken } from "@/lib/auth";
 import { filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
@@ -395,8 +400,18 @@ export function CustomerForm({
     setTalkOpen(false);
   };
 
-  const applyIntakeText = (raw: string) => {
-    applyIntakeParsed(parseIntakeText(raw, "customer"));
+  const applyIntakeText = (raw: string, source: IntakeSampleSource) => {
+    const parsed = parseIntakeText(raw, "customer");
+    void getAccessToken().then((accessToken) =>
+      recordIntakeSample({
+        raw,
+        kind: "customer",
+        source,
+        parsed,
+        accessToken,
+      })
+    );
+    applyIntakeParsed(parsed);
   };
 
   const customerInput = {
@@ -582,7 +597,7 @@ export function CustomerForm({
         ) : null}
         <IntakePhotoPicker
           requestId={photoRequestId}
-          onText={applyIntakeText}
+          onText={(text) => applyIntakeText(text, "photo")}
           onError={setPhotoError}
         />
         <Card className="space-y-2.5">
@@ -1124,7 +1139,7 @@ export function CustomerForm({
       <IntakeMessageModal
         open={messageOpen}
         onClose={() => setMessageOpen(false)}
-        onApply={applyIntakeText}
+        onApply={(text) => applyIntakeText(text, "message")}
       />
       <IntakeTalkModal
         open={talkOpen}
