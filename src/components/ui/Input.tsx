@@ -3,6 +3,7 @@
 import { InputHTMLAttributes, TextareaHTMLAttributes, forwardRef, useEffect, useRef, useState } from "react";
 import {
   invalidHintClass,
+  invalidInputClass,
   invalidLabelClass,
   requiredStarClass,
   emptyRequiredClass,
@@ -249,7 +250,7 @@ export const TextArea = forwardRef<
         className={[
           inputClass,
           "min-h-[96px] resize-none overflow-y-auto leading-snug",
-          invalid ? invalidClass : "",
+          invalid ? invalidInputClass : "",
           className,
         ].join(" ")}
       />
@@ -269,7 +270,7 @@ export function Select({
   return (
     <Field label={label} hint={hint} required={required} invalid={invalid}>
       <select
-        className={[inputClass, invalid ? invalidClass : "", className].join(
+        className={[inputClass, invalid ? invalidInputClass : "", className].join(
           " "
         )}
         {...props}
