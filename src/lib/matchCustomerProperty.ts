@@ -97,7 +97,7 @@ function effectiveRoomCount(
   const type = normalizeRoomType(roomType) ?? roomType;
   if (type === "원룸") return 1;
   if (type === "투룸") return 2;
-  if (type === "3룸+" || type === "아파트") {
+  if (type === "3룸+" || type === "아파트" || type === "오피스텔") {
     if (typeof roomCount === "number" && roomCount > 0) return roomCount;
     return null;
   }
@@ -123,7 +123,7 @@ function roomTypesCompatible(
   }
 
   if (cType === pType) {
-    if (cType === "아파트" || cType === "3룸+" || cType === "투룸") {
+    if (cType === "아파트" || cType === "오피스텔" || cType === "3룸+" || cType === "투룸") {
       const cr = effectiveRoomCount(cType, customer.roomCount);
       const pr = effectiveRoomCount(pType, property.roomCount);
       if (cr && pr) return cr === pr;

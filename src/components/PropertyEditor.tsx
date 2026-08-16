@@ -48,9 +48,12 @@ import type { RoomType } from "@/lib/types";
 import { RoomBathCountFields } from "@/components/RoomBathCountFields";
 import {
   applyIntakeToProperty,
-  parseIntakeText,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
+import {
+  INTAKE_AI_MIN_WAIT_MS,
+  resolveIntakeWithAi,
+} from "@/lib/intakeAiClient";
 import {
   recordIntakeSample,
   type IntakeSampleSource,
@@ -61,6 +64,7 @@ import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal } from "@/components/IntakeMessageModal";
 import { IntakeTalkModal } from "@/components/IntakeTalkModal";
+import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 
 const IntakePhotoPicker = dynamic(
@@ -156,6 +160,8 @@ export function PropertyEditor({
   const [talkOpen, setTalkOpen] = useState(false);
   const [photoRequestId, setPhotoRequestId] = useState(0);
   const [photoError, setPhotoError] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const applyingIntakeRef = useRef(false);
 
   const reorderList = allProperties ?? [];
   const canReorder = Boolean(onSwapWith);
@@ -313,22 +319,39 @@ export function PropertyEditor({
     setTalkOpen(false);
   };
 
-  const applyIntakeText = (raw: string, source: IntakeSampleSource) => {
-    const parsed = parseIntakeText(raw, "property");
-    void getAccessToken().then((accessToken) =>
-      recordIntakeSample({
+  const applyIntakeText = async (raw: string, source: IntakeSampleSource) => {
+    if (applyingIntakeRef.current) return;
+    applyingIntakeRef.current = true;
+    setMessageOpen(false);
+    setAiBusy(true);
+    const started = Date.now();
+    try {
+      const accessToken = await getAccessToken();
+      const parsed = await resolveIntakeWithAi({
+        raw,
+        kind: "property",
+        source,
+        accessToken,
+      });
+      const wait = Math.max(0, INTAKE_AI_MIN_WAIT_MS - (Date.now() - started));
+      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
+      void recordIntakeSample({
         raw,
         kind: "property",
         source,
         parsed,
         accessToken,
-      })
-    );
-    applyIntakeParsed(parsed);
+      });
+      applyIntakeParsed(parsed);
+    } finally {
+      setAiBusy(false);
+      applyingIntakeRef.current = false;
+    }
   };
 
   return (
     <>
+    <IntakeAiBusyOverlay open={aiBusy} />
     {enableIntake ? (
       <div className="mb-3 space-y-1">
         <IntakeSourceBar onSelect={requestIntake} />

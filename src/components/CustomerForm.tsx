@@ -50,9 +50,12 @@ import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 import {
   intakeMoveInPeriod,
   intakePreferredLocation,
-  parseIntakeText,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
+import {
+  INTAKE_AI_MIN_WAIT_MS,
+  resolveIntakeWithAi,
+} from "@/lib/intakeAiClient";
 import {
   recordIntakeSample,
   type IntakeSampleSource,
@@ -63,6 +66,7 @@ import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal } from "@/components/IntakeMessageModal";
 import { IntakeTalkModal } from "@/components/IntakeTalkModal";
+import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 
 const IntakePhotoPicker = dynamic(
   () =>
@@ -226,6 +230,8 @@ export function CustomerForm({
   const [talkOpen, setTalkOpen] = useState(false);
   const [photoRequestId, setPhotoRequestId] = useState(0);
   const [photoError, setPhotoError] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const applyingIntakeRef = useRef(false);
 
   const duplicateCustomer = useMemo(
     () => findCustomerBySamePhone(phone, customers, initial?.id),
@@ -400,18 +406,34 @@ export function CustomerForm({
     setTalkOpen(false);
   };
 
-  const applyIntakeText = (raw: string, source: IntakeSampleSource) => {
-    const parsed = parseIntakeText(raw, "customer");
-    void getAccessToken().then((accessToken) =>
-      recordIntakeSample({
+  const applyIntakeText = async (raw: string, source: IntakeSampleSource) => {
+    if (applyingIntakeRef.current) return;
+    applyingIntakeRef.current = true;
+    setMessageOpen(false);
+    setAiBusy(true);
+    const started = Date.now();
+    try {
+      const accessToken = await getAccessToken();
+      const parsed = await resolveIntakeWithAi({
+        raw,
+        kind: "customer",
+        source,
+        accessToken,
+      });
+      const wait = Math.max(0, INTAKE_AI_MIN_WAIT_MS - (Date.now() - started));
+      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
+      void recordIntakeSample({
         raw,
         kind: "customer",
         source,
         parsed,
         accessToken,
-      })
-    );
-    applyIntakeParsed(parsed);
+      });
+      applyIntakeParsed(parsed);
+    } finally {
+      setAiBusy(false);
+      applyingIntakeRef.current = false;
+    }
   };
 
   const customerInput = {
@@ -583,6 +605,7 @@ export function CustomerForm({
 
   return (
     <>
+      <IntakeAiBusyOverlay open={aiBusy} />
       <form
         id={FORM_ID}
         noValidate

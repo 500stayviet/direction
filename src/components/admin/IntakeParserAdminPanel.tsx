@@ -38,6 +38,13 @@ export function IntakeParserAdminPanel({
   >("new");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [cursorPrompt, setCursorPrompt] = useState("");
+  const [aiStatus, setAiStatus] = useState<{
+    keyConfigured: boolean;
+    keyEnv: string;
+    keyLocalFile: string;
+    keyDeploy: string;
+    limits: { userPerMinute: number; userPerHour: number; userPerDay: number };
+  } | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -53,6 +60,17 @@ export function IntakeParserAdminPanel({
         stats?: IntakeSampleStats;
         samples?: IntakeSampleRow[];
         message?: string;
+        ai?: {
+          keyConfigured: boolean;
+          keyEnv: string;
+          keyLocalFile: string;
+          keyDeploy: string;
+          limits: {
+            userPerMinute: number;
+            userPerHour: number;
+            userPerDay: number;
+          };
+        };
       };
       if (!res.ok || !body.ok) {
         setError(body.message ?? "불러오기 실패");
@@ -60,6 +78,7 @@ export function IntakeParserAdminPanel({
       }
       setStats(body.stats ?? null);
       setSamples(body.samples ?? []);
+      setAiStatus(body.ai ?? null);
       onNewCount?.(body.stats?.newCount ?? 0);
     } catch {
       setError("불러오기 실패");
@@ -171,6 +190,38 @@ export function IntakeParserAdminPanel({
           Cursor에 붙여 파서 개선 작업 리스트를 받으세요.
         </p>
       </div>
+
+      {aiStatus ? (
+        <div
+          className={[
+            "rounded-xl border px-2.5 py-2.5",
+            aiStatus.keyConfigured
+              ? "border-emerald-100 bg-emerald-50/70"
+              : "border-amber-100 bg-amber-50/80",
+          ].join(" ")}
+        >
+          <p className="text-[12px] font-bold text-gray-800">
+            DeepSeek API 키{" "}
+            <span
+              className={
+                aiStatus.keyConfigured ? "text-emerald-700" : "text-amber-800"
+              }
+            >
+              {aiStatus.keyConfigured ? "설정됨" : "없음 — 여기에 값을 넣으세요"}
+            </span>
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-gray-600">
+            변수 이름 <span className="font-mono">{aiStatus.keyEnv}</span>
+            . 로컬은 <span className="font-mono">{aiStatus.keyLocalFile}</span>
+            , 배포는 {aiStatus.keyDeploy}. 키 값은 화면에 보이지 않습니다.
+          </p>
+          <p className="mt-1 text-[11px] text-gray-500">
+            회원 한 명당 분 {aiStatus.limits.userPerMinute}회 · 시{" "}
+            {aiStatus.limits.userPerHour}회 · 일 {aiStatus.limits.userPerDay}회.
+            DeepSeek 콘솔에서 월 지출 한도도 걸어 두세요.
+          </p>
+        </div>
+      ) : null}
 
       {stats ? (
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">

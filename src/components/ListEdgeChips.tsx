@@ -13,6 +13,8 @@ function roomTypeChipClass(roomType?: RoomType | string, done?: boolean) {
       return "bg-orange-500";
     case "아파트":
       return "bg-rose-500";
+    case "오피스텔":
+      return "bg-violet-500";
     case "상가":
       return "bg-cyan-600";
     case "사무실":

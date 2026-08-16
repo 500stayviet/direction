@@ -109,7 +109,7 @@ describe("parseIntakeText", () => {
     assert.equal(nameLabel.notes, "");
   });
 
-  it("앞에 나온 거래만 칸에 넣고 뒤 거래·금액은 메모에 넣지 않는다", () => {
+  it("앞에 나온 거래만 칸에 넣고 뒤 거래·금액은 내용으로 남긴다", () => {
     const jeonseFirst = parseIntakeText(
       "원룸 전세 2억 암사동 매매 5억 남향",
       "customer"
@@ -117,13 +117,14 @@ describe("parseIntakeText", () => {
     assert.equal(jeonseFirst.dealType, "전세");
     assert.equal(jeonseFirst.deposit, 20000);
     assert.equal(jeonseFirst.dong, "암사동");
-    assert.doesNotMatch(jeonseFirst.notes, /매매|5억/);
+    assert.match(jeonseFirst.notes, /매매/);
+    assert.match(jeonseFirst.notes, /5억/);
     assert.match(jeonseFirst.notes, /남향/);
 
     const saleFirst = parseIntakeText("원룸 매매 5 전세 2억", "customer");
     assert.equal(saleFirst.dealType, "매매");
     assert.equal(saleFirst.deposit, 50000);
-    assert.equal(saleFirst.notes, "");
+    assert.match(saleFirst.notes, /전세/);
 
     const saleWithRent = parseIntakeText(
       "건물 매매 5억 월세 1000/50 남향",
@@ -131,7 +132,8 @@ describe("parseIntakeText", () => {
     );
     assert.equal(saleWithRent.dealType, "매매");
     assert.equal(saleWithRent.deposit, 50000);
-    assert.doesNotMatch(saleWithRent.notes, /월세|1000/);
+    assert.equal(saleWithRent.monthlyRent, undefined);
+    assert.match(saleWithRent.notes, /월세/);
     assert.match(saleWithRent.notes, /남향/);
 
     const laterKeptInMemo = parseIntakeText(
@@ -140,25 +142,25 @@ describe("parseIntakeText", () => {
     );
     assert.equal(laterKeptInMemo.dealType, "전세");
     assert.equal(laterKeptInMemo.deposit, 20000);
-    assert.equal(laterKeptInMemo.dong, undefined);
-    assert.equal(laterKeptInMemo.notes, "");
+    assert.equal(laterKeptInMemo.dong, "천호동");
+    assert.match(laterKeptInMemo.notes, /매매/);
   });
 
-  it("앞에 나온 전화만 칸에 넣고 뒤 번호는 메모에 넣지 않는다", () => {
+  it("앞에 나온 전화만 칸에 넣고 뒤 번호는 내용으로 남긴다", () => {
     const parsed = parseIntakeText(
       "010-1234-5678 원룸 전세 암사동 010-9999-8888",
       "customer"
     );
     assert.equal(parsed.phone, "010-1234-5678");
-    assert.equal(parsed.notes, "");
-    assert.doesNotMatch(parsed.notes, /010-1234-5678|010-9999-8888/);
+    assert.match(parsed.notes, /010-9999-8888/);
+    assert.doesNotMatch(parsed.notes, /010-1234-5678/);
 
     const property = parseIntakeText(
       "원룸 전세 010-1234-5678 암사동 010-9999-8888",
       "property"
     );
     assert.equal(property.phone, "010-1234-5678");
-    assert.equal(property.notes, "");
+    assert.match(property.notes, /010-9999-8888/);
 
     const labeled = parseIntakeText(
       "원룸 전세 암사동 임차인 010-1111-2222 임대인 010-3333-4444",
@@ -166,17 +168,17 @@ describe("parseIntakeText", () => {
     );
     assert.equal(labeled.tenantPhone, "010-1111-2222");
     assert.equal(labeled.landlordPhone, "010-3333-4444");
-    assert.equal(labeled.notes, "");
+    assert.doesNotMatch(labeled.notes, /010-1111-2222|010-3333-4444/);
   });
 
-  it("앞에 나온 유형만 칸에 넣고 뒤 유형은 메모에 넣지 않는다", () => {
+  it("앞에 나온 유형만 칸에 넣고 뒤 유형은 내용으로 남긴다", () => {
     const parsed = parseIntakeText("원룸 전세 투룸", "property");
     assert.equal(parsed.roomType, "원룸");
-    assert.equal(parsed.notes, "");
+    assert.match(parsed.notes, /투룸/);
 
     const apt = parseIntakeText("원룸 아파트", "customer");
     assert.equal(apt.roomType, "원룸");
-    assert.equal(apt.notes, "");
+    assert.match(apt.notes, /아파트/);
   });
 
   it("4룸·5룸·방 수는 3룸+와 방 개수로 넣는다", () => {
@@ -854,5 +856,82 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.maintenanceFee, 5);
     assert.equal(parsed.parking, "유");
     assert.match(parsed.notes, /현임차인/);
+  });
+
+  it("오피스텔은 유형 칸이고 방·화 기본 1·1이다", () => {
+    const parsed = parseIntakeText("오피스텔 월세 성내동", "property");
+    assert.equal(parsed.roomType, "오피스텔");
+    assert.equal(parsed.roomCount, 1);
+    assert.equal(parsed.bathroomCount, undefined);
+    const applied = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(applied.roomType, "오피스텔");
+    assert.equal(applied.roomCount, 1);
+    assert.equal(applied.bathroomCount, 1);
+
+    const withRooms = parseIntakeText("오피 투룸 전세", "property");
+    assert.equal(withRooms.roomType, "오피스텔");
+    assert.equal(withRooms.roomCount, 2);
+
+    const office = parseIntakeText("오피스 월세", "property");
+    assert.equal(office.roomType, "사무실");
+  });
+
+  it("빌라 2룸은 투룸이고 빌라는 내용이다", () => {
+    const parsed = parseIntakeText("빌라 2룸 전세 암사동", "property");
+    assert.equal(parsed.roomType, "투룸");
+    assert.match(parsed.notes, /빌라/);
+  });
+
+  it("주·임·세를 주차·주인·세입자로 가른다", () => {
+    const park = parseIntakeText("원룸 전세 암사동 주1대 엘베", "property");
+    assert.equal(park.parking, "유");
+
+    const juOnly = parseIntakeText("원룸 전세 주", "property");
+    assert.equal(juOnly.parking, "유");
+
+    const owner = parseIntakeText(
+      "원룸 전세 암사동 주 010-2222-3333",
+      "property"
+    );
+    assert.equal(owner.landlordPhone, "010-2222-3333");
+    assert.notEqual(owner.parking, "유");
+
+    const landlord = parseIntakeText(
+      "원룸 전세 임 010-1111-2222",
+      "property"
+    );
+    assert.equal(landlord.landlordPhone, "010-1111-2222");
+
+    const tenant = parseIntakeText(
+      "원룸 전세 세 010-3333-4444",
+      "property"
+    );
+    assert.equal(tenant.tenantPhone, "010-3333-4444");
+
+    const jeonsePhone = parseIntakeText(
+      "원룸 전세 010-1234-5678",
+      "property"
+    );
+    assert.equal(jeonsePhone.tenantPhone, "010-1234-5678");
+    assert.equal(jeonsePhone.landlordPhone, undefined);
+  });
+
+  it("짧은 관·엘·보·매와 어중간한 점은 칸/내용으로 가른다", () => {
+    const fee = parseIntakeText("원룸 월세 1억.110.관5", "property");
+    assert.equal(fee.deposit, 10000);
+    assert.equal(fee.monthlyRent, 110);
+    assert.equal(fee.maintenanceFee, 5);
+
+    const sale = parseIntakeText("아파트 매 3.2억 성내동", "property");
+    assert.equal(sale.dealType, "매매");
+    assert.equal(sale.deposit, 32000);
+
+    const today = new Date(2026, 3, 15);
+    const fuzzy = parseIntakeText("원룸 전세 8.25", "customer", today);
+    assert.equal(fuzzy.moveInFrom, undefined);
+    assert.match(fuzzy.notes, /8\.25/);
+
+    const clearDate = parseIntakeText("원룸 전세 26.04.22", "customer", today);
+    assert.equal(clearDate.moveInFrom, "2026-04-22");
   });
 });

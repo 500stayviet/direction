@@ -13,6 +13,10 @@ import {
   type IntakeSampleRow,
 } from "@/lib/intakeSampleExport";
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import {
+  INTAKE_AI_LIMITS,
+  isIntakeAiKeyConfigured,
+} from "@/lib/intakeAiGuard";
 
 function mapRow(row: Record<string, unknown>): IntakeSampleRow {
   return {
@@ -100,7 +104,22 @@ async function __GET_handler(request: Request) {
       )
     );
 
-    return NextResponse.json({ ok: true, stats, samples });
+    return NextResponse.json({
+      ok: true,
+      stats,
+      samples,
+      ai: {
+        keyConfigured: isIntakeAiKeyConfigured(),
+        keyEnv: "DEEPSEEK_API_KEY",
+        keyLocalFile: ".env.local",
+        keyDeploy: "Vercel → Settings → Environment Variables",
+        limits: {
+          userPerMinute: INTAKE_AI_LIMITS.userPerMinute,
+          userPerHour: INTAKE_AI_LIMITS.userPerHour,
+          userPerDay: INTAKE_AI_LIMITS.userPerDay,
+        },
+      },
+    });
   } catch (e) {
     return NextResponse.json(
       {

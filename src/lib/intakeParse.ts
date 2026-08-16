@@ -60,12 +60,14 @@ export type IntakeParseResult = {
 };
 
 const ROOM_ALIASES: { keys: string[]; value: RoomType }[] = [
-  { keys: ["3룸+", "쓰리룸+", "쓰리룸", "3룸", "쓰리 룸"], value: "3룸+" },
-  { keys: ["오피스텔", "아파트"], value: "아파트" },
-  { keys: ["투룸", "투 룸", "2룸"], value: "투룸" },
-  { keys: ["원룸", "원 룸", "1룸"], value: "원룸" },
+  { keys: ["3룸+", "쓰리룸+", "쓰리룸", "3룸", "쓰리 룸", "3R", "3r"], value: "3룸+" },
+  { keys: ["오피스텔", "오피텔"], value: "오피스텔" },
+  { keys: ["아파트"], value: "아파트" },
+  { keys: ["투룸", "투 룸", "2룸", "2R", "2r"], value: "투룸" },
+  { keys: ["원룸", "원 룸", "1룸", "1R", "1r"], value: "원룸" },
   { keys: ["사무실", "오피스"], value: "사무실" },
-  { keys: ["상가"], value: "상가" },
+  { keys: ["오피"], value: "오피스텔" },
+  { keys: ["상가", "점포"], value: "상가" },
   { keys: ["토지", "땅"], value: "토지" },
   { keys: ["건물", "통건물"], value: "건물" },
 ];
@@ -170,8 +172,28 @@ function parseRoomSpec(text: string): {
     return { roomType: "3룸+", roomCount: n, bathroomCount };
   };
 
-  if (roomType === "아파트" && lastCount && lastCount.start >= typeIndex) {
-    return { roomType: "아파트", roomCount: lastCount.n, bathroomCount };
+  if (
+    (roomType === "아파트" || roomType === "오피스텔") &&
+    lastCount &&
+    lastCount.start >= typeIndex
+  ) {
+    return { roomType, roomCount: lastCount.n, bathroomCount };
+  }
+  if (roomType === "오피스텔") {
+    const nested = roomAliasHits(text).find(
+      (hit) =>
+        hit.value === "원룸" || hit.value === "투룸" || hit.value === "3룸+"
+    );
+    if (nested) {
+      const n =
+        nested.value === "원룸" ? 1 : nested.value === "투룸" ? 2 : 3;
+      return {
+        roomType,
+        roomCount: nested.value === "3룸+" ? lastCount?.n ?? 3 : n,
+        bathroomCount,
+      };
+    }
+    return { roomType, roomCount: 1, bathroomCount };
   }
   if (lastCount && (!roomType || lastCount.start < typeIndex)) {
     return typeFromCount(lastCount.n);
@@ -187,7 +209,7 @@ function parseRoomSpec(text: string): {
 
 const PET_WORDS =
   /(?:강아지|고양이|반려(?:견|묘)?|애완(?:동물)?|펫)(?:\s*키우[요움]?)?|개\s*키우[요움]?/;
-const LOAN_KIND = /디딤돌|버팀목|중금|보금자리|특례|전세대출|주택담보/;
+const LOAN_KIND = /디딤돌|버팀목|중금|보금자리|특례|전세대출|주택담보|주담대/;
 
 function lastIndex(text: string, keys: string[]): { key: string; index: number } | null {
   let best: { key: string; index: number } | null = null;
@@ -262,27 +284,31 @@ function isSalePriceAfterMaemae(text: string, index: number): boolean {
   return /^(?:가)?\s*\d+(?:\.\d+)?\s*억/.test(tail);
 }
 
-/** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세부터는 칸에서 뺌 */
+/** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세는 칸에서 빼고 내용으로 남김 */
 function firstDealFieldText(text: string): {
   dealType?: DealType;
   fieldText: string;
+  moneyText: string;
+  leftoverDeal?: string;
 } {
   const hits = dealTypeHits(text);
   const first = hits[0];
-  if (!first) return { fieldText: text };
+  if (!first) return { fieldText: text, moneyText: text };
   const second = hits[1];
-  if (!second) return { dealType: first.key, fieldText: text };
+  if (!second) return { dealType: first.key, fieldText: text, moneyText: text };
   // 앞 거래가 매매일 때 뒤 "매매 1억"은 가격 표현 — 잘라내지 않음
   if (
     first.key === "매매" &&
     second.key === "매매" &&
     isSalePriceAfterMaemae(text, second.index)
   ) {
-    return { dealType: first.key, fieldText: text };
+    return { dealType: first.key, fieldText: text, moneyText: text };
   }
   return {
     dealType: first.key,
-    fieldText: maskUsedSpans(text, [{ start: second.index, end: text.length }]),
+    fieldText: text,
+    moneyText: text.slice(0, second.index).trimEnd(),
+    leftoverDeal: text.slice(second.index).replace(/\s+/g, " ").trim(),
   };
 }
 
@@ -317,12 +343,14 @@ const INTENT_MEMO_PATTERNS: RegExp[] = [
   /\d+\s*층\s*이상/,
   /(?:저층|고층|중층)\s*싫어요/,
   /역세권|신축|리모델링|올수리|깨끗|조용/,
-  /권리금(?:\s*협의)?|점포|인테리어/,
+  /권리금(?:\s*협의)?|인테리어/,
   /현\s*임\s*차\s*인(?:\s*거주\s*중)?|현임차인(?:\s*거주\s*중)?/,
   /이사\s*협의\s*\d+\s*[~～〜∼~－-]\s*\d+\s*개월/,
   /(?:거실|주방|다용도실|화장실(?:\s*포함)?)/,
   /주차\s*\d+\s*대(?:\s*가능)?/,
   /(?:엘리베이터|엘레베이터)(?:\s*주차)?/,
+  /(?:빌라|다세대|다가구|단독|연립|테라스|옥탑|복층|분리형|오픈형|투베이|쓰리베이)/,
+  /전임차인/,
 ];
 
 function extractIntentMemoNotes(text: string): string[] {
@@ -375,11 +403,51 @@ function appendMemoPart(notes: string, extra: string): string {
   return uniqueNoteParts([notes, next].filter(Boolean));
 }
 
+export function appendIntakeMemo(notes: string, extra: string): string {
+  return appendMemoPart(notes, extra);
+}
+
 function extractBuildingNameMemo(text: string): string {
-  const hit = text.match(
+  const labeled = text.match(
+    /(?:단지명|건물명)\s*[:：]?\s*([가-힣][가-힣A-Za-z0-9]{1,24})/
+  );
+  if (labeled?.[1]) return labeled[1].trim();
+  const betweenJibunHo = text.match(
     /\d{1,5}\s*[-−~]\s*\d{1,5}\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐)?)\s+(?=\d+\s*호)/
   );
-  return hit?.[1]?.trim() ?? "";
+  if (betweenJibunHo?.[1]) return betweenJibunHo[1].trim();
+  const afterJibun = text.match(
+    /\d{1,5}\s*[-−~]\s*\d{1,5}\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐))\b/
+  );
+  if (afterJibun?.[1]) return afterJibun[1].trim();
+  const betweenDongHo = text.match(
+    /[가-힣]+동\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐)?)\s+(?=\d+\s*호)/
+  );
+  return betweenDongHo?.[1]?.trim() ?? "";
+}
+
+function extractAmbiguousDotNotes(text: string): string[] {
+  const tripleSpans: { start: number; end: number }[] = [];
+  const tripleRe = /(?<!\d)(\d{2})\s*[.．]\s*(\d{1,2})\s*[.．]\s*(\d{1,2})(?!\d)/g;
+  for (const m of text.matchAll(tripleRe)) {
+    if (m.index == null) continue;
+    const year = expandShortYear(Number(m[1]));
+    if (isYearMonthDayTriple(year, Number(m[2]), Number(m[3]))) {
+      tripleSpans.push({ start: m.index, end: m.index + m[0].length });
+    }
+  }
+  const out: string[] = [];
+  const re = /(?<!\d)(\d{1,2})\s*[.,，．]\s*(\d{1,2})(?!\d)(?!\s*(?:억|만|천))/g;
+  for (const m of text.matchAll(re)) {
+    if (m.index == null) continue;
+    if (tripleSpans.some((s) => m.index >= s.start && m.index < s.end)) continue;
+    const left = Number(m[1]);
+    const right = Number(m[2]);
+    if (isMoneySlashPair(left, right)) continue;
+    const chunk = (m[0] ?? "").replace(/\s+/g, "");
+    if (chunk) out.push(chunk);
+  }
+  return out;
 }
 
 function expandShortYear(year: number): number {
@@ -425,6 +493,7 @@ function findShortYearDateSpan(
 function normalizeFieldShorthands(text: string): string {
   return text
     .replace(/주차\s*(\d+)\s*대\s*(?=가능|유|있)/gi, "주차 가능 ")
+    .replace(/(\d)\s*억\s*[\/／.,．，]\s*(\d+)\s*[\/／.,．，]\s*관\s*(\d+)/g, "$1억/$2/관$3")
     .replace(/(\d)\s*억\s*\/\s*(\d+)\s*\/\s*관\s*(\d+)/g, "$1억/$2/관$3");
 }
 
@@ -436,7 +505,7 @@ function parseFieldEokSlashMoney(text: string): {
   end: number;
 } | null {
   const m = text.match(
-    /(\d+(?:\.\d+)?)\s*억\s*[\/／]\s*(\d+(?:\.\d+)?)(?:\s*[\/／]\s*관\s*(\d+))?/
+    /(\d+(?:\.\d+)?)\s*억\s*[\/／.,．，]\s*(\d+(?:\.\d+)?)(?:\s*[\/／.,．，]\s*관?\s*(\d+))?/
   );
   if (!m || m.index == null) return null;
   const deposit = Math.round(Number(m[1]) * 10000);
@@ -468,15 +537,17 @@ function yesNoFromToken(token: string): YesNo {
 
 function yesNoLabelPattern(label: string): string {
   if (label === "주차") return "(?:주차(?:장)?)";
+  if (label === "주") return "(?<![가-힣])주(?![가-힣소거인상담민상])";
   if (label === "보증") return "(?:보증(?!보험|금))";
+  if (label === "엘") return "(?<![가-힣])엘(?![가-힣지베레])";
   return label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export const INTAKE_YESNO_FIELDS = {
   loan: ["대출"],
   insurance: ["보증보험", "전세보증보험", "보증 보험", "보증"],
-  parking: ["주차"],
-  elevator: ["엘리베이터", "엘레베이터", "엘베", "E/V", "EV"],
+  parking: ["주차", "주"],
+  elevator: ["엘리베이터", "엘레베이터", "엘베", "E/V", "EV", "승강기", "엘"],
 } as const;
 
 export type IntakeYesNoField = keyof typeof INTAKE_YESNO_FIELDS;
@@ -526,16 +597,34 @@ function parseYesNo(text: string, labels: string[]): YesNo | undefined {
 export function parseAllYesNoFields(
   text: string
 ): Pick<IntakeParseResult, "loan" | "insurance" | "parking" | "elevator"> {
+  const juPhone = /(?<![가-힣])주(?:인)?\s*(?:0?1[016789]|\+?82)/.test(text);
+  let parking = parseYesNo(text, [...INTAKE_YESNO_FIELDS.parking]);
+  if (parking == null && !juPhone) {
+    if (/(?<![가-힣])주무|(?<![가-힣])주\s*(?:무|불가)/.test(text)) {
+      parking = "무";
+    } else if (
+      /(?<![가-힣])주유(?![수소])|(?<![가-힣])주\s*(?:\d+\s*대|세단|SUV|suv|가능|유|엘)|(?<![가-힣])주\s*\/\s*엘/.test(
+        text
+      )
+    ) {
+      parking = "유";
+    } else if (
+      /(?<![가-힣])주(?![가-힣소거인상담민상\d])(?!\s*(?:0?1|\d{2,3}[-.\s]))/.test(
+        text
+      )
+    ) {
+      parking = "유";
+    }
+  }
+  let elevator = parseYesNo(text, [...INTAKE_YESNO_FIELDS.elevator]);
+  if (elevator == null && /(?:주\s*\/\s*엘|엘\s*\/\s*주)/.test(text)) {
+    elevator = "유";
+  }
   return {
-    loan: parseYesNo(text, ["대출"]),
-    insurance: parseYesNo(text, [
-      "보증보험",
-      "전세보증보험",
-      "보증 보험",
-      "보증",
-    ]),
-    parking: parseYesNo(text, ["주차"]),
-    elevator: parseYesNo(text, ["엘리베이터", "엘레베이터", "엘베", "E/V", "EV"]),
+    loan: parseYesNo(text, [...INTAKE_YESNO_FIELDS.loan]),
+    insurance: parseYesNo(text, [...INTAKE_YESNO_FIELDS.insurance]),
+    parking,
+    elevator,
   };
 }
 
@@ -572,7 +661,7 @@ function isPlausibleDeposit(n: number, asSale: boolean): boolean {
 }
 
 /** 아파트·3룸+·건물·토지는 매매 숫자 1~99를 억으로 봄. 원룸·상가 등은 30억까지만 */
-const UNLIMITED_BARE_SALE_EOK: RoomType[] = ["아파트", "3룸+", "건물", "토지"];
+const UNLIMITED_BARE_SALE_EOK: RoomType[] = ["아파트", "오피스텔", "3룸+", "건물", "토지"];
 const MAX_BARE_SALE_EOK_SMALL = 30;
 
 function maxBareSaleEok(roomType?: RoomType): number | null {
@@ -832,20 +921,26 @@ function parseSlashTriples(
 
 function parseSlashPairs(
   text: string
-): { left: number; right: number; index: number; end: number }[] {
-  const pairs: { left: number; right: number; index: number; end: number }[] =
-    [];
+): { left: number; right: number; index: number; end: number; sep: string }[] {
+  const pairs: {
+    left: number;
+    right: number;
+    index: number;
+    end: number;
+    sep: string;
+  }[] = [];
   const re = new RegExp(
-    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,5})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,5})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
+    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,5})\\s*([${PAIR_SEP_CLS}])\\s*(\\d{1,5})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     pairs.push({
       left: Number(m[1]),
-      right: Number(m[2]),
+      right: Number(m[3]),
       index: m.index,
       end: m.index + m[0].length,
+      sep: m[2] ?? "/",
     });
   }
   return pairs;
@@ -867,7 +962,7 @@ function maskSlashDates(text: string): string {
     "g"
   );
   const pairRe = new RegExp(
-    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
+    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[/／]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
   return masked
@@ -962,7 +1057,7 @@ function parseMoneyManwon(
   const eokMan = moneyText.match(/(\d+(?:\.\d+)?)\s*억\s*(\d+(?:\.\d+)?)\s*만/);
   const eok = [...moneyText.matchAll(/(\d+(?:\.\d+)?)\s*억/g)];
   const saleLabeled = moneyText.match(
-    /매매(?:가)?\s*(\d+(?:\.\d+)?)\s*억/
+    /(?:매매(?:가)?|(?<![가-힣물])매(?:가)?)\s*(\d+(?:\.\d+)?)\s*억/
   );
   if (asSale && saleLabeled && saleLabeled.index != null && deposit == null) {
     deposit = Math.round(Number(saleLabeled[1]) * 10000);
@@ -971,7 +1066,7 @@ function parseMoneyManwon(
 
   const man = moneyText.match(
     new RegExp(
-      `(?:보증금|매매(?:가)?|매가|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
+      `(?:보증금|매매(?:가)?|매가|(?<![가-힣물])매|(?<![가-힣])보|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
     )
   );
 
@@ -1276,7 +1371,11 @@ const NAME_STOP = new Set([
   "4룸",
   "5룸",
   "오피스텔",
+  "오피텔",
   "아파트",
+  "빌라",
+  "다세대",
+  "다가구",
   "사무실",
   "상가",
   "토지",
@@ -1384,6 +1483,23 @@ function findCustomerName(text: string): string | undefined {
   return undefined;
 }
 
+function labeledPhoneAfter(
+  text: string,
+  phones: PhoneHit[],
+  pattern: RegExp,
+  within = 24
+): string | undefined {
+  for (const m of text.matchAll(pattern)) {
+    if (m.index == null) continue;
+    const from = m.index + m[0].length;
+    const phone = phones.find(
+      (h) => h.index >= from && h.index - from <= within
+    );
+    if (phone) return phone.formatted;
+  }
+  return undefined;
+}
+
 function parseContacts(
   text: string,
   kind: IntakeKind = "property"
@@ -1424,17 +1540,19 @@ function parseContacts(
     }
   }
 
-  const tenantIdx = text.search(/임차인/);
-  const landlordIdx = text.search(/임대인/);
-  const phoneLabelIdx = text.search(/전화번호|연락처/);
   const tenantPhone =
-    tenantIdx >= 0
-      ? nearestPhoneAfter(phones, tenantIdx)?.formatted
-      : undefined;
+    labeledPhoneAfter(
+      text,
+      phones,
+      /세입자|(?<![현전])임차인|(?<![가-힣])세(?![가-힣])/g
+    ) ?? undefined;
   const landlordPhone =
-    landlordIdx >= 0
-      ? nearestPhoneAfter(phones, landlordIdx)?.formatted
-      : undefined;
+    labeledPhoneAfter(
+      text,
+      phones,
+      /임대인|(?<![가-힣])임(?![가-힣])|주인|(?<![가-힣])주(?![가-힣소거상담민상])/g
+    ) ?? undefined;
+  const phoneLabelIdx = text.search(/전화번호|연락처/);
 
   const used = new Set(
     [tenantPhone, landlordPhone].filter(Boolean) as string[]
@@ -1632,8 +1750,9 @@ function parseMoveInDates(
     const clamped = asFutureMoveIn(ymds[0], ymds[0], today);
     if (clamped) return clamped;
   }
-  const slashDates = parseSlashPairs(corrected).filter((p) =>
-    isMonthDaySlash(p.left, p.right)
+  const slashDates = parseSlashPairs(corrected).filter(
+    (p) =>
+      isMonthDaySlash(p.left, p.right) && (p.sep === "/" || p.sep === "／")
   );
   if (slashDates.length >= 2 && slashDates[0] && slashDates[1]) {
     const from = isoFromMonthDay(
@@ -1697,15 +1816,26 @@ export function parseIntakeText(
     return result;
   }
 
-  const { dealType: firstDeal, fieldText } = firstDealFieldText(body);
+  const { dealType: firstDeal, fieldText, moneyText, leftoverDeal } =
+    firstDealFieldText(body);
   const room = parseRoomSpec(fieldText);
   if (room.roomType) result.roomType = room.roomType;
   if (room.roomCount) result.roomCount = room.roomCount;
   if (room.bathroomCount) result.bathroomCount = room.bathroomCount;
 
   if (firstDeal) result.dealType = firstDeal;
+  if (!result.dealType) {
+    if (
+      /(?<![가-힣물])매(?:가)?\s*\d/.test(moneyText) ||
+      /매가/.test(moneyText)
+    ) {
+      result.dealType = "매매";
+    } else if (/(?<![가-힣])전\s*\d+(?:\.\d+)?\s*억/.test(moneyText)) {
+      result.dealType = "전세";
+    }
+  }
 
-  const phoneSpans = parsePhoneHits(fieldText).map((hit) => ({
+  const phoneSpans = parsePhoneHits(moneyText).map((hit) => ({
     start: hit.index,
     end: hit.end,
   }));
@@ -1716,7 +1846,7 @@ export function parseIntakeText(
     (result.dealType === undefined && /매가/.test(fieldText));
   const allowTripleEok =
     result.roomType === "토지" || result.roomType === "건물";
-  const money = parseMoneyManwon(maskUsedSpans(fieldText, phoneSpans), {
+  const money = parseMoneyManwon(maskUsedSpans(moneyText, phoneSpans), {
     asSale,
     allowTripleEok,
     maxBareEok: maxBareSaleEok(result.roomType),
@@ -1800,6 +1930,38 @@ export function parseIntakeText(
   const buildingMemo = extractBuildingNameMemo(fieldText);
   if (buildingMemo) {
     result.notes = appendMemoPart(result.notes, buildingMemo);
+  }
+  if (leftoverDeal) {
+    result.notes = appendMemoPart(result.notes, leftoverDeal);
+  }
+  const extraTypes = roomAliasHits(fieldText)
+    .filter((hit) => {
+      if (hit.value === result.roomType) return false;
+      if (
+        result.roomType === "오피스텔" &&
+        (hit.value === "원룸" || hit.value === "투룸" || hit.value === "3룸+")
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .map((hit) => hit.key);
+  if (extraTypes.length) {
+    result.notes = appendMemoPart(result.notes, uniqueNoteParts(extraTypes));
+  }
+  const usedPhones = new Set(
+    [result.phone, result.tenantPhone, result.landlordPhone].filter(Boolean)
+  );
+  for (const hit of parsePhoneHits(fieldText)) {
+    if (!usedPhones.has(hit.formatted)) {
+      result.notes = appendMemoPart(result.notes, hit.formatted);
+    }
+  }
+  if (!result.moveInFrom && !result.moveInImmediate) {
+    result.notes = appendMemoPart(
+      result.notes,
+      uniqueNoteParts(extractAmbiguousDotNotes(body))
+    );
   }
 
   return result;

@@ -31,6 +31,7 @@ test("매물 대화 입력: 순차 가이드로 칸을 채운다", async ({ page
     await page.getByRole("button", { name: "마이크로 입력하기" }).click();
     await expect(page.getByRole("heading", { name: "대화로 입력" })).toBeVisible();
     await page.getByRole("button", { name: "대화 시작" }).click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
 
     await emitTalkStep(page, "원룸");
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
@@ -83,6 +84,13 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     await page.goto("/properties/new");
     await page.getByRole("button", { name: "마이크로 입력하기" }).click();
     await page.getByRole("button", { name: "대화 시작" }).click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
+
+    await page.getByTestId("intake-talk-primary").click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
+    await expect(page.getByRole("button", { name: "계속" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "대화 시작" })).toHaveCount(0);
+    await page.getByTestId("intake-talk-primary").click();
 
     await emitTalkStep(page, "원룸");
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
@@ -90,6 +98,7 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     );
 
     await page.getByRole("button", { name: "이전" }).click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
     await emitTalkStep(page, "삭제");
     await expect(page.getByTestId("intake-guide-row-roomType")).not.toContainText(
       "원룸"
@@ -99,6 +108,41 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
       "투룸"
     );
+  } finally {
+    await purgeE2eUser(userId);
+  }
+});
+
+test("매물 대화 입력: 메모는 입력완료에서 초록이 된다", async ({ page }) => {
+  requireE2eBackendEnv(test);
+  const user = uniqueUser("talknote");
+  let userId: string | undefined;
+  try {
+    await prepareIntakeE2ePage(page);
+    await signupViaUi(page, user);
+    await loginViaUi(page, user);
+
+    const auth = await getAppAuth(page);
+    userId = auth?.user?.id;
+
+    await page.goto("/properties/new");
+    await page.getByRole("button", { name: "마이크로 입력하기" }).click();
+    await page.getByRole("button", { name: "대화 시작" }).click();
+    await skipTalkSteps(page, 8);
+
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("입력완료");
+    await emitTalkStep(page, "남향 저층");
+    const notesRow = page.getByTestId("intake-guide-row-notes");
+    await expect(notesRow).toContainText("남향 저층");
+    await expect(notesRow.locator(".border-green-400")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "입력완료" }).click();
+    await expect(notesRow.locator(".border-green-400")).toHaveCount(1);
+    await expect(notesRow).toContainText("남향 저층");
+
+    await page.getByTestId("intake-talk-apply").click();
+    await expect(page.getByRole("heading", { name: "대화로 입력" })).toBeHidden();
+    await expect(page.getByLabel("메모").first()).toHaveValue("남향 저층");
   } finally {
     await purgeE2eUser(userId);
   }

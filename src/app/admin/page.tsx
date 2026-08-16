@@ -2406,6 +2406,11 @@ export default function AdminPage() {
                         <p className="mt-0.5 break-all text-[12px] font-bold leading-snug text-gray-900">
                           <span className="text-red-600">{row.status}</span>{" "}
                           {row.method} {row.path}
+                          {row.message.startsWith("[AI]") ? (
+                            <span className="ml-1 rounded bg-violet-100 px-1 py-0.5 align-middle text-[10px] font-bold text-violet-700">
+                              AI
+                            </span>
+                          ) : null}
                         </p>
                         <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-600">
                           {row.message || "(메시지 없음)"}

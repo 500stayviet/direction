@@ -1,0 +1,75 @@
+import {
+  INTAKE_AI_MIN_WAIT_MS,
+  intakeAiLeftover,
+  listEmptyIntakeAiFields,
+  mergeIntakeAi,
+  type IntakeAiPatch,
+  type IntakeAiSource,
+} from "@/lib/intakeAi";
+import {
+  parseIntakeText,
+  type IntakeKind,
+  type IntakeParseResult,
+} from "@/lib/intakeParse";
+
+export { INTAKE_AI_MIN_WAIT_MS };
+
+export async function requestIntakeAi(opts: {
+  leftover: string;
+  kind: IntakeKind;
+  source: IntakeAiSource;
+  parsed: IntakeParseResult;
+  accessToken?: string | null;
+}): Promise<IntakeAiPatch | null> {
+  if (typeof window === "undefined") return null;
+  const leftover = opts.leftover.trim();
+  if (!leftover) return null;
+  const token = opts.accessToken?.trim();
+  if (!token) return null;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  try {
+    const res = await fetch("/api/intake-ai", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        leftover,
+        kind: opts.kind,
+        source: opts.source,
+        emptyFields: listEmptyIntakeAiFields(opts.parsed),
+      }),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { ok?: boolean; patch?: unknown };
+    if (!body?.ok || !body.patch || typeof body.patch !== "object") {
+      return null;
+    }
+    return body.patch as IntakeAiPatch;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveIntakeWithAi(opts: {
+  raw: string;
+  kind: IntakeKind;
+  source: IntakeAiSource;
+  accessToken?: string | null;
+}): Promise<IntakeParseResult> {
+  const parsed = parseIntakeText(opts.raw, opts.kind);
+  const leftover = intakeAiLeftover(opts.raw, parsed, opts.source);
+  if (!leftover) return parsed;
+  const patch = await requestIntakeAi({
+    leftover,
+    kind: opts.kind,
+    source: opts.source,
+    parsed,
+    accessToken: opts.accessToken,
+  });
+  if (!patch) return parsed;
+  return mergeIntakeAi(parsed, patch, leftover);
+}

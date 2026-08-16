@@ -74,6 +74,9 @@ export function normalizeOcrIntakeText(raw: string): string {
   text = text.replace(/방\s*([1-5])\s*화\s*([1-4])/g, "방$1화$2");
   text = text.replace(/실\s*입주/g, "실입주");
   text = text.replace(/현\s*임\s*(?:차\s*)?인/g, "현임차인");
+  text = text.replace(/(?<![가-힣])주\s*(\d+)\s*대/g, "주$1대");
+  text = text.replace(/(?<![가-힣])관\s*(\d{1,2})(?!\d)/g, "관$1");
+  text = text.replace(/(?<![가-힣])엘\s*(유|무|가능|불가)/g, "엘$1");
   text = text.replace(
     /(\d{1,5}\s*[-−~]\s*\d{1,5})\s+((?:[가-힣A-Za-z0-9]+\s+)+[가-힣A-Za-z0-9]+)\s+(\d+\s*호)/g,
     (_, jibun, name, ho) => `${jibun} ${name.replace(/\s+/g, "")} ${ho}`

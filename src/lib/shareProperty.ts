@@ -6,7 +6,7 @@ import {
   formatPhone,
   isInsuranceJoined,
 } from "@/lib/format";
-import { skipsResidentialExtras } from "@/lib/constants";
+import { skipsResidentialExtras, needsRoomBathCounts } from "@/lib/constants";
 import type { Property, User } from "@/lib/types";
 
 /**
@@ -51,11 +51,7 @@ export function buildPropertyShareText(
       lines.push(`유형: ${typeParts.join(" · ")}`);
     }
 
-    if (
-      property.roomType === "투룸" ||
-      property.roomType === "3룸+" ||
-      property.roomType === "아파트"
-    ) {
+    if (needsRoomBathCounts(property.roomType)) {
       const rooms = property.roomType === "투룸" ? 2 : property.roomCount;
       lines.push(
         `방·화장실: 방 ${rooms ?? "-"}개 · 화장실 ${property.bathroomCount ?? 1}개`

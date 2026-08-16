@@ -1,6 +1,6 @@
 import { onlyDigits } from "@/lib/format";
 import { parseJibunDetail, parseSeoulAddress } from "@/lib/seoulRegions";
-import { isBuildingType, isLandType, skipsResidentialExtras } from "@/lib/constants";
+import { isBuildingType, isLandType, needsRoomBathCounts, skipsResidentialExtras } from "@/lib/constants";
 import type { Property } from "@/lib/types";
 
 export type PropertyFieldKey =
@@ -115,11 +115,7 @@ export function getMissingRequiredFields(
   if (property.roomType === "건물" && !property.buildingKind) {
     missing.push("buildingKind");
   }
-  if (
-    property.roomType === "투룸" ||
-    property.roomType === "3룸+" ||
-    property.roomType === "아파트"
-  ) {
+  if (needsRoomBathCounts(property.roomType)) {
     const rooms =
       property.roomType === "투룸" ? 2 : property.roomCount;
     const min = property.roomType === "3룸+" ? 3 : 1;

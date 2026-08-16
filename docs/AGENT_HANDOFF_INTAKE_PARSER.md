@@ -11,7 +11,7 @@
 1. 브랜치: `cursor/intake-samples-admin-3f06` — **최신 `main`(`a15ba82`) 포함** + 파서/OCR/수집 커밋 (pushed)
 2. PR: [#7](https://github.com/500stayviet/direction/pull/7) 메시지 파서, [#8](https://github.com/500stayviet/direction/pull/8) 샘플 수집·관리자 파서 탭
 3. 배포 전: `supabase/migrations/021_intake_parse_samples.sql` Supabase 적용 필수
-4. **미구현:** DeepSeek AI (단지명·메모) — 설계만 확정, 코드 없음
+4. **AI:** 메시지·사진 leftover만 DeepSeek V4 Flash (`POST /api/intake-ai`). 마이크 제외. 실패 시 룰 결과만 반영.
 5. **마이크:** AI 불필요 — `IntakeTalkModal` / `intakeSteps.ts` 건드리지 말 것 (main의 talk 수정은 이미 이 브랜치에 있음)
 
 ---
@@ -20,8 +20,8 @@
 
 | 경로 | 처리 | AI |
 |------|------|-----|
-| **메시지** | `IntakeMessageModal` → `parseIntakeText` + `normalizeIntakeInput` | 미구현 |
-| **사진** | `IntakePhotoPicker` → OCR → `normalizeOcrIntakeText` → `parseIntakeText` | 미구현 |
+| **메시지** | `IntakeMessageModal` → `parseIntakeText` → leftover면 `/api/intake-ai` | DeepSeek Flash |
+| **사진** | `IntakePhotoPicker` → OCR → `normalizeOcrIntakeText` → 동일 | DeepSeek Flash |
 | **마이크** | `IntakeTalkModal` + `intakeSteps.ts` 단계별 | **사용 안 함** (사용자 확정) |
 
 ---
@@ -132,7 +132,8 @@ d2897fb  Add intake parser sample collection and admin 파서 tab
 | **마이크** | AI **안 씀**, 룰(단계별) 유지 |
 | **메시지·사진** | 룰 먼저 + (선택) AI |
 | **단지명·메모** | **거의 항상 AI 사용** 의향 — 룰 로직 빼고 AI에 맡기기 검토 |
-| **금액·날짜·동·유/무** | **룰 유지** (CS·정확도) |
+| **금액·유/무·거래** | **룰만** (CS). AI가 덮지 않음 |
+| **빈 이름·동·날짜·단지명** | leftover가 분명하면 AI가 **빈 칸만** 채움 |
 
 ### 4.4 AI 비용 (DeepSeek V4 Flash, 월 2,000건, 메시지·사진만)
 
@@ -149,14 +150,13 @@ d2897fb  Add intake parser sample collection and admin 파서 tab
 
 참고: DeepSeek 2026-08-16부터 peak/off-peak 요금 — [공식 Pricing](https://api-docs.deepseek.com/quick_start/pricing)
 
-### 4.5 단지명·메모 AI 위임 (설계만)
-
-**추천 구조 (미구현):**
+### 4.5 leftover AI (구현됨)
 
 ```
 [룰]  금액·날짜·동·지번·호·거래·유/무·방/화 → 칸
-[AI]  동일 원문 200~300자 → { buildingName, memo } JSON only
-[DB]  full raw 저장 (이미 intake_parse_samples)
+[잔여] leftover 200자(사진 280) — 이미 칸/내용에 있으면 호출 생략
+[AI]  DeepSeek V4 Flash JSON → 빈 칸 + buildingName/memo만
+[실패] 룰 결과 그대로 반영. 관리자 에러 `[AI] …`
 ```
 
 **룰에서 제거 후보 (AI 안정 후):**
@@ -176,14 +176,15 @@ d2897fb  Add intake parser sample collection and admin 파서 tab
 - [ ] Supabase migration 021 적용
 - [ ] 프로덕션 파서 탭·수집 확인
 
-### P1 — DeepSeek 단지명·메모 (사용자 요구, 코드 없음)
+### P1 — DeepSeek leftover (구현됨)
 
-- [ ] 메시지·사진 경로만 server-side API
-- [ ] DeepSeek V4 Flash, 입력 200~300자 cap
-- [ ] 출력: `{ buildingName?: string, memo: string }`
-- [ ] env: `DEEPSEEK_API_KEY`
-- [ ] 마이크·`intakeSteps.ts` 변경 금지
-- [ ] 기존 단지명·메모 룰은 feature flag 또는 AI 안정 후 제거
+- [x] 메시지·사진만 `POST /api/intake-ai` (`src/lib/intakeAi.ts`, `intakeAiClient.ts`)
+- [x] DeepSeek V4 Flash, leftover 200자(사진 280)
+- [x] 빈 칸 + `buildingName`/`memo`만. 금액·거래·전화 덮지 않음
+- [x] env: `DEEPSEEK_API_KEY` (`.env.example`)
+- [x] 실패·잔고·키 없음 → 룰 반영 + 관리자 에러 `[AI] …`
+- [x] 마이크·`intakeSteps.ts` 변경 없음
+- [ ] 기존 단지명·메모 룰은 AI 안정 후 단계적 제거 검토
 
 ### P2 — 선택
 
@@ -221,7 +222,10 @@ d2897fb  Add intake parser sample collection and admin 파서 tab
 
 | 파일 | 역할 |
 |------|------|
-| `src/lib/intakeParse.ts` | 메시지·사진 공통 파서 |
+| `src/lib/intakeAi.ts` | leftover 추출·빈 칸 병합·패치 검증 |
+| `src/lib/intakeAiClient.ts` | 브라우저에서 `/api/intake-ai` 호출 |
+| `src/app/api/intake-ai/route.ts` | DeepSeek Flash, 실패 시 `[AI]` 에러 로그 |
+| `src/components/IntakeAiBusyOverlay.tsx` | 메시지·사진 반영 대기 화면 |
 | `src/lib/intakeOcrNormalize.ts` | OCR 전처리 |
 | `src/lib/intakeSampleCollect.ts` | 수집·마스킹 |
 | `src/lib/intakeSampleExport.ts` | export·Cursor 프롬프트 |

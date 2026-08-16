@@ -19,6 +19,7 @@ export const ROOM_TYPES: RoomType[] = [
   "원룸",
   "투룸",
   "3룸+",
+  "오피스텔",
   "아파트",
   "상가",
   "사무실",
@@ -71,9 +72,14 @@ export const ROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5"] as const;
 export const ROOM_COUNT_OPTIONS_3PLUS = ["3", "4", "5"] as const;
 export const BATHROOM_COUNT_OPTIONS = ["1", "2", "3", "4"] as const;
 
-/** 투룸·3룸+·아파트 — 방/화장실 수 입력 */
+/** 투룸·3룸+·오피스텔·아파트 — 방/화장실 수 입력 */
 export function needsRoomBathCounts(roomType?: string | null): boolean {
-  return roomType === "투룸" || roomType === "3룸+" || roomType === "아파트";
+  return (
+    roomType === "투룸" ||
+    roomType === "3룸+" ||
+    roomType === "오피스텔" ||
+    roomType === "아파트"
+  );
 }
 
 /** 투룸은 방 2개 고정 */
@@ -95,6 +101,7 @@ export function defaultRoomBathCounts(roomType: string): {
 } {
   if (roomType === "투룸") return { roomCount: 2, bathroomCount: 1 };
   if (roomType === "3룸+") return { roomCount: 3, bathroomCount: 1 };
+  if (roomType === "오피스텔") return { roomCount: 1, bathroomCount: 1 };
   if (roomType === "아파트") return { roomCount: 2, bathroomCount: 1 };
   return { roomCount: 1, bathroomCount: 1 };
 }

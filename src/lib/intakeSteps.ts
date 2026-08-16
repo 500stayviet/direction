@@ -23,7 +23,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
   customer: [
     { key: "name", name: "고객명 또는 명칭", example: "홍길동  ·  명칭 성내" },
     { key: "phone", name: "전화번호", example: "010-1234-5678" },
-    { key: "roomType", name: "매물유형", example: "원룸 등" },
+    { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "선호위치", example: "강동구 oo동" },
     { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
@@ -41,7 +41,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
   property: [
-    { key: "roomType", name: "매물유형", example: "원룸 등" },
+    { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "주소", example: "강동구 oo동, 101동 102호" },
     { key: "money", name: "거래가액", example: "매매가 보증금 월세(월세 시)" },
@@ -205,21 +205,42 @@ export function flagsHasAny(
   return FLAG_FIELDS.some((field) => partial[field]);
 }
 
+export type IntakeGuideStepRow = {
+  partial?: Partial<IntakeParseResult>;
+  display?: string;
+  complete?: boolean;
+};
+
+export function stripTalkNotesPrefix(text: string): string {
+  return text.replace(/^메모\s*[:：.]?\s*/, "").trim();
+}
+
+export function guideStepComplete(
+  key: IntakeStepKey,
+  row: IntakeGuideStepRow | undefined
+): boolean {
+  if (key === "flags") return flagsStepComplete(row?.partial);
+  if (key === "notes") return Boolean(row?.complete) || Boolean(row?.display);
+  return Boolean(row?.display);
+}
+
+export function allGuideStepsComplete(
+  kind: IntakeKind,
+  steps: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
+): boolean {
+  return INTAKE_GUIDE_STEPS[kind].every((line) =>
+    guideStepComplete(line.key, steps[line.key])
+  );
+}
+
 export function firstIncompleteGuideIndex(
   kind: IntakeKind,
-  steps: Partial<
-    Record<
-      IntakeStepKey,
-      { partial?: Partial<IntakeParseResult>; display?: string }
-    >
-  >
+  steps: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): number {
   const guide = INTAKE_GUIDE_STEPS[kind];
-  const idx = guide.findIndex((line) => {
-    const row = steps[line.key];
-    if (line.key === "flags") return !flagsStepComplete(row?.partial);
-    return !row?.display;
-  });
+  const idx = guide.findIndex(
+    (line) => !guideStepComplete(line.key, steps[line.key])
+  );
   return idx < 0 ? Math.max(0, guide.length - 1) : idx;
 }
 
@@ -512,7 +533,7 @@ export function parseIntakeStep(
   if (!text) return { ok: false, partial: {}, display: "" };
 
   if (step === "notes") {
-    const notes = text.replace(/^메모\s*[:：.]?\s*/, "").trim();
+    const notes = stripTalkNotesPrefix(text);
     if (!notes) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = { notes, options: [] };
     return { ok: true, partial, display: notes };

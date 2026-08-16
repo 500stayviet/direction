@@ -14,6 +14,7 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
     case "원룸":
     case "투룸":
     case "3룸+":
+    case "오피스텔":
     case "아파트":
     default:
       return "희망층, 방향, 애완동물, 특이사항 등";
@@ -33,6 +34,7 @@ export function propertyNotesPlaceholder(roomType?: RoomType | string): string {
     case "원룸":
     case "투룸":
     case "3룸+":
+    case "오피스텔":
     case "아파트":
     default:
       return "건축연도, 층, 방향, 애완동물, 특이사항 등";

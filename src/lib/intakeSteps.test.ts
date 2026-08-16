@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   INTAKE_GUIDE_STEPS,
+  allGuideStepsComplete,
   buildIntakeFromSteps,
   buildFlagsProgressParts,
   parseIntakeStep,
   parseIntakeStepChain,
   firstIncompleteGuideIndex,
   flagsStepComplete,
+  guideStepComplete,
   splitIntakeStepCancel,
 } from "./intakeSteps.ts";
 
@@ -303,5 +305,44 @@ describe("intakeSteps", () => {
       },
     });
     assert.equal(INTAKE_GUIDE_STEPS.property[idx]?.key, "flags");
+  });
+
+  it("메모는 말이 있어도 입력완료 전에는 미완료다", () => {
+    assert.equal(guideStepComplete("notes", { display: "" }), false);
+    assert.equal(
+      guideStepComplete("notes", { display: "남향", complete: true }),
+      true
+    );
+    assert.equal(
+      guideStepComplete("notes", { display: "", complete: true }),
+      true
+    );
+  });
+
+  it("allGuideStepsComplete는 빈 메모 complete도 인정한다", () => {
+    const filled = {
+      roomType: { display: "원룸" },
+      dealType: { display: "매매" },
+      location: { display: "성내동" },
+      money: { display: "1억" },
+      dates: { display: "8/25" },
+      flags: {
+        display: "대출가능",
+        partial: {
+          loan: "유" as const,
+          insurance: "무" as const,
+          parking: "유" as const,
+          elevator: "무" as const,
+        },
+      },
+      contacts: { display: "010" },
+      share: { display: "유" },
+      notes: { display: "", complete: true },
+    };
+    assert.equal(allGuideStepsComplete("property", filled), true);
+    assert.equal(
+      allGuideStepsComplete("property", { ...filled, notes: { display: "" } }),
+      false
+    );
   });
 });
