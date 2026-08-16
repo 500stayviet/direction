@@ -20,6 +20,12 @@ function skipAppSessionWork(pathname: string) {
   );
 }
 
+function isPublicPath(path: string) {
+  return PUBLIC_PATHS.some(
+    (p) => path === p || (p !== "/" && path.startsWith(`${p}/`))
+  );
+}
+
 /** 앱 실행 시 브랜드 스플래시 최소 노출 (너무 빨리 사라지지 않게) */
 const BOOT_SPLASH_MIN_MS = 1400;
 
@@ -90,32 +96,33 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const run = async () => {
-      const publicPage = PUBLIC_PATHS.some(
-        (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))
-      );
-      const light = skipAppSessionWork(pathname);
+    const loadSession = async () => {
+      const path = window.location.pathname;
+      const light = skipAppSessionWork(path);
 
       try {
-        // 관리자·로그인: 앱 유저 조회만(토큰 강제 갱신·데모시드 없음)
-        const user = light
-          ? peekCurrentUser()
-          : await getCurrentUser();
+        // 최초 부팅·세션 변경만 전체 조회. 경로 이동은 peek만 쓴다.
+        const user = light ? peekCurrentUser() : await getCurrentUser();
         const sid = light
           ? peekCurrentUser()?.id ?? "guest"
           : (await getSessionUserId()) ?? "guest";
         if (cancelled) return;
         setSessionKey(sid);
 
-        if (!user && !publicPage) {
+        const currentPath = window.location.pathname;
+        const currentPublic = isPublicPath(currentPath);
+
+        if (!user && !currentPublic) {
           router.replace("/");
+          setReady(true);
           return;
         }
 
-        if (user && (pathname === "/login" || pathname === "/signup")) {
+        if (user && (currentPath === "/login" || currentPath === "/signup")) {
           await seedDemoDataIfNeeded().catch(() => undefined);
           if (cancelled) return;
           router.replace("/");
+          setReady(true);
           return;
         }
 
@@ -126,32 +133,53 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setReady(true);
       } catch {
         if (cancelled) return;
-        if (!publicPage) {
+        if (!isPublicPath(window.location.pathname)) {
           router.replace("/");
-          return;
         }
         setReady(true);
       }
     };
 
-    void run();
+    void loadSession();
 
     let unsubscribe = () => {};
     try {
       const supabase = createClient();
       const { data } = supabase.auth.onAuthStateChange(() => {
-        void run();
+        void loadSession();
       });
       unsubscribe = () => data.subscription.unsubscribe();
     } catch {
       /* env 미설정 시 공개 페이지만 */
     }
 
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const path = window.location.pathname;
+      if (skipAppSessionWork(path)) return;
+      void getCurrentUser();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       cancelled = true;
       unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [pathname, router]);
+  }, [router]);
+
+  // 세션이 준비된 뒤 경로만 바뀌면 저장소 peek로 가드 (getCurrentUser 재호출 없음)
+  useEffect(() => {
+    if (!ready) return;
+    const user = peekCurrentUser();
+    if (!user && !isPublicPath(pathname)) {
+      router.replace("/");
+      return;
+    }
+    if (user && (pathname === "/login" || pathname === "/signup")) {
+      router.replace("/");
+    }
+  }, [pathname, ready, router]);
 
   useEffect(() => {
     if (!ready || booted) return;

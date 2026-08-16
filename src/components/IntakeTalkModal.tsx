@@ -188,6 +188,10 @@ export function IntakeTalkModal({
         resetStepSpeech();
         return;
       }
+      if (nextIndex === fromIndex) {
+        resetStepSpeech();
+        return;
+      }
       clearStepSpeechBuffer();
       resetStepSpeech();
     },

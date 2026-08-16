@@ -345,4 +345,37 @@ describe("intakeSteps", () => {
       false
     );
   });
+
+  it("날짜는 시작일만 있으면 다음 칸으로 넘기지 않는다", () => {
+    const datesIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "dates"
+    );
+    const open = parseIntakeStepChain("9월 15일부터", datesIndex, "property", {});
+    assert.equal(open.commits[0]?.key, "dates");
+    assert.equal(open.nextIndex, datesIndex);
+
+    const fromWord = parseIntakeStepChain("9월 15일에서", datesIndex, "property", {});
+    assert.equal(fromWord.nextIndex, datesIndex);
+
+    const lone = parseIntakeStepChain("9월 15일", datesIndex, "property", {});
+    assert.equal(lone.nextIndex, datesIndex);
+
+    const range = parseIntakeStepChain(
+      "9월 15일부터 10월 1일",
+      datesIndex,
+      "property",
+      {}
+    );
+    assert.ok(range.nextIndex > datesIndex);
+    assert.equal(range.commits[0]?.partial.moveInFrom, "2026-09-15");
+    assert.equal(range.commits[0]?.partial.moveInTo, "2026-10-01");
+
+    const withFlags = parseIntakeStepChain(
+      "9월 15일 대출 무",
+      datesIndex,
+      "property",
+      {}
+    );
+    assert.ok(withFlags.commits.some((row) => row.key === "flags"));
+  });
 });

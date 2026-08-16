@@ -76,17 +76,18 @@ function useEntityListState<T>(
       const userId = await getSessionUserId();
       ensureEntityCacheUser(userId);
       if (cancelled) return;
-      if (peek()) {
+      const hadCache = Boolean(peek());
+      if (hadCache) {
         setLoading(false);
-        return;
+      } else {
+        setLoading(true);
       }
-      setLoading(true);
       try {
         await loadFresh();
-        if (!cancelled) setLoading(false);
       } catch {
-        if (!cancelled) setLoading(false);
+        /* 캐시가 있으면 그대로 두고, 없으면 빈 목록 */
       }
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;

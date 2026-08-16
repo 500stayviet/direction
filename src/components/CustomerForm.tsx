@@ -47,15 +47,7 @@ import {
   defaultPreferredLocation,
 } from "@/lib/preferredLocation";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
-import {
-  intakeMoveInPeriod,
-  intakePreferredLocation,
-  type IntakeParseResult,
-} from "@/lib/intakeParse";
-import {
-  INTAKE_AI_MIN_WAIT_MS,
-  resolveIntakeWithAi,
-} from "@/lib/intakeAiClient";
+import type { IntakeParseResult } from "@/lib/intakeParse";
 import {
   recordIntakeSample,
   type IntakeSampleSource,
@@ -64,8 +56,7 @@ import { getAccessToken } from "@/lib/auth";
 import { filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
-import { IntakeMessageModal } from "@/components/IntakeMessageModal";
-import { IntakeTalkModal } from "@/components/IntakeTalkModal";
+import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 
 const IntakePhotoPicker = dynamic(
@@ -343,7 +334,10 @@ export function CustomerForm({
     setPhotoError("");
   };
 
-  const applyIntakeParsed = (parsed: IntakeParseResult) => {
+  const applyIntakeParsed = async (parsed: IntakeParseResult) => {
+    const { intakeMoveInPeriod, intakePreferredLocation } = await import(
+      "@/lib/intakeParse"
+    );
     const nextPhone =
       parsed.phone || parsed.tenantPhone || parsed.landlordPhone || "";
     if (nextPhone) {
@@ -414,6 +408,9 @@ export function CustomerForm({
     const started = Date.now();
     try {
       const accessToken = await getAccessToken();
+      const { INTAKE_AI_MIN_WAIT_MS, resolveIntakeWithAi } = await import(
+        "@/lib/intakeAiClient"
+      );
       const parsed = await resolveIntakeWithAi({
         raw,
         kind: "customer",
@@ -429,7 +426,7 @@ export function CustomerForm({
         parsed,
         accessToken,
       });
-      applyIntakeParsed(parsed);
+      await applyIntakeParsed(parsed);
     } finally {
       setAiBusy(false);
       applyingIntakeRef.current = false;
@@ -618,11 +615,13 @@ export function CustomerForm({
             {photoError}
           </p>
         ) : null}
-        <IntakePhotoPicker
-          requestId={photoRequestId}
-          onText={(text) => applyIntakeText(text, "photo")}
-          onError={setPhotoError}
-        />
+        {photoRequestId > 0 ? (
+          <IntakePhotoPicker
+            requestId={photoRequestId}
+            onText={(text) => void applyIntakeText(text, "photo")}
+            onError={setPhotoError}
+          />
+        ) : null}
         <Card className="space-y-2.5">
           <div ref={setFieldRef("name")}>
             <Input
@@ -1159,17 +1158,21 @@ export function CustomerForm({
           if (method) startIntake(method);
         }}
       />
-      <IntakeMessageModal
-        open={messageOpen}
-        onClose={() => setMessageOpen(false)}
-        onApply={(text) => applyIntakeText(text, "message")}
-      />
-      <IntakeTalkModal
-        open={talkOpen}
-        kind="customer"
-        onClose={() => setTalkOpen(false)}
-        onApply={applyIntakeParsed}
-      />
+      {messageOpen ? (
+        <IntakeMessageModal
+          open={messageOpen}
+          onClose={() => setMessageOpen(false)}
+          onApply={(text) => void applyIntakeText(text, "message")}
+        />
+      ) : null}
+      {talkOpen ? (
+        <IntakeTalkModal
+          open={talkOpen}
+          kind="customer"
+          onClose={() => setTalkOpen(false)}
+          onApply={(parsed) => void applyIntakeParsed(parsed)}
+        />
+      ) : null}
     </>
   );
 }

@@ -766,6 +766,21 @@ function isYearMonthDayTriple(a: number, b: number, c: number): boolean {
 }
 
 const TILDE_CLS = "~～〜∼";
+/**
+ * 기간(단일 아님) 연결. 날짜 토큰과 토큰 사이에서만 씀.
+ * ~ 계열은 기존, 하이픈은 날짜-날짜일 때만.
+ * . , / 는 PAIR_SEP(날짜 안·금액)이라 여기 넣지 않음.
+ */
+const DATE_RANGE_LINK_INNER = `부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지|[${TILDE_CLS}\\-]`;
+const DATE_RANGE_LINK = `(?:${DATE_RANGE_LINK_INNER})`;
+
+export function dateRangeLinkTail(text: string): boolean {
+  return new RegExp(`(?:${DATE_RANGE_LINK_INNER})\\s*$`).test(text);
+}
+
+export function hasDateRangeWord(text: string): boolean {
+  return /부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지/.test(text);
+}
 
 function rangeLabelPrefs(text: string): {
   preferMonthly: boolean;
@@ -1658,13 +1673,17 @@ function parseDateToken(
   return null;
 }
 
-function parseTildeDateRange(
+function parseLinkedDateRange(
   text: string,
   today: Date
 ): { from: string; to: string } | null {
-  const re = new RegExp(
-    `((?:\\d{4}\\s*년\\s*)?\\d{1,2}\\s*월\\s*\\d{1,2}\\s*일|\\d{4}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}|\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2})\\s*[${TILDE_CLS}]\\s*((?:\\d{4}\\s*년\\s*)?\\d{1,2}\\s*월\\s*\\d{1,2}\\s*일|\\d{4}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}|\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2})`
-  );
+  const chunk = [
+    `(?:\\d{4}\\s*년\\s*)?\\d{1,2}\\s*월\\s*\\d{1,2}(?:\\s*일(?!\\d)|(?!\\d))`,
+    `\\d{4}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}`,
+    `\\d{2}\\s*[${PAIR_SEP_CLS}.]\\s*\\d{1,2}\\s*[${PAIR_SEP_CLS}.]\\s*\\d{1,2}`,
+    `\\d{1,2}\\s*[${PAIR_SEP_CLS}]\\s*\\d{1,2}`,
+  ].join("|");
+  const re = new RegExp(`(${chunk})\\s*${DATE_RANGE_LINK}\\s*(${chunk})`);
   const m = text.match(re);
   if (!m?.[1] || !m[2]) return null;
   const from = parseDateToken(m[1], today);
@@ -1695,30 +1714,14 @@ function parseMoveInDates(
   ) {
     return { immediate: true };
   }
+  const linked = parseLinkedDateRange(corrected, today);
+  if (linked) {
+    const clamped = asFutureMoveIn(linked.from, linked.to, today);
+    if (clamped) return clamped;
+  }
   const shortDate = findShortYearDateSpan(corrected, today);
   if (shortDate) {
     const clamped = asFutureMoveIn(shortDate.from, shortDate.from, today);
-    if (clamped) return clamped;
-  }
-  const fromTo = corrected.match(
-    new RegExp(
-      `(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))\\s*부터\\s*(?:(\\d{4})\\s*년\\s*)?(\\d{1,2})\\s*월\\s*(\\d{1,2})(?:\\s*일(?!\\d)|(?!\\d))`
-    )
-  );
-  if (fromTo) {
-    const fromChunk = `${fromTo[1] ? `${fromTo[1]}년 ` : ""}${fromTo[2]}월 ${fromTo[3]}`;
-    const toChunk = `${fromTo[4] ? `${fromTo[4]}년 ` : ""}${fromTo[5]}월 ${fromTo[6]}`;
-    const from = parseDateToken(fromChunk, today);
-    const to = from ? parseDateToken(toChunk, today, from) : null;
-    if (from && to) {
-      const clamped = asFutureMoveIn(from, to, today);
-      if (clamped) return clamped;
-    }
-  }
-
-  const tilde = parseTildeDateRange(corrected, today);
-  if (tilde) {
-    const clamped = asFutureMoveIn(tilde.from, tilde.to, today);
     if (clamped) return clamped;
   }
   const hits = [...corrected.matchAll(MDAY_RE)];

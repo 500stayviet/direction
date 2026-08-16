@@ -114,16 +114,26 @@ export function TeamAlertsSync() {
         .map((s) => s.id)
     );
 
-    const pairs: string[] = [];
-    for (const c of customers) {
-      if (c.contractCompleted) continue;
-      const matched = findMatchingProperties(c, properties);
-      for (const p of matched) {
-        if (p.contractCompleted) continue;
-        pairs.push(matchPairKey(c.id, p.id));
+    const runMatch = () => {
+      const pairs: string[] = [];
+      for (const c of customers) {
+        if (c.contractCompleted) continue;
+        const matched = findMatchingProperties(c, properties);
+        for (const p of matched) {
+          if (p.contractCompleted) continue;
+          pairs.push(matchPairKey(c.id, p.id));
+        }
       }
+      syncMatchPairs(pairs);
+    };
+
+    // N×M 매칭은 첫 페인트 이후. 뱃지는 idle 또는 0.8초 안에 맞춰진다.
+    if (typeof requestIdleCallback === "function") {
+      const idleId = requestIdleCallback(runMatch, { timeout: 800 });
+      return () => cancelIdleCallback(idleId);
     }
-    syncMatchPairs(pairs);
+    const timer = window.setTimeout(runMatch, 0);
+    return () => window.clearTimeout(timer);
   }, [userId, customers, properties, schedules]);
 
   return null;

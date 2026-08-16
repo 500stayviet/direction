@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Property } from "@/lib/types";
+import type { Property, RoomType } from "@/lib/types";
 import {
   INSURANCE_TYPES,
   MAINTENANCE_OPTIONS,
@@ -44,16 +44,8 @@ import {
   getMissingRequiredFields,
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
-import type { RoomType } from "@/lib/types";
 import { RoomBathCountFields } from "@/components/RoomBathCountFields";
-import {
-  applyIntakeToProperty,
-  type IntakeParseResult,
-} from "@/lib/intakeParse";
-import {
-  INTAKE_AI_MIN_WAIT_MS,
-  resolveIntakeWithAi,
-} from "@/lib/intakeAiClient";
+import type { IntakeParseResult } from "@/lib/intakeParse";
 import {
   recordIntakeSample,
   type IntakeSampleSource,
@@ -62,8 +54,7 @@ import { getAccessToken } from "@/lib/auth";
 import { isPlaceholderAddress } from "@/lib/seoulRegions";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
-import { IntakeMessageModal } from "@/components/IntakeMessageModal";
-import { IntakeTalkModal } from "@/components/IntakeTalkModal";
+import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { invalidHintClass, invalidLabelClass, invalidStarClass, invalidWrapClass, filledSectionClass, memoFilledSectionClass } from "@/lib/uiInvalid";
 
@@ -162,6 +153,10 @@ export function PropertyEditor({
   const [photoError, setPhotoError] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const applyingIntakeRef = useRef(false);
+  const propertyRef = useRef(property);
+  useEffect(() => {
+    propertyRef.current = property;
+  }, [property]);
 
   const reorderList = allProperties ?? [];
   const canReorder = Boolean(onSwapWith);
@@ -312,8 +307,9 @@ export function PropertyEditor({
     setPhotoError("");
   };
 
-  const applyIntakeParsed = (parsed: IntakeParseResult) => {
-    onChange(applyIntakeToProperty(property, parsed));
+  const applyIntakeParsed = async (parsed: IntakeParseResult) => {
+    const { applyIntakeToProperty } = await import("@/lib/intakeParse");
+    onChange(applyIntakeToProperty(propertyRef.current, parsed));
     setFilledFromIntake(true);
     setMessageOpen(false);
     setTalkOpen(false);
@@ -327,6 +323,9 @@ export function PropertyEditor({
     const started = Date.now();
     try {
       const accessToken = await getAccessToken();
+      const { INTAKE_AI_MIN_WAIT_MS, resolveIntakeWithAi } = await import(
+        "@/lib/intakeAiClient"
+      );
       const parsed = await resolveIntakeWithAi({
         raw,
         kind: "property",
@@ -342,7 +341,7 @@ export function PropertyEditor({
         parsed,
         accessToken,
       });
-      applyIntakeParsed(parsed);
+      await applyIntakeParsed(parsed);
     } finally {
       setAiBusy(false);
       applyingIntakeRef.current = false;
@@ -358,11 +357,13 @@ export function PropertyEditor({
         {photoError ? (
           <p className="text-[12px] font-semibold text-red-400">{photoError}</p>
         ) : null}
-        <IntakePhotoPicker
-          requestId={photoRequestId}
-          onText={(text) => applyIntakeText(text, "photo")}
-          onError={setPhotoError}
-        />
+        {photoRequestId > 0 ? (
+          <IntakePhotoPicker
+            requestId={photoRequestId}
+            onText={(text) => void applyIntakeText(text, "photo")}
+            onError={setPhotoError}
+          />
+        ) : null}
       </div>
     ) : null}
     <Card
@@ -1146,17 +1147,21 @@ export function PropertyEditor({
             if (method) startIntake(method);
           }}
         />
-        <IntakeMessageModal
-          open={messageOpen}
-          onClose={() => setMessageOpen(false)}
-          onApply={(text) => applyIntakeText(text, "message")}
-        />
-        <IntakeTalkModal
-          open={talkOpen}
-          kind="property"
-          onClose={() => setTalkOpen(false)}
-          onApply={applyIntakeParsed}
-        />
+        {messageOpen ? (
+          <IntakeMessageModal
+            open={messageOpen}
+            onClose={() => setMessageOpen(false)}
+            onApply={(text) => void applyIntakeText(text, "message")}
+          />
+        ) : null}
+        {talkOpen ? (
+          <IntakeTalkModal
+            open={talkOpen}
+            kind="property"
+            onClose={() => setTalkOpen(false)}
+            onApply={(parsed) => void applyIntakeParsed(parsed)}
+          />
+        ) : null}
       </>
     ) : null}
     </>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -292,11 +293,13 @@ export default function NaviEntryPage() {
               .filter(Boolean)
               .join(" · ");
 
+            const href = `/schedules/${s.id}?from=navi`;
             return (
               <div
                 key={s.id}
                 className="relative mb-1.5 overflow-visible pb-0.5 pt-1.5"
               >
+                <PrefetchHref href={href} />
                 <ListEdgeChips
                   roomType={customer?.roomType}
                   buildingKind={customer?.buildingKind}
@@ -325,7 +328,7 @@ export default function NaviEntryPage() {
                   hintNudge={nudgeFirstCard && index === 0}
                   onTap={() => {
                     markShareSeen("navi", s.id);
-                    router.push(`/schedules/${s.id}?from=navi`);
+                    router.push(href);
                   }}
                   onSwipeLeft={() =>
                     setPending({ id: s.id, type: "complete" })

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type MouseEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
@@ -81,7 +80,6 @@ function deadlineModalKey(userId: string) {
 const FREE_NOTICE_HIDE_KEY = "realty_home_free_notice_hide";
 
 export default function HomePage() {
-  const router = useRouter();
   const user = useAuthUser();
   const { suspended, blockOrExplain } = useAccountSuspended();
   // 홈에서 고객·매물·네비를 같이 워밍 — 리스트 진입 시 빈 화면 깜빡임 방지
@@ -155,12 +153,12 @@ export default function HomePage() {
     () => "오늘도 현장 화이팅"
   );
 
-  const requireAuth = (href: string) => {
+  const onMenuClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (user) {
-      if (blockOrExplain()) return;
-      router.push(href);
+      if (blockOrExplain()) event.preventDefault();
       return;
     }
+    event.preventDefault();
     setAuthModalOpen(true);
   };
 
@@ -281,10 +279,11 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-2.5 pb-2">
         {menus.map((menu) => (
-          <button
+          <Link
             key={menu.href}
-            type="button"
-            onClick={() => requireAuth(menu.href)}
+            href={menu.href}
+            prefetch={Boolean(user) && !suspended}
+            onClick={onMenuClick}
             className="flex min-h-[84px] items-center rounded-2xl border border-gray-100 bg-white px-4 py-3.5 text-left shadow-sm active:scale-[0.98] transition-all duration-150"
           >
             <div className="flex w-full items-center gap-3.5">
@@ -303,7 +302,7 @@ export default function HomePage() {
               </div>
               <span className="text-2xl text-gray-300">›</span>
             </div>
-          </button>
+          </Link>
         ))}
       </div>
 
@@ -360,13 +359,11 @@ export default function HomePage() {
       >
         <div className="max-h-52 space-y-1.5 overflow-y-auto">
           {deadlineCustomers.map((c) => (
-            <button
+            <Link
               key={c.id}
-              type="button"
-              onClick={() => {
-                closeDeadlineModal();
-                router.push(`/customers/${c.id}`);
-              }}
+              href={`/customers/${c.id}`}
+              prefetch
+              onClick={closeDeadlineModal}
               className="flex w-full items-center justify-between gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 text-left active:scale-[0.99] transition-all duration-150"
             >
               <span className="truncate text-[15px] font-bold text-gray-900">
@@ -375,7 +372,7 @@ export default function HomePage() {
               <span className="shrink-0 text-[11px] font-bold text-amber-700">
                 {getContractDeadlineLabel(c)}
               </span>
-            </button>
+            </Link>
           ))}
         </div>
         <Button fullWidth className="mt-4" onClick={closeDeadlineModal}>

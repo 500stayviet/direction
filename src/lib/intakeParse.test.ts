@@ -409,6 +409,31 @@ describe("parseIntakeText", () => {
     assert.equal(tildeSlash.moveInTo, "2026-09-01");
   });
 
+  it("기간 연결 에서·와·과·하고·내지·하이픈을 읽고 점·콤마는 날짜 안으로만 쓴다", () => {
+    const today = new Date(2026, 7, 14);
+    const expectRange = (raw: string) => {
+      const parsed = parseIntakeText(raw, "property", today);
+      assert.equal(parsed.moveInFrom, "2026-08-20", raw);
+      assert.equal(parsed.moveInTo, "2026-09-01", raw);
+    };
+    expectRange("8월 20일에서 9월 1일");
+    expectRange("8월 20일과 9월 1일");
+    expectRange("8월 20일 와 9월 1일");
+    expectRange("8월 20일하고 9월 1일");
+    expectRange("8월 20일 내지 9월 1일");
+    expectRange("8월 20일-9월 1일");
+    expectRange("8/20부터 9/1");
+    expectRange("8월 20일부터는 9월 1일까지");
+
+    const yyRange = parseIntakeText("26.08.20~26.09.01", "property", today);
+    assert.equal(yyRange.moveInFrom, "2026-08-20");
+    assert.equal(yyRange.moveInTo, "2026-09-01");
+
+    const fuzzy = parseIntakeText("원룸 전세 8.25", "customer", today);
+    assert.equal(fuzzy.moveInFrom, undefined);
+    assert.match(fuzzy.notes, /8\.25/);
+  });
+
   it("1000/50은 보증금·월세, 없는 날짜는 버린다", () => {
     const today = new Date(2026, 7, 14);
     const money = parseIntakeText("원룸 1000/50", "customer", today);

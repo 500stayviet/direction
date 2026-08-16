@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -91,10 +92,14 @@ export default function PropertyListPage() {
     setPending(null);
   };
 
+  const propertyHref = (p: ListedProperty) => {
+    const scroll = hasUnseenMatchForProperty(p.id) ? "?scrollMatch=1" : "";
+    return `/properties/${p.id}${scroll}`;
+  };
+
   const openProperty = (p: ListedProperty) => {
     markShareSeen("properties", p.id);
-    const scroll = hasUnseenMatchForProperty(p.id) ? "?scrollMatch=1" : "";
-    router.push(`/properties/${p.id}${scroll}`);
+    router.push(propertyHref(p));
   };
 
   const myId = peekCurrentUser()?.id;
@@ -196,8 +201,9 @@ export default function PropertyListPage() {
               const foreign = isForeignTeamItem(p.createdBy, myId);
 
               return (
+                <Fragment key={p.id}>
+                <PrefetchHref href={propertyHref(p)} />
                 <PropertyListCard
-                  key={p.id}
                   property={p}
                   alertHighlight={listCardHighlight("properties", p.id)}
                   right={
@@ -227,6 +233,7 @@ export default function PropertyListPage() {
                     </SwipeRevealRow>
                   )}
                 />
+                </Fragment>
               );
             })}
           </div>

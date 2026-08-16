@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -94,10 +95,14 @@ export default function CustomerListPage() {
     setPending(null);
   };
 
+  const customerHref = (c: Customer) => {
+    const scroll = hasUnseenMatchForCustomer(c.id) ? "?scrollMatch=1" : "";
+    return `/customers/${c.id}${scroll}`;
+  };
+
   const openCustomer = (c: Customer) => {
     markShareSeen("customers", c.id);
-    const scroll = hasUnseenMatchForCustomer(c.id) ? "?scrollMatch=1" : "";
-    router.push(`/customers/${c.id}${scroll}`);
+    router.push(customerHref(c));
   };
 
   const myId = peekCurrentUser()?.id;
@@ -197,8 +202,9 @@ export default function CustomerListPage() {
               const foreign = isForeignTeamItem(c.createdBy, myId);
 
               return (
+                <Fragment key={c.id}>
+                <PrefetchHref href={customerHref(c)} />
                 <CustomerListCard
-                  key={c.id}
                   customer={c}
                   alertHighlight={listCardHighlight("customers", c.id)}
                   right={
@@ -228,6 +234,7 @@ export default function CustomerListPage() {
                     </SwipeRevealRow>
                   )}
                 />
+                </Fragment>
               );
             })}
           </div>

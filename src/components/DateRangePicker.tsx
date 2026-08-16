@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import {
@@ -49,6 +49,7 @@ export function DateRangePicker({
   const now = new Date();
   const [viewYear, setViewYear] = useState(currentYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
+  const toClickReadyAt = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +89,7 @@ export function DateRangePicker({
       setDraftFrom(iso);
       setDraftTo(nextTo);
       setStep("to");
+      toClickReadyAt.current = Date.now() + 450;
       const base = parseISODate(iso);
       if (base) {
         setViewYear(base.getFullYear());
@@ -95,8 +97,8 @@ export function DateRangePicker({
       }
       return;
     }
+    if (Date.now() < toClickReadyAt.current) return;
     setDraftTo(iso);
-    finish(draftFrom, iso);
   };
 
   const confirm = () => {
@@ -171,10 +173,10 @@ export function DateRangePicker({
           step === "from"
             ? optionalTo
               ? "시작일을 고른 뒤, 종료일은 필요할 때만 선택하세요"
-              : "시작일을 고르면 바로 종료일을 선택해요"
+              : "시작일을 고른 뒤 종료일을 고르고, 선택 완료를 눌러 주세요"
             : optionalTo
               ? `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} · 종료일은 선택 사항`
-              : `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} 이후`
+              : `시작일 ${draftFrom ? formatDisplayDate(draftFrom) : ""} 이후 · 고른 뒤 선택 완료`
         }
       >
         <div className="mb-3 grid grid-cols-2 gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, type MouseEvent } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { useAccountSuspended } from "@/components/AccountSuspendedGate";
@@ -60,14 +61,17 @@ export function BottomTabBar() {
     return null;
   }
 
-  const handleTab = (href: string, isPublic: boolean) => {
-    // 정지 계정 — 로그인 모달보다 이용제한 안내가 우선
-    if (href !== "/" && blockOrExplain()) return;
-    if (isPublic || loggedIn) {
-      router.push(href);
+  const onTabClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    href: string,
+    isPublic: boolean
+  ) => {
+    if (href !== "/" && blockOrExplain()) {
+      event.preventDefault();
       return;
     }
-    // 가입 안내는 홈에서만 — 다른 공개 페이지에서는 홈으로 이동
+    if (isPublic || loggedIn) return;
+    event.preventDefault();
     if (pathname === "/") {
       setAuthModalOpen(true);
       return;
@@ -108,15 +112,17 @@ export function BottomTabBar() {
               );
 
               return (
-                <button
+                <Link
                   key={tab.href}
-                  type="button"
-                  onClick={() => handleTab(tab.href, tab.public)}
+                  href={tab.href}
+                  prefetch
+                  aria-label={tab.label}
+                  onClick={(event) => onTabClick(event, tab.href, tab.public)}
                   className={className}
                 >
                   {icon}
                   <span>{tab.label}</span>
-                </button>
+                </Link>
               );
             })}
           </div>

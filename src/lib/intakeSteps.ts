@@ -5,6 +5,8 @@ import {
   parseAllYesNoFields,
   parseIntakeText,
   consumeYesNoField,
+  dateRangeLinkTail,
+  hasDateRangeWord,
   type IntakeKind,
   type IntakeParseResult,
   type IntakeYesNoField,
@@ -386,7 +388,7 @@ function moneyConsumedEnd(text: string): number {
 }
 
 const TALK_DATE_SPAN =
-  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터|까지))?|\d+\s*월\s*\d+)/g;
+  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\s*[-~～〜∼]?|\d+\s*월\s*\d+)/g;
 
 function datesConsumedEnd(text: string): number {
   let end = 0;
@@ -394,6 +396,29 @@ function datesConsumedEnd(text: string): number {
     if (m.index != null) end = Math.max(end, m.index + m[0].length);
   }
   return end;
+}
+
+const NEXT_AFTER_DATES =
+  /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+
+/** 시작일만 있고 기간이 더 나올 수 있으면 다음 칸으로 넘기지 않는다 */
+export function datesStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>
+): boolean {
+  if (partial.moveInImmediate) return true;
+  if (!partial.moveInFrom) return false;
+  const from = partial.moveInFrom;
+  const to = partial.moveInTo || from;
+  if (from !== to) return true;
+
+  const normalized = normalizeIntakeInput(text);
+  const end = datesConsumedEnd(normalized);
+  const rest = (end > 0 ? normalized.slice(end) : "").trim();
+  if (dateRangeLinkTail(normalized)) return false;
+  if (hasDateRangeWord(normalized) && !NEXT_AFTER_DATES.test(rest)) return false;
+  if (!rest) return false;
+  return true;
 }
 
 /** 한 발화에서 현재 단계를 채운 뒤, 남은 글을 다음 단계 입력으로 넘긴다 */
@@ -512,6 +537,9 @@ export function parseIntakeStepChain(
       display: parsed.display,
     });
     steps[key] = parsed.partial;
+    if (key === "dates" && !datesStepReadyToAdvance(text, parsed.partial)) {
+      break;
+    }
     text = extractTalkStepRemainder(text, key, parsed.partial, kind);
     if (key === "flags" && !flagsStepComplete(parsed.partial)) {
       continue;
