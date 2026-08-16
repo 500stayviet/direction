@@ -375,7 +375,7 @@ export function CustomerForm({
       if (!parsed.dealType) handleDealTypeChange("월세");
     }
     const loc = intakePreferredLocation(parsed);
-    if (loc.preferredDongs.length > 0 || loc.preferredGus.length > 0) {
+    if (loc.preferredDongs.length > 0) {
       setPreferredGus(loc.preferredGus);
       setPreferredDongs(loc.preferredDongs);
       preferredRef.current = loc;

@@ -12,6 +12,7 @@ import {
   type IntakeYesNoField,
   formatTalkFlagValue,
 } from "@/lib/intakeParse";
+import { resolveGuFromDong } from "@/lib/seoulRegions";
 
 export type IntakeStepKey = IntakeGuideKey;
 
@@ -39,7 +40,6 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "대출 · 보증보험 · 주차 · 엘베 (가능 / 불가)",
       example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 불가",
     },
-    { key: "share", name: "팀공유 (유 / 무)" },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
   property: [
@@ -62,7 +62,6 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임차인 · 임대인 전화번호",
       example: "010-1234-5678",
     },
-    { key: "share", name: "팀공유 (유 / 무)" },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
 };
@@ -398,8 +397,122 @@ function datesConsumedEnd(text: string): number {
   return end;
 }
 
+const NEXT_AFTER_LOCATION =
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|\d)/;
+
 const NEXT_AFTER_DATES =
   /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+
+function customerPlacesFromPartial(
+  partial: Partial<IntakeParseResult> | undefined
+): { gu: string; dong: string }[] {
+  if (!partial) return [];
+  const places = (partial.places ?? []).filter((p) => p.gu && p.dong);
+  const seen = new Set<string>();
+  const out: { gu: string; dong: string }[] = [];
+  const push = (gu: string, dong: string) => {
+    const key = `${gu}|${dong}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ gu, dong });
+  };
+  for (const place of places) push(place.gu, place.dong);
+  if (out.length > 0) return out;
+  if (!partial.dong) return [];
+  const gu = partial.gu || resolveGuFromDong(partial.dong);
+  if (gu) push(gu, partial.dong);
+  return out;
+}
+
+function mergeCustomerPlaces(
+  prior: Partial<IntakeParseResult> | undefined,
+  parsed: Partial<IntakeParseResult>
+): { gu?: string; dong?: string; places: { gu: string; dong: string }[] } {
+  const seen = new Set<string>();
+  const places: { gu: string; dong: string }[] = [];
+  for (const place of [
+    ...customerPlacesFromPartial(prior),
+    ...customerPlacesFromPartial(parsed),
+  ]) {
+    const key = `${place.gu}|${place.dong}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    places.push(place);
+  }
+  const last = places[places.length - 1];
+  return {
+    places,
+    gu: last?.gu ?? parsed.gu,
+    dong: last?.dong ?? parsed.dong,
+  };
+}
+
+function customerLocationDongCount(
+  partial: Partial<IntakeParseResult> | undefined
+): number {
+  return customerPlacesFromPartial(partial).length;
+}
+
+/** 시작일 다음에 끝일을 말하면 기간으로 이어 붙인다 */
+function mergeTalkDates(
+  prior: Partial<IntakeParseResult> | undefined,
+  parsed: Partial<IntakeParseResult>
+): Partial<IntakeParseResult> {
+  if (parsed.moveInImmediate && !parsed.moveInFrom) {
+    return { moveInImmediate: true };
+  }
+  const newFrom = parsed.moveInFrom;
+  const newTo = parsed.moveInTo || newFrom;
+  if (!newFrom) {
+    return {
+      moveInFrom: prior?.moveInFrom,
+      moveInTo: prior?.moveInTo,
+      moveInImmediate: prior?.moveInImmediate,
+    };
+  }
+  if (newFrom !== newTo) {
+    return { moveInFrom: newFrom, moveInTo: newTo };
+  }
+  const priorFrom = prior?.moveInFrom;
+  const priorTo = prior?.moveInTo || priorFrom;
+  if (!priorFrom || prior?.moveInImmediate) {
+    return { moveInFrom: newFrom, moveInTo: newTo };
+  }
+  if (priorFrom === (priorTo || priorFrom) && priorFrom !== newFrom) {
+    const from = priorFrom < newFrom ? priorFrom : newFrom;
+    const to = priorFrom < newFrom ? newFrom : priorFrom;
+    return { moveInFrom: from, moveInTo: to };
+  }
+  if (priorFrom !== priorTo) {
+    if (newFrom < priorFrom) return { moveInFrom: newFrom, moveInTo: priorTo };
+    return { moveInFrom: priorFrom, moveInTo: newFrom };
+  }
+  return { moveInFrom: newFrom, moveInTo: newTo };
+}
+
+/** 고객 선호위치: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다 */
+export function locationStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>,
+  kind: IntakeKind
+): boolean {
+  if (kind !== "customer") return true;
+  const dongs = customerLocationDongCount(partial);
+  if (dongs < 1) return false;
+  const normalized = normalizeIntakeInput(text);
+  const end = locationConsumedEnd(normalized, partial, kind);
+  const rest = (end > 0 ? normalized.slice(end) : "").trim();
+  if (
+    /(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)\s*$/.test(normalized)
+  ) {
+    return false;
+  }
+  if (!rest) return false;
+  if (/^(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)/.test(rest)) {
+    return false;
+  }
+  return NEXT_AFTER_LOCATION.test(rest);
+}
 
 /** 시작일만 있고 기간이 더 나올 수 있으면 다음 칸으로 넘기지 않는다 */
 export function datesStepReadyToAdvance(
@@ -527,7 +640,11 @@ export function parseIntakeStepChain(
     const mergedPrior =
       key === "flags" && steps.flags
         ? { ...prior, ...steps.flags }
-        : prior;
+        : key === "location" && kind === "customer" && steps.location
+          ? { ...prior, ...steps.location }
+          : key === "dates" && steps.dates
+            ? { ...prior, ...steps.dates }
+            : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) break;
 
@@ -538,6 +655,12 @@ export function parseIntakeStepChain(
     });
     steps[key] = parsed.partial;
     if (key === "dates" && !datesStepReadyToAdvance(text, parsed.partial)) {
+      break;
+    }
+    if (
+      key === "location" &&
+      !locationStepReadyToAdvance(text, parsed.partial, kind)
+    ) {
       break;
     }
     text = extractTalkStepRemainder(text, key, parsed.partial, kind);
@@ -659,19 +782,20 @@ export function parseIntakeStep(
   }
 
   if (step === "location") {
+    const mergedPlaces =
+      kind === "customer" ? mergeCustomerPlaces(prior, parsed) : null;
     const hasCustomerLoc =
-      kind === "customer" &&
-      ((parsed.places?.length ?? 0) > 0 || parsed.dong || parsed.gu);
+      kind === "customer" && (mergedPlaces?.places.length ?? 0) > 0;
     const hasPropertyLoc =
       kind === "property" && (parsed.dong || parsed.jibun || parsed.roomNo);
     if (!hasCustomerLoc && !hasPropertyLoc) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
-      gu: parsed.gu,
-      dong: parsed.dong,
+      gu: mergedPlaces?.gu ?? parsed.gu,
+      dong: mergedPlaces?.dong ?? parsed.dong,
       jibun: parsed.jibun,
-      places: parsed.places,
+      places: mergedPlaces?.places ?? parsed.places,
       roomNo: parsed.roomNo,
       options: [],
     };
@@ -705,10 +829,11 @@ export function parseIntakeStep(
     if (!parsed.moveInFrom && !parsed.moveInImmediate) {
       return { ok: false, partial: {}, display: "" };
     }
+    const merged = mergeTalkDates(prior, parsed);
     const partial: Partial<IntakeParseResult> = {
-      moveInFrom: parsed.moveInFrom,
-      moveInTo: parsed.moveInTo,
-      moveInImmediate: parsed.moveInImmediate,
+      moveInFrom: merged.moveInFrom,
+      moveInTo: merged.moveInTo,
+      moveInImmediate: merged.moveInImmediate,
       options: [],
     };
     return {

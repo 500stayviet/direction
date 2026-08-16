@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { TextArea } from "@/components/ui/Input";
 import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import {
   INTAKE_GUIDE_STEPS,
@@ -72,19 +71,12 @@ function activeRowClass(active: boolean, filled: boolean): string {
   return "px-2 py-0.5";
 }
 
-function buildDialogueLogForKind(
-  kind: IntakeKind,
-  steps: Partial<Record<IntakeStepKey, StepRecord>>
-): string {
-  return INTAKE_GUIDE_STEPS[kind]
-    .map((line) => steps[line.key]?.display)
-    .filter(Boolean)
-    .join(" ");
-}
-
-function composeDialogueDisplay(confirmed: string, preview: string): string {
-  const parts = [confirmed.trim(), preview.trim()].filter(Boolean);
-  return parts.join(" ");
+function navStepButtonClass(disabled = false): string {
+  return [
+    "inline-flex min-h-[48px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
+    "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
+    disabled ? "opacity-30 active:scale-100" : "",
+  ].join(" ");
 }
 
 export function IntakeTalkModal({
@@ -103,8 +95,6 @@ export function IntakeTalkModal({
   const [steps, setSteps] = useState<Partial<Record<IntakeStepKey, StepRecord>>>(
     {}
   );
-  const [dialogueLog, setDialogueLog] = useState("");
-  const [dialoguePreview, setDialoguePreview] = useState("");
   const [stepLive, setStepLive] = useState("");
   const [listening, setListening] = useState(false);
   const [talkStarted, setTalkStarted] = useState(false);
@@ -123,10 +113,10 @@ export function IntakeTalkModal({
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
+  const heardCommittedRef = useRef(false);
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
-    setDialoguePreview("");
     sessionFinalRef.current = "";
   }, []);
 
@@ -138,13 +128,6 @@ export function IntakeTalkModal({
     notesDraftRef.current = next;
     setNotesDraft(next);
   }, []);
-
-  const syncDialogueLog = useCallback(
-    (nextSteps: Partial<Record<IntakeStepKey, StepRecord>>) => {
-      setDialogueLog(buildDialogueLogForKind(kind, nextSteps));
-    },
-    [kind]
-  );
 
   useEffect(() => {
     stepsRef.current = steps;
@@ -159,13 +142,12 @@ export function IntakeTalkModal({
   const resetWizard = useCallback(() => {
     setActiveIndex(0);
     setSteps({});
-    setDialogueLog("");
-    setDialoguePreview("");
     setTalkStarted(false);
     setNotesDraftBoth("");
     setIdlePaused(false);
     stepSpeechRef.current = "";
     processedResultIndexRef.current = 0;
+    heardCommittedRef.current = false;
     resetStepSpeech();
   }, [resetStepSpeech, setNotesDraftBoth]);
 
@@ -177,10 +159,6 @@ export function IntakeTalkModal({
     ) => {
       stepsRef.current = nextSteps;
       setSteps(nextSteps);
-      syncDialogueLog(nextSteps);
-      setActiveIndex(
-        nextIndex >= guide.length ? guide.length - 1 : nextIndex
-      );
       const fromKey = guide[fromIndex]?.key;
       const flagsDone =
         fromKey === "flags" && flagsStepComplete(nextSteps.flags?.partial);
@@ -192,10 +170,13 @@ export function IntakeTalkModal({
         resetStepSpeech();
         return;
       }
+      setActiveIndex(
+        nextIndex >= guide.length ? guide.length - 1 : nextIndex
+      );
       clearStepSpeechBuffer();
       resetStepSpeech();
     },
-    [clearStepSpeechBuffer, guide, resetStepSpeech, syncDialogueLog]
+    [clearStepSpeechBuffer, guide, resetStepSpeech]
   );
 
   const clearStep = useCallback(
@@ -203,14 +184,13 @@ export function IntakeTalkModal({
       setSteps((prev) => {
         const next = { ...prev };
         delete next[key];
-        syncDialogueLog(next);
         return next;
       });
       setStepLive("");
       sessionFinalRef.current = "";
       clearStepSpeechBuffer();
     },
-    [clearStepSpeechBuffer, syncDialogueLog]
+    [clearStepSpeechBuffer]
   );
 
   const processUtterance = useCallback(
@@ -227,6 +207,7 @@ export function IntakeTalkModal({
           notesDraftRef.current || stepsRef.current.notes?.display || "";
         const next = applyNotesUtterance(base, trimmed);
         if (next.clear) {
+          heardCommittedRef.current = true;
           setNotesDraftBoth("");
           if (guideStepComplete("notes", stepsRef.current.notes)) {
             clearStep(key);
@@ -234,12 +215,14 @@ export function IntakeTalkModal({
           return true;
         }
         if (next.draft === base && !next.draft) return false;
+        heardCommittedRef.current = true;
         setNotesDraftBoth(next.draft);
         return true;
       }
 
       const { cancel, remainder } = splitIntakeStepCancel(trimmed);
       if (cancel && !remainder) {
+        heardCommittedRef.current = true;
         clearStep(key);
         clearStepSpeechBuffer();
         return true;
@@ -255,6 +238,7 @@ export function IntakeTalkModal({
       );
       if (chain.commits.length === 0) return false;
 
+      heardCommittedRef.current = true;
       const nextSteps = { ...stepsRef.current };
       for (const row of chain.commits) {
         nextSteps[row.key] = {
@@ -274,29 +258,6 @@ export function IntakeTalkModal({
       guide,
       setNotesDraftBoth,
     ]
-  );
-
-  const flushSpeechPreview = useCallback(
-    (
-      results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
-      live: string
-    ) => {
-      let pendingFinal = "";
-      for (
-        let i = processedResultIndexRef.current;
-        i < results.length;
-        i += 1
-      ) {
-        const row = results[i];
-        if (!row?.isFinal) continue;
-        const piece = (row[0]?.transcript ?? "").replace(/\s+/g, " ").trim();
-        if (piece) {
-          pendingFinal = absorbCommitted(pendingFinal, piece);
-        }
-      }
-      setDialoguePreview(composeTalkText("", pendingFinal, live));
-    },
-    []
   );
 
   const processNewFinalResults = useCallback(
@@ -347,9 +308,15 @@ export function IntakeTalkModal({
       setListeningBoth(false);
       stopRecognition();
       clearIdleTimer();
-      if (reason === "idle") {
+      if (reason !== "idle") return;
+      if (heardCommittedRef.current) {
         setIdlePaused(true);
+        return;
       }
+      const hasInput = Object.values(stepsRef.current).some(
+        (row) => row?.display || row?.complete
+      );
+      if (!hasInput) setTalkStarted(false);
     },
     [clearIdleTimer, stopRecognition]
   );
@@ -370,11 +337,10 @@ export function IntakeTalkModal({
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (ev) => {
-      bumpIdleTimer();
       const spoken = readSpeechResultsSince(ev.results, 0);
+      if (spoken.sessionFinal || spoken.live) bumpIdleTimer();
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
-      flushSpeechPreview(ev.results, spoken.live);
       processNewFinalResults(ev.results);
     };
     rec.onend = () => {
@@ -402,7 +368,7 @@ export function IntakeTalkModal({
       setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
     };
     return rec;
-  }, [bumpIdleTimer, flushSpeechPreview, pauseListening, processNewFinalResults, resetStepSpeech, stopRecognition]);
+  }, [bumpIdleTimer, pauseListening, processNewFinalResults, resetStepSpeech]);
 
   useEffect(() => {
     if (!open) {
@@ -458,6 +424,7 @@ export function IntakeTalkModal({
     resetStepSpeech();
     clearStepSpeechBuffer();
     processedResultIndexRef.current = 0;
+    heardCommittedRef.current = false;
     stopRecognition();
     const rec = buildRecognition();
     if (!rec) {
@@ -477,21 +444,17 @@ export function IntakeTalkModal({
 
   const commitNotesDraft = useCallback(() => {
     const notes = notesDraftRef.current.trim();
-    setSteps((prev) => {
-      const next = {
-        ...prev,
-        notes: {
-          partial: { notes, options: [] },
-          display: notes,
-          complete: true,
-        },
-      };
-      syncDialogueLog(next);
-      return next;
-    });
+    setSteps((prev) => ({
+      ...prev,
+      notes: {
+        partial: { notes, options: [] },
+        display: notes,
+        complete: true,
+      },
+    }));
     clearStepSpeechBuffer();
     resetStepSpeech();
-  }, [clearStepSpeechBuffer, resetStepSpeech, syncDialogueLog]);
+  }, [clearStepSpeechBuffer, resetStepSpeech]);
 
   const finishTalking = useCallback(() => {
     setListeningBoth(false);
@@ -533,15 +496,6 @@ export function IntakeTalkModal({
   };
 
   const skipCurrent = () => {
-    const key = guide[activeIndex]?.key;
-    if (!key) return;
-    if (key === "notes") setNotesDraftBoth("");
-    setSteps((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      syncDialogueLog(next);
-      return next;
-    });
     if (activeIndex < guide.length - 1) {
       setActiveIndex((idx) => idx + 1);
     }
@@ -556,9 +510,30 @@ export function IntakeTalkModal({
   );
   const composedLive = stepLive;
   const notesPreview = composeTalkText(notesDraft, "", composedLive);
-  const dialogueDisplay = composeDialogueDisplay(
-    dialogueLog,
-    currentKey === "notes" ? notesPreview : dialoguePreview
+  const primaryButton = (
+    <button
+      type="button"
+      className={[
+        "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
+        "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
+        listening ? "w-full border-2 border-red-500 bg-white text-red-600" : "w-full bg-red-500 text-white hover:bg-red-600",
+      ].join(" ")}
+      onClick={handlePrimary}
+      disabled={!speechSupported}
+      data-testid="intake-talk-primary"
+    >
+      {listening && primaryKind === "pause" ? (
+        <>
+          <span className="inline-flex items-center gap-0.5" aria-hidden>
+            <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+            <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+          </span>
+          {primaryLabel}
+        </>
+      ) : (
+        primaryLabel
+      )}
+    </button>
   );
 
   return (
@@ -582,58 +557,29 @@ export function IntakeTalkModal({
             <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
           ) : null}
           {listening ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 disabled={activeIndex === 0}
                 onClick={goPrevious}
-                className={[
-                  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
-                  "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
-                  "disabled:opacity-30 disabled:active:scale-100",
-                ].join(" ")}
+                className={navStepButtonClass(activeIndex === 0)}
               >
                 <span className="text-[16px] font-bold leading-none">&lt;</span>
                 이전
               </button>
+              {primaryButton}
               <button
                 type="button"
                 onClick={skipCurrent}
-                className={[
-                  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
-                  "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
-                ].join(" ")}
+                className={navStepButtonClass()}
               >
                 건너뛰기
                 <span className="text-[16px] font-bold leading-none">&gt;</span>
               </button>
             </div>
-          ) : null}
-          <button
-            type="button"
-            className={[
-              "inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
-              "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
-              listening
-                ? "border-2 border-red-500 bg-white text-red-600"
-                : "bg-red-500 text-white hover:bg-red-600",
-            ].join(" ")}
-            onClick={handlePrimary}
-            disabled={!speechSupported}
-            data-testid="intake-talk-primary"
-          >
-            {listening && primaryKind === "pause" ? (
-              <>
-                <span className="inline-flex items-center gap-0.5" aria-hidden>
-                  <span className="h-3.5 w-1 rounded-sm bg-red-500" />
-                  <span className="h-3.5 w-1 rounded-sm bg-red-500" />
-                </span>
-                {primaryLabel}
-              </>
-            ) : (
-              primaryLabel
-            )}
-          </button>
+          ) : (
+            primaryButton
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" fullWidth onClick={onClose}>
               취소
@@ -804,14 +750,6 @@ export function IntakeTalkModal({
           );
         })}
       </ul>
-
-      <TextArea
-        label="대화"
-        value={dialogueDisplay}
-        readOnly
-        placeholder="대화가 여기에 표시됩니다"
-        className="min-h-[40px] sm:min-h-[56px]"
-      />
     </Modal>
     <Modal
       open={idlePaused}

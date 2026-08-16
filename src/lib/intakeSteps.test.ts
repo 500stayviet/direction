@@ -336,7 +336,6 @@ describe("intakeSteps", () => {
         },
       },
       contacts: { display: "010" },
-      share: { display: "유" },
       notes: { display: "", complete: true },
     };
     assert.equal(allGuideStepsComplete("property", filled), true);
@@ -377,5 +376,79 @@ describe("intakeSteps", () => {
       {}
     );
     assert.ok(withFlags.commits.some((row) => row.key === "flags"));
+
+    const secondDay = parseIntakeStepChain(
+      "10월 1일",
+      datesIndex,
+      "property",
+      { dates: lone.commits[0]!.partial }
+    );
+    assert.ok(secondDay.nextIndex > datesIndex);
+    assert.equal(secondDay.commits[0]?.partial.moveInFrom, "2026-09-15");
+    assert.equal(secondDay.commits[0]?.partial.moveInTo, "2026-10-01");
+  });
+
+  it("고객 선호위치는 동이 있어야 하고 다른 구를 더 고를 수 있으면 넘기지 않는다", () => {
+    const locationIndex = INTAKE_GUIDE_STEPS.customer.findIndex(
+      (line) => line.key === "location"
+    );
+
+    const guOnly = parseIntakeStep("강동구", "location", "customer");
+    assert.equal(guOnly.ok, false);
+
+    const oneDong = parseIntakeStepChain(
+      "성내동",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.equal(oneDong.commits[0]?.key, "location");
+    assert.equal(oneDong.nextIndex, locationIndex);
+    assert.ok((oneDong.commits[0]?.partial.places?.length ?? 0) >= 1);
+
+    const twoDongs = parseIntakeStepChain(
+      "성내동 천호동",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.equal(twoDongs.nextIndex, locationIndex);
+    assert.equal(twoDongs.commits[0]?.partial.places?.length, 2);
+
+    const otherGu = parseIntakeStepChain(
+      "강동구 성내동 그리고 송파구 풍납동",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.equal(otherGu.nextIndex, locationIndex);
+    assert.equal(otherGu.commits[0]?.partial.places?.length, 2);
+
+    const trailing = parseIntakeStepChain(
+      "성내동 또는",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.equal(trailing.nextIndex, locationIndex);
+
+    const withMoney = parseIntakeStepChain(
+      "성내동 1억",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.ok(withMoney.commits.some((row) => row.key === "money"));
+
+    const secondDong = parseIntakeStepChain(
+      "송파구 풍납동",
+      locationIndex,
+      "customer",
+      {
+        location: oneDong.commits[0]!.partial,
+      }
+    );
+    assert.equal(secondDong.nextIndex, locationIndex);
+    assert.equal(secondDong.commits[0]?.partial.places?.length, 2);
   });
 });
