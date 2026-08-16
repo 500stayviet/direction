@@ -29,7 +29,6 @@ import {
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "@/lib/talkSession";
-import { filledSectionClass } from "@/lib/uiInvalid";
 
 type StepRecord = {
   partial: Partial<IntakeParseResult>;
@@ -64,19 +63,115 @@ function getSpeechRecognition(): SpeechRec | null {
 }
 
 function activeRowClass(active: boolean, filled: boolean): string {
-  if (filled) return filledSectionClass;
-  if (active) {
-    return "rounded-xl border-2 border-blue-400 bg-blue-50/80 px-2 py-1";
-  }
-  return "px-2 py-0.5";
+  const box = "rounded-xl border p-2";
+  if (filled) return `${box} border-green-400 bg-green-50`;
+  if (active) return `${box} border-blue-400 bg-blue-50/80`;
+  return `${box} border-transparent bg-transparent`;
 }
 
 function navStepButtonClass(disabled = false): string {
   return [
-    "inline-flex min-h-[48px] items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2",
-    "text-[14px] font-semibold text-gray-700 active:scale-95 transition-transform",
+    "inline-flex h-12 box-border items-center justify-center gap-0.5 rounded-xl border border-gray-200 bg-white px-1.5",
+    "text-[12px] font-semibold leading-none text-gray-700 active:scale-95 transition-transform",
     disabled ? "opacity-30 active:scale-100" : "",
   ].join(" ");
+}
+
+const MIC_LEVEL_WEIGHTS = [0.35, 0.65, 1, 0.65, 0.35];
+
+function ListeningMicMeter({ active }: { active: boolean }) {
+  const barsRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      return;
+    }
+
+    let cancelled = false;
+    let raf = 0;
+    let stream: MediaStream | null = null;
+    let ctx: AudioContext | null = null;
+
+    const paint = (level: number) => {
+      const nodes = barsRef.current?.children;
+      if (!nodes) return;
+      for (let i = 0; i < nodes.length; i += 1) {
+        const el = nodes[i] as HTMLElement;
+        const weight = MIC_LEVEL_WEIGHTS[i] ?? 1;
+        el.style.height = `${3 + Math.round(level * 13 * weight)}px`;
+      }
+    };
+
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!AudioCtx) return;
+        ctx = new AudioCtx();
+        if (ctx.state === "suspended") await ctx.resume();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
+        const tick = () => {
+          if (cancelled) return;
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i += 1) {
+            const v = ((data[i] ?? 128) - 128) / 128;
+            sum += v * v;
+          }
+          paint(Math.min(1, Math.sqrt(sum / data.length) * 4.5));
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {
+        paint(0);
+      }
+    };
+
+    void start();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      stream?.getTracks().forEach((track) => track.stop());
+      void ctx?.close();
+      paint(0);
+    };
+  }, [active]);
+
+  return (
+    <span className="inline-flex items-end gap-1" aria-hidden>
+      <svg viewBox="0 0 16 16" className="h-4 w-4 text-red-500" fill="currentColor">
+        <path d="M8 1.5a2.25 2.25 0 0 0-2.25 2.25v4a2.25 2.25 0 1 0 4.5 0v-4A2.25 2.25 0 0 0 8 1.5Z" />
+        <path d="M4.25 7.25a.75.75 0 0 0-1.5 0 5.25 5.25 0 0 0 4.5 5.196V14h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.554A5.25 5.25 0 0 0 13.25 7.25a.75.75 0 0 0-1.5 0 3.75 3.75 0 1 1-7.5 0Z" />
+      </svg>
+      <span
+        ref={barsRef}
+        className="inline-flex h-4 w-4 items-end justify-center gap-px"
+      >
+        {MIC_LEVEL_WEIGHTS.map((_, i) => (
+          <span
+            key={i}
+            className="w-[2px] rounded-full bg-red-400"
+            style={{ height: 3 }}
+          />
+        ))}
+      </span>
+    </span>
+  );
 }
 
 export function IntakeTalkModal({
@@ -308,15 +403,7 @@ export function IntakeTalkModal({
       setListeningBoth(false);
       stopRecognition();
       clearIdleTimer();
-      if (reason !== "idle") return;
-      if (heardCommittedRef.current) {
-        setIdlePaused(true);
-        return;
-      }
-      const hasInput = Object.values(stepsRef.current).some(
-        (row) => row?.display || row?.complete
-      );
-      if (!hasInput) setTalkStarted(false);
+      if (reason === "idle") setIdlePaused(true);
     },
     [clearIdleTimer, stopRecognition]
   );
@@ -510,26 +597,39 @@ export function IntakeTalkModal({
   );
   const composedLive = stepLive;
   const notesPreview = composeTalkText(notesDraft, "", composedLive);
+  const showRecordIcon = talkStarted && !listening && primaryKind === "pause";
   const primaryButton = (
     <button
       type="button"
       className={[
-        "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold",
+        "inline-flex h-12 box-border w-full items-center justify-center gap-1 rounded-2xl px-3",
+        "text-[13px] font-semibold leading-none",
         "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
-        listening ? "w-full border-2 border-red-500 bg-white text-red-600" : "w-full bg-red-500 text-white hover:bg-red-600",
+        listening || showRecordIcon
+          ? "border border-red-500 bg-white text-red-600"
+          : "border border-red-500 bg-red-500 text-white hover:bg-red-600",
       ].join(" ")}
       onClick={handlePrimary}
       disabled={!speechSupported}
       data-testid="intake-talk-primary"
+      aria-label={
+        showRecordIcon
+          ? "이어서 말하기"
+          : listening && primaryKind === "pause"
+            ? "일시정지"
+            : primaryLabel
+      }
     >
       {listening && primaryKind === "pause" ? (
         <>
           <span className="inline-flex items-center gap-0.5" aria-hidden>
-            <span className="h-3.5 w-1 rounded-sm bg-red-500" />
-            <span className="h-3.5 w-1 rounded-sm bg-red-500" />
+            <span className="h-3 w-0.5 rounded-sm bg-red-500" />
+            <span className="h-3 w-0.5 rounded-sm bg-red-500" />
           </span>
           {primaryLabel}
         </>
+      ) : showRecordIcon ? (
+        <span className="h-5 w-5 rounded-full bg-red-500" aria-hidden />
       ) : (
         primaryLabel
       )}
@@ -537,34 +637,38 @@ export function IntakeTalkModal({
   );
 
   return (
-    <>
     <Modal
       open={open}
       onClose={onClose}
       title="대화로 입력"
-      description="순서대로 마이크에 입력하세요."
+      description="순서대로 대화로 입력하세요."
       dense
       overlayClassName="z-50 max-sm:!px-0"
       className="h-[100dvh] !max-h-[100dvh] max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
       footer={
         <div className="space-y-2">
           {listening ? (
-            <p className="min-h-[1.25rem] break-words text-center text-[14px] font-medium text-gray-400">
-              {composedLive || "듣는 중…"}
+            <p className="flex min-h-[1.25rem] items-center justify-center gap-2 break-words text-[14px] font-medium text-gray-400">
+              <ListeningMicMeter active={listening} />
+              <span>{composedLive || "듣는 중…"}</span>
+            </p>
+          ) : idlePaused ? (
+            <p className="min-h-[1.25rem] text-center text-[14px] font-medium text-gray-400">
+              말이 없어 일시정지했습니다.
             </p>
           ) : null}
           {error ? (
             <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
           ) : null}
-          {listening ? (
-            <div className="grid grid-cols-3 gap-2">
+          {talkStarted ? (
+            <div className="grid grid-cols-3 items-stretch gap-2">
               <button
                 type="button"
                 disabled={activeIndex === 0}
                 onClick={goPrevious}
                 className={navStepButtonClass(activeIndex === 0)}
               >
-                <span className="text-[16px] font-bold leading-none">&lt;</span>
+                <span className="text-[12px] font-bold leading-none">&lt;</span>
                 이전
               </button>
               {primaryButton}
@@ -574,7 +678,7 @@ export function IntakeTalkModal({
                 className={navStepButtonClass()}
               >
                 건너뛰기
-                <span className="text-[16px] font-bold leading-none">&gt;</span>
+                <span className="text-[12px] font-bold leading-none">&gt;</span>
               </button>
             </div>
           ) : (
@@ -596,7 +700,7 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-2 py-1.5">
+      <ul className="-mx-2 mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-1 py-1.5">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
@@ -619,11 +723,21 @@ export function IntakeTalkModal({
             <li
               key={line.key}
               data-testid={`intake-guide-row-${line.key}`}
-              className="flex items-baseline gap-1"
             >
+              <div
+                aria-current={active ? "step" : undefined}
+                className={[
+                  "flex min-w-0 items-center gap-1.5 text-left",
+                  stackValue || showFlagsProgress
+                    ? "items-start"
+                    : "",
+                  activeRowClass(active, filled),
+                ].join(" ")}
+              >
               <span
                 className={[
-                  "w-4 shrink-0 text-center text-[14px] font-bold leading-none",
+                  "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
+                  stackValue || showFlagsProgress ? "pt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -631,13 +745,11 @@ export function IntakeTalkModal({
                 ▶
               </span>
               <div
-                aria-current={active ? "step" : undefined}
                 className={[
-                  "min-w-0 flex-1 text-left",
+                  "min-w-0 flex-1",
                   stackValue || showFlagsProgress
                     ? "flex flex-col gap-0.5"
                     : "flex min-w-0 items-baseline gap-2",
-                  activeRowClass(active, filled),
                 ].join(" ")}
               >
                 <span
@@ -746,35 +858,11 @@ export function IntakeTalkModal({
                   </span>
                 ) : null}
               </div>
+              </div>
             </li>
           );
         })}
       </ul>
     </Modal>
-    <Modal
-      open={idlePaused}
-      onClose={() => setIdlePaused(false)}
-      overlayClassName="z-[60]"
-      position="center"
-      dense
-      title="말이 없어 일시정지했습니다."
-      description="입력한 칸은 그대로입니다. 이어서 말하려면 「이어서 말하기」를 누르세요."
-    >
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" fullWidth onClick={() => setIdlePaused(false)}>
-          닫기
-        </Button>
-        <Button
-          fullWidth
-          onClick={() => {
-            setIdlePaused(false);
-            startListening();
-          }}
-        >
-          이어서 말하기
-        </Button>
-      </div>
-    </Modal>
-    </>
   );
 }

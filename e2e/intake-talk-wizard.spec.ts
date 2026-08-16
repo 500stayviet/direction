@@ -87,7 +87,10 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
 
     await page.getByTestId("intake-talk-primary").click();
-    await expect(page.getByTestId("intake-talk-primary")).toHaveText("일시정지");
+    await expect(page.getByTestId("intake-talk-primary")).toHaveAttribute(
+      "aria-label",
+      "이어서 말하기"
+    );
     await expect(page.getByRole("button", { name: "계속" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "대화 시작" })).toHaveCount(0);
     await page.getByTestId("intake-talk-primary").click();

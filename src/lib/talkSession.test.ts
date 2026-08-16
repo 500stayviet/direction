@@ -66,7 +66,7 @@ describe("talkSession", () => {
       }),
       "pause"
     );
-    assert.equal(TALK_IDLE_MS, 5_000);
+    assert.equal(TALK_IDLE_MS, 15_000);
   });
 
   it("메모는 말을 쌓고 삭제는 비운다", () => {
