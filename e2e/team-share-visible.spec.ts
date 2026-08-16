@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { getAppAuth, insertSharedProperty } from "./helpers";
+import { getAppAuth, insertSharedProperty, listCardAddress } from "./helpers";
 import { createTeamPair } from "./teamHelpers";
 
 test("공유 코드 합류 후 공유 매물이 상대에게 보임", async ({ browser }) => {
@@ -15,7 +15,7 @@ test("공유 코드 합류 후 공유 매물이 상대에게 보임", async ({ b
   });
 
   await pair.memberPage.goto("/properties");
-  await expect(pair.memberPage.getByText(prop.address)).toBeVisible({
+  await expect(pair.memberPage.getByText(listCardAddress(prop.address))).toBeVisible({
     timeout: 25_000,
   });
 

@@ -1,13 +1,15 @@
 "use client";
 
 import type { ReactElement, ReactNode } from "react";
-import { PhoneLink } from "@/components/PhoneLink";
+import { PhoneChip } from "@/components/PhoneLink";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
 import { displayRoomType } from "@/lib/constants";
 import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import { formatSavedDate } from "@/lib/date";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
+import { formatCardAddress } from "@/lib/seoulRegions";
+import { getPropertyDeadlineLabel } from "@/lib/deadline";
 import type { ListedProperty } from "@/lib/types";
 
 export function getPropertyListContact(p: ListedProperty): {
@@ -70,7 +72,7 @@ export function PropertyListCard({
     p.deposit,
     p.monthlyRent
   ).trim();
-  const address = (p.address ?? "").trim() || "주소 미입력";
+  const address = formatCardAddress((p.address ?? "").trim()) || "주소 미입력";
   const room = (p.roomNo ?? "").trim();
   const contact = getPropertyListContact(p);
   const done = Boolean(p.contractCompleted);
@@ -84,6 +86,7 @@ export function PropertyListCard({
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
   const moneyText = moneyLabel && moneyLabel !== "-" ? moneyLabel : "";
   const moveInText = formatMoveInRange(p.moveInFrom, p.moveInTo, p.moveInDate);
+  const deadlineLabel = done ? null : getPropertyDeadlineLabel(p);
   const agencyText =
     showAgencyBadge && p.hasPartnerAgency
       ? p.partnerAgency?.name?.trim() || ""
@@ -103,7 +106,12 @@ export function PropertyListCard({
         )}
         aria-hidden
       />
-      <div className="min-w-0 flex-1 px-3 py-2.5">
+      <div
+        className={[
+          "min-w-0 flex-1 px-3 pb-2.5",
+          deadlineLabel ? "pt-3.5" : "pt-2.5",
+        ].join(" ")}
+      >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -128,25 +136,45 @@ export function PropertyListCard({
                 {typeText}
               </span>
             </div>
-            {moneyText ? (
-              <p
-                className={[
-                  "mt-1.5 truncate text-[22px] font-extrabold leading-none tracking-tight",
-                  done ? "text-gray-500" : "text-gray-900",
-                ].join(" ")}
-              >
-                {moneyText}
-              </p>
-            ) : null}
           </div>
           {right ? (
-            <div className="relative z-[1] shrink-0 pt-0.5">{right}</div>
+            <div className="relative z-[1] -mt-1 shrink-0">{right}</div>
           ) : null}
         </div>
 
+        <div className="mt-1.5 flex w-full items-center gap-2">
+          {moneyText ? (
+            <p
+              title={moneyText}
+              className={[
+                "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[22px] font-extrabold leading-none tracking-tight",
+                done ? "text-gray-500" : "text-gray-900",
+              ].join(" ")}
+            >
+              {moneyText}
+            </p>
+          ) : (
+            <span className="min-w-0 flex-1" />
+          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {contact?.label ? (
+              <span
+                className={[
+                  "max-w-[4.5rem] truncate text-[12px] font-semibold",
+                  done ? "text-gray-400" : "text-gray-500",
+                ].join(" ")}
+              >
+                {contact.label}
+              </span>
+            ) : null}
+            <PhoneChip phone={contact?.phone} done={done} className="!ml-0" />
+          </div>
+        </div>
+
         <p
+          title={[address, room].filter(Boolean).join(" ")}
           className={[
-            "mt-2 truncate text-[16px] font-bold leading-snug",
+            "mt-1.5 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-bold leading-snug",
             done ? "text-gray-500" : "text-gray-800",
           ].join(" ")}
         >
@@ -162,51 +190,25 @@ export function PropertyListCard({
             </span>
           ) : null}
         </p>
-        <p
-          className={[
-            "mt-1 truncate text-[13px] font-medium leading-snug",
-            done ? "text-gray-400" : "text-gray-500",
-          ].join(" ")}
-        >
-          입주가능 {moveInText}
-        </p>
-
         {agencyText && agencyText !== contact?.label ? (
           <p
             className={[
-              "mt-1 truncate text-[12px] font-semibold",
+              "mt-0.5 truncate text-[12px] font-semibold",
               done ? "text-gray-400" : "text-gray-500",
             ].join(" ")}
           >
             {agencyText}
           </p>
         ) : null}
-
-        <div className="mt-1 flex items-center gap-1.5">
-          {contact ? (
-            <>
-              <span
-                className={[
-                  "shrink-0 text-[13px] font-semibold",
-                  done ? "text-gray-400" : "text-gray-500",
-                ].join(" ")}
-              >
-                {contact.label}
-              </span>
-              <PhoneLink
-                phone={contact.phone}
-                showIcon={false}
-                className={[
-                  "relative z-[1] !text-[14px] !font-semibold",
-                  done ? "!text-gray-400" : "",
-                ].join(" ")}
-              />
-            </>
-          ) : (
-            <span className="text-[13px] font-medium text-gray-300">
-              번호 없음
-            </span>
-          )}
+        <div className="mt-0.5 flex items-center gap-2">
+          <p
+            className={[
+              "min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug",
+              done ? "text-gray-500" : "text-gray-700",
+            ].join(" ")}
+          >
+            {moveInText}
+          </p>
           {sharer || saved ? (
             <p className="ml-auto flex shrink-0 items-center justify-end gap-1 text-[11px] text-gray-400">
               {sharer ? (
@@ -222,6 +224,15 @@ export function PropertyListCard({
   );
 
   return (
-    <div className={["relative", className].join(" ")}>{renderCard(card)}</div>
+    <div
+      className={["relative", deadlineLabel ? "pt-2" : "", className].join(" ")}
+    >
+      {deadlineLabel ? (
+        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-amber-700 shadow-sm ring-2 ring-[#F9FAFB]">
+          {deadlineLabel}
+        </span>
+      ) : null}
+      {renderCard(card)}
+    </div>
   );
 }

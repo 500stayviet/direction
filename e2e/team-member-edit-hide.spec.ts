@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { getAppAuth, insertSharedProperty } from "./helpers";
+import { getAppAuth, insertSharedProperty, listCardAddress } from "./helpers";
 import { createTeamPair } from "./teamHelpers";
 
 test("2자가 공유 매물 수정·목록 숨김", async ({ browser }) => {
@@ -17,11 +17,11 @@ test("2자가 공유 매물 수정·목록 숨김", async ({ browser }) => {
   });
 
   await pair.memberPage.goto("/properties");
-  await expect(pair.memberPage.getByText(prop.address)).toBeVisible({
+  await expect(pair.memberPage.getByText(listCardAddress(prop.address))).toBeVisible({
     timeout: 25_000,
   });
 
-  await pair.memberPage.getByText(prop.address).click();
+  await pair.memberPage.getByText(listCardAddress(prop.address)).click();
   await expect(pair.memberPage.getByText("매물 정보")).toBeVisible({
     timeout: 15_000,
   });
@@ -52,10 +52,10 @@ test("2자가 공유 매물 수정·목록 숨김", async ({ browser }) => {
   await expect(pair.memberPage).toHaveURL(/\/properties\/?$/, {
     timeout: 20_000,
   });
-  await expect(pair.memberPage.getByText(prop.address)).toHaveCount(0);
+  await expect(pair.memberPage.getByText(listCardAddress(prop.address))).toHaveCount(0);
 
   await pair.ownerPage.goto("/properties");
-  await expect(pair.ownerPage.getByText(prop.address)).toBeVisible({
+  await expect(pair.ownerPage.getByText(listCardAddress(prop.address))).toBeVisible({
     timeout: 20_000,
   });
 

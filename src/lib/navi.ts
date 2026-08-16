@@ -1,4 +1,5 @@
 import type { NaviApp } from "./types";
+import { toSeoulNaviCityAddress } from "./seoulRegions";
 
 /** false면 「항상 이 앱으로 열기」는 보이되 비활성·자동실행 끔 (모달에서 매번 선택). true면 다시 사용 */
 export const NAVI_REMEMBER_ENABLED = false;
@@ -55,7 +56,7 @@ type NaviCoords = {
 };
 
 /**
- * 네비에 넘길 주소: 작성한 내용 그대로(한국식 공백 구분).
+ * 네비에 넘길 주소: 시 이름은 서울특별시로 통일.
  * 끝에 붙은 호실(101동 1203호 등)만 제거. 지번은 유지.
  */
 export function toNaviAddress(address: string): string {
@@ -69,7 +70,7 @@ export function toNaviAddress(address: string): string {
     .replace(/\s*[·•|,]\s*$/g, "")
     .trim();
 
-  return text;
+  return toSeoulNaviCityAddress(text);
 }
 
 /** 도착지 좌표만 조회. 출발(현재위치) 좌표는 절대 보내지 않음. */

@@ -794,7 +794,7 @@ export function IntakeTalkModal({
               >
               <span
                 className={[
-                  "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
+                  "w-3.5 shrink-0 text-center text-[14px] font-bold leading-none",
                   stackLayout ? "pt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
@@ -812,7 +812,7 @@ export function IntakeTalkModal({
               >
                 <span
                   className={[
-                    "text-[15px] font-bold leading-snug",
+                    "text-[16px] font-bold leading-snug",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
                     stackLayout ? "" : "shrink-0",
                   ].join(" ")}
@@ -822,7 +822,7 @@ export function IntakeTalkModal({
                 </span>
                 {isFlags && showFlagsProgress ? (
                   <div
-                    className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] leading-snug"
+                    className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px] leading-snug"
                     data-testid="intake-flags-progress"
                   >
                     {buildFlagsProgressParts(row?.partial).map((part, partIndex) => (
@@ -841,7 +841,7 @@ export function IntakeTalkModal({
                               ? "font-semibold text-green-700"
                               : active
                                 ? "font-semibold text-red-500"
-                                : "font-medium text-gray-400",
+                                : "font-medium text-gray-600",
                           ].join(" ")}
                         >
                           {part.text}
@@ -862,7 +862,7 @@ export function IntakeTalkModal({
                 ) : isFlags && stackValue ? (
                   <span
                     className={[
-                      "min-w-0 break-words text-[13px] leading-snug",
+                      "min-w-0 break-words text-[14px] leading-snug",
                       done
                         ? "font-semibold text-green-700"
                         : "font-semibold text-blue-700",
@@ -875,10 +875,10 @@ export function IntakeTalkModal({
                 ) : isFlags ? (
                   <span
                     className={[
-                      "min-w-0 truncate text-[13px] leading-snug",
+                      "min-w-0 truncate text-[14px] leading-snug",
                       active
                         ? "font-medium text-blue-700"
-                        : "font-medium text-gray-500",
+                        : "font-medium text-gray-700",
                     ].join(" ")}
                   >
                     {active && composedLive.trim()
@@ -892,7 +892,7 @@ export function IntakeTalkModal({
                 ) : done || active ? (
                   <span
                     className={[
-                      "min-w-0 text-[13px] leading-snug",
+                      "min-w-0 text-[14px] leading-snug",
                       stackContacts ? "break-words" : "truncate",
                       done
                         ? "font-semibold text-green-700"
@@ -914,7 +914,7 @@ export function IntakeTalkModal({
                 ) : line.example ? (
                   <span
                     className={[
-                      "min-w-0 text-[13px] font-medium leading-snug text-gray-500",
+                      "min-w-0 text-[14px] font-medium leading-snug text-gray-700",
                       stackContacts ? "break-words" : "truncate",
                     ].join(" ")}
                   >

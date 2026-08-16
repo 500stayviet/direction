@@ -18,6 +18,7 @@ import { formatDisplayTime } from "@/components/TimePicker";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
 import { AddressLink } from "@/components/AddressLink";
+import { toNaviAddress } from "@/lib/navi";
 import { PasswordReveal } from "@/components/PasswordReveal";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
@@ -185,7 +186,7 @@ export function PropertyBrief({
             </span>
           </span>
           <span className="mt-1.5 block text-[19px] font-extrabold leading-snug tracking-tight text-[#1B64DA]">
-            {property.address || "주소 없음"}
+            {toNaviAddress(property.address) || property.address || "주소 없음"}
           </span>
           {property.roomNo?.trim() ? (
             <span className="mt-0.5 block text-[15px] font-bold leading-snug text-gray-900">

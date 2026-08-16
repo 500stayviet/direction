@@ -1,8 +1,8 @@
 import { parseISODate, toISODate, todayISO } from "@/lib/date";
 import type { Customer } from "@/lib/types";
 
-/** 희망 입주 시작일 기준 D-day (한 달 = 31일) */
-export const CONTRACT_DEADLINE_DAYS = 31;
+/** 희망 입주·임대희망일 시작일 기준 D-day */
+export const CONTRACT_DEADLINE_DAYS = 45;
 
 /** YYYY-MM-DD 에 일수 더하기/빼기 */
 export function addDaysISO(iso: string, delta: number): string | null {
@@ -20,7 +20,7 @@ export function addMonthsISO(iso: string, delta: number): string | null {
   return toISODate(next);
 }
 
-/** 희망 입주 시작일 기준 마지막 계약 데드라인 (= 입주 31일 전) */
+/** 희망 입주 시작일 기준 마지막 계약 데드라인 (= 입주 45일 전) */
 export function getContractDeadlineISO(moveInISO: string): string | null {
   return addDaysISO(moveInISO, -CONTRACT_DEADLINE_DAYS);
 }
@@ -37,7 +37,7 @@ export function getCustomerMoveInTarget(customer: Customer): string | null {
 }
 
 /**
- * 오늘이 '희망 입주 시작일까지 정확히 31일 전'일 때만 true
+ * 오늘이 '희망 입주 시작일까지 정확히 45일 전'일 때만 true
  * — 기준: 희망 입주 시작일(moveInFrom). 종료일(moveInTo)은 보지 않음
  */
 export function isContractDeadlineActive(
@@ -45,9 +45,7 @@ export function isContractDeadlineActive(
   today: string = todayISO()
 ): boolean {
   const moveIn = getCustomerMoveInTarget(customer);
-  if (!moveIn) return false;
-  if (moveIn < today) return false;
-  return daysUntilISO(moveIn, today) === CONTRACT_DEADLINE_DAYS;
+  return isMoveInDeadlineActive(moveIn, today);
 }
 
 /** 데드라인까지 남은 일수 (음수면 데드라인 지남) */
@@ -59,10 +57,44 @@ export function daysUntilISO(iso: string, today: string = todayISO()): number {
 }
 
 /**
+ * 오늘이 입주 시작일까지 정확히 45일 전일 때만 true
+ */
+export function isMoveInDeadlineActive(
+  moveInISO: string | null | undefined,
+  today: string = todayISO()
+): boolean {
+  if (!moveInISO) return false;
+  if (moveInISO < today) return false;
+  return daysUntilISO(moveInISO, today) === CONTRACT_DEADLINE_DAYS;
+}
+
+function moveInStartISO(from?: string, date?: string): string | null {
+  if (from) return from;
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  return null;
+}
+
+/**
  * 알림 배지 문구
  * — 단일이든 기간이든 라벨은 동일 (상세 날짜는 카드 하단 희망입주에서 확인)
  */
 export function getContractDeadlineLabel(customer: Customer): string | null {
   if (!isContractDeadlineActive(customer)) return null;
-  return "희망 입주일 31일전";
+  return `희망 입주일 ${CONTRACT_DEADLINE_DAYS}일전`;
+}
+
+export function getPropertyDeadlineLabel(property: {
+  contractCompleted?: boolean;
+  moveInFrom?: string;
+  moveInDate?: string;
+}): string | null {
+  if (property.contractCompleted) return null;
+  if (
+    !isMoveInDeadlineActive(
+      moveInStartISO(property.moveInFrom, property.moveInDate)
+    )
+  ) {
+    return null;
+  }
+  return `임대희망일 ${CONTRACT_DEADLINE_DAYS}일전`;
 }

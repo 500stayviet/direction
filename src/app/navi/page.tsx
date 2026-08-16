@@ -194,7 +194,7 @@ export default function NaviEntryPage() {
   };
 
   return (
-    <main className="-mx-4 min-h-dvh bg-[#FFF8E1] px-4 pb-4">
+    <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
       <PageHeader
         title="네비 시작하기"
         backHref="/"

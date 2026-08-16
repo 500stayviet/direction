@@ -154,7 +154,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
 
 /**
  * 체험용 1고객 · 1매물 · 1네비(일정)
- * baseDate 기준: 방문일=당일, 희망입주=당일+31일부터
+ * baseDate 기준: 방문일=당일, 희망입주=당일+45일부터
  * actor: 가입 시 이름·상호·전화 (협력부동산은 DEMO_PARTNER_AGENCY)
  * 생성자 표시는 DEMO_CREATOR_NAME(관리자)
  */

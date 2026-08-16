@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import {
   findAllDongsInText,
   findDongInText,
+  formatCardAddress,
   parseSeoulAddress,
   resolveGuFromDong,
+  toSeoulNaviCityAddress,
 } from "./seoulRegions.ts";
 
 describe("resolveGuFromDong", () => {
@@ -66,5 +68,36 @@ describe("parseSeoulAddress", () => {
       dong: "암사동",
       detail: "12-3",
     });
+  });
+});
+
+describe("formatCardAddress", () => {
+  it("서울·서울특별시를 빼고 구·동만 남긴다", () => {
+    assert.equal(
+      formatCardAddress("서울 강동구 성내동 540"),
+      "강동구 성내동 540"
+    );
+    assert.equal(
+      formatCardAddress("서울특별시 강동구 성내동 540"),
+      "강동구 성내동 540"
+    );
+    assert.equal(formatCardAddress("강동구 성내동 540"), "강동구 성내동 540");
+  });
+});
+
+describe("toSeoulNaviCityAddress", () => {
+  it("원터치 네비는 서울특별시로 통일한다", () => {
+    assert.equal(
+      toSeoulNaviCityAddress("서울 강동구 성내동 540"),
+      "서울특별시 강동구 성내동 540"
+    );
+    assert.equal(
+      toSeoulNaviCityAddress("서울특별시 강동구 성내동 540"),
+      "서울특별시 강동구 성내동 540"
+    );
+    assert.equal(
+      toSeoulNaviCityAddress("강동구 성내동 540"),
+      "서울특별시 강동구 성내동 540"
+    );
   });
 });

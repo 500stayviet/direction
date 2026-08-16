@@ -22,7 +22,7 @@ interface CustomerListCardProps {
   /** 카드 본문 감싸기 (스와이프 행 등). 기본은 카드 그대로 */
   renderCard?: (card: ReactElement) => ReactNode;
   className?: string;
-  /** false면 계약마감(입주 31일 전) 표시 숨김 */
+  /** false면 계약마감(입주 45일 전) 표시 숨김 */
   showDeadline?: boolean;
   /** false면 등록일 숨김 */
   showSavedDate?: boolean;
@@ -54,7 +54,17 @@ function MoneyPhoneRow({
       ) : (
         <span className="min-w-0 flex-1" />
       )}
-      <PhoneChip phone={phone} done={done} />
+      <div className="flex shrink-0 items-center gap-1">
+        <span
+          className={[
+            "shrink-0 text-[12px] font-semibold",
+            done ? "text-gray-400" : "text-gray-500",
+          ].join(" ")}
+        >
+          고객
+        </span>
+        <PhoneChip phone={phone} done={done} className="!ml-0" />
+      </div>
     </div>
   );
 }

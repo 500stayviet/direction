@@ -168,7 +168,7 @@ export default function CustomerListPage() {
   };
 
   return (
-    <main className="-mx-4 min-h-dvh bg-[#F5F6F8] px-4 pb-4">
+    <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
       <PageHeader
         title="고객리스트"
         backHref="/"
@@ -182,7 +182,7 @@ export default function CustomerListPage() {
           onChange={setQuery}
           placeholder="이름 · 전화 · 보증금"
           aria-label="고객 검색"
-          className="min-h-[44px] rounded-full border-transparent bg-white px-4 shadow-none"
+          className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
         {filtered.length === 0 ? (

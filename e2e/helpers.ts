@@ -395,6 +395,16 @@ export async function insertSharedProperty(opts: {
   return { id, address, marker: opts.marker, jibun };
 }
 
+/** 매물 리스트 카드에 보이는 주소(서울·서울시·서울특별시 제외) */
+export function listCardAddress(address: string): string {
+  return address
+    .trim()
+    .replace(/^서울특별시\s+/, "")
+    .replace(/^서울시\s+/, "")
+    .replace(/^서울\s+/, "")
+    .trim();
+}
+
 /** 원룸 등 고객을 DB에 직접 넣고 상세 표시를 검증할 때 사용 */
 export async function insertCustomer(opts: {
   ownerUserId: string;

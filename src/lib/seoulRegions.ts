@@ -576,6 +576,23 @@ export function composeSeoulAddress(
   return parts.join(" ");
 }
 
+/** 카드 표시용: 앞에 붙은 서울·서울시·서울특별시 제거 */
+export function formatCardAddress(address: string): string {
+  return address
+    .trim()
+    .replace(/^서울특별시\s+/, "")
+    .replace(/^서울시\s+/, "")
+    .replace(/^서울\s+/, "")
+    .trim();
+}
+
+/** 원터치 네비용: 시 이름을 서울특별시로 통일 */
+export function toSeoulNaviCityAddress(address: string): string {
+  const rest = formatCardAddress(address);
+  if (!rest) return "";
+  return `서울특별시 ${rest}`;
+}
+
 /** 구만 기본 표시된 주소(서울 강동구) — 사용자가 아직 안 넣은 것으로 봄 */
 export function isPlaceholderAddress(address: string): boolean {
   const text = address.trim();

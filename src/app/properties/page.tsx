@@ -168,7 +168,7 @@ export default function PropertyListPage() {
   };
 
   return (
-    <main className="-mx-4 min-h-dvh bg-[#FFF4E8] px-4 pb-4">
+    <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
       <PageHeader
         title="매물 리스트"
         backHref="/"
@@ -181,7 +181,7 @@ export default function PropertyListPage() {
           onChange={setQuery}
           placeholder="주소 · 호실 · 유형"
           aria-label="매물 검색"
-          className="min-h-[44px] rounded-full border-transparent bg-white px-4 shadow-none"
+          className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
         {filtered.length === 0 ? (

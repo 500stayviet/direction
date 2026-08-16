@@ -18,6 +18,7 @@ import {
 import { getDailyGreeting } from "@/lib/dailyGreeting";
 import { todayISO } from "@/lib/date";
 import {
+  CONTRACT_DEADLINE_DAYS,
   getContractDeadlineLabel,
   isContractDeadlineActive,
 } from "@/lib/deadline";
@@ -355,7 +356,7 @@ export default function HomePage() {
         onClose={closeDeadlineModal}
         position="center"
         title="마지막 계약 데드라인"
-        description="희망 입주 시작일 기준 31일 전인 고객만 표시해요 · 단일은 그날, 기간은 시작~끝까지 보여요"
+        description={`희망 입주 시작일 기준 ${CONTRACT_DEADLINE_DAYS}일 전인 고객만 표시해요 · 단일은 그날, 기간은 시작~끝까지 보여요`}
       >
         <div className="max-h-52 space-y-1.5 overflow-y-auto">
           {deadlineCustomers.map((c) => (
