@@ -18,9 +18,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
-  const isAuthPage = AUTH_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
   const isAdmin = pathname.startsWith("/admin");
   // 현장 리드·관리자·로그인에서는 탭바 숨김
   const hideTab =
