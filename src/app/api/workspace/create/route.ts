@@ -7,7 +7,9 @@ import {
 import { withApiErrorLog } from "@/lib/appErrorLog";
 import {
   buildWorkspaceInfo,
+  dissolveSoloPendingWorkspace,
   getMembership,
+  listWorkspaceMembers,
   migrateUserDataToWorkspace,
   shareCodeExpiryIso,
   writeAuditLog,
@@ -30,10 +32,19 @@ async function __POST_handler(request: Request) {
 
     const existing = await getMembership(auth.admin, auth.user.id);
     if (existing) {
-      return NextResponse.json(
-        { ok: false, message: "이미 팀 공유에 참여 중입니다." },
-        { status: 400 }
+      const members = await listWorkspaceMembers(
+        auth.admin,
+        existing.workspaceId
       );
+      // 만료된 혼자 초대 공간은 지우고 새로 생성
+      if (members.length < 2 && !existing.shareCodeValid) {
+        await dissolveSoloPendingWorkspace(auth.admin, auth.user.id);
+      } else {
+        return NextResponse.json(
+          { ok: false, message: "이미 팀 공유에 참여 중입니다." },
+          { status: 400 }
+        );
+      }
     }
 
     const { data: profile } = await auth.admin

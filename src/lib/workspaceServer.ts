@@ -334,6 +334,13 @@ export async function buildWorkspaceInfo(admin: Admin, userId: string) {
   const membership = await getMembership(admin, userId);
   if (!membership) return null;
   const members = await listWorkspaceMembers(admin, membership.workspaceId);
+
+  // 초대만 하고 팀원 없이 코드가 만료되면 공간·팀이름까지 초기화
+  if (members.length < 2 && !membership.shareCodeValid) {
+    await dissolveSoloPendingWorkspace(admin, userId);
+    return null;
+  }
+
   return {
     ...membership,
     memberCount: members.length || 1,

@@ -22,10 +22,13 @@ type WakeLockNavigator = Navigator & {
 };
 
 const DEFAULT_APP_WAKE_MS = 10 * 60 * 1000;
+/** Android 주소창 접힘 등으로 visibility가 잠깐 바뀌는 경우 대비 */
+const HIDDEN_RELEASE_DELAY_MS = 800;
 
 /**
  * 화면이 보이는 동안 슬립(꺼짐)을 막는다.
- * maxMs가 있으면 그 시간 후 해제(기본 앱 전체 10분). 미지원·거절은 무시.
+ * maxMs: 마지막 사용(터치 등) 기준 유지 시간. null이면 제한 없음.
+ * Android는 제스처 후에야 Wake Lock이 잡히는 경우가 많아 pointer 이벤트에서도 재요청한다.
  */
 export function useScreenWakeLock(
   active: boolean,
@@ -40,13 +43,24 @@ export function useScreenWakeLock(
     let lock: WakeLockSentinel | null = null;
     let cancelled = false;
     let deadline =
-      maxMs == null || maxMs <= 0 ? Number.POSITIVE_INFINITY : Date.now() + maxMs;
+      maxMs == null || maxMs <= 0
+        ? Number.POSITIVE_INFINITY
+        : Date.now() + maxMs;
     let expireTimer: ReturnType<typeof setTimeout> | null = null;
+    let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+    let acquiring = false;
 
     const clearExpireTimer = () => {
       if (expireTimer != null) {
         clearTimeout(expireTimer);
         expireTimer = null;
+      }
+    };
+
+    const clearHiddenTimer = () => {
+      if (hiddenTimer != null) {
+        clearTimeout(hiddenTimer);
+        hiddenTimer = null;
       }
     };
 
@@ -74,6 +88,12 @@ export function useScreenWakeLock(
       }, wait);
     };
 
+    const bumpDeadline = () => {
+      if (maxMs != null && maxMs > 0) {
+        deadline = Date.now() + maxMs;
+      }
+    };
+
     const onRelease = () => {
       lock = null;
       if (
@@ -88,11 +108,13 @@ export function useScreenWakeLock(
     const acquire = async () => {
       if (cancelled || document.visibilityState !== "visible") return;
       if (Date.now() >= deadline) return;
+      if (acquiring) return;
+      if (lock && !lock.released) {
+        scheduleExpire();
+        return;
+      }
+      acquiring = true;
       try {
-        if (lock && !lock.released) {
-          scheduleExpire();
-          return;
-        }
         const next = await wakeLockApi.request("screen");
         if (cancelled || Date.now() >= deadline) {
           void next.release();
@@ -103,32 +125,52 @@ export function useScreenWakeLock(
         scheduleExpire();
       } catch {
         lock = null;
+      } finally {
+        acquiring = false;
       }
     };
 
     const onVisibility = () => {
-      if (document.visibilityState !== "visible") {
-        releaseLock();
+      if (document.visibilityState === "visible") {
+        clearHiddenTimer();
+        bumpDeadline();
+        void acquire();
         return;
       }
-      // 다시 앱으로 돌아오면 제한 시간 갱신
-      if (maxMs != null && maxMs > 0) {
-        deadline = Date.now() + maxMs;
-      }
+      clearHiddenTimer();
+      hiddenTimer = setTimeout(() => {
+        hiddenTimer = null;
+        if (document.visibilityState !== "visible") {
+          releaseLock();
+        }
+      }, HIDDEN_RELEASE_DELAY_MS);
+    };
+
+    /** 터치·클릭 시 다시 잡고 10분 연장 (Android 제스처 요구 대응) */
+    const onInteract = () => {
+      if (cancelled || document.visibilityState !== "visible") return;
+      bumpDeadline();
       void acquire();
     };
 
     void acquire();
     document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("pointerdown", onInteract, { passive: true });
+    document.addEventListener("touchstart", onInteract, { passive: true });
+    document.addEventListener("keydown", onInteract);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("pointerdown", onInteract);
+      document.removeEventListener("touchstart", onInteract);
+      document.removeEventListener("keydown", onInteract);
+      clearHiddenTimer();
       releaseLock();
     };
   }, [active, maxMs]);
 }
 
-/** 앱 전체: 보이는 동안 최대 약 10분만 화면 유지 */
+/** 앱 전체: 보이는 동안·조작 후 최대 약 10분 화면 유지 */
 export function useAppScreenWakeLock() {
   useScreenWakeLock(true, { maxMs: DEFAULT_APP_WAKE_MS });
 }

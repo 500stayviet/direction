@@ -136,11 +136,35 @@ export default function AccountPage() {
     if (codeValid) sawValidCodeThisVisit.current = true;
   }, [codeValid]);
 
-  /** 이 화면에서 카운트다운이 끝난 경우에만 빨간 만료 UI */
+  /** 혼자인데 코드 만료 → 서버에서 공간 해체 후 초기 화면으로 */
+  useEffect(() => {
+    if (!workspace) return;
+    if (codeValid) return;
+    if ((workspace.memberCount ?? 0) >= 2) return;
+    let cancelled = false;
+    void (async () => {
+      const status = await fetchWorkspaceStatus();
+      if (cancelled || !status.ok) return;
+      setWorkspace(status.workspace);
+      sawValidCodeThisVisit.current = false;
+      setNameOpen(null);
+      setWsMessage("");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    codeValid,
+    workspace?.workspaceId,
+    workspace?.memberCount,
+  ]);
+
+  /** 이 화면에서 카운트다운이 끝난 경우에만 빨간 만료 UI (팀이 있을 때) */
   const showExpiredCodeUi =
     Boolean(workspace?.shareCode) &&
     !codeValid &&
-    sawValidCodeThisVisit.current;
+    sawValidCodeThisVisit.current &&
+    (workspace?.memberCount ?? 0) >= 2;
 
   /** 유효한 코드 박스 (재진입·만료 후는 생성 버튼으로 초기화) */
   const showActiveCodeUi = Boolean(workspace?.shareCode) && codeValid;
@@ -615,11 +639,7 @@ export default function AccountPage() {
             ? "공유 코드를 다시 발급할까요?"
             : "팀 공유를 시작할까요?"
         }
-        description={
-          codeConsent === "reissue"
-            ? "기존 코드는 바로 무효가 됩니다. 매물·고객 정보가 팀에 노출될 수 있으니 주의하세요."
-            : "매물·고객 정보가 팀에 노출될 수 있으니 주의하세요."
-        }
+        description="본인의 매물·고객 정보가 팀원과 공유될 수 있습니다. 악의적으로 팀원이 이용할 시 법적 문제가 될 수 있습니다. 그래도 진행하시겠습니까?"
       >
         <div className="grid grid-cols-2 gap-2">
           <Button
