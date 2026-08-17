@@ -1,33 +1,44 @@
 "use client";
 
-function Sparkle({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden
-    >
-      <path
-        d="M12 1.6 13.9 8.4 20.8 10.2 13.9 12 12 18.8 10.1 12 3.2 10.2 10.1 8.4 12 1.6Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
-/** AI를 상징하는 스파클 + 궤도. 분석 중 우주 연출 */
+/** 흰 카드 위에서 도는 우주 구체 */
 export function IntakeAiGlobe() {
   return (
-    <div className="intake-ai-mark" aria-hidden>
-      <span className="intake-ai-orbit" />
-      <span className="intake-ai-orbit intake-ai-orbit-slow" />
-      <Sparkle className="intake-ai-sparkle intake-ai-sparkle-a" />
-      <Sparkle className="intake-ai-sparkle intake-ai-sparkle-b" />
-      <Sparkle className="intake-ai-sparkle intake-ai-sparkle-c" />
-      <div className="intake-ai-core">
-        <Sparkle className="intake-ai-sparkle-main" />
-        <Sparkle className="intake-ai-sparkle-side" />
+    <div className="intake-ai-orb" aria-hidden>
+      <span className="intake-ai-orb-halo" />
+      <span className="intake-ai-orb-shadow" />
+
+      <div className="intake-ai-orb-belt intake-ai-orb-belt-a">
+        <span className="intake-ai-orb-track" />
+        <span className="intake-ai-orb-sat" />
+        <span className="intake-ai-orb-sat intake-ai-orb-sat-trail" />
+      </div>
+      <div className="intake-ai-orb-belt intake-ai-orb-belt-b">
+        <span className="intake-ai-orb-track" />
+        <span className="intake-ai-orb-sat intake-ai-orb-sat-violet" />
+      </div>
+      <div className="intake-ai-orb-belt intake-ai-orb-belt-c">
+        <span className="intake-ai-orb-sat intake-ai-orb-sat-tiny" />
+        <span className="intake-ai-orb-sat intake-ai-orb-sat-tiny intake-ai-orb-sat-tiny-b" />
+      </div>
+
+      <div className="intake-ai-orb-sphere">
+        <div className="intake-ai-orb-spin">
+          <span className="intake-ai-orb-map" />
+          <span className="intake-ai-orb-continent" />
+          <span className="intake-ai-orb-continent intake-ai-orb-continent-b" />
+          <span className="intake-ai-orb-continent intake-ai-orb-continent-c" />
+          <span className="intake-ai-orb-lat" />
+          <span className="intake-ai-orb-lat intake-ai-orb-lat-b" />
+          <span className="intake-ai-orb-lat intake-ai-orb-lat-c" />
+          <span className="intake-ai-orb-meridian" />
+          <span className="intake-ai-orb-meridian intake-ai-orb-meridian-b" />
+          <span className="intake-ai-orb-meridian intake-ai-orb-meridian-c" />
+          <span className="intake-ai-orb-meridian intake-ai-orb-meridian-d" />
+        </div>
+        <span className="intake-ai-orb-shade" />
+        <span className="intake-ai-orb-shine" />
+        <span className="intake-ai-orb-rim" />
+        <span className="intake-ai-orb-atmos" />
       </div>
     </div>
   );

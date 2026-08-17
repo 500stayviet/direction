@@ -617,7 +617,7 @@ export function CustomerForm({
 
   return (
     <>
-      <IntakeAiBusyOverlay open={aiBusy && !messageOpen} />
+      <IntakeAiBusyOverlay open={aiBusy} />
       <form
         id={FORM_ID}
         noValidate

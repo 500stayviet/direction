@@ -517,7 +517,7 @@ export function PropertyEditor({
 
   return (
     <>
-    <IntakeAiBusyOverlay open={aiBusy && !messageOpen} />
+    <IntakeAiBusyOverlay open={aiBusy} />
     {enableIntake ? (
       <div className="mb-3 space-y-1">
         <IntakeSourceBar onSelect={requestIntake} />

@@ -227,6 +227,10 @@ describe("intakeSteps", () => {
       resolveTalkDealType({ dealType: "매매", options: [] }, { deposit: 10000, options: [] }),
       "매매"
     );
+    assert.equal(
+      INTAKE_GUIDE_STEPS.property.find((l) => l.key === "notes")?.example,
+      "관리비 · 남향 저층"
+    );
   });
 
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {

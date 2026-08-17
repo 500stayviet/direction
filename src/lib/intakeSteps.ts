@@ -83,7 +83,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임대인 번호",
       example: "010-9876-5432",
     },
-    { key: "notes", name: "메모", example: "남향 저층" },
+    { key: "notes", name: "메모", example: "관리비 · 남향 저층" },
   ],
 };
 
