@@ -16,13 +16,26 @@ import {
 } from "@/lib/format";
 import { formatDisplayTime } from "@/components/TimePicker";
 import { Card } from "@/components/ui/Card";
-import { PhoneLink } from "@/components/PhoneLink";
+import { PhoneLink, PhoneHandsetIcon } from "@/components/PhoneLink";
 import { AddressLink } from "@/components/AddressLink";
 import { toNaviAddress } from "@/lib/navi";
 import { PasswordReveal } from "@/components/PasswordReveal";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
 import { useState } from "react";
+
+function NaviGlyph({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={["shrink-0", className].join(" ")}
+      aria-hidden
+    >
+      <path d="M12 2.25c-3.9 0-7.05 3.05-7.05 6.8 0 4.95 6.2 11.55 6.46 11.82a.8.8 0 0 0 1.18 0c.26-.27 6.46-6.87 6.46-11.82 0-3.75-3.15-6.8-7.05-6.8Zm0 9.55a2.75 2.75 0 1 1 0-5.5 2.75 2.75 0 0 1 0 5.5Z" />
+    </svg>
+  );
+}
 
 interface PropertyBriefProps {
   index: number;
@@ -168,117 +181,122 @@ export function PropertyBrief({
             {typeText}
           </span>
         </div>
-        {/* 원터치 네비 — 블루 포인트 (탭 = 지번까지만 네비 전달) */}
+        {/* 원터치 네비 — 아이콘 왼쪽, 주소·호실 우측 */}
         <AddressLink
           address={property.address}
           showIcon={false}
-          className="gap-1.5 rounded-2xl bg-[#E8F3FF] px-3.5 py-3"
+          className="rounded-2xl bg-[#E8F3FF] px-3 py-3 ring-1 ring-inset ring-[#3182F6]/20"
         >
-          <span className="flex items-center gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#3182F6] text-[10px] text-white">
-              ▶
+          <span className="flex w-full items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white shadow-sm">
+              <NaviGlyph className="h-6 w-6" />
             </span>
-            <span className="shrink-0 text-[14px] font-extrabold text-[#3182F6]">
-              원터치 네비게이션
+            <span className="min-w-0 flex-1 text-right">
+              <span className="block text-[11px] font-bold leading-none text-[#3182F6]/80">
+                원터치 네비
+              </span>
+              <span className="mt-1.5 block text-[18px] font-extrabold leading-snug tracking-tight text-[#1B64DA]">
+                {toNaviAddress(property.address) ||
+                  property.address ||
+                  "주소 없음"}
+              </span>
+              {property.roomNo?.trim() ? (
+                <span className="mt-0.5 block text-[15px] font-bold leading-snug text-gray-900">
+                  {property.roomNo.trim()}
+                </span>
+              ) : null}
             </span>
           </span>
-          <span className="mt-1 block text-[11px] font-medium leading-snug text-[#1B64DA]/70">
-            주소 칸을 눌러 네비게이션으로 이동하세요
-          </span>
-          <span className="mt-1.5 block text-[19px] font-extrabold leading-snug tracking-tight text-[#1B64DA]">
-            {toNaviAddress(property.address) || property.address || "주소 없음"}
-          </span>
-          {property.roomNo?.trim() ? (
-            <span className="mt-0.5 block text-[15px] font-bold leading-snug text-gray-900">
-              {property.roomNo.trim()}
-            </span>
-          ) : null}
         </AddressLink>
 
-        {/* 원터치 전화 — 민트 포인트 */}
+        {/* 원터치 전화 — 번호 앞 수화기 아이콘 */}
         {(property.tenantPhone ||
           property.landlordPhone ||
           property.hasPartnerAgency) ? (
-          <div className="rounded-2xl bg-[#E8F8F1] px-3.5 py-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#03B26C] text-[11px] text-white">
-                ☎
-              </span>
-              <p className="shrink-0 text-[14px] font-extrabold text-[#03B26C]">
-                원터치 전화
-              </p>
-              <p className="ml-auto whitespace-nowrap text-[10px] font-medium leading-none text-[#027A4A]/70">
-                전화번호를 누르면 전화로 이동합니다
-              </p>
-            </div>
-            <div className="mt-1.5 divide-y divide-[#03B26C]/15">
-              {property.hasPartnerAgency ? (
-                property.partnerAgency?.phone ? (
-                  <PhoneLink
-                    phone={property.partnerAgency.phone}
-                    showIcon={false}
-                    className="!flex w-full items-center gap-2 py-2.5 !text-[#03B26C]"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-extrabold text-gray-900">
-                      {partnerLabel}
-                    </span>
-                    {property.partnerAgency?.dong?.trim() ? (
-                      <span className="shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[12px] font-bold text-gray-500">
-                        {property.partnerAgency.dong.trim()}
+          <div className="space-y-1.5">
+            {property.hasPartnerAgency ? (
+              property.partnerAgency?.phone ? (
+                <PhoneLink
+                  phone={property.partnerAgency.phone}
+                  showIcon={false}
+                  className="!flex w-full items-center gap-2.5 rounded-2xl bg-[#E8F8F1] px-3 py-3 !text-[#03B26C] ring-1 ring-inset ring-[#03B26C]/20"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
+                    <PhoneHandsetIcon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-right">
+                    <span className="flex items-center justify-end gap-1.5">
+                      <span className="min-w-0 truncate text-[13px] font-bold text-gray-700">
+                        {partnerLabel}
                       </span>
-                    ) : null}
-                    <span className="shrink-0 text-[16px] font-extrabold tabular-nums tracking-tight">
+                      {property.partnerAgency?.dong?.trim() ? (
+                        <span className="shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] font-bold text-gray-500">
+                          {property.partnerAgency.dong.trim()}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-[19px] font-extrabold tabular-nums tracking-tight">
                       {formatPhone(property.partnerAgency.phone)}
                     </span>
-                  </PhoneLink>
-                ) : (
-                  <div className="flex items-center gap-2 py-2.5">
-                    <p className="min-w-0 flex-1 truncate text-[15px] font-extrabold text-gray-900">
+                  </span>
+                </PhoneLink>
+              ) : (
+                <div className="flex w-full items-center gap-2.5 rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/15">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C]/40 text-white">
+                    <PhoneHandsetIcon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-right">
+                    <span className="block truncate text-[13px] font-bold text-gray-700">
                       {partnerLabel}
-                    </p>
-                    {property.partnerAgency?.dong?.trim() ? (
-                      <span className="shrink-0 rounded-md bg-white/80 px-1.5 py-0.5 text-[12px] font-bold text-gray-500">
-                        {property.partnerAgency.dong.trim()}
-                      </span>
-                    ) : null}
-                    <span className="shrink-0 text-[13px] font-medium text-gray-400">
+                    </span>
+                    <span className="mt-1 block text-[13px] font-medium text-gray-400">
                       번호 없음
                     </span>
-                  </div>
-                )
-              ) : (
-                <>
-                  {property.tenantPhone ? (
-                    <PhoneLink
-                      phone={property.tenantPhone}
-                      showIcon={false}
-                      className="!flex w-full items-center justify-between gap-2 py-2.5 !text-[#03B26C]"
-                    >
-                      <span className="text-[15px] font-bold text-gray-800">
+                  </span>
+                </div>
+              )
+            ) : (
+              <>
+                {property.tenantPhone ? (
+                  <PhoneLink
+                    phone={property.tenantPhone}
+                    showIcon={false}
+                    className="!flex w-full items-center gap-2.5 rounded-2xl bg-[#E8F8F1] px-3 py-3 !text-[#03B26C] ring-1 ring-inset ring-[#03B26C]/20"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
+                      <PhoneHandsetIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1 text-right">
+                      <span className="block text-[13px] font-bold text-gray-700">
                         임차인
                       </span>
-                      <span className="text-[19px] font-extrabold tabular-nums tracking-tight">
+                      <span className="mt-1 block text-[19px] font-extrabold tabular-nums tracking-tight">
                         {formatPhone(property.tenantPhone)}
                       </span>
-                    </PhoneLink>
-                  ) : null}
-                  {property.landlordPhone ? (
-                    <PhoneLink
-                      phone={property.landlordPhone}
-                      showIcon={false}
-                      className="!flex w-full items-center justify-between gap-2 py-2.5 !text-[#03B26C]"
-                    >
-                      <span className="text-[15px] font-bold text-gray-800">
+                    </span>
+                  </PhoneLink>
+                ) : null}
+                {property.landlordPhone ? (
+                  <PhoneLink
+                    phone={property.landlordPhone}
+                    showIcon={false}
+                    className="!flex w-full items-center gap-2.5 rounded-2xl bg-[#E8F8F1] px-3 py-3 !text-[#03B26C] ring-1 ring-inset ring-[#03B26C]/20"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
+                      <PhoneHandsetIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1 text-right">
+                      <span className="block text-[13px] font-bold text-gray-700">
                         임대인
                       </span>
-                      <span className="text-[19px] font-extrabold tabular-nums tracking-tight">
+                      <span className="mt-1 block text-[19px] font-extrabold tabular-nums tracking-tight">
                         {formatPhone(property.landlordPhone)}
                       </span>
-                    </PhoneLink>
-                  ) : null}
-                </>
-              )}
-            </div>
+                    </span>
+                  </PhoneLink>
+                ) : null}
+              </>
+            )}
           </div>
         ) : null}
 

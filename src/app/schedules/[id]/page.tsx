@@ -16,7 +16,7 @@ import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLo
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
-import { PhoneLink } from "@/components/PhoneLink";
+import { PhoneChip } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import {
   dealTypeBarClass,
@@ -889,17 +889,15 @@ function ScheduleDetailInner() {
                         </span>
                       ) : null}
                     </p>
-                    {customer.phone?.trim() ? (
-                      <PhoneLink
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <span className="shrink-0 text-[12px] font-semibold text-gray-500">
+                        고객
+                      </span>
+                      <PhoneChip
                         phone={customer.phone}
-                        showIcon={false}
-                        className="ml-auto !shrink-0 !text-[16px] !font-extrabold !leading-none !tracking-tight !text-[#03B26C]"
+                        className="!ml-0 !px-1.5 !py-1 !text-[20px] sm:!text-[18px]"
                       />
-                    ) : (
-                      <p className="ml-auto shrink-0 text-[13px] font-semibold text-gray-400">
-                        번호 없음
-                      </p>
-                    )}
+                    </div>
                   </div>
                   <div className="mt-1.5 rounded-xl bg-[#F9FAFB]">
                     <button

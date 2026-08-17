@@ -177,7 +177,21 @@ export function NaviListCard({
           >
             {name}
           </p>
-          <PhoneChip phone={phone} done={done} />
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <span
+              className={[
+                "shrink-0 text-[12px] font-semibold",
+                done ? "text-gray-400" : "text-gray-500",
+              ].join(" ")}
+            >
+              고객
+            </span>
+            <PhoneChip
+              phone={phone}
+              done={done}
+              className="!ml-0 !px-1.5 !py-1 !text-[20px] sm:!text-[18px]"
+            />
+          </div>
         </div>
 
         <div className="mt-2 flex items-center gap-2">

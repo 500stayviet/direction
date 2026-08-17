@@ -4,6 +4,9 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
+  TALK_LOCATION_HOLD_MS,
+  TALK_MONEY_HOLD_MS,
+  TALK_DATES_HOLD_MS,
   TALK_ENDED_MS,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
@@ -72,6 +75,9 @@ describe("talkSession", () => {
     );
     assert.equal(TALK_IDLE_MS, 10_000);
     assert.equal(TALK_FIELD_HOLD_MS, 2_000);
+    assert.equal(TALK_LOCATION_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(TALK_MONEY_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(TALK_DATES_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_ENDED_MS, 2_000);
     assert.equal(TALK_ENDED_MESSAGE, "대화가 종료되었습니다.");
     assert.match(TALK_STOP_HINT, /녹화버튼/);

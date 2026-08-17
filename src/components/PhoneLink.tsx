@@ -38,6 +38,23 @@ export function PhoneLink({
 }
 
 /** 리스트 카드용: 회색 박스 + 수화기 아이콘 */
+export function PhoneHandsetIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={["shrink-0", className].join(" ")}
+      aria-hidden
+    >
+      <path
+        fillRule="evenodd"
+        d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148c.718 0 1.345.438 1.599 1.094l.716 3.223a1.5 1.5 0 0 1-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 0 0 6.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 0 1 1.767-1.052l3.223.716A1.5 1.5 0 0 1 18 15.352V16.5a1.5 1.5 0 0 1-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 0 1 2.43 8.326 13.019 13.019 0 0 1 2 5V3.5Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 export function PhoneChip({
   phone,
   done = false,
@@ -72,18 +89,7 @@ export function PhoneChip({
         className,
       ].join(" ")}
     >
-      <svg
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5"
-        aria-hidden
-      >
-        <path
-          fillRule="evenodd"
-          d="M2 3.5A1.5 1.5 0 0 1 3.5 2h1.148c.718 0 1.345.438 1.599 1.094l.716 3.223a1.5 1.5 0 0 1-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 0 0 6.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 0 1 1.767-1.052l3.223.716A1.5 1.5 0 0 1 18 15.352V16.5a1.5 1.5 0 0 1-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 0 1 2.43 8.326 13.019 13.019 0 0 1 2 5V3.5Z"
-          clipRule="evenodd"
-        />
-      </svg>
+      <PhoneHandsetIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
       <span>{formatPhone(value)}</span>
     </PhoneLink>
   );
