@@ -332,6 +332,19 @@ describe("parseIntakeText", () => {
     assert.equal(dongHo.jibun, "111-1");
     assert.equal(dongHo.buildingName, "힐스테이트");
     assert.equal(dongHo.roomNo, "101동 102호");
+
+    const eJibun = parseIntakeText("성내동 111에1 원룸 전세", "property");
+    assert.equal(eJibun.jibun, "111-1");
+    assert.equal(eJibun.dong, "성내동");
+    const eSpaced = parseIntakeText("성내동 111 에 1 원룸 전세", "property");
+    assert.equal(eSpaced.jibun, "111-1");
+    const dasiJibun = parseIntakeText(
+      "성내동 111다시 1 원룸 전세",
+      "property"
+    );
+    assert.equal(dasiJibun.jibun, "111-1");
+    const dasiTight = parseIntakeText("성내동 111다시1 원룸 전세", "property");
+    assert.equal(dasiTight.jibun, "111-1");
     const applied = applyIntakeToProperty(createEmptyProperty(), dongHo);
     assert.equal(applied.roomNo, "101동 102호");
     assert.equal(applied.buildingName, "힐스테이트");
@@ -760,6 +773,40 @@ describe("parseIntakeText", () => {
       today
     );
     assert.equal(compoundManOnly.deposit, 29210);
+
+    // 음성·속기: 만 없이 3억6500 → 3억 6500만. 5억9(한 자리)는 계속 스킵
+    const bareManAfterEok = parseIntakeText(
+      "아파트 매매 3억6500",
+      "customer",
+      today
+    );
+    assert.equal(bareManAfterEok.deposit, 36500);
+    assert.equal(bareManAfterEok.dealType, "매매");
+    const bareManSpaced = parseIntakeText(
+      "아파트 매매 3억 6500",
+      "customer",
+      today
+    );
+    assert.equal(bareManSpaced.deposit, 36500);
+    const bareManProperty = parseIntakeText(
+      "아파트 매매가 3억6500 성내동",
+      "property",
+      today
+    );
+    assert.equal(bareManProperty.deposit, 36500);
+    const bareManTalkOnly = parseIntakeText(
+      "3억6500",
+      "customer",
+      today,
+      "spoken"
+    );
+    assert.equal(bareManTalkOnly.deposit, 36500);
+    const stillSkipHalf = parseIntakeText(
+      "원룸 전세 5억9",
+      "customer",
+      today
+    );
+    assert.equal(stillSkipHalf.deposit, undefined);
 
     const twoEok = parseIntakeText("원룸 전세 1억 암사동 2억", "customer", today);
     assert.equal(twoEok.deposit, 10000);

@@ -11,9 +11,7 @@ import {
   INTAKE_GUIDE_STEPS,
   allGuideStepsComplete,
   buildIntakeFromSteps,
-  buildFlagsProgressParts,
   flagsStepComplete,
-  formatFlagsActiveExample,
   formatFlagsValueLine,
   guideStepComplete,
   moneyFieldsComplete,
@@ -36,7 +34,6 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
-  TALK_ENDED_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
@@ -81,7 +78,7 @@ function getSpeechRecognition(): SpeechRec | null {
 }
 
 function activeRowClass(active: boolean, filled: boolean): string {
-  const box = "rounded-lg border px-2 py-1";
+  const box = "rounded-lg border px-2.5 py-1.5 min-h-9";
   if (filled) return `${box} border-green-400 bg-green-50`;
   if (active) return `${box} border-blue-400 bg-blue-50/80`;
   return `${box} border-gray-200 bg-white`;
@@ -176,7 +173,6 @@ export function IntakeTalkModal({
   const processedResultIndexRef = useRef(0);
   const listeningRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const talkEndedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fieldHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
@@ -225,20 +221,9 @@ export function IntakeTalkModal({
     resetStepSpeech();
   }, [resetStepSpeech, setNotesDraftBoth]);
 
-  const clearTalkEndedTimer = useCallback(() => {
-    if (talkEndedTimerRef.current == null) return;
-    clearTimeout(talkEndedTimerRef.current);
-    talkEndedTimerRef.current = null;
-  }, []);
-
-  const flashTalkEnded = useCallback(() => {
-    clearTalkEndedTimer();
+  const showTalkEndedDone = useCallback(() => {
     setShowTalkEnded(true);
-    talkEndedTimerRef.current = setTimeout(() => {
-      talkEndedTimerRef.current = null;
-      setShowTalkEnded(false);
-    }, TALK_ENDED_MS);
-  }, [clearTalkEndedTimer]);
+  }, []);
 
   const clearFieldHoldTimer = useCallback(() => {
     if (fieldHoldTimerRef.current == null) return;
@@ -521,18 +506,15 @@ export function IntakeTalkModal({
   }, []);
 
   const haltListening = useCallback(() => {
-    const wasListening = listeningRef.current;
     setListeningBoth(false);
     stopRecognition();
     clearIdleTimer();
     clearFieldHoldTimer();
     processedResultIndexRef.current = 0;
     resetStepSpeech();
-    if (wasListening) flashTalkEnded();
   }, [
     clearIdleTimer,
     clearFieldHoldTimer,
-    flashTalkEnded,
     resetStepSpeech,
     stopRecognition,
   ]);
@@ -567,6 +549,7 @@ export function IntakeTalkModal({
       if (spoken.live) scheduleFieldHoldAdvance();
     };
     rec.onend = () => {
+      if (recRef.current !== rec) return;
       resetStepSpeech();
       processedResultIndexRef.current = 0;
       if (!listeningRef.current) return;
@@ -607,7 +590,7 @@ export function IntakeTalkModal({
       stopRecognition();
       clearIdleTimer();
       clearFieldHoldTimer();
-      clearTalkEndedTimer();
+      setShowTalkEnded(false);
       setListening(false);
       resetWizard();
       setError("");
@@ -647,7 +630,6 @@ export function IntakeTalkModal({
     stopRecognition,
     clearIdleTimer,
     clearFieldHoldTimer,
-    clearTalkEndedTimer,
   ]);
 
   useEffect(() => {
@@ -677,10 +659,6 @@ export function IntakeTalkModal({
         clearTimeout(fieldHoldTimerRef.current);
         fieldHoldTimerRef.current = null;
       }
-      if (talkEndedTimerRef.current != null) {
-        clearTimeout(talkEndedTimerRef.current);
-        talkEndedTimerRef.current = null;
-      }
       const rec = recRef.current;
       recRef.current = null;
       rec?.stop();
@@ -692,7 +670,6 @@ export function IntakeTalkModal({
     if (key) clearStep(key);
     setError("");
     setShowTalkEnded(false);
-    clearTalkEndedTimer();
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
@@ -741,12 +718,12 @@ export function IntakeTalkModal({
     } else if (key === "notes" && notesDraftRef.current.trim()) {
       commitNotesDraft();
     }
-    if (wasListening) flashTalkEnded();
+    if (wasListening) showTalkEndedDone();
   }, [
     clearIdleTimer,
     clearFieldHoldTimer,
     commitNotesDraft,
-    flashTalkEnded,
+    showTalkEndedDone,
     guide,
     stopRecognition,
   ]);
@@ -778,6 +755,7 @@ export function IntakeTalkModal({
   };
 
   const selectGuideRow = (index: number) => {
+    if (!speechSupported) return;
     const key = guide[index]?.key;
     if (!key) return;
     const fromKey = guide[activeIndexRef.current]?.key;
@@ -793,7 +771,7 @@ export function IntakeTalkModal({
     clearFieldHoldTimer();
     activeIndexRef.current = index;
     setActiveIndex(index);
-    clearStep(key);
+    startListening();
   };
 
   const goPrevious = () => {
@@ -850,6 +828,19 @@ export function IntakeTalkModal({
         </>
       ) : showRecordIcon ? (
         <span className="h-5 w-5 rounded-full bg-red-500" aria-hidden />
+      ) : primaryKind === "start" ? (
+        <>
+          <svg
+            viewBox="0 0 16 16"
+            className="h-4 w-4 shrink-0"
+            fill="currentColor"
+            aria-hidden
+          >
+            <path d="M8 1.5a2.25 2.25 0 0 0-2.25 2.25v4a2.25 2.25 0 1 0 4.5 0v-4A2.25 2.25 0 0 0 8 1.5Z" />
+            <path d="M4.25 7.25a.75.75 0 0 0-1.5 0 5.25 5.25 0 0 0 4.5 5.196V14h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.554A5.25 5.25 0 0 0 13.25 7.25a.75.75 0 0 0-1.5 0 3.75 3.75 0 1 1-7.5 0Z" />
+          </svg>
+          {primaryLabel}
+        </>
       ) : (
         primaryLabel
       )}
@@ -923,7 +914,7 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="-mx-2 mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-1 py-1">
+      <ul className="-mx-2 mb-2 space-y-1 rounded-2xl bg-gray-50 px-1.5 py-1.5">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
@@ -945,15 +936,34 @@ export function IntakeTalkModal({
             : "";
           const filled = done;
           const active = index === activeIndex;
-          const flagsExample = isFlags
-            ? formatFlagsActiveExample(row?.partial)
-            : "";
-          const showFlagsProgress = isFlags && !done;
-          const stackValue = isFlags && done && Boolean(flagsValues);
-          const stackContacts = line.key === "contacts";
-          const stackLayout = stackValue || showFlagsProgress || stackContacts;
-          const showColon =
-            !isFlags && (done || active || Boolean(stepExample));
+          const rowDisplay = isFlags
+            ? flagsValues || row?.display || ""
+            : row?.display || "";
+          const hasEnteredValue = Boolean(rowDisplay);
+          const showColon = done || active || hasEnteredValue || Boolean(stepExample);
+
+          let valueText: string | null = null;
+          if (done) {
+            valueText =
+              line.key === "notes" && active && notesPreview.trim()
+                ? notesPreview
+                : rowDisplay || null;
+          } else if (active) {
+            if (line.key === "notes" && notesPreview.trim()) {
+              valueText = notesPreview;
+            } else if (composedLive.trim()) {
+              valueText = composedLive;
+            } else if (hasEnteredValue) {
+              valueText = rowDisplay;
+            } else if (stepExample) {
+              valueText = `예) ${stepExample}`;
+            }
+          } else if (hasEnteredValue) {
+            valueText = rowDisplay;
+          } else if (stepExample) {
+            valueText = `예) ${stepExample}`;
+          }
+
           return (
             <li
               key={line.key}
@@ -965,137 +975,54 @@ export function IntakeTalkModal({
                 onClick={() => selectGuideRow(index)}
                 className={[
                   "flex w-full min-w-0 items-center gap-1.5 text-left",
-                  stackLayout ? "items-start" : "",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
               <span
                 className={[
                   "w-3.5 shrink-0 text-center text-[14px] font-bold leading-none",
-                  stackLayout ? "pt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
               >
                 ▶
               </span>
-              <div
-                className={[
-                  "min-w-0 flex-1",
-                  stackLayout
-                    ? "flex flex-col gap-0.5"
-                    : "flex min-w-0 items-baseline gap-2",
-                ].join(" ")}
-              >
+              <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
                 <span
                   className={[
-                    "text-[16px] font-bold leading-snug",
+                    "shrink-0 text-[16px] font-bold leading-snug",
                     done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
-                    stackLayout ? "" : "shrink-0",
                   ].join(" ")}
                 >
                   {line.name}
+                  {line.nameHint ? (
+                    <span
+                      className={[
+                        "ml-1 text-[12px] font-medium leading-none",
+                        done
+                          ? "text-green-700/70"
+                          : active
+                            ? "text-blue-700/70"
+                            : "text-gray-500",
+                      ].join(" ")}
+                    >
+                      {line.nameHint}
+                    </span>
+                  ) : null}
                   {showColon ? ":" : ""}
                 </span>
-                {isFlags && showFlagsProgress ? (
-                  <div
-                    className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[14px] leading-snug"
-                    data-testid="intake-flags-progress"
-                  >
-                    {buildFlagsProgressParts(row?.partial).map((part, partIndex) => (
-                      <span
-                        key={part.field}
-                        className="inline-flex items-center gap-x-1.5"
-                      >
-                        {partIndex > 0 ? (
-                          <span className="text-gray-300" aria-hidden>
-                            ·
-                          </span>
-                        ) : null}
-                        <span
-                          className={[
-                            part.filled
-                              ? "font-semibold text-green-700"
-                              : active
-                                ? "font-semibold text-red-500"
-                                : "font-medium text-gray-600",
-                          ].join(" ")}
-                        >
-                          {part.text}
-                        </span>
-                      </span>
-                    ))}
-                    {active && composedLive.trim() ? (
-                      <>
-                        <span className="text-gray-300" aria-hidden>
-                          ·
-                        </span>
-                        <span className="min-w-0 font-medium text-blue-600">
-                          {composedLive}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-                ) : isFlags && stackValue ? (
-                  <span
-                    className={[
-                      "min-w-0 break-words text-[14px] leading-snug",
-                      done
-                        ? "font-semibold text-green-700"
-                        : "font-semibold text-blue-700",
-                    ].join(" ")}
-                  >
-                    {active && composedLive.trim()
-                      ? [flagsValues, composedLive].filter(Boolean).join(" · ")
-                      : flagsValues}
-                  </span>
-                ) : isFlags ? (
+                {valueText ? (
                   <span
                     className={[
                       "min-w-0 truncate text-[14px] leading-snug",
-                      active
-                        ? "font-medium text-blue-700"
-                        : "font-medium text-gray-700",
-                    ].join(" ")}
-                  >
-                    {active && composedLive.trim()
-                      ? composedLive
-                      : active && flagsExample
-                        ? `예) ${flagsExample}`
-                        : line.example
-                          ? `예) ${line.example}`
-                          : null}
-                  </span>
-                ) : done || active ? (
-                  <span
-                    className={[
-                      "min-w-0 text-[14px] leading-snug",
-                      stackContacts ? "break-words" : "truncate",
-                      done
+                      done || (hasEnteredValue && !active)
                         ? "font-semibold text-green-700"
-                        : "font-medium text-blue-700",
+                        : active
+                          ? "font-medium text-blue-700"
+                          : "font-medium text-gray-700",
                     ].join(" ")}
                   >
-                    {done
-                      ? line.key === "notes" && active && notesPreview.trim()
-                        ? notesPreview
-                        : row?.display
-                      : line.key === "notes" && notesPreview.trim()
-                        ? notesPreview
-                        : composedLive.trim()
-                        ? composedLive
-                        : stepExample
-                          ? `예) ${stepExample}`
-                          : null}
-                  </span>
-                ) : stepExample ? (
-                  <span
-                    className={[
-                      "min-w-0 text-[14px] font-medium leading-snug text-gray-700",
-                      stackContacts ? "break-words" : "truncate",
-                    ].join(" ")}
-                  >
-                    예) {stepExample}
+                    {valueText}
                   </span>
                 ) : null}
               </div>
@@ -1107,18 +1034,34 @@ export function IntakeTalkModal({
       </Modal>
       {open && showTalkEnded ? (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center px-8"
-          role="status"
-          aria-live="polite"
+          className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="talk-ended-title"
+          aria-describedby="talk-ended-desc"
         >
-          <div className="absolute inset-0 bg-black/30" aria-hidden />
-          <div className="relative w-full max-w-[240px] rounded-2xl bg-white px-5 py-4 text-center shadow-xl">
-            <p className="text-[16px] font-bold leading-snug text-gray-900">
+          <div className="absolute inset-0 bg-black/40" aria-hidden />
+          <div className="relative w-full max-w-[300px] rounded-2xl bg-white px-6 pb-5 pt-6 text-center shadow-xl">
+            <p
+              id="talk-ended-title"
+              className="text-[22px] font-bold leading-tight tracking-tight text-gray-900"
+            >
               {TALK_ENDED_TITLE}
             </p>
-            <p className="mt-1 text-[14px] font-medium leading-snug text-gray-700">
+            <p
+              id="talk-ended-desc"
+              className="mt-3 text-[15px] font-medium leading-relaxed text-gray-600"
+            >
               {TALK_ENDED_MESSAGE}
             </p>
+            <Button
+              fullWidth
+              className="mt-5"
+              onClick={() => setShowTalkEnded(false)}
+              data-testid="intake-talk-ended-confirm"
+            >
+              확인
+            </Button>
           </div>
         </div>
       ) : null}

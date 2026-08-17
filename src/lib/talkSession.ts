@@ -16,20 +16,17 @@ export const TALK_NOTES_HOLD_MS = TALK_FIELD_HOLD_MS;
 
 export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (
-    key === "location" ||
     key === "money" ||
     key === "dates" ||
-    key === "contacts" ||
+    key === "tenantPhone" ||
+    key === "landlordPhone" ||
     key === "notes"
   );
 }
-/** 대화 종료 안내를 짧게 보여 주는 시간 */
-export const TALK_ENDED_MS = 2_000;
-
-export type TalkPrimaryKind = "start" | "stop" | "finish";
-
+/** 대화 종료 안내 문구 */
 export const TALK_ENDED_TITLE = "입력완료!";
-export const TALK_ENDED_MESSAGE = "입력한 내용 확인후 반영하기 누르세요";
+export const TALK_ENDED_MESSAGE =
+  "입력한 내용을 확인한 뒤 반영하기를 눌러 주세요.";
 
 export const TALK_STOP_HINT = "녹화버튼을 눌러 대화를 이어가세요.";
 
@@ -48,6 +45,8 @@ export function isTalkMicError(code: string | undefined): boolean {
     code === "audio-capture"
   );
 }
+
+export type TalkPrimaryKind = "start" | "stop" | "finish";
 
 export function talkPrimaryKind(opts: {
   talkStarted: boolean;

@@ -19,6 +19,8 @@ export type IntakeStepKey = IntakeGuideKey;
 export type IntakeStepLine = {
   key: IntakeStepKey;
   name: string;
+  /** 유/무처럼 제목 옆 작은 안내 */
+  nameHint?: string;
   example?: string;
 };
 
@@ -37,15 +39,22 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 (가능/불가) · 엘베 (유/무)",
-      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 유",
+      name: "대출 · 보증보험 · 주차",
+      nameHint: "(유/무)",
+      example: "대출유 · 보증유 · 주차유",
+    },
+    {
+      key: "elevator",
+      name: "엘리베이터",
+      nameHint: "(유/무)",
+      example: "엘베 유",
     },
     { key: "notes", name: "메모", example: "남향 저층" },
   ],
   property: [
+    { key: "location", name: "주소지", example: "강동구 성내동 111-1 힐스테이트 101동 102호" },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
-    { key: "location", name: "주소지", example: "강동구 성내동 111-1 힐스테이트 101동 102호" },
     { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
     {
       key: "dates",
@@ -54,13 +63,25 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 (가능/불가) · 엘베 (유/무)",
-      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 유",
+      name: "대출 · 보증보험 · 주차",
+      nameHint: "(유/무)",
+      example: "대출유 · 보증유 · 주차유",
     },
     {
-      key: "contacts",
-      name: "임차인 · 임대인 전화번호",
-      example: "임차인 010-1234-5678, 임대인 010-9876-5432",
+      key: "elevator",
+      name: "엘리베이터",
+      nameHint: "(유/무)",
+      example: "엘베 유",
+    },
+    {
+      key: "tenantPhone",
+      name: "임차인 번호",
+      example: "010-1234-5678",
+    },
+    {
+      key: "landlordPhone",
+      name: "임대인 번호",
+      example: "010-9876-5432",
     },
     { key: "notes", name: "메모", example: "남향 저층" },
   ],
@@ -180,8 +201,9 @@ const FLAG_FIELDS: IntakeYesNoField[] = [
   "loan",
   "insurance",
   "parking",
-  "elevator",
 ];
+
+const ELEVATOR_FIELD: IntakeYesNoField = "elevator";
 
 export function nextFlagField(
   partial: Partial<IntakeParseResult>
@@ -197,6 +219,12 @@ export function flagsStepComplete(
 ): boolean {
   if (!partial) return false;
   return FLAG_FIELDS.every((field) => partial[field]);
+}
+
+export function elevatorStepComplete(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  return Boolean(partial?.elevator);
 }
 
 export function flagsHasAny(
@@ -271,6 +299,7 @@ export function guideStepComplete(
   allSteps?: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): boolean {
   if (key === "flags") return flagsStepComplete(row?.partial);
+  if (key === "elevator") return elevatorStepComplete(row?.partial);
   if (key === "notes") return Boolean(row?.complete) || Boolean(row?.display);
   if (key === "money") {
     const deal = resolveTalkDealType(
@@ -303,73 +332,24 @@ export function firstIncompleteGuideIndex(
   return idx < 0 ? Math.max(0, guide.length - 1) : idx;
 }
 
-const FLAG_FIELD_SHORT_LABELS: Record<IntakeYesNoField, string> = {
-  loan: "대출",
-  insurance: "보증",
-  parking: "주차",
-  elevator: "엘베",
-};
-
-export type FlagProgressPart = {
-  field: IntakeYesNoField;
-  filled: boolean;
-  text: string;
-};
-
-export function buildFlagsProgressParts(
-  partial: Partial<IntakeParseResult> | undefined
-): FlagProgressPart[] {
-  return FLAG_FIELDS.map((field) => {
-    const value = partial?.[field];
-    const label = FLAG_FIELD_SHORT_LABELS[field];
-    const shown =
-      !value
-        ? ""
-        : field === "elevator"
-          ? value
-          : formatTalkFlagValue(value);
-    return {
-      field,
-      filled: Boolean(value),
-      text: value ? `${label}${shown}` : label,
-    };
-  });
-}
-
 export function formatFlagsValueLine(
-  partial: Partial<IntakeParseResult>,
-  compact = true
+  partial: Partial<IntakeParseResult>
 ): string {
   const parts: string[] = [];
-  if (partial.loan) {
-    parts.push(
-      compact
-        ? `대출${formatTalkFlagValue(partial.loan)}`
-        : `대출 ${formatTalkFlagValue(partial.loan)}`
-    );
-  }
+  if (partial.loan) parts.push(`대출${formatTalkFlagValue(partial.loan)}`);
   if (partial.insurance) {
-    parts.push(
-      compact
-        ? `보증${formatTalkFlagValue(partial.insurance)}`
-        : `보증보험 ${formatTalkFlagValue(partial.insurance)}`
-    );
+    parts.push(`보증${formatTalkFlagValue(partial.insurance)}`);
   }
   if (partial.parking) {
-    parts.push(
-      compact
-        ? `주차${formatTalkFlagValue(partial.parking)}`
-        : `주차 ${formatTalkFlagValue(partial.parking)}`
-    );
-  }
-  if (partial.elevator) {
-    parts.push(
-      compact
-        ? `엘베${partial.elevator}`
-        : `엘베 ${partial.elevator}`
-    );
+    parts.push(`주차${formatTalkFlagValue(partial.parking)}`);
   }
   return parts.join(" · ");
+}
+
+function formatElevatorValueLine(
+  partial: Partial<IntakeParseResult>
+): string {
+  return partial.elevator ? `엘베${partial.elevator}` : "";
 }
 
 function mergeFlagsFromText(
@@ -387,21 +367,15 @@ function mergeFlagsFromText(
   return foundAny ? partial : null;
 }
 
-const FLAG_FIELD_EXAMPLES: Record<IntakeYesNoField, string> = {
-  loan: "대출 가능",
-  insurance: "보증 불가",
-  parking: "주차 가능",
-  elevator: "엘베 유",
-};
-
-export function formatFlagsActiveExample(
-  partial: Partial<IntakeParseResult> | undefined
-): string {
-  const missing = FLAG_FIELDS.filter((field) => !partial?.[field]);
-  if (missing.length === 0) return "";
-  return `순서 상관없이 · 예) ${FLAG_FIELD_EXAMPLES[missing[0]!]}`;
+function mergeElevatorFromText(
+  existing: Partial<IntakeParseResult>,
+  text: string
+): Partial<IntakeParseResult> | null {
+  if (existing.elevator) return null;
+  const parsed = parseAllYesNoFields(text);
+  if (!parsed.elevator) return null;
+  return { elevator: parsed.elevator, options: [] };
 }
-
 
 function consumeAfterToken(
   text: string,
@@ -413,21 +387,53 @@ function consumeAfterToken(
   return text.slice(idx + token.length).replace(/^\s+/, "");
 }
 
-function locationConsumedEnd(
+function consumeAfterPhoneDigits(text: string, phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const idx = text.replace(/\D/g, "").indexOf(digits);
+  if (idx >= 0) {
+    let seen = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      if (/\d/.test(text[i] ?? "")) {
+        if (seen === idx) {
+          return text.slice(i + digits.length).replace(/^\s+/, "");
+        }
+        seen += 1;
+      }
+    }
+  }
+  return consumeAfterToken(text, phone, true);
+}
+
+function locationConsumedRange(
   text: string,
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
-): number {
+): { start: number; end: number } {
+  let start = text.length;
   let end = 0;
   const bump = (token?: string) => {
     if (!token) return;
     const idx = text.lastIndexOf(token);
-    if (idx >= 0) end = Math.max(end, idx + token.length);
+    if (idx < 0) return;
+    start = Math.min(start, idx);
+    end = Math.max(end, idx + token.length);
   };
   bump(partial.roomNo);
   if (partial.roomNo) bump(partial.roomNo.replace(/\s+/g, ""));
   bump(partial.buildingName);
   bump(partial.jibun);
+  if (partial.jibun) {
+    const [main, sub] = partial.jibun.split("-");
+    if (main && sub) {
+      const spoken = text.match(
+        new RegExp(`${main}\\s*(?:[-−~]|에|의|다시)\\s*${sub}`)
+      );
+      if (spoken?.index != null) {
+        start = Math.min(start, spoken.index);
+        end = Math.max(end, spoken.index + spoken[0].length);
+      }
+    }
+  }
   bump(partial.dong);
   if (kind === "property") bump(partial.gu);
   if (kind === "customer") {
@@ -438,11 +444,13 @@ function locationConsumedEnd(
     bump(partial.gu);
     bump(partial.dong);
   }
-  return end;
+  if (end <= 0) return { start: 0, end: 0 };
+  return { start, end };
 }
 
+/** 2억9천·3억6500(만 생략 2~4자리). 5억9처럼 한 자리는 억만 잡힌다 */
 const TALK_MONEY_COMPOUND =
-  String.raw`\d+(?:\.\d+)?\s*억(?:\s*\d+(?:\.\d+)?\s*천)?(?:\s*\d+(?:\.\d+)?\s*백)?(?:\s*\d+(?:\.\d+)?\s*만)?`;
+  String.raw`\d+(?:\.\d+)?\s*억(?:\s*\d+(?:\.\d+)?\s*천)?(?:\s*\d+(?:\.\d+)?\s*백)?(?:\s*\d+(?:\.\d+)?\s*만|\s*\d{2,4}(?!\d))?`;
 const TALK_MONEY_SPAN = new RegExp(
   String.raw`(?:매매(?:가)?|전세(?:가)?|보증금|보증|월세|(?<![가-힣\d])월|거래\s*가액|금\s*액)\s*(?:${TALK_MONEY_COMPOUND}|\d+(?:\.\d+)?\s*만|\d+(?:\.\d+)?\s*/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)|(?:^|\s)(${TALK_MONEY_COMPOUND})`,
   "g"
@@ -468,7 +476,7 @@ function datesConsumedEnd(text: string): number {
 }
 
 const NEXT_AFTER_LOCATION =
-  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+))/;
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+)|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지|\d\s*룸)/;
 
 const NEXT_AFTER_MONEY =
   /^(?:바로\s*입주|즉시\s*입주|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
@@ -566,7 +574,8 @@ function mergeTalkDates(
 }
 
 /** 고객 선호지역: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다.
- *  매물 주소지: 구·동·지번을 이어서 말할 수 있게, 다음 칸 말이 없으면 머문다. */
+ *  매물 주소지: 구·동·지번을 이어서 말할 수 있게, 다음 칸 말이 없으면 머문다.
+ *  (필드 홀드 자동 진행 없음 — 동만 말하고 지번을 이어서 받을 수 있게) */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,
@@ -577,26 +586,34 @@ export function locationStepReadyToAdvance(
       return false;
     }
     const normalized = normalizeIntakeInput(text, "spoken");
-    const end = locationConsumedEnd(normalized, partial, kind);
-    const rest = (end > 0 ? normalized.slice(end) : "").trim();
-    if (!rest) return false;
-    return NEXT_AFTER_LOCATION.test(rest);
+    const remainder = extractTalkStepRemainder(
+      normalized,
+      "location",
+      partial,
+      kind
+    );
+    if (!remainder) return false;
+    return NEXT_AFTER_LOCATION.test(remainder);
   }
   const dongs = customerLocationDongCount(partial);
   if (dongs < 1) return false;
   const normalized = normalizeIntakeInput(text, "spoken");
-  const end = locationConsumedEnd(normalized, partial, kind);
-  const rest = (end > 0 ? normalized.slice(end) : "").trim();
+  const remainder = extractTalkStepRemainder(
+    normalized,
+    "location",
+    partial,
+    kind
+  );
   if (
     /(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)\s*$/.test(normalized)
   ) {
     return false;
   }
-  if (!rest) return false;
-  if (/^(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)/.test(rest)) {
+  if (!remainder) return false;
+  if (/^(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)/.test(remainder)) {
     return false;
   }
-  return NEXT_AFTER_LOCATION.test(rest);
+  return NEXT_AFTER_LOCATION.test(remainder);
 }
 
 /** 금액만 있고 다음 칸 말이 없으면 잠시 머문다. 다음 내용이 보이면 바로 넘긴다.
@@ -641,19 +658,15 @@ export function datesStepNeedsHold(
   return Boolean(partial.moveInFrom || partial.moveInImmediate);
 }
 
-export function contactsStepReadyToAdvance(
+export function contactPhoneStepReadyToAdvance(
   text: string,
+  step: "tenantPhone" | "landlordPhone",
   partial: Partial<IntakeParseResult>
 ): boolean {
-  if (!partial.tenantPhone && !partial.landlordPhone && !partial.phone) {
-    return false;
-  }
-  const remainder = extractTalkStepRemainder(
-    text,
-    "contacts",
-    partial,
-    "property"
-  );
+  const phone =
+    step === "tenantPhone" ? partial.tenantPhone : partial.landlordPhone;
+  if (!phone) return false;
+  const remainder = extractTalkStepRemainder(text, step, partial, "property");
   if (!remainder) return false;
   return NEXT_AFTER_CONTACTS.test(remainder);
 }
@@ -672,18 +685,7 @@ export function extractTalkStepRemainder(
     return consumeAfterToken(text, partial.name);
   }
   if (step === "phone" && partial.phone) {
-    const digits = partial.phone.replace(/\D/g, "");
-    const idx = text.replace(/\D/g, "").indexOf(digits);
-    if (idx >= 0) {
-      let seen = 0;
-      for (let i = 0; i < text.length; i += 1) {
-        if (/\d/.test(text[i] ?? "")) {
-          if (seen === idx) return text.slice(i + digits.length).replace(/^\s+/, "");
-          seen += 1;
-        }
-      }
-    }
-    return consumeAfterToken(text, partial.phone, true);
+    return consumeAfterPhoneDigits(text, partial.phone);
   }
   if (step === "roomType" && partial.roomType) {
     return consumeAfterToken(text, partial.roomType);
@@ -692,8 +694,11 @@ export function extractTalkStepRemainder(
     return consumeAfterToken(text, partial.dealType);
   }
   if (step === "location") {
-    const end = locationConsumedEnd(text, partial, kind);
-    return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
+    const { start, end } = locationConsumedRange(text, partial, kind);
+    if (end <= 0) return "";
+    const before = text.slice(0, start).trim();
+    const after = text.slice(end).replace(/^\s+/, "");
+    return [before, after].filter(Boolean).join(" ");
   }
   if (step === "money" && (partial.deposit || partial.monthlyRent)) {
     const end = moneyConsumedEnd(text);
@@ -715,15 +720,18 @@ export function extractTalkStepRemainder(
     }
     return remainder;
   }
+  if (step === "elevator" && partial.elevator) {
+    const hit = consumeYesNoField(text, ELEVATOR_FIELD);
+    return hit ? hit.remainder : "";
+  }
+  if (step === "tenantPhone" && partial.tenantPhone) {
+    return consumeAfterPhoneDigits(text, partial.tenantPhone);
+  }
+  if (step === "landlordPhone" && partial.landlordPhone) {
+    return consumeAfterPhoneDigits(text, partial.landlordPhone);
+  }
   if (step === "share" && partial.workspaceShared) {
     return consumeAfterToken(text, `팀공유 ${partial.workspaceShared}`, true);
-  }
-  if (
-    step === "contacts" &&
-    (partial.phone || partial.tenantPhone || partial.landlordPhone)
-  ) {
-    const phone = partial.landlordPhone || partial.tenantPhone || partial.phone;
-    if (phone) return consumeAfterToken(text, phone.replace(/-/g, ""), true);
   }
   return "";
 }
@@ -764,15 +772,19 @@ export function parseIntakeStepChain(
     const mergedPrior =
       key === "flags" && steps.flags
         ? { ...prior, ...steps.flags }
-        : key === "location" && steps.location
-          ? { ...prior, ...steps.location }
-          : key === "dates" && steps.dates
-            ? { ...prior, ...steps.dates }
-            : key === "money" && steps.money
-              ? { ...prior, ...steps.money }
-              : key === "contacts" && steps.contacts
-                ? { ...prior, ...steps.contacts }
-                : prior;
+        : key === "elevator" && steps.elevator
+          ? { ...prior, ...steps.elevator }
+          : key === "location" && steps.location
+            ? { ...prior, ...steps.location }
+            : key === "dates" && steps.dates
+              ? { ...prior, ...steps.dates }
+              : key === "money" && steps.money
+                ? { ...prior, ...steps.money }
+                : key === "tenantPhone" && steps.tenantPhone
+                  ? { ...prior, ...steps.tenantPhone }
+                  : key === "landlordPhone" && steps.landlordPhone
+                    ? { ...prior, ...steps.landlordPhone }
+                    : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) break;
 
@@ -798,12 +810,6 @@ export function parseIntakeStepChain(
         parsed.partial,
         prior.dealType ?? steps.dealType?.dealType ?? parsed.partial.dealType
       )
-    ) {
-      break;
-    }
-    if (
-      key === "contacts" &&
-      !contactsStepReadyToAdvance(text, parsed.partial)
     ) {
       break;
     }
@@ -854,7 +860,6 @@ export function parseIntakeStep(
       loan: prior?.loan,
       insurance: prior?.insurance,
       parking: prior?.parking,
-      elevator: prior?.elevator,
       options: [],
     };
     if (flagsStepComplete(existing)) {
@@ -866,6 +871,23 @@ export function parseIntakeStep(
       ok: true,
       partial: merged,
       display: formatFlagsValueLine(merged),
+    };
+  }
+
+  if (step === "elevator") {
+    const existing: Partial<IntakeParseResult> = {
+      elevator: prior?.elevator,
+      options: [],
+    };
+    if (elevatorStepComplete(existing)) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const merged = mergeElevatorFromText(existing, text);
+    if (!merged) return { ok: false, partial: {}, display: "" };
+    return {
+      ok: true,
+      partial: merged,
+      display: formatElevatorValueLine(merged),
     };
   }
 
@@ -1000,14 +1022,46 @@ export function parseIntakeStep(
     };
   }
 
-  if (step === "contacts") {
-    if (!parsed.tenantPhone && !parsed.landlordPhone && !parsed.phone) {
+  if (step === "tenantPhone") {
+    if (prior?.tenantPhone) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const tenant =
+      parsed.tenantPhone ??
+      (!parsed.landlordPhone ? parsed.phone : undefined);
+    if (!tenant) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      tenantPhone: tenant,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "landlordPhone") {
+    if (prior?.landlordPhone) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    let landlord = parsed.landlordPhone;
+    if (!landlord) {
+      const hasTenantLabel =
+        /세입자|(?<![현전])임차인|(?<![가-힣])세(?![가-힣])/.test(text);
+      const hasLandlordLabel =
+        /임대인|(?<![가-힣])임(?![가-힣])|주인/.test(text);
+      if (hasTenantLabel && !hasLandlordLabel) {
+        return { ok: false, partial: {}, display: "" };
+      }
+      landlord = parsed.phone ?? parsed.tenantPhone;
+    }
+    if (!landlord) return { ok: false, partial: {}, display: "" };
+    if (prior?.tenantPhone && landlord === prior.tenantPhone) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
-      phone: parsed.phone ?? prior?.phone,
-      tenantPhone: parsed.tenantPhone ?? prior?.tenantPhone,
-      landlordPhone: parsed.landlordPhone ?? prior?.landlordPhone,
+      landlordPhone: landlord,
       options: [],
     };
     return {

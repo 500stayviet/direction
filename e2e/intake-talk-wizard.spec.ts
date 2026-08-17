@@ -35,6 +35,11 @@ test("매물 대화 입력: 순차 가이드로 칸을 채운다", async ({ page
     await page.getByRole("button", { name: "대화 시작" }).click();
     await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
 
+    await emitTalkStep(page, "성내동");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "성내동"
+    );
+
     await emitTalkStep(page, "원룸");
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
       "원룸"
@@ -45,15 +50,10 @@ test("매물 대화 입력: 순차 가이드로 칸을 채운다", async ({ page
       "매매"
     );
 
-    await emitTalkStep(page, "성내동");
-    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
-      "성내동"
-    );
-
     await emitTalkStep(page, "1억");
     await expect(page.getByTestId("intake-guide-row-money")).toContainText("1억");
 
-    await skipTalkSteps(page, 4);
+    await skipTalkSteps(page, 6);
 
     await page.getByTestId("intake-talk-apply").click();
     await expect(page.getByRole("heading", { name: "대화로 입력" })).toBeHidden();
@@ -100,6 +100,7 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     await expect(page.getByRole("button", { name: "대화 시작" })).toHaveCount(0);
     await page.getByTestId("intake-talk-primary").click();
 
+    await skipTalkSteps(page, 1);
     await emitTalkStep(page, "원룸");
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
       "원룸"
@@ -137,7 +138,7 @@ test("매물 대화 입력: 메모는 입력완료에서 초록이 된다", asyn
     await page.getByRole("button", { name: "마이크로 입력하기" }).click();
     await allowDeviceConsentIfShown(page);
     await page.getByRole("button", { name: "대화 시작" }).click();
-    await skipTalkSteps(page, 8);
+    await skipTalkSteps(page, 10);
 
     await expect(page.getByTestId("intake-talk-primary")).toHaveText("입력완료");
     await emitTalkStep(page, "남향 저층");
@@ -146,6 +147,7 @@ test("매물 대화 입력: 메모는 입력완료에서 초록이 된다", asyn
     await expect(notesRow.locator(".border-green-400")).toHaveCount(0);
 
     await page.getByRole("button", { name: "입력완료" }).click();
+    await page.getByTestId("intake-talk-ended-confirm").click();
     await expect(notesRow.locator(".border-green-400")).toHaveCount(1);
     await expect(notesRow).toContainText("남향 저층");
 
@@ -176,6 +178,7 @@ test("매물 대화 입력: 정지하면 안내가 뜨고 이전 후 녹화하�
     await allowDeviceConsentIfShown(page);
     await page.getByRole("button", { name: "대화 시작" }).click();
 
+    await skipTalkSteps(page, 1);
     await emitTalkStep(page, "원룸");
     await expect(
       page.getByTestId("intake-guide-row-roomType").locator(".border-green-400")
@@ -216,7 +219,9 @@ test("매물 대화 입력: 정지하면 안내가 뜨고 이전 후 녹화하�
   }
 });
 
-test("매물 대화 입력: 가이드 행을 누르면 그 칸만 비운다", async ({ page }) => {
+test("매물 대화 입력: 가이드 행을 누르면 그 칸을 비우고 바로 듣는다", async ({
+  page,
+}) => {
   requireE2eBackendEnv(test);
   const user = uniqueUser("talkrow");
   let userId: string | undefined;
@@ -233,6 +238,7 @@ test("매물 대화 입력: 가이드 행을 누르면 그 칸만 비운다", as
     await allowDeviceConsentIfShown(page);
     await page.getByRole("button", { name: "대화 시작" }).click();
 
+    await skipTalkSteps(page, 1);
     await emitTalkStep(page, "원룸");
     await emitTalkStep(page, "매매");
     await expect(
@@ -252,11 +258,8 @@ test("매물 대화 입력: 가이드 행을 누르면 그 칸만 비운다", as
     await expect(
       page.getByTestId("intake-guide-row-dealType").locator(".border-green-400")
     ).toHaveCount(1);
-    await expect(
-      page.getByText("녹화버튼을 눌러 대화를 이어가세요.")
-    ).toBeVisible();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
 
-    await page.getByTestId("intake-talk-primary").click();
     await emitTalkStep(page, "투룸");
     await expect(
       page.getByTestId("intake-guide-row-roomType").locator(".border-green-400")

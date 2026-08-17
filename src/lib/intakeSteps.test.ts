@@ -4,7 +4,6 @@ import {
   INTAKE_GUIDE_STEPS,
   allGuideStepsComplete,
   buildIntakeFromSteps,
-  buildFlagsProgressParts,
   parseIntakeStep,
   parseIntakeStepChain,
   firstIncompleteGuideIndex,
@@ -88,15 +87,10 @@ describe("intakeSteps", () => {
     assert.equal(flags.partial.loan, "무");
     assert.equal(flags.partial.insurance, "무");
     assert.equal(flags.partial.parking, "유");
-    assert.equal(flags.partial.elevator, "무");
+    assert.equal(flags.partial.elevator, undefined);
 
-    const moreFlags = parseIntakeStep("엘베 유", "flags", "customer", {
-      loan: "유",
-      insurance: "무",
-      parking: "유",
-      options: [],
-    });
-    assert.equal(moreFlags.partial.elevator, "유");
+    const elevator = parseIntakeStep(full, "elevator", "customer");
+    assert.equal(elevator.partial.elevator, "무");
   });
 
   it("대출 가·대출 가능도 유로 받는다", () => {
@@ -117,23 +111,6 @@ describe("intakeSteps", () => {
     assert.equal(step.partial.parking, "유");
     assert.equal(step.partial.loan, "무");
     assert.equal(step.partial.insurance, "유");
-  });
-
-  it("buildFlagsProgressParts는 채운 항목과 빈 항목을 구분한다", () => {
-    const parts = buildFlagsProgressParts({
-      loan: "유",
-      insurance: "무",
-      options: [],
-    });
-    assert.equal(parts.length, 4);
-    assert.equal(parts[0]?.filled, true);
-    assert.equal(parts[0]?.text, "대출가능");
-    assert.equal(parts[1]?.filled, true);
-    assert.equal(parts[1]?.text, "보증불가");
-    assert.equal(parts[2]?.filled, false);
-    assert.equal(parts[2]?.text, "주차");
-    assert.equal(parts[3]?.filled, false);
-    assert.equal(parts[3]?.text, "엘베");
   });
 
   it("보증 가·보증 가능·보증 유도 보증보험으로 받는다", () => {
@@ -173,6 +150,9 @@ describe("intakeSteps", () => {
       prior
     );
     assert.equal(flagsStepComplete(third.partial), true);
+    assert.equal(third.partial.elevator, undefined);
+    const elevator = parseIntakeStep("엘베 불가", "elevator", "property");
+    assert.equal(elevator.partial.elevator, "무");
   });
 
   it("보증만 말해도 보증보험 유/무로 받는다", () => {
@@ -195,13 +175,16 @@ describe("intakeSteps", () => {
       (line) => line.key === "flags"
     );
     const chain = parseIntakeStepChain(full, flagsIndex, "property", priorSteps);
-    assert.equal(chain.commits.length, 1);
+    assert.equal(chain.commits.length, 2);
     assert.equal(chain.commits[0]?.key, "flags");
     assert.equal(chain.commits[0]?.partial.loan, "유");
     assert.equal(chain.commits[0]?.partial.insurance, "무");
     assert.equal(chain.commits[0]?.partial.parking, "유");
-    assert.equal(chain.commits[0]?.partial.elevator, "무");
-    assert.match(chain.commits[0]?.display ?? "", /엘베무/);
+    assert.equal(chain.commits[0]?.partial.elevator, undefined);
+    assert.doesNotMatch(chain.commits[0]?.display ?? "", /엘베/);
+    assert.equal(chain.commits[1]?.key, "elevator");
+    assert.equal(chain.commits[1]?.partial.elevator, "무");
+    assert.match(chain.commits[1]?.display ?? "", /엘베무/);
   });
 
   it("flags remainder는 채운 항목만 순서와 상관없이 소비한다", () => {
@@ -256,6 +239,18 @@ describe("intakeSteps", () => {
     const money = parseIntakeStep("매매가 2억", "money", "customer", prior);
     assert.equal(money.ok, true);
     assert.equal(money.partial.deposit, 20000);
+
+    // 톡: 만 없이 「3억6500」→ 36500만원. 뒤 잔여에 6500이 남지 않는다
+    const bareMan = parseIntakeStep("3억6500", "money", "customer", prior);
+    assert.equal(bareMan.ok, true);
+    assert.equal(bareMan.partial.deposit, 36500);
+    const bareManProp = parseIntakeStep("3억 6500", "money", "property", {
+      roomType: "아파트",
+      dealType: "매매",
+      options: [],
+    });
+    assert.equal(bareManProp.ok, true);
+    assert.equal(bareManProp.partial.deposit, 36500);
   });
 
   it("거래가액만 있으면 다음 칸으로 넘기지 않고, 다음 내용이 있으면 넘긴다", () => {
@@ -350,9 +345,9 @@ describe("intakeSteps", () => {
     const full = "원룸 전세 강동구 천호동 매매가 2억";
     const chain = parseIntakeStepChain(full, 0, "property", {});
     assert.equal(chain.commits.length, 4);
-    assert.equal(chain.commits[0]?.key, "roomType");
-    assert.equal(chain.commits[1]?.key, "dealType");
-    assert.equal(chain.commits[2]?.key, "location");
+    assert.equal(chain.commits[0]?.key, "location");
+    assert.equal(chain.commits[1]?.key, "roomType");
+    assert.equal(chain.commits[2]?.key, "dealType");
     assert.equal(chain.commits[3]?.key, "money");
     assert.equal(chain.commits[3]?.partial.deposit, 20000);
     assert.equal(chain.nextIndex, 3);
@@ -403,7 +398,7 @@ describe("intakeSteps", () => {
       money: { display: "2억", partial: { deposit: 20000, options: [] } },
       dates: { display: "8/25~9/15", partial: { moveInFrom: "2026-08-25" } },
       flags: {
-        display: "대출가능",
+        display: "대출가",
         partial: { loan: "유", options: [] },
       },
     });
@@ -430,15 +425,19 @@ describe("intakeSteps", () => {
       money: { display: "1억" },
       dates: { display: "8/25" },
       flags: {
-        display: "대출가능",
+        display: "대출가",
         partial: {
           loan: "유" as const,
           insurance: "무" as const,
           parking: "유" as const,
-          elevator: "무" as const,
         },
       },
-      contacts: { display: "010" },
+      elevator: {
+        display: "엘베무",
+        partial: { elevator: "무" as const },
+      },
+      tenantPhone: { display: "010-1234-5678" },
+      landlordPhone: { display: "010-9876-5432" },
       notes: { display: "", complete: true },
     };
     assert.equal(allGuideStepsComplete("property", filled), true);
@@ -644,12 +643,29 @@ describe("intakeSteps", () => {
     assert.equal(addedJibun.commits[0]?.partial.dong, "성내동");
     assert.equal(addedJibun.commits[0]?.partial.jibun, "111-1");
 
+    const spokenE = parseIntakeStepChain(
+      "111에1",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(spokenE.commits[0]?.partial.jibun, "111-1");
+    const spokenDasi = parseIntakeStepChain(
+      "111다시 1",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(spokenDasi.commits[0]?.partial.jibun, "111-1");
+
     const withMoney = parseIntakeStepChain(
-      "강동구 성내동 111-1 1억",
+      "강동구 성내동 111-1 원룸 매매 1억",
       locationIndex,
       "property",
       {}
     );
+    assert.ok(withMoney.commits.some((row) => row.key === "location"));
+    assert.ok(withMoney.commits.some((row) => row.key === "roomType"));
     assert.ok(withMoney.commits.some((row) => row.key === "money"));
   });
 
@@ -704,28 +720,47 @@ describe("intakeSteps", () => {
     assert.equal(hoAfterDong.commits[0]?.partial.dong, "성내동");
   });
 
-  it("임차인·임대인 전화는 한 번호만 있어도 다음 칸으로 바로 넘기지 않는다", () => {
-    const contactsIndex = INTAKE_GUIDE_STEPS.property.findIndex(
-      (line) => line.key === "contacts"
+  it("임차인·임대인 번호는 칸을 나눠 받는다", () => {
+    const tenantIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "tenantPhone"
+    );
+    const landlordIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "landlordPhone"
     );
     const tenantOnly = parseIntakeStepChain(
       "임차인 010-1234-5678",
-      contactsIndex,
+      tenantIndex,
       "property",
       {}
     );
-    assert.equal(tenantOnly.commits[0]?.key, "contacts");
-    assert.equal(tenantOnly.nextIndex, contactsIndex);
+    assert.equal(tenantOnly.commits[0]?.key, "tenantPhone");
+    assert.equal(tenantOnly.nextIndex, landlordIndex);
     assert.equal(tenantOnly.commits[0]?.partial.tenantPhone, "010-1234-5678");
 
     const both = parseIntakeStepChain(
-      "임대인 010-9876-5432",
-      contactsIndex,
+      "임차인 010-1234-5678 임대인 010-9876-5432",
+      tenantIndex,
       "property",
-      { contacts: tenantOnly.commits[0]!.partial }
+      {}
     );
-    assert.equal(both.nextIndex, contactsIndex);
+    assert.equal(both.commits.length, 2);
+    assert.equal(both.commits[0]?.key, "tenantPhone");
+    assert.equal(both.commits[1]?.key, "landlordPhone");
     assert.equal(both.commits[0]?.partial.tenantPhone, "010-1234-5678");
-    assert.equal(both.commits[0]?.partial.landlordPhone, "010-9876-5432");
+    assert.equal(both.commits[1]?.partial.landlordPhone, "010-9876-5432");
+    assert.equal(both.nextIndex, landlordIndex + 1);
+
+    const landlordOnly = parseIntakeStepChain(
+      "임대인 010-9876-5432",
+      landlordIndex,
+      "property",
+      { tenantPhone: { tenantPhone: "010-1234-5678", options: [] } }
+    );
+    assert.equal(landlordOnly.commits[0]?.key, "landlordPhone");
+    assert.equal(landlordOnly.nextIndex, landlordIndex + 1);
+    assert.equal(
+      landlordOnly.commits[0]?.partial.landlordPhone,
+      "010-9876-5432"
+    );
   });
 });

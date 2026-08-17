@@ -25,7 +25,7 @@ export type IntakeKind = "customer" | "property";
 export type YesNo = "유" | "무";
 
 export function formatTalkFlagValue(value: YesNo): string {
-  return value === "유" ? "가능" : "불가";
+  return value === "유" ? "가" : "불";
 }
 
 export type IntakeParseResult = {
@@ -1216,14 +1216,16 @@ function parseMoneyManwon(
   const compoundEok = parseCompoundEokMoney(moneyText);
   const eok = [...moneyText.matchAll(/(\d+(?:\.\d+)?)\s*억/g)];
   const saleLabeled = moneyText.match(
-    /(?:매매(?:가)?|(?<![가-힣물])매(?:가)?)\s*(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*(천|만))?/
+    /(?:매매(?:가)?|(?<![가-힣물])매(?:가)?)\s*(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*(천|만)|\s*(\d{2,4})(?!\d))?/
   );
   if (asSale && saleLabeled && saleLabeled.index != null && deposit == null) {
     const eokPart = Number(saleLabeled[1]);
     const rest = saleLabeled[2] ? Number(saleLabeled[2]) : 0;
     const unit = saleLabeled[3];
+    const bareMan = saleLabeled[4] ? Number(saleLabeled[4]) : 0;
     deposit = Math.round(
-      eokPart * 10000 + (unit === "천" ? rest * 1000 : unit === "만" ? rest : 0)
+      eokPart * 10000 +
+        (unit === "천" ? rest * 1000 : unit === "만" ? rest : bareMan)
     );
     pushSpan(saleLabeled.index, saleLabeled.index + saleLabeled[0].length);
   }
@@ -1412,6 +1414,7 @@ function maskUsedSpans(
 }
 
 function parseJibunFromAfter(after: string): string | undefined {
+  // 111-1 · 111−1 · 111~1
   const pair = after.match(
     new RegExp(
       `^\\s*(\\d{1,5})\\s*[-−${TILDE_CLS}]\\s*(\\d{1,5})(?!\\d)`
@@ -1420,11 +1423,18 @@ function parseJibunFromAfter(after: string): string | undefined {
   if (pair?.[1] && !pair[1].startsWith("0")) {
     return `${pair[1]}-${pair[2]}`;
   }
+  // 음성: 111에1 · 111 에 1 · 111다시1 · 111 다시 1
+  const spokenPair = after.match(
+    /^\s*(\d{1,5})\s*(?:에|의|다시)\s*(\d{1,5})(?!\d)/
+  );
+  if (spokenPair?.[1] && !spokenPair[1].startsWith("0")) {
+    return `${spokenPair[1]}-${spokenPair[2]}`;
+  }
   const bunji = after.match(/^\s*(\d{1,5})\s*번지/);
   if (bunji?.[1] && !bunji[1].startsWith("0")) return bunji[1];
   const main = after.match(
     new RegExp(
-      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|[${PAIR_SEP_CLS}]))`
+      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|에|의|다시|[${PAIR_SEP_CLS}]))`
     )
   );
   if (!main?.[1] || main[1].startsWith("0")) return undefined;
@@ -1974,6 +1984,8 @@ function scrubCorruptIntakeLine(line: string): string {
 
 /**
  * 2억9천2백10만 → 29210(만원). 억·천·백·만 조각을 합친다.
+ * 3억6500 · 3억 6500처럼 만 없이 2~4자리만 오면 만으로 본다(음성·속기).
+ * 5억9처럼 한 자리는 애매해서 여기서 잡지 않는다.
  */
 function parseCompoundEokMoney(text: string): {
   deposit: number;
@@ -1983,6 +1995,15 @@ function parseCompoundEokMoney(text: string): {
   const re =
     /(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*천)?(?:\s*(\d+(?:\.\d+)?)\s*백)?(?:\s*(\d+(?:\.\d+)?)\s*만)?/g;
   let best: { deposit: number; index: number; end: number } | null = null;
+  const consider = (hit: { deposit: number; index: number; end: number }) => {
+    if (
+      !best ||
+      hit.index < best.index ||
+      hit.end - hit.index > best.end - best.index
+    ) {
+      best = hit;
+    }
+  };
   for (const m of text.matchAll(re)) {
     if (m.index == null) continue;
     const eok = Number(m[1]);
@@ -1995,10 +2016,20 @@ function parseCompoundEokMoney(text: string): {
     if (!m[2] && !m[3] && !m[4]) continue;
     const deposit = Math.round(eok * 10000 + cheon * 1000 + baek * 100 + man);
     if (deposit <= 0) continue;
-    const hit = { deposit, index: m.index, end: m.index + m[0].length };
-    if (!best || hit.index < best.index || hit.end - hit.index > best.end - best.index) {
-      best = hit;
-    }
+    consider({ deposit, index: m.index, end: m.index + m[0].length });
+  }
+  // 3억6500 · 3억 6500 (만 생략). 5억9(한 자리)는 제외
+  const bareManRe =
+    /(\d+(?:\.\d+)?)\s*억\s*(\d{2,4})(?!\d)(?!\s*(?:억|천|백|만|년|월|일|층|호|동|룸))/g;
+  for (const m of text.matchAll(bareManRe)) {
+    if (m.index == null) continue;
+    const eok = Number(m[1]);
+    const man = Number(m[2]);
+    if (!Number.isFinite(eok) || eok <= 0) continue;
+    if (!Number.isFinite(man) || man < 0) continue;
+    const deposit = Math.round(eok * 10000 + man);
+    if (deposit <= 0) continue;
+    consider({ deposit, index: m.index, end: m.index + m[0].length });
   }
   return best;
 }
