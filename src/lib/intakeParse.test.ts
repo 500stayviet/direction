@@ -424,14 +424,41 @@ describe("parseIntakeText", () => {
     expectRange("8월 20일-9월 1일");
     expectRange("8/20부터 9/1");
     expectRange("8월 20일부터는 9월 1일까지");
+    // 부터 없이 「몇월 몇일 몇월 몇일」만 말해도 시작·끝
+    expectRange("8월 20일 9월 1일");
+    expectRange("8월20일 9월1일");
+    expectRange("8.20 9.1");
+    expectRange("8/20 9/1");
+
+    const spoken = parseIntakeText("삼월 일일 사월 십오일", "property", today);
+    assert.equal(spoken.moveInFrom, "2027-03-01");
+    assert.equal(spoken.moveInTo, "2027-04-15");
+
+    const spokenSpaced = parseIntakeText(
+      "삼 월 일 일 사 월 십오 일",
+      "property",
+      today
+    );
+    assert.equal(spokenSpaced.moveInFrom, "2027-03-01");
+    assert.equal(spokenSpaced.moveInTo, "2027-04-15");
+
+    const mixed = parseIntakeText("3월 일일 4월 십오일", "property", today);
+    assert.equal(mixed.moveInFrom, "2027-03-01");
+    assert.equal(mixed.moveInTo, "2027-04-15");
 
     const yyRange = parseIntakeText("26.08.20~26.09.01", "property", today);
     assert.equal(yyRange.moveInFrom, "2026-08-20");
     assert.equal(yyRange.moveInTo, "2026-09-01");
 
-    const fuzzy = parseIntakeText("원룸 전세 8.25", "customer", today);
-    assert.equal(fuzzy.moveInFrom, undefined);
-    assert.match(fuzzy.notes, /8\.25/);
+    const dotted = parseIntakeText("원룸 전세 8.25", "customer", today);
+    assert.equal(dotted.moveInFrom, "2026-08-25");
+    assert.equal(dotted.moveInTo, "2026-08-25");
+
+    const commaDay = parseIntakeText("원룸 전세 8,25", "customer", today);
+    assert.equal(commaDay.moveInFrom, "2026-08-25");
+
+    const hyphenDay = parseIntakeText("원룸 전세 8-25", "customer", today);
+    assert.equal(hyphenDay.moveInFrom, "2026-08-25");
   });
 
   it("1000/50은 보증금·월세, 없는 날짜는 버린다", () => {
@@ -545,6 +572,31 @@ describe("parseIntakeText", () => {
     assert.equal(eokRange.depositTo, 20000);
     assert.equal(eokRange.moveInFrom, undefined);
 
+    const compoundBaek = parseIntakeText(
+      "원룸 전세 보증금 2억9천2백10만",
+      "customer",
+      today
+    );
+    assert.equal(compoundBaek.deposit, 29210);
+    const compoundSpaced = parseIntakeText(
+      "원룸 전세 보증금 2억 9천 2백 10만",
+      "customer",
+      today
+    );
+    assert.equal(compoundSpaced.deposit, 29210);
+    const compoundSpoken = parseIntakeText(
+      "원룸 전세 이억구천이백십만",
+      "customer",
+      today
+    );
+    assert.equal(compoundSpoken.deposit, 29210);
+    const compoundManOnly = parseIntakeText(
+      "원룸 전세 2억 9210만",
+      "customer",
+      today
+    );
+    assert.equal(compoundManOnly.deposit, 29210);
+
     const twoEok = parseIntakeText("원룸 전세 1억 암사동 2억", "customer", today);
     assert.equal(twoEok.deposit, 10000);
     assert.equal(twoEok.depositTo, undefined);
@@ -574,6 +626,70 @@ describe("parseIntakeText", () => {
     const labeledSmall = parseIntakeText("원룸 월세 보증 80 월 20", "customer", today);
     assert.equal(labeledSmall.deposit, 80);
     assert.equal(labeledSmall.monthlyRent, 20);
+
+    const labeledWolse = parseIntakeText(
+      "원룸 월세 보증금 1억 월세 50",
+      "customer",
+      today
+    );
+    assert.equal(labeledWolse.deposit, 10000);
+    assert.equal(labeledWolse.monthlyRent, 50);
+    const labeledWolseMan = parseIntakeText(
+      "원룸 월세 보 5000 월세 60만",
+      "customer",
+      today
+    );
+    assert.equal(labeledWolseMan.deposit, 5000);
+    assert.equal(labeledWolseMan.monthlyRent, 60);
+    const wolseOnlyAgain = parseIntakeText(
+      "원룸 월세 성내동 월세 80",
+      "customer",
+      today
+    );
+    assert.equal(wolseOnlyAgain.monthlyRent, 80);
+    assert.equal(wolseOnlyAgain.dealType, "월세");
+
+    const wolseDateNotRent = parseIntakeText(
+      "원룸 월세 3월 1일",
+      "property",
+      today
+    );
+    assert.equal(wolseDateNotRent.monthlyRent, undefined);
+    assert.equal(wolseDateNotRent.moveInFrom?.slice(5), "03-01");
+
+    const spokenSmall = parseIntakeText(
+      "원룸 월세 보증금 오천 월세 오십",
+      "customer",
+      today
+    );
+    assert.equal(spokenSmall.deposit, 5000);
+    assert.equal(spokenSmall.monthlyRent, 50);
+    const spokenCheonSlash = parseIntakeText(
+      "원룸 월세 오천/오십",
+      "customer",
+      today
+    );
+    assert.equal(spokenCheonSlash.deposit, 5000);
+    assert.equal(spokenCheonSlash.monthlyRent, 50);
+    const spokenWol = parseIntakeText(
+      "원룸 월세 성내동 월 오십",
+      "customer",
+      today
+    );
+    assert.equal(spokenWol.monthlyRent, 50);
+    const jeonsega = parseIntakeText(
+      "원룸 전세 성내동 전세가 2억",
+      "customer",
+      today
+    );
+    assert.equal(jeonsega.dealType, "전세");
+    assert.equal(jeonsega.deposit, 20000);
+    const jeonsegaCheon = parseIntakeText(
+      "원룸 전세 성내동 전세가 2억 5천",
+      "customer",
+      today
+    );
+    assert.equal(jeonsegaCheon.deposit, 25000);
 
     const skipTinyMan = parseIntakeText("원룸 12만", "customer", today);
     assert.equal(skipTinyMan.deposit, undefined);
@@ -634,6 +750,12 @@ describe("parseIntakeText", () => {
     assert.equal(eokPoint.deposit, 59000);
     const saleEokCheon = parseIntakeText("건물 매매 5억 9천", "property", today);
     assert.equal(saleEokCheon.deposit, 59000);
+    const spokenMix = parseIntakeText("원룸 매매 3억 오천", "customer", today);
+    assert.equal(spokenMix.deposit, 35000);
+    const spokenAll = parseIntakeText("원룸 매매 삼억 오천", "customer", today);
+    assert.equal(spokenAll.deposit, 35000);
+    const saleSpoken = parseIntakeText("매매가 삼억오천", "property", today);
+    assert.equal(saleSpoken.deposit, 35000);
 
     const shopSale = parseIntakeText("상가 매매 509", "property", today);
     assert.equal(shopSale.deposit, undefined);
@@ -954,9 +1076,9 @@ describe("parseIntakeText", () => {
     assert.equal(sale.deposit, 32000);
 
     const today = new Date(2026, 3, 15);
-    const fuzzy = parseIntakeText("원룸 전세 8.25", "customer", today);
-    assert.equal(fuzzy.moveInFrom, undefined);
-    assert.match(fuzzy.notes, /8\.25/);
+    const dotted = parseIntakeText("원룸 전세 8.25", "customer", today);
+    assert.equal(dotted.moveInFrom, "2026-08-25");
+    assert.equal(dotted.moveInTo, "2026-08-25");
 
     const clearDate = parseIntakeText("원룸 전세 26.04.22", "customer", today);
     assert.equal(clearDate.moveInFrom, "2026-04-22");

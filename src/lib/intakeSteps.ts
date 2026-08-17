@@ -29,16 +29,16 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "선호지역", example: "강동구 oo동" },
-    { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
+    { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
     {
       key: "dates",
       name: "입주희망일",
-      example: "○○월 ○○일    부터    ○○월 ○○일",
+      example: "oo월 oo일    에서    oo월 oo일 까지",
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 · 엘베 (가능 / 불가)",
-      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 불가",
+      name: "대출 · 보증보험 · 주차 (가능/불가) · 엘베 (유/무)",
+      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 유",
     },
     { key: "notes", name: "메모", example: "메모: 남향 저층" },
   ],
@@ -46,16 +46,16 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "location", name: "주소", example: "강동구 oo동, 101동 102호" },
-    { key: "money", name: "거래가액", example: "매매가, 보증금, 월세" },
+    { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
     {
       key: "dates",
       name: "임대희망일",
-      example: "○○월 ○○일    부터    ○○월 ○○일",
+      example: "oo월 oo일    에서    oo월 oo일 까지",
     },
     {
       key: "flags",
-      name: "대출 · 보증보험 · 주차 · 엘베 (가능 / 불가)",
-      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 불가",
+      name: "대출 · 보증보험 · 주차 (가능/불가) · 엘베 (유/무)",
+      example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 유",
     },
     {
       key: "contacts",
@@ -216,12 +216,70 @@ export function stripTalkNotesPrefix(text: string): string {
   return text.replace(/^메모\s*[:：.]?\s*/, "").trim();
 }
 
+/** 월세는 보증금+월세, 그 외는 금액 하나면 됨 */
+export function moneyFieldsComplete(
+  partial: Partial<IntakeParseResult> | undefined,
+  dealType?: IntakeParseResult["dealType"]
+): boolean {
+  if (!partial) return false;
+  const deal = dealType ?? partial.dealType;
+  if (deal === "월세") {
+    return Boolean(partial.deposit) && Boolean(partial.monthlyRent);
+  }
+  return Boolean(partial.deposit || partial.monthlyRent);
+}
+
+export function moneyStepExample(
+  dealType?: IntakeParseResult["dealType"]
+): string {
+  if (dealType === "월세") return "보증금 1억 · 월세 50";
+  if (dealType === "매매") return "매매 3억 5천";
+  if (dealType === "전세") return "보증금 1억";
+  return "보증금 1억 · 월세 50 · 매매 3억 5천";
+}
+
+/** 거래가액이 먼저 오면 금액으로 거래종류를 짐작한다 */
+export function inferDealTypeFromMoney(
+  money?: Partial<IntakeParseResult>
+): IntakeParseResult["dealType"] | undefined {
+  if (!money) return undefined;
+  if (money.dealType) return money.dealType;
+  if (money.monthlyRent) return "월세";
+  if (money.deposit) return "전세";
+  return undefined;
+}
+
+export function resolveTalkDealType(
+  dealPartial?: Partial<IntakeParseResult>,
+  moneyPartial?: Partial<IntakeParseResult>
+): IntakeParseResult["dealType"] | undefined {
+  return dealPartial?.dealType ?? inferDealTypeFromMoney(moneyPartial);
+}
+
+export function dealTypeStepExample(
+  dealType?: IntakeParseResult["dealType"]
+): string {
+  if (dealType === "월세") return "월세";
+  if (dealType === "매매") return "매매";
+  if (dealType === "전세") return "전세";
+  return "매매 전세 월세";
+}
+
 export function guideStepComplete(
   key: IntakeStepKey,
-  row: IntakeGuideStepRow | undefined
+  row: IntakeGuideStepRow | undefined,
+  allSteps?: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): boolean {
   if (key === "flags") return flagsStepComplete(row?.partial);
   if (key === "notes") return Boolean(row?.complete) || Boolean(row?.display);
+  if (key === "money") {
+    const deal = resolveTalkDealType(
+      allSteps?.dealType?.partial,
+      row?.partial
+    );
+    if (row?.partial) return moneyFieldsComplete(row.partial, deal);
+    return Boolean(row?.display);
+  }
   return Boolean(row?.display);
 }
 
@@ -230,7 +288,7 @@ export function allGuideStepsComplete(
   steps: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): boolean {
   return INTAKE_GUIDE_STEPS[kind].every((line) =>
-    guideStepComplete(line.key, steps[line.key])
+    guideStepComplete(line.key, steps[line.key], steps)
   );
 }
 
@@ -240,7 +298,7 @@ export function firstIncompleteGuideIndex(
 ): number {
   const guide = INTAKE_GUIDE_STEPS[kind];
   const idx = guide.findIndex(
-    (line) => !guideStepComplete(line.key, steps[line.key])
+    (line) => !guideStepComplete(line.key, steps[line.key], steps)
   );
   return idx < 0 ? Math.max(0, guide.length - 1) : idx;
 }
@@ -264,10 +322,16 @@ export function buildFlagsProgressParts(
   return FLAG_FIELDS.map((field) => {
     const value = partial?.[field];
     const label = FLAG_FIELD_SHORT_LABELS[field];
+    const shown =
+      !value
+        ? ""
+        : field === "elevator"
+          ? value
+          : formatTalkFlagValue(value);
     return {
       field,
       filled: Boolean(value),
-      text: value ? `${label}${formatTalkFlagValue(value)}` : label,
+      text: value ? `${label}${shown}` : label,
     };
   });
 }
@@ -301,8 +365,8 @@ export function formatFlagsValueLine(
   if (partial.elevator) {
     parts.push(
       compact
-        ? `엘베${formatTalkFlagValue(partial.elevator)}`
-        : `엘베 ${formatTalkFlagValue(partial.elevator)}`
+        ? `엘베${partial.elevator}`
+        : `엘베 ${partial.elevator}`
     );
   }
   return parts.join(" · ");
@@ -327,7 +391,7 @@ const FLAG_FIELD_EXAMPLES: Record<IntakeYesNoField, string> = {
   loan: "대출 가능",
   insurance: "보증 불가",
   parking: "주차 가능",
-  elevator: "엘베 불가",
+  elevator: "엘베 유",
 };
 
 export function formatFlagsActiveExample(
@@ -375,8 +439,12 @@ function locationConsumedEnd(
   return end;
 }
 
-const TALK_MONEY_SPAN =
-  /(?:매매(?:가)?|전세(?:가)?|보증금|보증|월세)\s*(?:\d+(?:\.\d+)?\s*(?:억(?:\s*\d+(?:\.\d+)?\s*(?:천|만))?|만)|\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?)|(?:^|\s)(\d+(?:\.\d+)?\s*억(?:\s*\d+(?:\.\d+)?\s*(?:천|만))?)/g;
+const TALK_MONEY_COMPOUND =
+  String.raw`\d+(?:\.\d+)?\s*억(?:\s*\d+(?:\.\d+)?\s*천)?(?:\s*\d+(?:\.\d+)?\s*백)?(?:\s*\d+(?:\.\d+)?\s*만)?`;
+const TALK_MONEY_SPAN = new RegExp(
+  String.raw`(?:매매(?:가)?|전세(?:가)?|보증금|보증|월세|(?<![가-힣\d])월|거래\s*가액|금\s*액)\s*(?:${TALK_MONEY_COMPOUND}|\d+(?:\.\d+)?\s*만|\d+(?:\.\d+)?\s*/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)|(?:^|\s)(${TALK_MONEY_COMPOUND})`,
+  "g"
+);
 
 function moneyConsumedEnd(text: string): number {
   let end = 0;
@@ -387,7 +455,7 @@ function moneyConsumedEnd(text: string): number {
 }
 
 const TALK_DATE_SPAN =
-  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\s*[-~～〜∼]?|\d+\s*월\s*\d+)/g;
+  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\s*[-~～〜∼]?|\d+\s*월\s*\d+|\d{2}\s*[./／.,．]\s*\d{1,2}\s*[./／.,．]\s*\d{1,2}|\d{1,2}\s*[./／.,．-]\s*\d{1,2})/g;
 
 function datesConsumedEnd(text: string): number {
   let end = 0;
@@ -398,7 +466,10 @@ function datesConsumedEnd(text: string): number {
 }
 
 const NEXT_AFTER_LOCATION =
-  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|\d)/;
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|\d)/;
+
+const NEXT_AFTER_MONEY =
+  /^(?:바로\s*입주|즉시\s*입주|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
 
 const NEXT_AFTER_DATES =
   /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
@@ -514,7 +585,22 @@ export function locationStepReadyToAdvance(
   return NEXT_AFTER_LOCATION.test(rest);
 }
 
-/** 시작일만 있고 기간이 더 나올 수 있으면 다음 칸으로 넘기지 않는다 */
+/** 금액만 있고 다음 칸 말이 없으면 잠시 머문다. 다음 내용이 보이면 바로 넘긴다.
+ *  월세는 보증금·월세가 둘 다 있어야 다음으로 간다. */
+export function moneyStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>,
+  dealType?: IntakeParseResult["dealType"]
+): boolean {
+  if (!moneyFieldsComplete(partial, dealType)) return false;
+  const normalized = normalizeIntakeInput(text);
+  const end = moneyConsumedEnd(normalized);
+  const rest = (end > 0 ? normalized.slice(end) : "").trim();
+  if (!rest) return false;
+  return NEXT_AFTER_MONEY.test(rest);
+}
+
+/** 기간(두 날)이거나 바로입주면 바로 넘기고, 단일만 있으면 다음 말/2초를 기다린다 */
 export function datesStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>
@@ -532,6 +618,16 @@ export function datesStepReadyToAdvance(
   if (hasDateRangeWord(normalized) && !NEXT_AFTER_DATES.test(rest)) return false;
   if (!rest) return false;
   return true;
+}
+
+/** 단일 날짜만 채워졌을 때 2초 홀드 (기간·바로입주는 해당 없음) */
+export function datesStepNeedsHold(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  if (!partial?.moveInFrom || partial.moveInImmediate) return false;
+  const from = partial.moveInFrom;
+  const to = partial.moveInTo || from;
+  return from === to;
 }
 
 /** 한 발화에서 현재 단계를 채운 뒤, 남은 글을 다음 단계 입력으로 넘긴다 */
@@ -644,7 +740,9 @@ export function parseIntakeStepChain(
           ? { ...prior, ...steps.location }
           : key === "dates" && steps.dates
             ? { ...prior, ...steps.dates }
-            : prior;
+            : key === "money" && steps.money
+              ? { ...prior, ...steps.money }
+              : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) break;
 
@@ -660,6 +758,16 @@ export function parseIntakeStepChain(
     if (
       key === "location" &&
       !locationStepReadyToAdvance(text, parsed.partial, kind)
+    ) {
+      break;
+    }
+    if (
+      key === "money" &&
+      !moneyStepReadyToAdvance(
+        text,
+        parsed.partial,
+        prior.dealType ?? steps.dealType?.dealType ?? parsed.partial.dealType
+      )
     ) {
       break;
     }
@@ -807,21 +915,29 @@ export function parseIntakeStep(
   }
 
   if (step === "money") {
-    if (!parsed.deposit && !parsed.monthlyRent) {
+    const deposit = parsed.deposit ?? prior?.deposit;
+    const monthlyRent = parsed.monthlyRent ?? prior?.monthlyRent;
+    if (!deposit && !monthlyRent) {
       return { ok: false, partial: {}, display: "" };
     }
+    const dealType = parsed.dealType ?? prior?.dealType;
     const partial: Partial<IntakeParseResult> = {
-      deposit: parsed.deposit,
-      depositTo: parsed.depositTo,
-      monthlyRent: parsed.monthlyRent,
-      monthlyRentTo: parsed.monthlyRentTo,
-      maintenanceFee: parsed.maintenanceFee,
+      deposit,
+      depositTo: parsed.depositTo ?? prior?.depositTo,
+      monthlyRent,
+      monthlyRentTo: parsed.monthlyRentTo ?? prior?.monthlyRentTo,
+      maintenanceFee: parsed.maintenanceFee ?? prior?.maintenanceFee,
+      dealType,
       options: [],
     };
     return {
       ok: true,
       partial,
-      display: stepDisplay({ ...prior, ...partial, dealType: parsed.dealType ?? prior?.dealType }, kind, step),
+      display: stepDisplay(
+        { ...prior, ...partial, dealType },
+        kind,
+        step
+      ),
     };
   }
 

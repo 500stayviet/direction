@@ -212,18 +212,18 @@ function formatManRemainder(man: number): string {
   return `${man}만원`;
 }
 
-function formatMoneyRange(from: number, to?: number): string {
-  if (to != null && to > 0 && to !== from) {
-    return `${formatMoney(from)}~${formatMoney(to)}`;
-  }
-  return formatMoney(from);
-}
-
 function formatMoneyWonRange(from: number, to?: number): string {
   if (to != null && to > 0 && to !== from) {
     return `${formatMoneyWon(from)}~${formatMoneyWon(to)}`;
   }
   return formatMoneyWon(from);
+}
+
+function formatManReadableRange(from: number, to?: number): string {
+  if (to != null && to > 0 && to !== from) {
+    return `${formatManReadable(from)}~${formatManReadable(to)}`;
+  }
+  return formatManReadable(from);
 }
 
 export function formatDepositRent(
@@ -233,10 +233,12 @@ export function formatDepositRent(
   depositTo?: number,
   monthlyRentTo?: number
 ): string {
-  const amount = formatMoneyRange(deposit, depositTo);
+  const amount = formatManReadableRange(deposit, depositTo) || formatMoney(deposit);
   if (dealType === "매매") return `매매가 ${amount}`;
   if (dealType === "전세") return `보증금 ${amount}`;
-  const rent = formatMoneyRange(monthlyRent ?? 0, monthlyRentTo);
+  const rent =
+    formatManReadableRange(monthlyRent ?? 0, monthlyRentTo) ||
+    formatMoney(monthlyRent ?? 0);
   return `보증금 ${amount} · 월 ${rent}`;
 }
 

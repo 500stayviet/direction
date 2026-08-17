@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 const SWIPE_THRESHOLD = 56;
 const MAX_DRAG = 112;
 const NUDGE = 34;
-const LOCK_PX = 8;
+const LOCK_PX = 6;
 const TAP_PX = 8;
 
 type Props = {
@@ -82,7 +82,7 @@ export function SwipeRevealRow({
       });
 
     void (async () => {
-      await wait(700);
+      await wait(500);
       if (nudgeCancel.current || active.current) return;
       setDragging(false);
       setDragOffset(-NUDGE);
@@ -92,7 +92,7 @@ export function SwipeRevealRow({
         return;
       }
       setDragOffset(0);
-      await wait(320);
+      await wait(280);
       if (nudgeCancel.current || active.current) {
         setDragOffset(0);
         return;
@@ -227,7 +227,10 @@ export function SwipeRevealRow({
   }, [disabled, reset]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div
+      className="relative overflow-hidden rounded-xl"
+      style={{ touchAction: "pan-y" }}
+    >
       <div
         className="pointer-events-none absolute inset-y-0 left-0 flex w-24 items-center justify-center bg-red-500 text-[13px] font-extrabold text-white"
         aria-hidden
@@ -243,11 +246,11 @@ export function SwipeRevealRow({
       <div
         ref={rootRef}
         className={[
-          "relative touch-pan-y select-none [-webkit-user-drag:none]",
+          "relative select-none [-webkit-user-drag:none]",
           dragging ? "cursor-grabbing" : onTap ? "cursor-pointer" : "cursor-grab",
           dragging ? "" : "transition-transform duration-200 ease-out",
         ].join(" ")}
-        style={{ transform: `translateX(${offset}px)` }}
+        style={{ transform: `translateX(${offset}px)`, touchAction: "pan-y" }}
       >
         {children}
       </div>

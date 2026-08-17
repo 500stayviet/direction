@@ -6,12 +6,16 @@ import {
 } from "@/lib/intakeSteps";
 
 export const TALK_IDLE_MS = 10_000;
-export const TALK_LOCATION_HOLD_MS = 2_000;
+/** 선호지역·거래가액·단일 날짜: 다음 말이 없으면 2초 여유 뒤 다음 칸 */
+export const TALK_FIELD_HOLD_MS = 2_000;
+/** 대화 종료 안내를 짧게 보여 주는 시간 */
+export const TALK_ENDED_MS = 2_000;
 
 export type TalkPrimaryKind = "start" | "stop" | "finish";
 
-export const TALK_STOP_HINT =
-  "멈췄습니다. 빨간 버튼을 누르고 ▶ 칸부터 다시 대화를 이어가세요.";
+export const TALK_ENDED_MESSAGE = "대화가 종료되었습니다.";
+
+export const TALK_STOP_HINT = "녹화버튼을 눌러 대화를 이어가세요.";
 
 export function talkPrimaryKind(opts: {
   talkStarted: boolean;

@@ -261,6 +261,11 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
         from = index + key.length;
         continue;
       }
+      // 전세가 2억은 금액 라벨 — 거래종류 토큰으로 세지 않음
+      if (key === "전세" && text.slice(index + key.length).startsWith("가")) {
+        from = index + key.length;
+        continue;
+      }
       if (!(key === "전세" && text.slice(index).startsWith("전세대출"))) {
         hits.push({ key, index });
       }
@@ -284,6 +289,12 @@ function isSalePriceAfterMaemae(text: string, index: number): boolean {
   return /^(?:가)?\s*\d+(?:\.\d+)?\s*억/.test(tail);
 }
 
+/** 월세 50·월세 80만처럼 뒤 월세는 금액 라벨 (거래종류 재등장 아님) */
+function isMonthlyRentAfterWolse(text: string, index: number): boolean {
+  const tail = text.slice(index + "월세".length);
+  return /^\s*\d+(?:\.\d+)?/.test(tail);
+}
+
 /** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세는 칸에서 빼고 내용으로 남김 */
 function firstDealFieldText(text: string): {
   dealType?: DealType;
@@ -301,6 +312,14 @@ function firstDealFieldText(text: string): {
     first.key === "매매" &&
     second.key === "매매" &&
     isSalePriceAfterMaemae(text, second.index)
+  ) {
+    return { dealType: first.key, fieldText: text, moneyText: text };
+  }
+  // 앞이 월세일 때 뒤 "월세 50"은 월세 금액 — 잘라내지 않음
+  if (
+    first.key === "월세" &&
+    second.key === "월세" &&
+    isMonthlyRentAfterWolse(text, second.index)
   ) {
     return { dealType: first.key, fieldText: text, moneyText: text };
   }
@@ -451,6 +470,8 @@ function extractAmbiguousDotNotes(text: string): string[] {
     const left = Number(m[1]);
     const right = Number(m[2]);
     if (isMoneySlashPair(left, right)) continue;
+    // 달력 월·일은 입주/임대희망일로 가므로 메모에 안 넣음
+    if (isCalendarMonthDay(left, right)) continue;
     const chunk = (m[0] ?? "").replace(/\s+/g, "");
     if (chunk) out.push(chunk);
   }
@@ -640,6 +661,11 @@ const PAIR_SEP_CLS = "\\/／.,．，";
 /** 달력: 월 1–12, 일 1–31. 이 밖이면 보증금/월세 */
 function isMonthDaySlash(left: number, right: number): boolean {
   return left >= 1 && left <= 12 && right >= 1 && right <= 31;
+}
+
+/** 실제 존재하는 월·일 (2/30 등은 제외). 윤년 기준으로 검사 */
+function isCalendarMonthDay(month: number, day: number): boolean {
+  return Boolean(isoFromYearMonthDay(2000, month, day));
 }
 
 function isDepositRentPair(left: number, right: number): boolean {
@@ -968,6 +994,33 @@ function parseSlashPairs(
   return pairs;
 }
 
+/** 8/25 · 8.25 · 8,25 · 8-25 처럼 쓴 월·일 (실제 달력만) */
+function collectMonthDayDatePairs(
+  text: string
+): { month: number; day: number; index: number; end: number }[] {
+  const out: { month: number; day: number; index: number; end: number }[] = [];
+  const seen = new Set<string>();
+  const push = (month: number, day: number, index: number, end: number) => {
+    if (!isCalendarMonthDay(month, day)) return;
+    const key = `${index}:${end}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ month, day, index, end });
+  };
+  for (const p of parseSlashPairs(text)) {
+    push(p.left, p.right, p.index, p.end);
+  }
+  // 동 뒤 10-20 은 지번. 단독 8-25 만 월·일로 본다
+  const hy =
+    /(?<![가-힣]동\s*)(?<![\d./／.,．，-])(\d{1,2})\s*-\s*(\d{1,2})(?!\d)/g;
+  for (const m of text.matchAll(hy)) {
+    if (m.index == null) continue;
+    push(Number(m[1]), Number(m[2]), m.index, m.index + m[0].length);
+  }
+  out.sort((a, b) => a.index - b.index);
+  return out;
+}
+
 function maskSlashDates(text: string): string {
   const shortYearRe = new RegExp(
     `(?<![\\d])(\\d{2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}.]\\s*(\\d{1,2})(?!\\d)`,
@@ -983,8 +1036,9 @@ function maskSlashDates(text: string): string {
     `(?<![${PAIR_SEP_CLS}\\d])(\\d{4})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
+  // / . , 모두 — 달력에 맞는 월·일은 금액으로 안 읽게 가림
   const pairRe = new RegExp(
-    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[/／]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
+    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
   return masked
@@ -994,14 +1048,16 @@ function maskSlashDates(text: string): string {
         : full
     )
     .replace(pairRe, (full, left, right) =>
-      isMonthDaySlash(Number(left), Number(right)) ? " ".repeat(full.length) : full
+      isCalendarMonthDay(Number(left), Number(right))
+        ? " ".repeat(full.length)
+        : full
     );
 }
 
 /** 5억9처럼 억 뒤에 단위 없는 숫자는 애매해서 그 억은 쓰지 않음 */
 function isIncompleteEokTail(text: string, afterEok: number): boolean {
   const rest = text.slice(afterEok);
-  return /^\s*\d+(?:\.\d+)?(?!\s*(?:억|천|만|년|월|일|층|호|동|룸))/.test(rest);
+  return /^\s*\d+(?:\.\d+)?(?!\s*(?:억|천|백|만|년|월|일|층|호|동|룸))/.test(rest);
 }
 
 /** 1억 2억·1억~2억만 구간. 1억 암사동 2억처럼 가운데 글이 있으면 뒤 억은 버림 */
@@ -1058,10 +1114,10 @@ function parseMoneyManwon(
   }
 
   const monthly =
-    moneyText.match(/월세\s*(\d+(?:\.\d+)?)\s*만/) ||
-    moneyText.match(/(?<!\d)월\s*(\d+(?:\.\d+)?)\s*만/) ||
-    moneyText.match(/월세\s*(\d+(?:\.\d+)?)/) ||
-    moneyText.match(/(?<!\d)월\s*(\d{1,4})(?!\d)(?!\s*(?:억|일))/);
+    moneyText.match(/월세\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/) ||
+    moneyText.match(/(?<!\d)월\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/) ||
+    moneyText.match(/월세\s*(\d+(?:\.\d+)?)(?!\d)(?!\s*(?:억|천|백|만|월|일))/) ||
+    moneyText.match(/(?<!\d)월\s*(\d{1,4})(?!\d)(?!\s*(?:억|천|백|만|월|일))/);
   if (monthly && !asSale && !fieldSlashHit && monthly.index != null) {
     monthlyRent = Math.round(Number(monthly[1]));
     pushSpan(monthly.index, monthly.index + monthly[0].length);
@@ -1073,22 +1129,31 @@ function parseMoneyManwon(
     allowTripleEok,
     maxBareEok
   );
-  const eokCheon = moneyText.match(
-    /(\d+(?:\.\d+)?)\s*억\s*(\d+(?:\.\d+)?)\s*천/
-  );
-  const eokMan = moneyText.match(/(\d+(?:\.\d+)?)\s*억\s*(\d+(?:\.\d+)?)\s*만/);
+  const compoundEok = parseCompoundEokMoney(moneyText);
   const eok = [...moneyText.matchAll(/(\d+(?:\.\d+)?)\s*억/g)];
   const saleLabeled = moneyText.match(
-    /(?:매매(?:가)?|(?<![가-힣물])매(?:가)?)\s*(\d+(?:\.\d+)?)\s*억/
+    /(?:매매(?:가)?|(?<![가-힣물])매(?:가)?)\s*(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*(천|만))?/
   );
   if (asSale && saleLabeled && saleLabeled.index != null && deposit == null) {
-    deposit = Math.round(Number(saleLabeled[1]) * 10000);
+    const eokPart = Number(saleLabeled[1]);
+    const rest = saleLabeled[2] ? Number(saleLabeled[2]) : 0;
+    const unit = saleLabeled[3];
+    deposit = Math.round(
+      eokPart * 10000 + (unit === "천" ? rest * 1000 : unit === "만" ? rest : 0)
+    );
     pushSpan(saleLabeled.index, saleLabeled.index + saleLabeled[0].length);
   }
 
+  const labeledCheon = moneyText.match(
+    /(?:보증금|전세가|매매(?:가)?|매가|(?<![가-힣물])매|(?<![가-힣])보|보증|전세)\s*(\d+(?:\.\d+)?)\s*천/
+  );
+  const cheonSlash = moneyText.match(
+    /(\d+(?:\.\d+)?)\s*천\s*[\/／]\s*(\d+(?:\.\d+)?)/
+  );
+
   const man = moneyText.match(
     new RegExp(
-      `(?:보증금|매매(?:가)?|매가|(?<![가-힣물])매|(?<![가-힣])보|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
+      `(?:보증금|전세가|매매(?:가)?|매가|(?<![가-힣물])매|(?<![가-힣])보|매매|전세)\\s*(\\d+(?:\\.\\d+)?)\\s*만?(?!\\s*[${TILDE_CLS}억천백])|보증\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[${TILDE_CLS}억천백])|(\\d+(?:\\.\\d+)?)\\s*만(?!\\s*원)`
     )
   );
 
@@ -1098,14 +1163,9 @@ function parseMoneyManwon(
     pushSpan(tildeMoney.start, tildeMoney.end);
   }
 
-  if (eokCheon && eokCheon.index != null) {
-    deposit = Math.round(
-      Number(eokCheon[1]) * 10000 + Number(eokCheon[2]) * 1000
-    );
-    pushSpan(eokCheon.index, eokCheon.index + eokCheon[0].length);
-  } else if (eokMan && eokMan.index != null) {
-    deposit = Math.round(Number(eokMan[1]) * 10000 + Number(eokMan[2]));
-    pushSpan(eokMan.index, eokMan.index + eokMan[0].length);
+  if (compoundEok) {
+    deposit = compoundEok.deposit;
+    pushSpan(compoundEok.index, compoundEok.end);
   } else if (tildeMoney && !tildeMoney.monthly) {
     deposit = tildeMoney.from;
     depositTo = tildeMoney.to;
@@ -1140,6 +1200,12 @@ function parseMoneyManwon(
       deposit = chain[0].value;
       pushSpan(chain[0].start, chain[0].end);
     }
+  } else if (labeledCheon && labeledCheon.index != null) {
+    const n = Math.round(Number(labeledCheon[1]) * 1000);
+    if (n > 0 && isPlausibleDeposit(n, asSale)) {
+      deposit = n;
+      pushSpan(labeledCheon.index, labeledCheon.index + labeledCheon[0].length);
+    }
   } else if (man && man.index != null) {
     const labeled = Boolean(man[1] || man[2]);
     const raw = man[1] || man[2] || man[3];
@@ -1157,6 +1223,23 @@ function parseMoneyManwon(
           pushSpan(man.index, man.index + man[0].length);
         }
       }
+    }
+  }
+
+  if (
+    !asSale &&
+    !fieldSlashHit &&
+    deposit == null &&
+    monthlyRent == null &&
+    cheonSlash &&
+    cheonSlash.index != null
+  ) {
+    const dep = Math.round(Number(cheonSlash[1]) * 1000);
+    const rent = Math.round(Number(cheonSlash[2]));
+    if (dep > 0 && rent > 0 && isPlausibleDeposit(dep, false)) {
+      deposit = dep;
+      monthlyRent = rent;
+      pushSpan(cheonSlash.index, cheonSlash.index + cheonSlash[0].length);
     }
   }
 
@@ -1487,6 +1570,184 @@ function expandSpokenPhones(text: string): string {
   );
 }
 
+const SPOKEN_MONEY_DIGIT: Record<string, string> = {
+  한: "1",
+  일: "1",
+  이: "2",
+  삼: "3",
+  사: "4",
+  오: "5",
+  육: "6",
+  륙: "6",
+  칠: "7",
+  팔: "8",
+  구: "9",
+};
+
+const SPOKEN_MONTH_WORD: Record<string, string> = {
+  일월: "1월",
+  이월: "2월",
+  삼월: "3월",
+  사월: "4월",
+  오월: "5월",
+  유월: "6월",
+  육월: "6월",
+  칠월: "7월",
+  팔월: "8월",
+  구월: "9월",
+  시월: "10월",
+  십월: "10월",
+  십일월: "11월",
+  십이월: "12월",
+};
+
+const SPOKEN_MONTH_DIGIT: Record<string, string> = {
+  일: "1",
+  이: "2",
+  삼: "3",
+  사: "4",
+  오: "5",
+  육: "6",
+  륙: "6",
+  칠: "7",
+  팔: "8",
+  구: "9",
+  십: "10",
+  시: "10",
+  십일: "11",
+  십이: "12",
+};
+
+/** 「십오」「이십일」→ 1~31. 날짜 일수에만 쓴다 */
+function hangulDayNumber(raw: string): number | null {
+  const t = raw.replace(/\s+/g, "");
+  if (!t) return null;
+  const ones: Record<string, number> = {
+    한: 1,
+    일: 1,
+    이: 2,
+    삼: 3,
+    사: 4,
+    오: 5,
+    육: 6,
+    륙: 6,
+    칠: 7,
+    팔: 8,
+    구: 9,
+  };
+  if (t === "십") return 10;
+  if (t.startsWith("이십")) {
+    const rest = t.slice(2);
+    if (!rest) return 20;
+    const n = ones[rest];
+    return n != null ? 20 + n : null;
+  }
+  if (t.startsWith("삼십")) {
+    const rest = t.slice(2);
+    if (!rest) return 30;
+    const n = ones[rest];
+    return n != null ? 30 + n : null;
+  }
+  if (t.startsWith("십")) {
+    const rest = t.slice(1);
+    if (!rest) return 10;
+    const n = ones[rest];
+    return n != null ? 10 + n : null;
+  }
+  return ones[t] ?? null;
+}
+
+/**
+ * 음성인식 「삼월 일일 사월 십오일」「삼 월 일 일」→ 「3월 1일 4월 15일」
+ */
+function expandSpokenDates(text: string): string {
+  let s = text.replace(
+    /십이월|십일월|시월|십월|일월|이월|삼월|사월|오월|유월|육월|칠월|팔월|구월/g,
+    (w) => SPOKEN_MONTH_WORD[w] ?? w
+  );
+  s = s.replace(
+    /(?<![가-힣\d])(십이|십일|시|십|일|이|삼|사|오|육|륙|칠|팔|구)\s*월/g,
+    (_, w: string) => `${SPOKEN_MONTH_DIGIT[w] ?? w}월`
+  );
+  s = s.replace(
+    /(\d{1,2}\s*월\s*)((?:이\s*십|삼\s*십|십)?\s*(?:한|일|이|삼|사|오|육|륙|칠|팔|구)?)(\s*일)(?!\d)/g,
+    (full, mon: string, numPart: string) => {
+      const day = hangulDayNumber(numPart);
+      if (day == null || day < 1 || day > 31) return full;
+      return `${mon.trimEnd()} ${day}일`;
+    }
+  );
+  return s;
+}
+
+/**
+ * 음성인식 「삼억 오천」「월세 오십」「이백」→ 「3억 5천」「월세 50」「2백」
+ */
+function expandSpokenMoney(text: string): string {
+  const digit = "(?:한|일|이|삼|사|오|육|륙|칠|팔|구)";
+  const tens: Record<string, string> = {
+    십: "10",
+    일십: "10",
+    이십: "20",
+    삼십: "30",
+    사십: "40",
+    오십: "50",
+    육십: "60",
+    륙십: "60",
+    칠십: "70",
+    팔십: "80",
+    구십: "90",
+  };
+  return text
+    .replace(
+      /(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)\s*(억|천|백|만)/g,
+      (_, w: string, unit: string) => `${tens[w] ?? w}${unit}`
+    )
+    .replace(
+      new RegExp(`(${digit})\\s*(억|천|백|만)`, "g"),
+      (_, w: string, unit: string) => `${SPOKEN_MONEY_DIGIT[w] ?? w}${unit}`
+    )
+    .replace(
+      /((?:월세|보증금|보증|(?<![가-힣\d])월|(?<![가-힣])보)\s*)(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)(?!\s*(?:억|천|백|만))/g,
+      (_, pre: string, w: string) => `${pre}${tens[w] ?? w}`
+    )
+    .replace(
+      /([\/／]\s*)(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)(?!\s*(?:억|천|백|만))/g,
+      (_, pre: string, w: string) => `${pre}${tens[w] ?? w}`
+    );
+}
+
+/**
+ * 2억9천2백10만 → 29210(만원). 억·천·백·만 조각을 합친다.
+ */
+function parseCompoundEokMoney(text: string): {
+  deposit: number;
+  index: number;
+  end: number;
+} | null {
+  const re =
+    /(\d+(?:\.\d+)?)\s*억(?:\s*(\d+(?:\.\d+)?)\s*천)?(?:\s*(\d+(?:\.\d+)?)\s*백)?(?:\s*(\d+(?:\.\d+)?)\s*만)?/g;
+  let best: { deposit: number; index: number; end: number } | null = null;
+  for (const m of text.matchAll(re)) {
+    if (m.index == null) continue;
+    const eok = Number(m[1]);
+    if (!Number.isFinite(eok) || eok <= 0) continue;
+    const cheon = m[2] != null ? Number(m[2]) : 0;
+    const baek = m[3] != null ? Number(m[3]) : 0;
+    const man = m[4] != null ? Number(m[4]) : 0;
+    if ([cheon, baek, man].some((n) => !Number.isFinite(n) || n < 0)) continue;
+    // 억만 단독(1억·2억·1억~2억)은 기존 억·구간 규칙에 맡긴다
+    if (!m[2] && !m[3] && !m[4]) continue;
+    const deposit = Math.round(eok * 10000 + cheon * 1000 + baek * 100 + man);
+    if (deposit <= 0) continue;
+    const hit = { deposit, index: m.index, end: m.index + m[0].length };
+    if (!best || hit.index < best.index || hit.end - hit.index > best.end - best.index) {
+      best = hit;
+    }
+  }
+  return best;
+}
+
 function findCustomerName(text: string): string | undefined {
   const trimmed = text.trim();
   if (/^[가-힣]{2,6}$/.test(trimmed) && isNameCandidate(trimmed)) {
@@ -1760,21 +2021,18 @@ function parseMoveInDates(
     const clamped = asFutureMoveIn(ymds[0], ymds[0], today);
     if (clamped) return clamped;
   }
-  const slashDates = parseSlashPairs(corrected).filter(
-    (p) =>
-      isMonthDaySlash(p.left, p.right) && (p.sep === "/" || p.sep === "／")
-  );
-  if (slashDates.length >= 2 && slashDates[0] && slashDates[1]) {
+  const monthDays = collectMonthDayDatePairs(corrected);
+  if (monthDays.length >= 2 && monthDays[0] && monthDays[1]) {
     const from = isoFromMonthDay(
-      slashDates[0].left,
-      slashDates[0].right,
+      monthDays[0].month,
+      monthDays[0].day,
       today
     );
     const to = from
       ? isoFollowingMonthDay(
           from,
-          slashDates[1].left,
-          slashDates[1].right
+          monthDays[1].month,
+          monthDays[1].day
         )
       : null;
     if (from && to) {
@@ -1782,10 +2040,10 @@ function parseMoveInDates(
       if (clamped) return clamped;
     }
   }
-  if (slashDates.length === 1 && slashDates[0]) {
+  if (monthDays.length === 1 && monthDays[0]) {
     const iso = isoFromMonthDay(
-      slashDates[0].left,
-      slashDates[0].right,
+      monthDays[0].month,
+      monthDays[0].day,
       today
     );
     const clamped = asFutureMoveIn(iso, iso, today);
@@ -1796,16 +2054,20 @@ function parseMoveInDates(
 
 export function normalizeIntakeInput(raw: string): string {
   return collapseThousandCommas(
-    expandSpokenPhones(
-      normalizeFieldShorthands(
-        raw
-          .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
-          .replace(/[０-９]/g, (ch) =>
-            String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+    expandSpokenMoney(
+      expandSpokenDates(
+        expandSpokenPhones(
+          normalizeFieldShorthands(
+            raw
+              .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
+              .replace(/[０-９]/g, (ch) =>
+                String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+              )
+              .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
+              .replace(/\s+/g, " ")
+              .trim()
           )
-          .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
-          .replace(/\s+/g, " ")
-          .trim()
+        )
       )
     )
   );
@@ -1840,7 +2102,10 @@ export function parseIntakeText(
       /매가/.test(moneyText)
     ) {
       result.dealType = "매매";
-    } else if (/(?<![가-힣])전\s*\d+(?:\.\d+)?\s*억/.test(moneyText)) {
+    } else if (
+      /전세가/.test(moneyText) ||
+      /(?<![가-힣])전\s*\d+(?:\.\d+)?\s*억/.test(moneyText)
+    ) {
       result.dealType = "전세";
     }
   }

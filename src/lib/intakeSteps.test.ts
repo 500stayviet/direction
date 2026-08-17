@@ -11,6 +11,11 @@ import {
   flagsStepComplete,
   guideStepComplete,
   splitIntakeStepCancel,
+  moneyStepExample,
+  dealTypeStepExample,
+  inferDealTypeFromMoney,
+  resolveTalkDealType,
+  datesStepNeedsHold,
 } from "./intakeSteps.ts";
 
 describe("intakeSteps", () => {
@@ -195,7 +200,7 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[0]?.partial.insurance, "무");
     assert.equal(chain.commits[0]?.partial.parking, "유");
     assert.equal(chain.commits[0]?.partial.elevator, "무");
-    assert.match(chain.commits[0]?.display ?? "", /엘베불가/);
+    assert.match(chain.commits[0]?.display ?? "", /엘베무/);
   });
 
   it("flags remainder는 채운 항목만 순서와 상관없이 소비한다", () => {
@@ -218,6 +223,28 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[0]?.partial.insurance, "무");
   });
 
+  it("거래종류·거래가액 예시는 선택·금액에 맞춰 하나만 보여 준다", () => {
+    assert.equal(moneyStepExample("월세"), "보증금 1억 · 월세 50");
+    assert.equal(moneyStepExample("전세"), "보증금 1억");
+    assert.equal(moneyStepExample("매매"), "매매 3억 5천");
+    assert.equal(dealTypeStepExample(undefined), "매매 전세 월세");
+    assert.equal(dealTypeStepExample("전세"), "전세");
+    assert.equal(inferDealTypeFromMoney({ monthlyRent: 50, options: [] }), "월세");
+    assert.equal(inferDealTypeFromMoney({ deposit: 10000, options: [] }), "전세");
+    assert.equal(
+      inferDealTypeFromMoney({ deposit: 30000, dealType: "매매", options: [] }),
+      "매매"
+    );
+    assert.equal(
+      resolveTalkDealType(undefined, { deposit: 10000, monthlyRent: 50, options: [] }),
+      "월세"
+    );
+    assert.equal(
+      resolveTalkDealType({ dealType: "매매", options: [] }, { deposit: 10000, options: [] }),
+      "매매"
+    );
+  });
+
   it("짧은 거래가액 답변에는 이전 맥락을 붙인다", () => {
     const prior = {
       roomType: "원룸" as const,
@@ -228,6 +255,80 @@ describe("intakeSteps", () => {
     const money = parseIntakeStep("매매가 2억", "money", "customer", prior);
     assert.equal(money.ok, true);
     assert.equal(money.partial.deposit, 20000);
+  });
+
+  it("거래가액만 있으면 다음 칸으로 넘기지 않고, 다음 내용이 있으면 넘긴다", () => {
+    const moneyIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "money"
+    );
+    const only = parseIntakeStepChain("보증금 2억9천2백10만", moneyIndex, "property", {
+      roomType: { roomType: "원룸", options: [] },
+      dealType: { dealType: "전세", options: [] },
+    });
+    assert.equal(only.commits[0]?.key, "money");
+    assert.equal(only.commits[0]?.partial.deposit, 29210);
+    assert.equal(only.nextIndex, moneyIndex);
+
+    const withDates = parseIntakeStepChain(
+      "보증금 2억 3월 1일",
+      moneyIndex,
+      "property",
+      {
+        roomType: { roomType: "원룸", options: [] },
+        dealType: { dealType: "전세", options: [] },
+      }
+    );
+    assert.ok(withDates.commits.some((row) => row.key === "money"));
+    assert.ok(withDates.commits.some((row) => row.key === "dates"));
+    assert.ok(withDates.nextIndex > moneyIndex);
+  });
+
+  it("월세는 보증금과 월세가 둘 다 있어야 거래가액 칸을 넘긴다", () => {
+    const moneyIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "money"
+    );
+    const prior = {
+      roomType: { roomType: "원룸" as const, options: [] as string[] },
+      dealType: { dealType: "월세" as const, options: [] as string[] },
+    };
+
+    const depositOnly = parseIntakeStepChain(
+      "보증금 1억",
+      moneyIndex,
+      "property",
+      prior
+    );
+    assert.equal(depositOnly.commits[0]?.partial.deposit, 10000);
+    assert.equal(depositOnly.commits[0]?.partial.monthlyRent, undefined);
+    assert.equal(depositOnly.nextIndex, moneyIndex);
+
+    const rentOnly = parseIntakeStepChain("월세 50", moneyIndex, "property", {
+      ...prior,
+      money: { deposit: 10000, options: [] },
+    });
+    assert.equal(rentOnly.commits[0]?.partial.deposit, 10000);
+    assert.equal(rentOnly.commits[0]?.partial.monthlyRent, 50);
+    assert.equal(rentOnly.nextIndex, moneyIndex);
+
+    const both = parseIntakeStepChain(
+      "보증금 1억 월세 50",
+      moneyIndex,
+      "property",
+      prior
+    );
+    assert.equal(both.commits[0]?.partial.deposit, 10000);
+    assert.equal(both.commits[0]?.partial.monthlyRent, 50);
+    assert.equal(both.nextIndex, moneyIndex);
+
+    const bothWithDates = parseIntakeStepChain(
+      "보증금 1억 월세 50 3월 1일",
+      moneyIndex,
+      "property",
+      prior
+    );
+    assert.ok(bothWithDates.commits.some((row) => row.key === "money"));
+    assert.ok(bothWithDates.commits.some((row) => row.key === "dates"));
+    assert.ok(bothWithDates.nextIndex > moneyIndex);
   });
 
   it("전체 문장의 매매 1억은 거래가액 칸에 넣는다", () => {
@@ -253,7 +354,8 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[2]?.key, "location");
     assert.equal(chain.commits[3]?.key, "money");
     assert.equal(chain.commits[3]?.partial.deposit, 20000);
-    assert.equal(chain.leftover, "");
+    assert.equal(chain.nextIndex, 3);
+    assert.match(chain.leftover, /매매가\s*2억/);
     const built = buildIntakeFromSteps(
       Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
       "property"
@@ -369,6 +471,36 @@ describe("intakeSteps", () => {
     assert.equal(range.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(range.commits[0]?.partial.moveInTo, "2026-10-01");
 
+    const eseoKkaji = parseIntakeStepChain(
+      "9월 15일에서 10월 1일까지",
+      datesIndex,
+      "property",
+      {}
+    );
+    assert.ok(eseoKkaji.nextIndex > datesIndex);
+    assert.equal(eseoKkaji.commits[0]?.partial.moveInFrom, "2026-09-15");
+    assert.equal(eseoKkaji.commits[0]?.partial.moveInTo, "2026-10-01");
+
+    const bareRange = parseIntakeStepChain(
+      "9월 15일 10월 1일",
+      datesIndex,
+      "property",
+      {}
+    );
+    assert.ok(bareRange.nextIndex > datesIndex);
+    assert.equal(bareRange.commits[0]?.partial.moveInFrom, "2026-09-15");
+    assert.equal(bareRange.commits[0]?.partial.moveInTo, "2026-10-01");
+
+    const spokenRange = parseIntakeStepChain(
+      "구월 십오일 시월 일일",
+      datesIndex,
+      "property",
+      {}
+    );
+    assert.ok(spokenRange.nextIndex > datesIndex);
+    assert.equal(spokenRange.commits[0]?.partial.moveInFrom, "2026-09-15");
+    assert.equal(spokenRange.commits[0]?.partial.moveInTo, "2026-10-01");
+
     const withFlags = parseIntakeStepChain(
       "9월 15일 대출 무",
       datesIndex,
@@ -386,6 +518,19 @@ describe("intakeSteps", () => {
     assert.ok(secondDay.nextIndex > datesIndex);
     assert.equal(secondDay.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(secondDay.commits[0]?.partial.moveInTo, "2026-10-01");
+
+    assert.equal(
+      INTAKE_GUIDE_STEPS.property.find((l) => l.key === "dates")?.example,
+      "oo월 oo일    에서    oo월 oo일 까지"
+    );
+    assert.equal(
+      datesStepNeedsHold(lone.commits[0]?.partial),
+      true
+    );
+    assert.equal(
+      datesStepNeedsHold(bareRange.commits[0]?.partial),
+      false
+    );
   });
 
   it("고객 선호위치는 동이 있어야 하고 다른 구를 더 고를 수 있으면 넘기지 않는다", () => {

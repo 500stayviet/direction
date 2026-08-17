@@ -15,10 +15,7 @@ import {
   matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
-import {
-  consumeCustomerSwipeNudge,
-  markCustomerSwipeUsed,
-} from "@/lib/customerSwipeHint";
+import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteCustomer, upsertCustomer } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -157,7 +154,6 @@ export default function CustomerListPage() {
         });
         setCustomers(next);
       }
-      markCustomerSwipeUsed();
       setNudgeFirstCard(false);
       setPending(null);
     } catch (err: unknown) {

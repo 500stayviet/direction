@@ -12,10 +12,7 @@ import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { NaviListCard, scheduleTitle } from "@/components/NaviListCard";
 import { isScheduleEnded, todayISO } from "@/lib/date";
-import {
-  consumeCustomerSwipeNudge,
-  markCustomerSwipeUsed,
-} from "@/lib/customerSwipeHint";
+import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteSchedule, setScheduleWorkspaceShared, upsertSchedule } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -183,7 +180,6 @@ export default function NaviEntryPage() {
         });
         setSchedules(next);
       }
-      markCustomerSwipeUsed();
       setNudgeFirstCard(false);
       setPending(null);
     } catch (err: unknown) {

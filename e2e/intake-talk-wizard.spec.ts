@@ -183,7 +183,7 @@ test("매물 대화 입력: 정지하면 안내가 뜨고 이전 후 녹화하�
 
     await page.getByTestId("intake-talk-primary").click();
     await expect(
-      page.getByText("빨간 버튼을 누르고 ▶ 칸부터 다시 대화를 이어가세요")
+      page.getByText("녹화버튼을 눌러 대화를 이어가세요.")
     ).toBeVisible();
     await expect(page.getByTestId("intake-talk-primary")).toHaveAttribute(
       "aria-label",
@@ -253,7 +253,7 @@ test("매물 대화 입력: 가이드 행을 누르면 그 칸만 비운다", as
       page.getByTestId("intake-guide-row-dealType").locator(".border-green-400")
     ).toHaveCount(1);
     await expect(
-      page.getByText("빨간 버튼을 누르고 ▶ 칸부터 다시 대화를 이어가세요")
+      page.getByText("녹화버튼을 눌러 대화를 이어가세요.")
     ).toBeVisible();
 
     await page.getByTestId("intake-talk-primary").click();

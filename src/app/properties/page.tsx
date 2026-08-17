@@ -12,10 +12,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { PropertyListCard } from "@/components/PropertyListCard";
 import { ListSearchInput } from "@/components/CustomerSearchInput";
-import {
-  consumeCustomerSwipeNudge,
-  markCustomerSwipeUsed,
-} from "@/lib/customerSwipeHint";
+import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteListedProperty, upsertListedProperty } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -157,7 +154,6 @@ export default function PropertyListPage() {
         });
         setProperties(next);
       }
-      markCustomerSwipeUsed();
       setNudgeFirstCard(false);
       setPending(null);
     } catch (err: unknown) {

@@ -16,6 +16,11 @@ import {
   formatFlagsActiveExample,
   formatFlagsValueLine,
   guideStepComplete,
+  moneyFieldsComplete,
+  moneyStepExample,
+  dealTypeStepExample,
+  resolveTalkDealType,
+  datesStepNeedsHold,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -29,7 +34,9 @@ import {
 import {
   applyNotesUtterance,
   TALK_IDLE_MS,
-  TALK_LOCATION_HOLD_MS,
+  TALK_FIELD_HOLD_MS,
+  TALK_ENDED_MS,
+  TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
   talkPrimaryKind,
   talkPrimaryLabel,
@@ -71,7 +78,7 @@ function activeRowClass(active: boolean, filled: boolean): string {
   const box = "rounded-xl border p-2";
   if (filled) return `${box} border-green-400 bg-green-50`;
   if (active) return `${box} border-blue-400 bg-blue-50/80`;
-  return `${box} border-transparent bg-transparent`;
+  return `${box} border-gray-200 bg-white`;
 }
 
 function navStepButtonClass(disabled = false): string {
@@ -151,6 +158,7 @@ export function IntakeTalkModal({
   const [stepLive, setStepLive] = useState("");
   const [listening, setListening] = useState(false);
   const [talkStarted, setTalkStarted] = useState(false);
+  const [showTalkEnded, setShowTalkEnded] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState("");
   const [speechSupported, setSpeechSupported] = useState(true);
@@ -162,13 +170,12 @@ export function IntakeTalkModal({
   const processedResultIndexRef = useRef(0);
   const listeningRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const locationHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
+  const talkEndedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fieldHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
-  const scheduleLocationHoldRef = useRef<() => void>(() => {});
+  const scheduleFieldHoldRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
   const lastDealTypeRef = useRef<DealType | "">("");
 
@@ -200,6 +207,7 @@ export function IntakeTalkModal({
     setActiveIndex(0);
     setSteps({});
     setTalkStarted(false);
+    setShowTalkEnded(false);
     setNotesDraftBoth("");
     stepSpeechRef.current = "";
     processedResultIndexRef.current = 0;
@@ -208,36 +216,68 @@ export function IntakeTalkModal({
     resetStepSpeech();
   }, [resetStepSpeech, setNotesDraftBoth]);
 
-  const clearLocationHoldTimer = useCallback(() => {
-    if (locationHoldTimerRef.current == null) return;
-    clearTimeout(locationHoldTimerRef.current);
-    locationHoldTimerRef.current = null;
+  const clearTalkEndedTimer = useCallback(() => {
+    if (talkEndedTimerRef.current == null) return;
+    clearTimeout(talkEndedTimerRef.current);
+    talkEndedTimerRef.current = null;
   }, []);
 
-  const scheduleLocationHoldAdvance = useCallback(() => {
-    clearLocationHoldTimer();
-    if (kind !== "customer") return;
+  const flashTalkEnded = useCallback(() => {
+    clearTalkEndedTimer();
+    setShowTalkEnded(true);
+    talkEndedTimerRef.current = setTimeout(() => {
+      talkEndedTimerRef.current = null;
+      setShowTalkEnded(false);
+    }, TALK_ENDED_MS);
+  }, [clearTalkEndedTimer]);
+
+  const clearFieldHoldTimer = useCallback(() => {
+    if (fieldHoldTimerRef.current == null) return;
+    clearTimeout(fieldHoldTimerRef.current);
+    fieldHoldTimerRef.current = null;
+  }, []);
+
+  const scheduleFieldHoldAdvance = useCallback(() => {
+    clearFieldHoldTimer();
     if (!listeningRef.current) return;
     const idx = activeIndexRef.current;
-    if (guide[idx]?.key !== "location") return;
-    const rec = stepsRef.current.location;
+    const key = guide[idx]?.key;
+    if (key !== "location" && key !== "money" && key !== "dates") return;
+    if (key === "location" && kind !== "customer") return;
+    const rec = stepsRef.current[key];
     if (!rec?.display || rec.skipped) return;
-    locationHoldTimerRef.current = setTimeout(() => {
-      locationHoldTimerRef.current = null;
+    if (key === "money") {
+      const deal = resolveTalkDealType(
+        stepsRef.current.dealType?.partial,
+        rec.partial
+      );
+      if (!moneyFieldsComplete(rec.partial, deal)) return;
+    }
+    if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
+    fieldHoldTimerRef.current = setTimeout(() => {
+      fieldHoldTimerRef.current = null;
       if (!listeningRef.current) return;
-      if (guide[activeIndexRef.current]?.key !== "location") return;
-      const held = stepsRef.current.location;
+      if (guide[activeIndexRef.current]?.key !== key) return;
+      const held = stepsRef.current[key];
       if (!held?.display || held.skipped) return;
+      if (key === "money") {
+        const deal = resolveTalkDealType(
+          stepsRef.current.dealType?.partial,
+          held.partial
+        );
+        if (!moneyFieldsComplete(held.partial, deal)) return;
+      }
+      if (key === "dates" && !datesStepNeedsHold(held.partial)) return;
       if (activeIndexRef.current >= guide.length - 1) return;
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;
       setActiveIndex(next);
-    }, TALK_LOCATION_HOLD_MS);
-  }, [clearLocationHoldTimer, guide, kind]);
+    }, TALK_FIELD_HOLD_MS);
+  }, [clearFieldHoldTimer, guide, kind]);
 
   useEffect(() => {
-    scheduleLocationHoldRef.current = scheduleLocationHoldAdvance;
-  }, [scheduleLocationHoldAdvance]);
+    scheduleFieldHoldRef.current = scheduleFieldHoldAdvance;
+  }, [scheduleFieldHoldAdvance]);
 
   const applySteps = useCallback(
     (
@@ -256,29 +296,41 @@ export function IntakeTalkModal({
       }
       if (nextIndex === fromIndex) {
         resetStepSpeech();
-        if (fromKey === "location") scheduleLocationHoldAdvance();
+        if (
+          fromKey === "location" ||
+          fromKey === "money" ||
+          fromKey === "dates"
+        ) {
+          scheduleFieldHoldAdvance();
+        }
         return;
       }
-      clearLocationHoldTimer();
+      clearFieldHoldTimer();
       const clamped =
         nextIndex >= guide.length ? guide.length - 1 : nextIndex;
       activeIndexRef.current = clamped;
       setActiveIndex(clamped);
       clearStepSpeechBuffer();
       resetStepSpeech();
+      const landed = guide[clamped]?.key;
+      if (landed === "location" || landed === "money" || landed === "dates") {
+        scheduleFieldHoldAdvance();
+      }
     },
     [
-      clearLocationHoldTimer,
+      clearFieldHoldTimer,
       clearStepSpeechBuffer,
       guide,
       resetStepSpeech,
-      scheduleLocationHoldAdvance,
+      scheduleFieldHoldAdvance,
     ]
   );
 
   const clearStep = useCallback(
     (key: IntakeStepKey) => {
-      if (key === "location") clearLocationHoldTimer();
+      if (key === "location" || key === "money" || key === "dates") {
+        clearFieldHoldTimer();
+      }
       setSteps((prev) => {
         const next = { ...prev };
         delete next[key];
@@ -290,7 +342,7 @@ export function IntakeTalkModal({
       sessionFinalRef.current = "";
       clearStepSpeechBuffer();
     },
-    [clearLocationHoldTimer, clearStepSpeechBuffer, setNotesDraftBoth]
+    [clearFieldHoldTimer, clearStepSpeechBuffer, setNotesDraftBoth]
   );
 
   const processUtterance = useCallback(
@@ -424,7 +476,7 @@ export function IntakeTalkModal({
           if (processUtteranceRef.current(piece)) {
             processedResultIndexRef.current = i + 1;
           } else {
-            scheduleLocationHoldRef.current();
+            scheduleFieldHoldRef.current();
           }
         }
       }
@@ -454,13 +506,21 @@ export function IntakeTalkModal({
   }, []);
 
   const haltListening = useCallback(() => {
+    const wasListening = listeningRef.current;
     setListeningBoth(false);
     stopRecognition();
     clearIdleTimer();
-    clearLocationHoldTimer();
+    clearFieldHoldTimer();
     processedResultIndexRef.current = 0;
     resetStepSpeech();
-  }, [clearIdleTimer, clearLocationHoldTimer, resetStepSpeech, stopRecognition]);
+    if (wasListening) flashTalkEnded();
+  }, [
+    clearIdleTimer,
+    clearFieldHoldTimer,
+    flashTalkEnded,
+    resetStepSpeech,
+    stopRecognition,
+  ]);
 
   const stopCurrentTake = useCallback(() => {
     haltListening();
@@ -489,7 +549,7 @@ export function IntakeTalkModal({
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
       processNewFinalResults(ev.results);
-      if (spoken.live) scheduleLocationHoldAdvance();
+      if (spoken.live) scheduleFieldHoldAdvance();
     };
     rec.onend = () => {
       resetStepSpeech();
@@ -521,7 +581,7 @@ export function IntakeTalkModal({
     haltListening,
     processNewFinalResults,
     resetStepSpeech,
-    scheduleLocationHoldAdvance,
+    scheduleFieldHoldAdvance,
   ]);
 
   useEffect(() => {
@@ -529,7 +589,8 @@ export function IntakeTalkModal({
       listeningRef.current = false;
       stopRecognition();
       clearIdleTimer();
-      clearLocationHoldTimer();
+      clearFieldHoldTimer();
+      clearTalkEndedTimer();
       setListening(false);
       resetWizard();
       setError("");
@@ -547,7 +608,8 @@ export function IntakeTalkModal({
     resetStepSpeech,
     stopRecognition,
     clearIdleTimer,
-    clearLocationHoldTimer,
+    clearFieldHoldTimer,
+    clearTalkEndedTimer,
   ]);
 
   useEffect(() => {
@@ -573,9 +635,13 @@ export function IntakeTalkModal({
         clearTimeout(idleTimerRef.current);
         idleTimerRef.current = null;
       }
-      if (locationHoldTimerRef.current != null) {
-        clearTimeout(locationHoldTimerRef.current);
-        locationHoldTimerRef.current = null;
+      if (fieldHoldTimerRef.current != null) {
+        clearTimeout(fieldHoldTimerRef.current);
+        fieldHoldTimerRef.current = null;
+      }
+      if (talkEndedTimerRef.current != null) {
+        clearTimeout(talkEndedTimerRef.current);
+        talkEndedTimerRef.current = null;
       }
       const rec = recRef.current;
       recRef.current = null;
@@ -587,6 +653,8 @@ export function IntakeTalkModal({
     const key = guide[activeIndexRef.current]?.key;
     if (key) clearStep(key);
     setError("");
+    setShowTalkEnded(false);
+    clearTalkEndedTimer();
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
@@ -624,20 +692,23 @@ export function IntakeTalkModal({
   }, [clearStepSpeechBuffer, resetStepSpeech]);
 
   const finishTalking = useCallback(() => {
+    const wasListening = listeningRef.current;
     setListeningBoth(false);
     stopRecognition();
     clearIdleTimer();
-    clearLocationHoldTimer();
+    clearFieldHoldTimer();
     const key = guide[activeIndexRef.current]?.key;
     if (key === "notes" && !guideStepComplete("notes", stepsRef.current.notes)) {
       commitNotesDraft();
     } else if (key === "notes" && notesDraftRef.current.trim()) {
       commitNotesDraft();
     }
+    if (wasListening) flashTalkEnded();
   }, [
     clearIdleTimer,
-    clearLocationHoldTimer,
+    clearFieldHoldTimer,
     commitNotesDraft,
+    flashTalkEnded,
     guide,
     stopRecognition,
   ]);
@@ -677,19 +748,19 @@ export function IntakeTalkModal({
         setNotesDraftBoth("");
       }
     }
-    clearLocationHoldTimer();
+    clearFieldHoldTimer();
     activeIndexRef.current = index;
     setActiveIndex(index);
     clearStep(key);
   };
 
   const goPrevious = () => {
-    clearLocationHoldTimer();
+    clearFieldHoldTimer();
     setActiveIndex((idx) => Math.max(0, idx - 1));
   };
 
   const skipCurrent = () => {
-    clearLocationHoldTimer();
+    clearFieldHoldTimer();
     if (activeIndex < guide.length - 1) {
       setActiveIndex((idx) => idx + 1);
     }
@@ -744,15 +815,16 @@ export function IntakeTalkModal({
   );
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="대화로 입력"
-      description="순서대로 대화로 입력하세요."
-      dense
-      overlayClassName="z-50 max-sm:!px-0"
-      className="h-[100dvh] !max-h-[100dvh] max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
-      footer={
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="대화로 입력"
+        description="순서대로 대화로 입력하세요."
+        dense
+        overlayClassName="z-50 max-sm:!px-0"
+        className="h-[100dvh] !max-h-[100dvh] max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
+        footer={
         <div className="space-y-2">
           {listening ? (
             <p className="flex min-h-[1.25rem] items-center justify-center gap-2 break-words text-[14px] font-medium text-gray-400">
@@ -809,13 +881,23 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="-mx-2 mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-1 py-1.5">
+      <ul className="-mx-2 mb-2 space-y-1.5 rounded-2xl bg-gray-50 px-1 py-1.5">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
           const done = isFlags
             ? flagsStepComplete(row?.partial)
-            : guideStepComplete(line.key, row);
+            : guideStepComplete(line.key, row, steps);
+          const resolvedDeal = resolveTalkDealType(
+            steps.dealType?.partial,
+            steps.money?.partial
+          );
+          const stepExample =
+            line.key === "money"
+              ? moneyStepExample(resolvedDeal)
+              : line.key === "dealType"
+                ? dealTypeStepExample(resolvedDeal)
+                : line.example;
           const flagsValues = isFlags
             ? formatFlagsValueLine(row?.partial ?? {})
             : "";
@@ -829,7 +911,7 @@ export function IntakeTalkModal({
           const stackContacts = line.key === "contacts";
           const stackLayout = stackValue || showFlagsProgress || stackContacts;
           const showColon =
-            !isFlags && (done || active || Boolean(line.example));
+            !isFlags && (done || active || Boolean(stepExample));
           return (
             <li
               key={line.key}
@@ -960,18 +1042,18 @@ export function IntakeTalkModal({
                         ? notesPreview
                         : composedLive.trim()
                         ? composedLive
-                        : line.example
-                          ? `예) ${line.example}`
+                        : stepExample
+                          ? `예) ${stepExample}`
                           : null}
                   </span>
-                ) : line.example ? (
+                ) : stepExample ? (
                   <span
                     className={[
                       "min-w-0 text-[14px] font-medium leading-snug text-gray-700",
                       stackContacts ? "break-words" : "truncate",
                     ].join(" ")}
                   >
-                    예) {line.example}
+                    예) {stepExample}
                   </span>
                 ) : null}
               </div>
@@ -980,6 +1062,21 @@ export function IntakeTalkModal({
           );
         })}
       </ul>
-    </Modal>
+      </Modal>
+      {open && showTalkEnded ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-8"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="absolute inset-0 bg-black/30" aria-hidden />
+          <div className="relative w-full max-w-[240px] rounded-2xl bg-white px-5 py-4 text-center shadow-xl">
+            <p className="text-[15px] font-semibold leading-snug text-gray-900">
+              {TALK_ENDED_MESSAGE}
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

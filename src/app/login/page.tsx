@@ -181,7 +181,6 @@ function LoginPageInner() {
         <div className="space-y-3 rounded-[24px] border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
           <AuthField
             label="아이디"
-            required
             value={username}
             onChange={setUsername}
             placeholder="아이디를 입력하세요"
@@ -190,7 +189,6 @@ function LoginPageInner() {
           />
           <AuthField
             label="비밀번호"
-            required
             value={password}
             onChange={setPassword}
             placeholder="비밀번호를 입력하세요"
@@ -208,41 +206,49 @@ function LoginPageInner() {
             }
           />
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 active:scale-[0.99] transition-all duration-150">
-              <input
-                type="checkbox"
-                checked={rememberId}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  setRememberId(on);
-                  setRememberedUsername(on ? username : null);
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
-              />
-              <span className="text-[13px] font-semibold text-gray-600">
-                아이디 기억하기
-              </span>
-            </label>
-            <label className="inline-flex cursor-pointer items-center gap-2 active:scale-[0.99] transition-all duration-150">
-              <input
-                type="checkbox"
-                checked={autoLogin}
-                onChange={(e) => {
-                  const on = e.target.checked;
-                  setAutoLogin(on);
-                  setAutoLoginEnabled(on);
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
-              />
-              <span className="text-[13px] font-semibold text-gray-600">
-                자동로그인
-              </span>
-            </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const on = !rememberId;
+                setRememberId(on);
+                setRememberedUsername(on ? username : null);
+              }}
+              className={[
+                "flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 text-[13px] font-bold transition-all duration-150 active:scale-[0.98]",
+                rememberId
+                  ? "border-[#3182F6] bg-[#E8F3FF] text-[#1B64DA]"
+                  : "border-gray-200 bg-white text-gray-500",
+              ].join(" ")}
+              aria-pressed={rememberId}
+            >
+              <PrefCheck on={rememberId} />
+              아이디 저장
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const on = !autoLogin;
+                setAutoLogin(on);
+                setAutoLoginEnabled(on);
+              }}
+              className={[
+                "flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 text-[13px] font-bold transition-all duration-150 active:scale-[0.98]",
+                autoLogin
+                  ? "border-[#3182F6] bg-[#E8F3FF] text-[#1B64DA]"
+                  : "border-gray-200 bg-white text-gray-500",
+              ].join(" ")}
+              aria-pressed={autoLogin}
+            >
+              <PrefCheck on={autoLogin} />
+              자동로그인
+            </button>
+          </div>
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={openFind}
-              className="ml-auto text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
+              className="text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
             >
               비밀번호 찾기
             </button>
@@ -418,6 +424,30 @@ function AuthField({
         {trailing}
       </div>
     </label>
+  );
+}
+
+function PrefCheck({ on }: { on: boolean }) {
+  return (
+    <span
+      className={[
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+        on
+          ? "border-[#3182F6] bg-[#3182F6] text-white"
+          : "border-gray-300 bg-white text-transparent",
+      ].join(" ")}
+      aria-hidden
+    >
+      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+        <path
+          d="M2.5 6.2 4.8 8.5 9.5 3.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }
 
