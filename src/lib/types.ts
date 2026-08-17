@@ -167,6 +167,8 @@ export interface Property extends SharedMeta {
   id: string;
   address: string;
   roomNo: string;
+  /** 단지·건물명 (주소 구·동과 별도) */
+  buildingName?: string;
   /** 1층(공동현관) 비밀번호 */
   floorPassword?: string;
   /** 호실 비밀번호 */
@@ -191,7 +193,8 @@ export interface Property extends SharedMeta {
   bathroomCount?: number;
   deposit: number;
   monthlyRent?: number;
-  maintenanceFee: number;
+  /** 관리비 (만원). 0도 입력값. 미입력이면 없음 */
+  maintenanceFee?: number;
   maintenanceIncludes: string[];
   parkingType?: ParkingType;
   parkingFeeType: ParkingFeeType;

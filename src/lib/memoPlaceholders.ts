@@ -24,19 +24,19 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
 export function propertyNotesPlaceholder(roomType?: RoomType | string): string {
   switch (roomType) {
     case "상가":
-      return "현업종, 권리금, 시설, 화장실 유무, 방향 등";
+      return "예) 현업종, 권리금, 시설";
     case "사무실":
-      return "층, 시설, 주차가능 대수 등";
+      return "예) 층, 시설, 주차 대수";
     case "토지":
-      return "도로접면, 건폐율, 용적률, 개발행위허가·토지거래허가구역 여부 등";
+      return "예) 도로접면, 건폐율, 용적률";
     case "건물":
-      return "위반건축물 지정 여부, 건축연도, 도로접면 등";
+      return "예) 위반건축물 여부, 건축연도";
     case "원룸":
     case "투룸":
     case "3룸+":
     case "오피스텔":
     case "아파트":
     default:
-      return "건축연도, 층, 방향, 애완동물, 특이사항 등";
+      return "예) 남향 저층";
   }
 }

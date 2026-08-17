@@ -6,11 +6,23 @@ import {
 } from "@/lib/intakeSteps";
 
 export const TALK_IDLE_MS = 10_000;
-/** 선호지역·거래가액·단일 날짜: 다음 말이 없으면 2초 여유 뒤 다음 칸 (셋 다 동일) */
+/** 선호지역·주소지·거래가액·희망일·연락처·메모: 다음 말이 없으면 2초 여유 */
 export const TALK_FIELD_HOLD_MS = 2_000;
 export const TALK_LOCATION_HOLD_MS = TALK_FIELD_HOLD_MS;
 export const TALK_MONEY_HOLD_MS = TALK_FIELD_HOLD_MS;
 export const TALK_DATES_HOLD_MS = TALK_FIELD_HOLD_MS;
+export const TALK_CONTACTS_HOLD_MS = TALK_FIELD_HOLD_MS;
+export const TALK_NOTES_HOLD_MS = TALK_FIELD_HOLD_MS;
+
+export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
+  return (
+    key === "location" ||
+    key === "money" ||
+    key === "dates" ||
+    key === "contacts" ||
+    key === "notes"
+  );
+}
 /** 대화 종료 안내를 짧게 보여 주는 시간 */
 export const TALK_ENDED_MS = 2_000;
 

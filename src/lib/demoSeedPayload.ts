@@ -119,6 +119,7 @@ function makeProperty(partial: Partial<Property> & { id: string }): Property {
     id: partial.id,
     address: partial.address ?? "",
     roomNo: partial.roomNo ?? "",
+    buildingName: partial.buildingName ?? "",
     floorPassword: partial.floorPassword ?? "",
     roomPassword: partial.roomPassword ?? "",
     arriveTime: partial.arriveTime ?? "",

@@ -9,6 +9,7 @@ import { formatSavedDate } from "@/lib/date";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatCardAddress } from "@/lib/seoulRegions";
+import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
 import { getPropertyDeadlineLabel } from "@/lib/deadline";
 import { listCardFrameClass } from "@/lib/teamAlerts";
 import type { ListedProperty } from "@/lib/types";
@@ -64,7 +65,7 @@ export function PropertyListCard({
     p.monthlyRent
   ).trim();
   const address = formatCardAddress((p.address ?? "").trim()) || "주소 미입력";
-  const room = (p.roomNo ?? "").trim();
+  const room = formatPropertyPlaceLine(p) || "";
   const contact = getPropertyListContact(p);
   const done = Boolean(p.contractCompleted);
   const sharer = teamSharerLabel(

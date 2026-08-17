@@ -48,7 +48,7 @@ export function ManAmountInput({
           type="button"
           onClick={() => setFocused(true)}
           className={[
-            "flex min-h-[42px] w-full items-center justify-center rounded-xl px-3.5 text-[16px]",
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3.5 text-[15px] font-bold",
             filledBoxClass,
             "active:scale-95 transition-all duration-150",
           ].join(" ")}

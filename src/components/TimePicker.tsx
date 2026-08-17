@@ -292,6 +292,7 @@ export function TimePicker({
     <div className="space-y-1">
       {timeFormat === "hhmm" ? (
         <div className="space-y-1">
+          <div className="flex items-baseline justify-between gap-2">
           <p
             className={[
               "text-[13px] font-semibold",
@@ -305,6 +306,12 @@ export function TimePicker({
               </span>
             )}
           </p>
+          {hint ? (
+            <p className="min-w-0 text-right text-[11px] font-medium leading-snug text-gray-400">
+              {hint}
+            </p>
+          ) : null}
+          </div>
           {invalid ? (
             <p className="text-xs font-semibold text-red-500">미입력</p>
           ) : null}

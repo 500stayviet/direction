@@ -168,6 +168,35 @@ export async function joinWorkspace(shareCode: string): Promise<
   }
 }
 
+export async function renameWorkspace(name: string): Promise<
+  { ok: true; workspace: WorkspaceInfo } | { ok: false; message: string }
+> {
+  const token = await getAccessToken();
+  if (!token) return handleAuthExpired();
+
+  try {
+    const res = await safeFetch("/api/workspace/rename", {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ name, accessToken: token }),
+    });
+    const body = await parseJson<{ workspace?: WorkspaceInfo }>(res);
+    if (!res.ok || !body.workspace) {
+      if (res.status === 401) return handleAuthExpired();
+      return {
+        ok: false,
+        message: body.message ?? "팀이름 변경에 실패했습니다.",
+      };
+    }
+    return { ok: true, workspace: body.workspace };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "팀이름 변경에 실패했습니다.",
+    };
+  }
+}
+
 export async function reissueShareCode(): Promise<
   { ok: true; workspace: WorkspaceInfo } | { ok: false; message: string }
 > {

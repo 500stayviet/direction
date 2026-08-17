@@ -325,6 +325,16 @@ describe("parseIntakeText", () => {
     const hoNotJibun = parseIntakeText("성내동 302호 원룸 전세", "property");
     assert.equal(hoNotJibun.jibun, undefined);
     assert.equal(hoNotJibun.roomNo, "302호");
+    const dongHo = parseIntakeText(
+      "성내동 111-1 힐스테이트 101동 102호 원룸 전세",
+      "property"
+    );
+    assert.equal(dongHo.jibun, "111-1");
+    assert.equal(dongHo.buildingName, "힐스테이트");
+    assert.equal(dongHo.roomNo, "101동 102호");
+    const applied = applyIntakeToProperty(createEmptyProperty(), dongHo);
+    assert.equal(applied.roomNo, "101동 102호");
+    assert.equal(applied.buildingName, "힐스테이트");
     const roadNotJibun = parseIntakeText(
       "성내동 올림픽로 123 원룸 전세",
       "property"
@@ -1186,6 +1196,7 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.dong, "천호동");
     assert.equal(parsed.jibun, "314-7");
     assert.equal(parsed.roomNo, "403호");
+    assert.equal(parsed.buildingName, "제이디파크빌");
     assert.equal(parsed.roomCount, 2);
     assert.equal(parsed.dealType, "매매");
     assert.equal(parsed.deposit, 32000);

@@ -25,6 +25,7 @@ interface DateRangePickerProps {
   /** true면 종료일 없이도 완료 가능 */
   optionalTo?: boolean;
   invalid?: boolean;
+  placeholder?: string;
 }
 
 type Step = "from" | "to";
@@ -38,6 +39,7 @@ export function DateRangePicker({
   minDate = todayISO(),
   optionalTo = false,
   invalid,
+  placeholder = "날짜 선택",
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("from");
@@ -167,7 +169,7 @@ export function DateRangePicker({
         ].join(" ")}
       >
         <span className="text-center leading-snug">
-          {summary || "날짜 선택"}
+          {summary || placeholder}
         </span>
       </button>
 

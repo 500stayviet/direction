@@ -25,8 +25,10 @@ import {
   fetchWorkspaceStatus,
   joinWorkspace,
   reissueShareCode,
+  renameWorkspace,
   type WorkspaceInfo,
 } from "@/lib/workspace";
+import { WORKSPACE_NAME_MAX, normalizeWorkspaceName } from "@/lib/workspaceName";
 import type { User } from "@/lib/types";
 import { planDisplayForUser } from "@/lib/planDisplay";
 import { PlanBadge } from "@/components/PlanBadge";
@@ -51,6 +53,9 @@ export default function AccountPage() {
     null
   );
   const [membersOpen, setMembersOpen] = useState(false);
+  const [nameOpen, setNameOpen] = useState<"set" | "edit" | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState("");
   /** 이 방문에서 유효 코드를 본 뒤에만 만료 빨간 UI 표시 (재진입 시 초기화) */
   const sawValidCodeThisVisit = useRef(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -193,6 +198,9 @@ export default function AccountPage() {
       }
       setWorkspace(result.workspace);
       setCodeConsent(null);
+      setNameDraft(result.workspace.workspaceName || "");
+      setNameError("");
+      setNameOpen("set");
       setWsMessage(
         "공유 코드가 발급되었습니다. 동료가 참여하면 팀이 됩니다. 코드는 약 5분간 유효합니다."
       );
@@ -242,6 +250,40 @@ export default function AccountPage() {
     }
     if (codeConsent === "reissue") {
       void handleReissue();
+    }
+  };
+
+  const closeNameModal = () => {
+    if (wsBusy) return;
+    setNameOpen(null);
+    setNameError("");
+  };
+
+  const openNameEdit = () => {
+    setNameDraft(workspace?.workspaceName ?? "");
+    setNameError("");
+    setNameOpen("edit");
+  };
+
+  const handleRename = async () => {
+    const name = normalizeWorkspaceName(nameDraft);
+    if (!name) {
+      setNameError("팀이름을 입력해 주세요.");
+      return;
+    }
+    setNameError("");
+    setWsBusy(true);
+    try {
+      const result = await renameWorkspace(name);
+      if (!result.ok) {
+        setNameError(result.message);
+        return;
+      }
+      setWorkspace(result.workspace);
+      setNameOpen(null);
+      setWsMessage("팀이름을 저장했습니다.");
+    } finally {
+      setWsBusy(false);
     }
   };
 
@@ -335,19 +377,27 @@ export default function AccountPage() {
 
           {workspace ? (
             <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-2.5 py-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] text-gray-400">팀이름</p>
+                  <p className="truncate text-[14px] font-bold text-gray-900">
+                    {workspace.workspaceName || "미설정"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openNameEdit}
+                  className="shrink-0 text-[13px] font-semibold text-[#3182F6] active:opacity-70"
+                >
+                  수정
+                </button>
+              </div>
               {showTeammateList ? (
                 <div className="rounded-lg bg-gray-50 px-2.5 py-2">
-                  <p className="text-[11px] text-gray-400">공유 공간</p>
-                  <p className="text-[14px] font-bold text-gray-900">
-                    {workspace.workspaceName || "팀 공간"}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    {workspace.role === "owner" ? "생성자" : "멤버"}
-                  </p>
                   <button
                     type="button"
                     onClick={() => setMembersOpen((v) => !v)}
-                    className="mt-1.5 flex w-full items-center justify-between rounded-md bg-white px-2 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
+                    className="flex w-full items-center justify-between rounded-md bg-white px-2 py-1.5 text-left active:scale-[0.99] transition-all duration-150"
                   >
                     <span className="text-[12px] font-bold text-gray-800">
                       공유중인 팀원 · {teammateCount}명
@@ -602,6 +652,43 @@ export default function AccountPage() {
                 ? "동의하고 재발급"
                 : "동의하고 생성"}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={nameOpen !== null}
+        onClose={closeNameModal}
+        title="팀이름"
+        description="동료가 볼 팀 이름입니다. 다른 팀과 같아도 됩니다."
+        position="center"
+      >
+        <div className="space-y-3">
+          <Input
+            label="팀이름"
+            value={nameDraft}
+            onChange={(e) => {
+              setNameDraft(e.target.value.slice(0, WORKSPACE_NAME_MAX));
+              if (nameError) setNameError("");
+            }}
+            placeholder="예) 성내팀"
+            autoComplete="off"
+            hint={`${nameDraft.trim().length}/${WORKSPACE_NAME_MAX}`}
+          />
+          {nameError ? (
+            <p className="text-[13px] font-semibold text-red-500">{nameError}</p>
+          ) : null}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              disabled={wsBusy}
+              onClick={closeNameModal}
+            >
+              {nameOpen === "set" ? "나중에" : "취소"}
+            </Button>
+            <Button disabled={wsBusy} onClick={() => void handleRename()}>
+              {wsBusy ? "저장 중…" : nameOpen === "set" ? "설정" : "저장"}
+            </Button>
+          </div>
         </div>
       </Modal>
 

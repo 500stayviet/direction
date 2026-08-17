@@ -45,7 +45,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
   property: [
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
-    { key: "location", name: "주소", example: "강동구 oo동, 101동 102호" },
+    { key: "location", name: "주소지", example: "강동구 성내동 111-1 힐스테이트 101동 102호" },
     { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
     {
       key: "dates",
@@ -142,8 +142,8 @@ function priorContext(
   const bits: string[] = [];
   if (prior.roomType) bits.push(prior.roomType);
   if (prior.dealType) bits.push(prior.dealType);
-  if (prior.dong) bits.push(prior.dong);
   if (prior.gu && kind === "property") bits.push(prior.gu);
+  if (prior.dong) bits.push(prior.dong);
   return bits.join(" ");
 }
 
@@ -425,6 +425,8 @@ function locationConsumedEnd(
     if (idx >= 0) end = Math.max(end, idx + token.length);
   };
   bump(partial.roomNo);
+  if (partial.roomNo) bump(partial.roomNo.replace(/\s+/g, ""));
+  bump(partial.buildingName);
   bump(partial.jibun);
   bump(partial.dong);
   if (kind === "property") bump(partial.gu);
@@ -466,13 +468,15 @@ function datesConsumedEnd(text: string): number {
 }
 
 const NEXT_AFTER_LOCATION =
-  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|\d)/;
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+))/;
 
 const NEXT_AFTER_MONEY =
   /^(?:바로\s*입주|즉시\s*입주|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
 
 const NEXT_AFTER_DATES =
   /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+
+const NEXT_AFTER_CONTACTS = /^(?:메모|내용)/;
 
 function customerPlacesFromPartial(
   partial: Partial<IntakeParseResult> | undefined
@@ -561,13 +565,23 @@ function mergeTalkDates(
   return { moveInFrom: newFrom, moveInTo: newTo };
 }
 
-/** 고객 선호지역: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다 */
+/** 고객 선호지역: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다.
+ *  매물 주소지: 구·동·지번을 이어서 말할 수 있게, 다음 칸 말이 없으면 머문다. */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): boolean {
-  if (kind !== "customer") return true;
+  if (kind === "property") {
+    if (!(partial.dong || partial.jibun || partial.roomNo || partial.buildingName)) {
+      return false;
+    }
+    const normalized = normalizeIntakeInput(text, "spoken");
+    const end = locationConsumedEnd(normalized, partial, kind);
+    const rest = (end > 0 ? normalized.slice(end) : "").trim();
+    if (!rest) return false;
+    return NEXT_AFTER_LOCATION.test(rest);
+  }
   const dongs = customerLocationDongCount(partial);
   if (dongs < 1) return false;
   const normalized = normalizeIntakeInput(text, "spoken");
@@ -600,34 +614,48 @@ export function moneyStepReadyToAdvance(
   return NEXT_AFTER_MONEY.test(rest);
 }
 
-/** 기간(두 날)이거나 바로입주면 바로 넘기고, 단일만 있으면 다음 말/2초를 기다린다 */
+/** 날짜가 채워져도 다음 칸 말이 없으면 2초를 기다린다 */
 export function datesStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>
 ): boolean {
-  if (partial.moveInImmediate) return true;
-  if (!partial.moveInFrom) return false;
-  const from = partial.moveInFrom;
-  const to = partial.moveInTo || from;
-  if (from !== to) return true;
+  if (!partial.moveInFrom && !partial.moveInImmediate) return false;
 
   const normalized = normalizeIntakeInput(text, "spoken");
   const end = datesConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
+  if (partial.moveInImmediate) {
+    return Boolean(rest) && NEXT_AFTER_DATES.test(rest);
+  }
   if (dateRangeLinkTail(normalized)) return false;
   if (hasDateRangeWord(normalized) && !NEXT_AFTER_DATES.test(rest)) return false;
   if (!rest) return false;
   return true;
 }
 
-/** 단일 날짜만 채워졌을 때 2초 홀드 (기간·바로입주는 해당 없음) */
+/** 임대·입주희망일이 있으면 2초 홀드 (다음 칸 말이 없을 때) */
 export function datesStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined
 ): boolean {
-  if (!partial?.moveInFrom || partial.moveInImmediate) return false;
-  const from = partial.moveInFrom;
-  const to = partial.moveInTo || from;
-  return from === to;
+  if (!partial) return false;
+  return Boolean(partial.moveInFrom || partial.moveInImmediate);
+}
+
+export function contactsStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>
+): boolean {
+  if (!partial.tenantPhone && !partial.landlordPhone && !partial.phone) {
+    return false;
+  }
+  const remainder = extractTalkStepRemainder(
+    text,
+    "contacts",
+    partial,
+    "property"
+  );
+  if (!remainder) return false;
+  return NEXT_AFTER_CONTACTS.test(remainder);
 }
 
 /** 한 발화에서 현재 단계를 채운 뒤, 남은 글을 다음 단계 입력으로 넘긴다 */
@@ -736,13 +764,15 @@ export function parseIntakeStepChain(
     const mergedPrior =
       key === "flags" && steps.flags
         ? { ...prior, ...steps.flags }
-        : key === "location" && kind === "customer" && steps.location
+        : key === "location" && steps.location
           ? { ...prior, ...steps.location }
           : key === "dates" && steps.dates
             ? { ...prior, ...steps.dates }
             : key === "money" && steps.money
               ? { ...prior, ...steps.money }
-              : prior;
+              : key === "contacts" && steps.contacts
+                ? { ...prior, ...steps.contacts }
+                : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) break;
 
@@ -768,6 +798,12 @@ export function parseIntakeStepChain(
         parsed.partial,
         prior.dealType ?? steps.dealType?.dealType ?? parsed.partial.dealType
       )
+    ) {
+      break;
+    }
+    if (
+      key === "contacts" &&
+      !contactsStepReadyToAdvance(text, parsed.partial)
     ) {
       break;
     }
@@ -895,16 +931,21 @@ export function parseIntakeStep(
     const hasCustomerLoc =
       kind === "customer" && (mergedPlaces?.places.length ?? 0) > 0;
     const hasPropertyLoc =
-      kind === "property" && (parsed.dong || parsed.jibun || parsed.roomNo);
+      kind === "property" &&
+      (parsed.dong ||
+        parsed.jibun ||
+        parsed.roomNo ||
+        parsed.buildingName);
     if (!hasCustomerLoc && !hasPropertyLoc) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
-      gu: mergedPlaces?.gu ?? parsed.gu,
-      dong: mergedPlaces?.dong ?? parsed.dong,
-      jibun: parsed.jibun,
+      gu: mergedPlaces?.gu ?? parsed.gu ?? prior?.gu,
+      dong: mergedPlaces?.dong ?? parsed.dong ?? prior?.dong,
+      jibun: parsed.jibun ?? prior?.jibun,
       places: mergedPlaces?.places ?? parsed.places,
-      roomNo: parsed.roomNo,
+      buildingName: parsed.buildingName ?? prior?.buildingName,
+      roomNo: parsed.roomNo ?? prior?.roomNo,
       options: [],
     };
     return {
@@ -964,9 +1005,9 @@ export function parseIntakeStep(
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
-      phone: parsed.phone,
-      tenantPhone: parsed.tenantPhone,
-      landlordPhone: parsed.landlordPhone,
+      phone: parsed.phone ?? prior?.phone,
+      tenantPhone: parsed.tenantPhone ?? prior?.tenantPhone,
+      landlordPhone: parsed.landlordPhone ?? prior?.landlordPhone,
       options: [],
     };
     return {
@@ -1007,6 +1048,7 @@ function mergePartial(
   if (partial.dong) target.dong = partial.dong;
   if (partial.jibun) target.jibun = partial.jibun;
   if (partial.places?.length) target.places = partial.places;
+  if (partial.buildingName) target.buildingName = partial.buildingName;
   if (partial.roomNo) target.roomNo = partial.roomNo;
   if (partial.moveInFrom) {
     target.moveInFrom = partial.moveInFrom;

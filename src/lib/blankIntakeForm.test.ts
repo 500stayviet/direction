@@ -5,9 +5,15 @@ import {
   buildPropertyBlankFormText,
   MESSAGE_INTAKE_MAX_LENGTH,
   preprocessCustomerBlankForm,
+  preprocessPropertyBlankForm,
 } from "./blankIntakeForm.ts";
 import { buildAgentShareFooterLines } from "./shareAgentFooter.ts";
-import { parseIntakeText, intakePreferredLocation } from "./intakeParse.ts";
+import {
+  applyIntakeToProperty,
+  parseIntakeText,
+  intakePreferredLocation,
+} from "./intakeParse.ts";
+import { createEmptyProperty } from "./constants.ts";
 import { intakeAiLeftover, leftoverNeedsAi } from "./intakeAi.ts";
 
 describe("blankIntakeForm", () => {
@@ -47,7 +53,23 @@ describe("blankIntakeForm", () => {
     ]);
     const text = buildPropertyBlankFormText(null);
     assert.match(text, /^매물등록 양식/);
-    assert.match(text, /매물 주소 \(구·동\)\n:\n/);
+    assert.match(
+      text,
+      /임대인 번호[\s\S]*거래종류 \(예: 매매, 전세, 월세\)\n:\n[\s\S]*거래가액 \(예: 보증금 10000 \/ 월세 50, 또는 매매 1억\)\n:\n[\s\S]*매물 유형 \(예: 원룸, 오피스텔\)\n:\n/
+    );
+    assert.match(text, /매물 유형 \(예: 원룸, 오피스텔\)\n:\n/);
+    assert.match(text, /임대희망일 \(예: 8월 21일 ~ 10월 22일\)\n:\n/);
+    assert.match(text, /매물 주소 \(예: 강동구 성내동\)\n:\n/);
+    assert.match(text, /지번 \(예: 111-1\)\n:\n/);
+    assert.match(text, /나머지 주소 \(예: 힐스테이트 101동 102호\)\n:\n/);
+    assert.match(
+      text,
+      /매물 주소 \(예: 강동구 성내동\)[\s\S]*지번 \(예: 111-1\)[\s\S]*나머지 주소 \(예: 힐스테이트 101동 102호\)/
+    );
+    assert.doesNotMatch(text, /매물 주소 지번|지번 본번|지번 부번/);
+    assert.doesNotMatch(text, /상호명|협력부동산|건물 종류|관리비|비밀번호/);
+    assert.match(text, /옵션 \(예: 에어컨\)\n:\n/);
+    assert.match(text, /옵션 \(예: 에어컨\)[\s\S]*대출 \(예: 유 \/ 무\)/);
     assert.match(text, /\n부동산\n담당\n전화번호\n-제공-\n앱 현장동선$/);
   });
 
@@ -474,5 +496,331 @@ describe("blankIntakeForm", () => {
     const leftover = intakeAiLeftover(pre!, parsed, "message");
     assert.doesNotMatch(leftover, /강동9|천호동|고덕동|강동구/);
     assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+});
+
+describe("property blank form preprocess", () => {
+  it("빈 양식은 예시·푸터를 버리고 빈 메시지로 만든다", () => {
+    const blank = buildPropertyBlankFormText({
+      shopName: "봄날",
+      name: "하지영",
+      phone: "01011111111",
+    });
+    const pre = preprocessPropertyBlankForm(blank);
+    assert.equal(pre, "");
+    const parsed = parseIntakeText(pre ?? "", "property");
+    assert.equal(parsed.tenantPhone, undefined);
+    assert.equal(parsed.landlordPhone, undefined);
+    assert.equal(parsed.deposit, undefined);
+    assert.equal(parsed.jibun, undefined);
+  });
+
+  it("채운 양식은 기존 파서가 읽는 메시지로 바뀐다", () => {
+    const filled = `매물등록 양식
+
+임차인 번호 (예: 010-1234-5678)
+: 010-1111-2222
+
+임대인 번호 (예: 010-9876-5432)
+: 010-3333-4444
+
+매물 유형 (예: 원룸, 오피스텔)
+: 원룸
+
+방 수 (예: 2개)
+: 1개
+
+화장실 수 (예: 1개)
+: 1개
+
+거래종류 (예: 매매, 전세, 월세)
+: 월세
+
+거래가액 (예: 보증금 10000 / 월세 50, 또는 매매 1억)
+: 보증금 10000 / 월세 50
+
+임대희망일 (예: 8월 21일 ~ 10월 22일)
+: 8월 21일 ~ 10월 22일
+
+매물 주소 (예: 강동구 성내동)
+: 강동구 성내동
+
+지번 (예: 111-1)
+: 111-1
+
+나머지 주소 (예: 힐스테이트 101동 102호)
+: 힐스테이트 101동 102호
+
+옵션 (예: 에어컨)
+: 에어컨 냉장고
+
+대출 (예: 유 / 무)
+: 유
+
+전세보증보험 (예: 유 / 무)
+: 무
+
+주차 (예: 유 / 무)
+: 유
+
+엘리베이터 (예: 유 / 무)
+: 유
+
+메모 (예: 남향 저층)
+: 남향 저층
+
+────────────
+봄날 공인중개사사무소
+담당 하지영
+010-1111-1111
+-제공-
+앱 현장동선`;
+
+    const pre = preprocessPropertyBlankForm(filled);
+    assert.ok(pre);
+    assert.doesNotMatch(pre!, /010-1234-5678|010-9876-5432|010-1111-1111|예:/);
+    assert.match(pre!, /세\s*010-1111-2222/);
+    assert.match(pre!, /임\s*010-3333-4444/);
+    assert.match(pre!, /성내동 111-1 힐스테이트 101동 102호/);
+    assert.match(pre!, /에어컨 냉장고/);
+    assert.match(pre!, /메모:\s*남향 저층/);
+
+    const parsed = parseIntakeText(pre!, "property");
+    assert.equal(parsed.tenantPhone, "010-1111-2222");
+    assert.equal(parsed.landlordPhone, "010-3333-4444");
+    assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 10000);
+    assert.equal(parsed.monthlyRent, 50);
+    assert.equal(parsed.gu, "강동구");
+    assert.equal(parsed.dong, "성내동");
+    assert.equal(parsed.jibun, "111-1");
+    assert.equal(parsed.buildingName, "힐스테이트");
+    assert.equal(parsed.roomNo, "101동 102호");
+    assert.deepEqual(parsed.options, ["에어컨", "냉장고"]);
+    assert.equal(parsed.loan, "유");
+    assert.equal(parsed.insurance, "무");
+    assert.equal(parsed.parking, "유");
+    assert.equal(parsed.elevator, "유");
+    assert.match(parsed.notes, /남향 저층/);
+    assert.equal(parsed.roomCount, 1);
+    assert.equal(parsed.bathroomCount, 1);
+    assert.ok(parsed.moveInFrom);
+    assert.ok(parsed.moveInTo);
+
+    const next = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(next.tenantPhone, "010-1111-2222");
+    assert.equal(next.landlordPhone, "010-3333-4444");
+    assert.match(next.address, /강동구/);
+    assert.match(next.address, /성내동/);
+    assert.match(next.address, /111-1/);
+    assert.equal(next.buildingName, "힐스테이트");
+    assert.equal(next.roomNo, "101동 102호");
+    assert.deepEqual(next.options, ["에어컨", "냉장고"]);
+    assert.equal(next.notes, "남향 저층");
+    assert.doesNotMatch(next.notes, /힐스테이트/);
+
+    const leftover = intakeAiLeftover(pre!, parsed, "message");
+    assert.doesNotMatch(
+      leftover,
+      /성내동|111-1|힐스테이트|에어컨|냉장고|임대인|임차인/
+    );
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
+  it("원룸 양식의 방·화는 버리고 푸터 전화는 임차인으로 넣지 않는다", () => {
+    const filled = `매물등록 양식
+임차인 번호
+: 010-2222-3333
+매물 유형
+: 원룸
+방 수
+: 3개
+화장실 수
+: 2개
+거래종류
+: 월세
+거래가액
+: 보증금 1000 / 월세 50
+매물 주소
+: 성내동
+지번
+: 123-4
+────────────
+봄날 공인중개사사무소
+담당 하지영
+010-1111-1111
+-제공-
+앱 현장동선`;
+    const pre = preprocessPropertyBlankForm(filled);
+    assert.ok(pre);
+    assert.doesNotMatch(pre!, /방\s*3|화장실\s*2|010-1111-1111/);
+    const parsed = parseIntakeText(pre!, "property");
+    assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.roomCount, 1);
+    assert.equal(parsed.bathroomCount, 1);
+    assert.equal(parsed.tenantPhone, "010-2222-3333");
+    assert.notEqual(parsed.tenantPhone, "010-1111-1111");
+    assert.equal(parsed.landlordPhone, undefined);
+  });
+
+  it("거래가액 칸의 월세 2000/65는 보증 2000 / 월 65다", () => {
+    const filled = `매물등록 양식
+매물 유형
+: 원룸
+거래종류
+: 월세
+거래가액
+: 월세 2000/65
+매물 주소
+: 강동구 천호동
+────────────
+-제공-
+앱 현장동선`;
+    const pre = preprocessPropertyBlankForm(filled);
+    assert.ok(pre);
+    assert.match(pre!, /^2000\/65$/m);
+    const parsed = parseIntakeText(pre!, "property");
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 2000);
+    assert.equal(parsed.monthlyRent, 65);
+  });
+
+  it("메모의 다음 줄도 붙인다", () => {
+    const filled = `매물등록 양식
+매물 유형
+: 원룸
+거래종류
+: 월세
+거래가액
+: 보증금 1000 / 월세 50
+매물 주소
+: 성내동
+메모 (예: 남향 저층)
+: 남향 저층
+저녁시간 방문불가
+────────────
+-제공-
+앱 현장동선`;
+    const pre = preprocessPropertyBlankForm(filled);
+    assert.ok(pre);
+    assert.match(pre!, /메모:\s*남향 저층 저녁시간 방문불가/);
+    const parsed = parseIntakeText(pre!, "property");
+    assert.match(parsed.notes, /남향 저층/);
+    assert.match(parsed.notes, /저녁시간 방문불가/);
+  });
+
+  it("띄어쓰기가 줄어도 라벨을 읽는다", () => {
+    const tight = `매물등록 양식
+임차인번호
+:01022223333
+임대인번호
+:01098765432
+매물유형
+:투룸
+방수
+:2개
+화장실수
+:1개
+거래종류
+:월세
+거래가액
+:보증금2000
+매물주소
+:강동구성내동
+지번
+:111-1
+나머지주소
+:힐스테이트101동102호
+옵션
+:에어컨`;
+    const pre = preprocessPropertyBlankForm(tight);
+    assert.ok(pre);
+    const parsed = parseIntakeText(pre!, "property");
+    assert.equal(parsed.tenantPhone, "010-2222-3333");
+    assert.equal(parsed.landlordPhone, "010-9876-5432");
+    assert.equal(parsed.roomType, "투룸");
+    assert.equal(parsed.deposit, 2000);
+    assert.equal(parsed.dong, "성내동");
+    assert.equal(parsed.jibun, "111-1");
+    assert.equal(parsed.buildingName, "힐스테이트");
+    assert.equal(parsed.roomNo, "101동 102호");
+    assert.deepEqual(parsed.options, ["에어컨"]);
+  });
+
+  it("사진처럼 줄이 붙은 양식은 원문을 비우지 않는다", () => {
+    const ocr =
+      "매물등록 양식 원룸 월세 보증금 10000 월세 50 강동구 성내동 111-1 힐스테이트 101동 102호 임차인 010-1111-2222 임대인 010-3333-4444 에어컨 남향 저층";
+    const pre = preprocessPropertyBlankForm(ocr);
+    assert.equal(pre, null);
+    const parsed = parseIntakeText(ocr, "property");
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.dong, "성내동");
+    assert.equal(parsed.jibun, "111-1");
+    assert.equal(parsed.tenantPhone, "010-1111-2222");
+    assert.equal(parsed.landlordPhone, "010-3333-4444");
+  });
+
+  it("카톡처럼 같은 줄·푸터가 붙어도 칸에 넣는다", () => {
+    const kakao = `매물등록 양식
+
+임차인 번호 (예: 010-1234-5678) : 010-1111-2222
+
+임대인 번호 (예: 010-9876-5432) : 010-3333-4444
+
+매물 유형 (예: 원룸, 오피스텔) : 투룸
+
+방 수 (예: 2개) : 2개
+
+화장실 수 (예: 1개) : 1개
+
+거래종류 (예: 매매, 전세, 월세) : 월세
+
+거래가액 (예: 보증금 10000 / 월세 50, 또는 매매 1억) : 보증금 10000 / 월세 50
+
+임대희망일 (예: 8월 21일 ~ 10월 22일) : 8월 21일 ~ 10월 22일
+
+매물 주소 (예: 강동구 성내동) : 강동구 성내동
+
+지번 (예: 111-1) : 111-1
+
+나머지 주소 (예: 힐스테이트 101동 102호) : 힐스테이트 101동 102호
+
+옵션 (예: 에어컨) : 에어컨 냉장고
+
+대출 (예: 유 / 무) : 유
+
+전세보증보험 (예: 유 / 무) : 무
+
+주차 (예: 유 / 무) : 유
+
+엘리베이터 (예: 유 / 무) : 유
+
+메모 (예: 남향 저층) : 남향 저층
+
+──────────── 봄날 공인중개사사무소 담당 하지영 010-1111-1111 -제공- 앱 현장동선`;
+
+    const pre = preprocessPropertyBlankForm(kakao);
+    assert.ok(pre);
+    assert.doesNotMatch(pre!, /010-1234-5678|010-9876-5432|010-1111-1111|예:/);
+    const parsed = parseIntakeText(pre!, "property");
+    assert.equal(parsed.tenantPhone, "010-1111-2222");
+    assert.equal(parsed.landlordPhone, "010-3333-4444");
+    assert.equal(parsed.roomType, "투룸");
+    assert.equal(parsed.roomCount, 2);
+    assert.equal(parsed.bathroomCount, 1);
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 10000);
+    assert.equal(parsed.monthlyRent, 50);
+    assert.equal(parsed.dong, "성내동");
+    assert.equal(parsed.jibun, "111-1");
+    assert.equal(parsed.buildingName, "힐스테이트");
+    assert.equal(parsed.roomNo, "101동 102호");
+    assert.deepEqual(parsed.options, ["에어컨", "냉장고"]);
+    assert.equal(parsed.loan, "유");
+    assert.match(parsed.notes, /남향 저층/);
+    assert.doesNotMatch(parsed.notes, /010-1111-1111|예:|오피스텔/);
+    const applied = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(applied.notes, "남향 저층");
   });
 });

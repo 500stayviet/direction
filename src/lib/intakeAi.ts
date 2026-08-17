@@ -173,8 +173,12 @@ function stripUsedFieldPhrases(
     parsed.gu,
     parsed.dong,
     parsed.jibun,
+    parsed.buildingName,
     parsed.roomNo,
     parsed.roomType,
+    ...(parsed.options ?? []),
+    ...(parsed.tenantPhone ? ["임차인", "세입자"] : []),
+    ...(parsed.landlordPhone ? ["임대인", "주인"] : []),
     ...(parsed.places ?? []).flatMap((p) => [p.gu, p.dong]),
     ...usedPlaceTokens(parsed),
   ].filter((v): v is string => Boolean(v && v.trim()));
@@ -213,6 +217,7 @@ export function listEmptyIntakeAiFields(parsed: IntakeParseResult): string[] {
   if (!parsed.dong?.trim()) empty.push("dong");
   if (!parsed.jibun?.trim()) empty.push("jibun");
   if (!parsed.roomNo?.trim()) empty.push("roomNo");
+  if (!parsed.buildingName?.trim()) empty.push("buildingName");
   if (!parsed.dealType) empty.push("dealType");
   if (!parsed.deposit || parsed.deposit <= 0) empty.push("deposit");
   if (
@@ -225,7 +230,7 @@ export function listEmptyIntakeAiFields(parsed: IntakeParseResult): string[] {
   if (!parsed.moveInFrom && !parsed.moveInImmediate) {
     empty.push("moveInFrom", "moveInTo", "moveInImmediate");
   }
-  empty.push("buildingName", "memo");
+  empty.push("memo");
   return empty;
 }
 

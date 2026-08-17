@@ -16,6 +16,7 @@ import {
   inferDealTypeFromMoney,
   resolveTalkDealType,
   datesStepNeedsHold,
+  locationStepReadyToAdvance,
 } from "./intakeSteps.ts";
 
 describe("intakeSteps", () => {
@@ -467,7 +468,7 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.ok(range.nextIndex > datesIndex);
+    assert.equal(range.nextIndex, datesIndex);
     assert.equal(range.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(range.commits[0]?.partial.moveInTo, "2026-10-01");
 
@@ -477,7 +478,7 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.ok(eseoKkaji.nextIndex > datesIndex);
+    assert.equal(eseoKkaji.nextIndex, datesIndex);
     assert.equal(eseoKkaji.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(eseoKkaji.commits[0]?.partial.moveInTo, "2026-10-01");
 
@@ -487,7 +488,7 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.ok(bareRange.nextIndex > datesIndex);
+    assert.equal(bareRange.nextIndex, datesIndex);
     assert.equal(bareRange.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(bareRange.commits[0]?.partial.moveInTo, "2026-10-01");
 
@@ -497,7 +498,7 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.ok(spokenRange.nextIndex > datesIndex);
+    assert.equal(spokenRange.nextIndex, datesIndex);
     assert.equal(spokenRange.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(spokenRange.commits[0]?.partial.moveInTo, "2026-10-01");
 
@@ -515,7 +516,7 @@ describe("intakeSteps", () => {
       "property",
       { dates: lone.commits[0]!.partial }
     );
-    assert.ok(secondDay.nextIndex > datesIndex);
+    assert.equal(secondDay.nextIndex, datesIndex);
     assert.equal(secondDay.commits[0]?.partial.moveInFrom, "2026-09-15");
     assert.equal(secondDay.commits[0]?.partial.moveInTo, "2026-10-01");
 
@@ -529,7 +530,7 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       datesStepNeedsHold(bareRange.commits[0]?.partial),
-      false
+      true
     );
   });
 
@@ -595,5 +596,136 @@ describe("intakeSteps", () => {
     );
     assert.equal(secondDong.nextIndex, locationIndex);
     assert.equal(secondDong.commits[0]?.partial.places?.length, 2);
+  });
+
+  it("매물 주소지는 지번을 이어서 받을 수 있게 다음 칸으로 바로 넘기지 않는다", () => {
+    const locLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "location");
+    assert.equal(locLine?.name, "주소지");
+    assert.equal(locLine?.example, "강동구 성내동 111-1 힐스테이트 101동 102호");
+
+    const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "location"
+    );
+
+    const dongOnly = parseIntakeStepChain(
+      "강동구 성내동",
+      locationIndex,
+      "property",
+      {}
+    );
+    assert.equal(dongOnly.commits[0]?.key, "location");
+    assert.equal(dongOnly.nextIndex, locationIndex);
+    assert.equal(
+      locationStepReadyToAdvance(
+        "강동구 성내동",
+        dongOnly.commits[0]!.partial,
+        "property"
+      ),
+      false
+    );
+
+    const withJibun = parseIntakeStepChain(
+      "강동구 성내동 111-1",
+      locationIndex,
+      "property",
+      {}
+    );
+    assert.equal(withJibun.nextIndex, locationIndex);
+    assert.equal(withJibun.commits[0]?.partial.dong, "성내동");
+    assert.equal(withJibun.commits[0]?.partial.jibun, "111-1");
+
+    const addedJibun = parseIntakeStepChain(
+      "111-1",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(addedJibun.nextIndex, locationIndex);
+    assert.equal(addedJibun.commits[0]?.partial.dong, "성내동");
+    assert.equal(addedJibun.commits[0]?.partial.jibun, "111-1");
+
+    const withMoney = parseIntakeStepChain(
+      "강동구 성내동 111-1 1억",
+      locationIndex,
+      "property",
+      {}
+    );
+    assert.ok(withMoney.commits.some((row) => row.key === "money"));
+  });
+
+  it("매물 주소지는 건물명·동호수·호수만도 받는다", () => {
+    const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "location"
+    );
+
+    const full = parseIntakeStepChain(
+      "강동구 성내동 111-1 힐스테이트 101동 102호",
+      locationIndex,
+      "property",
+      {}
+    );
+    assert.equal(full.nextIndex, locationIndex);
+    assert.equal(full.commits[0]?.partial.jibun, "111-1");
+    assert.equal(full.commits[0]?.partial.buildingName, "힐스테이트");
+    assert.equal(full.commits[0]?.partial.roomNo, "101동 102호");
+    assert.match(full.commits[0]?.display ?? "", /힐스테이트/);
+    assert.match(full.commits[0]?.display ?? "", /101동 102호/);
+
+    const hoOnly = parseIntakeStep("302호", "location", "property");
+    assert.equal(hoOnly.ok, true);
+    assert.equal(hoOnly.partial.roomNo, "302호");
+
+    const afterJibun = parseIntakeStepChain(
+      "힐스테이트 101동 102호",
+      locationIndex,
+      "property",
+      {
+        location: {
+          gu: "강동구",
+          dong: "성내동",
+          jibun: "111-1",
+          options: [],
+        },
+      }
+    );
+    assert.equal(afterJibun.nextIndex, locationIndex);
+    assert.equal(afterJibun.commits[0]?.partial.buildingName, "힐스테이트");
+    assert.equal(afterJibun.commits[0]?.partial.roomNo, "101동 102호");
+    assert.equal(afterJibun.commits[0]?.partial.jibun, "111-1");
+
+    const hoAfterDong = parseIntakeStepChain(
+      "302호",
+      locationIndex,
+      "property",
+      { location: { gu: "강동구", dong: "성내동", options: [] } }
+    );
+    assert.equal(hoAfterDong.nextIndex, locationIndex);
+    assert.equal(hoAfterDong.commits[0]?.partial.roomNo, "302호");
+    assert.equal(hoAfterDong.commits[0]?.partial.dong, "성내동");
+  });
+
+  it("임차인·임대인 전화는 한 번호만 있어도 다음 칸으로 바로 넘기지 않는다", () => {
+    const contactsIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "contacts"
+    );
+    const tenantOnly = parseIntakeStepChain(
+      "임차인 010-1234-5678",
+      contactsIndex,
+      "property",
+      {}
+    );
+    assert.equal(tenantOnly.commits[0]?.key, "contacts");
+    assert.equal(tenantOnly.nextIndex, contactsIndex);
+    assert.equal(tenantOnly.commits[0]?.partial.tenantPhone, "010-1234-5678");
+
+    const both = parseIntakeStepChain(
+      "임대인 010-9876-5432",
+      contactsIndex,
+      "property",
+      { contacts: tenantOnly.commits[0]!.partial }
+    );
+    assert.equal(both.nextIndex, contactsIndex);
+    assert.equal(both.commits[0]?.partial.tenantPhone, "010-1234-5678");
+    assert.equal(both.commits[0]?.partial.landlordPhone, "010-9876-5432");
   });
 });

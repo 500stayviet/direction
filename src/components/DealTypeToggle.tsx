@@ -17,6 +17,8 @@ interface DealTypeToggleProps {
   onChange: (value: DealType | "") => void;
   invalid?: boolean;
   /** 표시할 거래 유형. 기본 매매·전세·월세 */
+  /** 라벨 옆 예) 안내 */
+  hint?: string;
   types?: readonly DealType[];
   filled?: boolean;
 }
@@ -29,6 +31,7 @@ export function DealTypeToggle({
   invalid,
   types = DEAL_TYPES,
   filled,
+  hint,
 }: DealTypeToggleProps) {
   const allowed: DealType[] = types.filter((type) =>
     DEAL_TYPES.includes(type)
@@ -60,7 +63,11 @@ export function DealTypeToggle({
             </span>
           )}
         </p>
-        {collapsed ? (
+          {hint && !collapsed ? (
+          <p className="min-w-0 text-right text-[11px] font-medium leading-snug text-gray-400">
+            {hint}
+          </p>
+        ) : collapsed ? (
           <p className={reselectHintClass}>{reselectHint(label, selected)}</p>
         ) : null}
       </div>

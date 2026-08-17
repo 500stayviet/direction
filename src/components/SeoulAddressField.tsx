@@ -192,6 +192,7 @@ export function SeoulAddressField({
             invalid={false}
             inputMode="numeric"
             value={jibunMain}
+            chipWhenFilled
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunMain(next);
@@ -199,11 +200,14 @@ export function SeoulAddressField({
             }}
             placeholder="123"
           />
-          <span className="mb-3 text-[18px] font-bold text-gray-400">-</span>
+          <span className="flex h-[36px] items-center text-[18px] font-bold text-gray-400">
+            -
+          </span>
           <Input
             label="부번"
             inputMode="numeric"
             value={jibunSub}
+            chipWhenFilled
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunSub(next);

@@ -1,16 +1,12 @@
 "use client";
 
 import { Input } from "@/components/ui/Input";
-import { ModalChoice } from "@/components/ModalChoice";
 import {
-  BUILDING_KINDS,
   EMPTY_UNIT_COUNTS,
-  normalizeBuildingKind,
   normalizeUnitCounts,
   RESIDENTIAL_UNIT_KEYS,
 } from "@/lib/constants";
 import type {
-  BuildingKind,
   BuildingUnitCounts,
   BuildingUnitKey,
   Property,
@@ -26,14 +22,12 @@ function parseCount(raw: string): number {
 interface BuildingLandFieldsProps {
   property: Property;
   onChange: (patch: Partial<Property>) => void;
-  invalidBuildingKind?: boolean;
 }
 
 /** 토지 · 건물 전용 입력 (기존 카드/토글 톤 유지) */
 export function BuildingLandFields({
   property,
   onChange,
-  invalidBuildingKind,
 }: BuildingLandFieldsProps) {
   const roomType = property.roomType;
   const unitCounts: BuildingUnitCounts = normalizeUnitCounts({
@@ -55,19 +49,21 @@ export function BuildingLandFields({
             type="number"
             inputMode="decimal"
             value={property.landArea ?? ""}
+            chipWhenFilled
             onChange={(e) =>
               onChange({
                 landArea:
                   e.target.value === "" ? undefined : Number(e.target.value) || 0,
               })
             }
-            placeholder="45"
+            placeholder="예) 45"
           />
           <Input
             label="용도"
             value={property.landUse ?? ""}
+            chipWhenFilled
             onChange={(e) => onChange({ landUse: e.target.value })}
-            placeholder="제2종일반주거, 일반상업, 준공업 등"
+            placeholder="예) 제2종일반주거"
           />
         </div>
       </div>
@@ -79,18 +75,6 @@ export function BuildingLandFields({
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-bold text-gray-800">건물 정보</p>
-
-      <ModalChoice
-        label="건물 종류"
-        required
-        invalid={invalidBuildingKind}
-        value={normalizeBuildingKind(property.buildingKind) ?? ""}
-        options={BUILDING_KINDS}
-        onChange={(buildingKind) =>
-          onChange({ buildingKind: buildingKind as BuildingKind })
-        }
-        columns={1}
-      />
 
       <div className="grid grid-cols-2 gap-2">
         <label className="block space-y-1">
@@ -113,7 +97,7 @@ export function BuildingLandFields({
                       : Math.abs(Number(e.target.value) || 0),
                 })
               }
-              placeholder="1"
+              placeholder="예) 1"
               className="h-[48px] w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-7 pr-3.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
             />
           </div>
@@ -123,13 +107,14 @@ export function BuildingLandFields({
           type="number"
           inputMode="numeric"
           value={property.floorsAbove ?? ""}
+          chipWhenFilled
           onChange={(e) =>
             onChange({
               floorsAbove:
                 e.target.value === "" ? undefined : Number(e.target.value) || 0,
             })
           }
-          placeholder="4"
+          placeholder="예) 4"
         />
       </div>
 
@@ -139,26 +124,28 @@ export function BuildingLandFields({
           type="number"
           inputMode="decimal"
           value={property.landArea ?? ""}
+          chipWhenFilled
           onChange={(e) =>
             onChange({
               landArea:
                 e.target.value === "" ? undefined : Number(e.target.value) || 0,
             })
           }
-          placeholder="60"
+          placeholder="예) 60"
         />
         <Input
           label="건축면적 (평)"
           type="number"
           inputMode="decimal"
           value={property.buildingArea ?? ""}
+          chipWhenFilled
           onChange={(e) =>
             onChange({
               buildingArea:
                 e.target.value === "" ? undefined : Number(e.target.value) || 0,
             })
           }
-          placeholder="40"
+          placeholder="예) 40"
         />
       </div>
 
@@ -181,7 +168,7 @@ export function BuildingLandFields({
                   onChange={(e) =>
                     setUnitCount(key, parseCount(e.target.value))
                   }
-                  placeholder="0"
+                  placeholder="예) 2"
                   className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-1 text-center text-[15px] font-bold tabular-nums text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
                 />
               </label>
@@ -195,6 +182,7 @@ export function BuildingLandFields({
         type="number"
         inputMode="numeric"
         value={property.parkingSpaces ?? ""}
+        chipWhenFilled
         onChange={(e) => {
           const n =
             e.target.value === "" ? undefined : Number(e.target.value) || 0;
@@ -203,7 +191,7 @@ export function BuildingLandFields({
             parkingType: n && n > 0 ? "유" : "무",
           });
         }}
-        placeholder="2"
+        placeholder="예) 2"
       />
     </div>
   );

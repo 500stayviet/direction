@@ -46,6 +46,7 @@ export type IntakeParseResult = {
   dong?: string;
   jibun?: string;
   places?: { gu: string; dong: string }[];
+  buildingName?: string;
   roomNo?: string;
   moveInImmediate?: boolean;
   moveInFrom?: string;
@@ -490,25 +491,6 @@ function appendMemoPart(notes: string, extra: string): string {
 
 export function appendIntakeMemo(notes: string, extra: string): string {
   return appendMemoPart(notes, extra);
-}
-
-function extractBuildingNameMemo(text: string): string {
-  const labeled = text.match(
-    /(?:단지명|건물명)\s*[:：]?\s*([가-힣][가-힣A-Za-z0-9]{1,24})/
-  );
-  if (labeled?.[1]) return labeled[1].trim();
-  const betweenJibunHo = text.match(
-    /\d{1,5}\s*[-−~]\s*\d{1,5}\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐)?)\s+(?=\d+\s*호)/
-  );
-  if (betweenJibunHo?.[1]) return betweenJibunHo[1].trim();
-  const afterJibun = text.match(
-    /\d{1,5}\s*[-−~]\s*\d{1,5}\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐))\b/
-  );
-  if (afterJibun?.[1]) return afterJibun[1].trim();
-  const betweenDongHo = text.match(
-    /[가-힣]+동\s+([가-힣][가-힣A-Za-z0-9]{1,24}(?:빌|파크|타워|맨션|아파트|힐)?)\s+(?=\d+\s*호)/
-  );
-  return betweenDongHo?.[1]?.trim() ?? "";
 }
 
 function extractAmbiguousDotNotes(text: string): string[] {
@@ -1470,17 +1452,70 @@ function parseLocation(
 }
 
 function parseRoomNo(text: string): string | undefined {
-  const dongHo = text.match(/(\d+)\s*동\s*(\d+)\s*호/);
+  const dongHo = text.match(/(?<![가-힣])(\d{1,4})\s*동\s*(\d{1,4})\s*호/);
   if (dongHo) return `${dongHo[1]}동 ${dongHo[2]}호`;
-  const floorHo = text.match(/(\d+)\s*층\s*(\d+)\s*호/);
+  const floorHo = text.match(/(\d{1,3})\s*층\s*(\d{1,4})\s*호/);
   if (floorHo) return `${floorHo[1]}층 ${floorHo[2]}호`;
-  const ho = text.match(/(\d{2,4})\s*호/);
+  const ho = text.match(/(\d{1,4})\s*호/);
   if (ho) return `${ho[1]}호`;
+  const dongOnly = text.match(/(?<![가-힣])(\d{1,4})\s*동(?!\s*\d)/);
+  if (dongOnly) return `${dongOnly[1]}동`;
   const floor = text.match(/(\d+)\s*층/);
   if (floor && floor.index != null) {
     const before = text.slice(Math.max(0, floor.index - 6), floor.index);
     if (/희망층?\s*$/.test(before)) return undefined;
     return `${floor[1]}층`;
+  }
+  return undefined;
+}
+
+const BUILDING_NAME_TOKEN =
+  String.raw`[가-힣A-Za-z][가-힣A-Za-z0-9]{1,24}`;
+
+function isBuildingNameCandidate(raw: string): boolean {
+  const word = raw.replace(/\s+/g, "").trim();
+  if (word.length < 2 || word.length > 24) return false;
+  if (NAME_STOP.has(word)) return false;
+  if (isKnownSeoulDong(word)) return false;
+  if (SEOUL_GU_LIST.includes(word as (typeof SEOUL_GU_LIST)[number])) {
+    return false;
+  }
+  if (!/^[가-힣A-Za-z][가-힣A-Za-z0-9]*$/.test(word)) return false;
+  return true;
+}
+
+function parseBuildingName(text: string): string | undefined {
+  const labeled = text.match(
+    new RegExp(
+      String.raw`(?:단지명|건물명)\s*[:：]?\s*(${BUILDING_NAME_TOKEN})`
+    )
+  );
+  if (labeled?.[1] && isBuildingNameCandidate(labeled[1])) {
+    return labeled[1].trim();
+  }
+  const beforeRoom = text.match(
+    new RegExp(
+      String.raw`(?:\d{1,5}\s*[-−~]\s*\d{1,5}|\d{1,5}|[가-힣]+동)\s+(${BUILDING_NAME_TOKEN})\s+(?=\d+\s*동|\d+\s*호)`
+    )
+  );
+  if (beforeRoom?.[1] && isBuildingNameCandidate(beforeRoom[1])) {
+    return beforeRoom[1].trim();
+  }
+  const afterJibun = text.match(
+    new RegExp(
+      String.raw`\d{1,5}(?:\s*[-−~]\s*\d{1,5})?\s+(${BUILDING_NAME_TOKEN})(?=\s|$)`
+    )
+  );
+  if (afterJibun?.[1] && isBuildingNameCandidate(afterJibun[1])) {
+    return afterJibun[1].trim();
+  }
+  const beforeDongHo = text.match(
+    new RegExp(
+      String.raw`(${BUILDING_NAME_TOKEN})\s+(?=\d+\s*동(?:\s*\d+\s*호)?|\d+\s*호)`
+    )
+  );
+  if (beforeDongHo?.[1] && isBuildingNameCandidate(beforeDongHo[1])) {
+    return beforeDongHo[1].trim();
   }
   return undefined;
 }
@@ -2429,9 +2464,10 @@ export function parseIntakeText(
   result.options = options;
 
   result.notes = buildIntakeMemoNotes(body, labeledMemo);
-  const buildingMemo = extractBuildingNameMemo(fieldText);
-  if (buildingMemo) {
-    result.notes = appendMemoPart(result.notes, buildingMemo);
+  const buildingName = parseBuildingName(fieldText);
+  if (buildingName) {
+    result.buildingName = buildingName;
+    result.notes = appendMemoPart(result.notes, buildingName);
   }
   if (leftoverDeal) {
     result.notes = appendMemoPart(result.notes, leftoverDeal);
@@ -2549,6 +2585,7 @@ export function applyIntakeToProperty(
     );
   }
   if (parsed.roomNo) next.roomNo = parsed.roomNo;
+  if (parsed.buildingName) next.buildingName = parsed.buildingName;
   const move = intakeMoveInPeriod(parsed);
   if (move) {
     next.moveInFrom = move.from;
@@ -2577,8 +2614,18 @@ export function applyIntakeToProperty(
     next.options = [...set];
   }
   if (parsed.notes) {
-    const prev = (next.notes ?? "").trim();
-    next.notes = prev ? `${prev}\n${parsed.notes}` : parsed.notes;
+    let notes = parsed.notes;
+    if (parsed.buildingName) {
+      notes = notes
+        .split(/\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && line !== parsed.buildingName)
+        .join("\n");
+    }
+    if (notes) {
+      const prev = (next.notes ?? "").trim();
+      next.notes = prev ? `${prev}\n${notes}` : notes;
+    }
   }
   return next;
 }

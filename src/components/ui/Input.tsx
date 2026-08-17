@@ -30,6 +30,8 @@ interface FieldProps {
   labelHint?: string;
   /** 입력칸 안쪽 끝 단위. 예: 만원 */
   suffix?: string;
+  /** 채워진 칩에 보여줄 글. 없으면 value */
+  chipValue?: string;
 }
 
 export function Field({
@@ -100,8 +102,13 @@ export function Field({
   );
 }
 
-const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
+const controlSurfaceClass =
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
+
+const inputClass = `${controlSurfaceClass} h-[36px] min-h-[36px] py-0 leading-[34px]`;
+
+const filledChipClass =
+  "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3.5 text-[15px] font-bold";
 
 export function Input({
   label,
@@ -114,6 +121,7 @@ export function Input({
   chipTone = "blue",
   labelHint,
   suffix,
+  chipValue,
   className = "",
   accent,
   onFocus,
@@ -181,14 +189,15 @@ export function Input({
           type="button"
           onClick={() => setFocused(true)}
           className={[
-            "flex min-h-[42px] w-full items-center justify-center rounded-xl px-3.5 text-[16px]",
+            filledChipClass,
             chipTone === "green" ? filledGreenBoxClass : filledBoxClass,
             "active:scale-95 transition-all duration-150",
           ].join(" ")}
         >
-          {suffix
-            ? `${String(props.value).trim()}${suffix}`
-            : String(props.value)}
+          {chipValue ??
+            (suffix
+              ? `${String(props.value).trim()}${suffix}`
+              : String(props.value))}
         </button>
       </Field>
     );
@@ -250,8 +259,8 @@ export const TextArea = forwardRef<
         value={value}
         onChange={onChange}
         className={[
-          inputClass,
-          "min-h-[96px] resize-none overflow-y-auto leading-snug",
+          controlSurfaceClass,
+          "min-h-[96px] resize-none overflow-y-auto py-1.5 leading-snug",
           invalid ? invalidInputClass : "",
           className,
         ].join(" ")}

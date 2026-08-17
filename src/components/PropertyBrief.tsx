@@ -1,6 +1,7 @@
 "use client";
 
 import type { Property } from "@/lib/types";
+import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
 import {
   displayRoomType,
   skipsResidentialExtras,
@@ -205,9 +206,9 @@ export function PropertyBrief({
                   property.address ||
                   "주소 없음"}
               </span>
-              {property.roomNo?.trim() ? (
+              {formatPropertyPlaceLine(property) ? (
                 <span className="mt-0.5 block text-[12px] font-bold leading-snug text-gray-700">
-                  {property.roomNo.trim()}
+                  {formatPropertyPlaceLine(property)}
                 </span>
               ) : null}
             </span>

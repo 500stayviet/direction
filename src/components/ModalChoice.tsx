@@ -27,6 +27,8 @@ interface ModalChoiceProps<T extends string> {
   onOpenChange?: (open: boolean) => void;
   /** true면 작은 라벨/* 숨김. 바깥 큰 제목을 쓸 때 */
   hideLabel?: boolean;
+  /** 라벨 옆 예) 안내 */
+  hint?: string;
 }
 
 export function ModalChoice<T extends string>({
@@ -44,6 +46,7 @@ export function ModalChoice<T extends string>({
   open: openProp,
   onOpenChange,
   hideLabel,
+  hint,
 }: ModalChoiceProps<T>) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const selected = value || "";
@@ -85,6 +88,10 @@ export function ModalChoice<T extends string>({
         </p>
         {selected ? (
           <p className={reselectHintClass}>{reselectHint(label, selected)}</p>
+        ) : hint ? (
+          <p className="min-w-0 text-right text-[11px] font-medium leading-snug text-gray-400">
+            {hint}
+          </p>
         ) : null}
       </div>
       )}

@@ -154,16 +154,31 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
     await expect(page.getByRole("button", { name: "삭제" })).toHaveCount(0);
 
     await expect(
-      page.getByRole("button", { name: "1층 현관 비밀번호 입력" })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "해당 호실 비밀번호 입력" })
-    ).toBeVisible();
-    await page.getByRole("button", { name: "1층 현관 비밀번호 입력" }).click();
-    await expect(page.getByPlaceholder("1234*")).toBeVisible();
-    await expect(
       page.getByText("구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지 않습니다.")
     ).toBeVisible();
+    const roomNo = page.getByPlaceholder("101동 1203호");
+    await expect(roomNo).toBeVisible();
+    await roomNo.fill("1203");
+    await roomNo.blur();
+    await expect(page.getByRole("button", { name: "동·호실" })).toHaveText(
+      "1203호"
+    );
+
+    await expect(page.getByText("관리비 포함 항목")).toHaveCount(0);
+    const fee = page.getByLabel("관리비");
+    await fee.fill("0");
+    await fee.blur();
+    await expect(page.getByRole("button", { name: "관리비" })).toHaveText(
+      "0만원"
+    );
+    await expect(page.getByText("관리비 포함 항목")).toHaveCount(0);
+    await page.getByRole("button", { name: "관리비" }).click();
+    await page.getByLabel("관리비").fill("10");
+    await page.getByLabel("관리비").blur();
+    await expect(page.getByRole("button", { name: "관리비" })).toHaveText(
+      "10만원"
+    );
+    await expect(page.getByText("관리비 포함 항목")).toBeVisible();
   } finally {
     await purgeE2eUser(userId);
   }

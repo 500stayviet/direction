@@ -14,7 +14,10 @@ import {
   type IntakeKind,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
-import { preprocessCustomerBlankForm } from "@/lib/blankIntakeForm";
+import {
+  preprocessCustomerBlankForm,
+  preprocessPropertyBlankForm,
+} from "@/lib/blankIntakeForm";
 
 export { INTAKE_AI_MIN_WAIT_MS };
 
@@ -65,7 +68,11 @@ export async function resolveIntakeWithAi(opts: {
   accessToken?: string | null;
 }): Promise<IntakeParseResult> {
   const preprocessed =
-    opts.kind === "customer" ? preprocessCustomerBlankForm(opts.raw) : null;
+    opts.kind === "customer"
+      ? preprocessCustomerBlankForm(opts.raw)
+      : opts.kind === "property"
+        ? preprocessPropertyBlankForm(opts.raw)
+        : null;
   const rawForParse = preprocessed !== null ? preprocessed : opts.raw;
   const parsed = parseIntakeText(rawForParse, opts.kind);
   const leftover = scrubCorruptIntakeText(

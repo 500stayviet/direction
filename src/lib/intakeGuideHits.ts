@@ -69,13 +69,15 @@ function formatLocationGuide(
     if (parsed.dong) return `${parsed.gu ?? ""} ${parsed.dong}`.trim();
     return "";
   }
-  if (!parsed.dong && !parsed.jibun && !parsed.roomNo) return "";
+  if (!parsed.dong && !parsed.jibun && !parsed.roomNo && !parsed.buildingName) {
+    return "";
+  }
   const gu =
     parsed.gu ||
     (parsed.dong ? resolveGuFromDong(parsed.dong) : "") ||
     "";
   const addr = composeSeoulAddress(gu, parsed.dong ?? "", parsed.jibun ?? "");
-  return [addr, parsed.roomNo].filter(Boolean).join(" ");
+  return [addr, parsed.buildingName, parsed.roomNo].filter(Boolean).join(" ");
 }
 
 function formatContactsGuide(parsed: IntakeParseResult): string {

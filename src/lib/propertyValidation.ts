@@ -93,15 +93,6 @@ export function getMissingRequiredFields(
   const requireDong = options?.requireDong !== false;
   const missing: PropertyFieldKey[] = [];
 
-  if (property.hasPartnerAgency) {
-    if (requireDong && !property.partnerAgency?.dong?.trim()) {
-      missing.push("partnerDong");
-    }
-    if (!onlyDigits(property.partnerAgency?.phone ?? "")) {
-      missing.push("partnerPhone");
-    }
-  }
-
   if (!hasUsableContact(property)) {
     missing.push("contacts");
   }
@@ -115,9 +106,6 @@ export function getMissingRequiredFields(
   }
 
   if (!property.roomType) missing.push("roomType");
-  if (property.roomType === "건물" && !property.buildingKind) {
-    missing.push("buildingKind");
-  }
   if (needsRoomBathCounts(property.roomType)) {
     const rooms =
       property.roomType === "투룸" ? 2 : property.roomCount;

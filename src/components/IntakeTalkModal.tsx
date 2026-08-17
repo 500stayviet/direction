@@ -45,6 +45,7 @@ import {
   isTalkMicError,
   talkPrimaryKind,
   talkPrimaryLabel,
+  talkStepUsesFieldHold,
 } from "@/lib/talkSession";
 
 type StepRecord = {
@@ -181,6 +182,7 @@ export function IntakeTalkModal({
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
   const scheduleFieldHoldRef = useRef<() => void>(() => {});
+  const finishTalkingRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
   const lastDealTypeRef = useRef<DealType | "">("");
 
@@ -249,23 +251,31 @@ export function IntakeTalkModal({
     if (!listeningRef.current) return;
     const idx = activeIndexRef.current;
     const key = guide[idx]?.key;
-    if (key !== "location" && key !== "money" && key !== "dates") return;
-    if (key === "location" && kind !== "customer") return;
-    const rec = stepsRef.current[key];
-    if (!rec?.display || rec.skipped) return;
-    if (key === "money") {
-      const deal = resolveTalkDealType(
-        stepsRef.current.dealType?.partial,
-        rec.partial
-      );
-      if (!moneyFieldsComplete(rec.partial, deal)) return;
+    if (!talkStepUsesFieldHold(key)) return;
+    if (key === "notes") {
+      if (!notesDraftRef.current.trim()) return;
+    } else {
+      const rec = key ? stepsRef.current[key] : undefined;
+      if (!rec?.display || rec.skipped) return;
+      if (key === "money") {
+        const deal = resolveTalkDealType(
+          stepsRef.current.dealType?.partial,
+          rec.partial
+        );
+        if (!moneyFieldsComplete(rec.partial, deal)) return;
+      }
+      if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
     }
-    if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
     fieldHoldTimerRef.current = setTimeout(() => {
       fieldHoldTimerRef.current = null;
       if (!listeningRef.current) return;
       if (guide[activeIndexRef.current]?.key !== key) return;
-      const held = stepsRef.current[key];
+      if (key === "notes") {
+        if (!notesDraftRef.current.trim()) return;
+        finishTalkingRef.current();
+        return;
+      }
+      const held = key ? stepsRef.current[key] : undefined;
       if (!held?.display || held.skipped) return;
       if (key === "money") {
         const deal = resolveTalkDealType(
@@ -280,7 +290,7 @@ export function IntakeTalkModal({
       activeIndexRef.current = next;
       setActiveIndex(next);
     }, TALK_FIELD_HOLD_MS);
-  }, [clearFieldHoldTimer, guide, kind]);
+  }, [clearFieldHoldTimer, guide]);
 
   useEffect(() => {
     scheduleFieldHoldRef.current = scheduleFieldHoldAdvance;
@@ -303,11 +313,7 @@ export function IntakeTalkModal({
       }
       if (nextIndex === fromIndex) {
         resetStepSpeech();
-        if (
-          fromKey === "location" ||
-          fromKey === "money" ||
-          fromKey === "dates"
-        ) {
+        if (talkStepUsesFieldHold(fromKey)) {
           scheduleFieldHoldAdvance();
         }
         return;
@@ -320,7 +326,7 @@ export function IntakeTalkModal({
       clearStepSpeechBuffer();
       resetStepSpeech();
       const landed = guide[clamped]?.key;
-      if (landed === "location" || landed === "money" || landed === "dates") {
+      if (talkStepUsesFieldHold(landed)) {
         scheduleFieldHoldAdvance();
       }
     },
@@ -335,7 +341,7 @@ export function IntakeTalkModal({
 
   const clearStep = useCallback(
     (key: IntakeStepKey) => {
-      if (key === "location" || key === "money" || key === "dates") {
+      if (talkStepUsesFieldHold(key)) {
         clearFieldHoldTimer();
       }
       setSteps((prev) => {
@@ -376,6 +382,7 @@ export function IntakeTalkModal({
         if (next.draft === base && !next.draft) return false;
         heardCommittedRef.current = true;
         setNotesDraftBoth(next.draft);
+        scheduleFieldHoldAdvance();
         return true;
       }
 
@@ -463,6 +470,7 @@ export function IntakeTalkModal({
       clearStepSpeechBuffer,
       kind,
       guide,
+      scheduleFieldHoldAdvance,
       setNotesDraftBoth,
     ]
   );
@@ -742,6 +750,10 @@ export function IntakeTalkModal({
     guide,
     stopRecognition,
   ]);
+
+  useEffect(() => {
+    finishTalkingRef.current = finishTalking;
+  }, [finishTalking]);
 
   const allComplete = allGuideStepsComplete(kind, steps);
   const currentKey = guide[activeIndex]?.key;

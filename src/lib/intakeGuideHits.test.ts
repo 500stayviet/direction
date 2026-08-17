@@ -47,6 +47,7 @@ describe("intakeGuideHitsFromText", () => {
     );
     assert.equal(hits.roomType, "원룸");
     assert.match(hits.location ?? "", /암사동/);
+    assert.match(hits.location ?? "", /101동 102호/);
     assert.match(hits.contacts ?? "", /010-1111-1111/);
   });
 });

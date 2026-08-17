@@ -117,11 +117,13 @@ test("고객등록 UI: 구·동 선택완료 후 상세·카드에 선호지역 
     await page.getByRole("button", { name: "원룸", exact: true }).click();
 
     await page.getByRole("button", { name: "월세", exact: true }).click();
+    await expect(page.getByPlaceholder("10000")).toBeVisible();
+    await expect(page.getByPlaceholder("50")).toBeVisible();
 
     await pickPreferredGangdongSeongnae(page);
     await expect(page.getByTestId("preferred-region-add")).toBeVisible();
 
-    await page.locator('input[type="number"]').first().fill("1000");
+    await page.getByPlaceholder("10000").fill("1000");
     await page.getByPlaceholder("50").fill("50");
 
     const moveInSection = page

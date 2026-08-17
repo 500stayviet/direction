@@ -7,6 +7,8 @@ import {
   TALK_LOCATION_HOLD_MS,
   TALK_MONEY_HOLD_MS,
   TALK_DATES_HOLD_MS,
+  TALK_CONTACTS_HOLD_MS,
+  TALK_NOTES_HOLD_MS,
   TALK_ENDED_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
@@ -16,6 +18,7 @@ import {
   isTalkMicError,
   talkPrimaryKind,
   talkPrimaryLabel,
+  talkStepUsesFieldHold,
 } from "./talkSession.ts";
 
 describe("talkSession", () => {
@@ -82,6 +85,12 @@ describe("talkSession", () => {
     assert.equal(TALK_LOCATION_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_MONEY_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_DATES_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(TALK_CONTACTS_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(TALK_NOTES_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(talkStepUsesFieldHold("location"), true);
+    assert.equal(talkStepUsesFieldHold("contacts"), true);
+    assert.equal(talkStepUsesFieldHold("notes"), true);
+    assert.equal(talkStepUsesFieldHold("roomType"), false);
     assert.equal(TALK_ENDED_MS, 2_000);
     assert.equal(TALK_ENDED_TITLE, "입력완료!");
     assert.equal(TALK_ENDED_MESSAGE, "입력한 내용 확인후 반영하기 누르세요");

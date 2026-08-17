@@ -750,37 +750,12 @@ export function CustomerForm({
           />
           </div>
 
-          {roomType === "토지" ? (
-            <LandCategoryPicker
-              value={landCategory}
-              onChange={setLandCategory}
-            />
-          ) : null}
-
-          <div
-            ref={setFieldRef("preferredLocation")}
-            className={
-              filledFromIntake && preferredDongs.length > 0
-                ? filledSectionClass
-                : ""
-            }
-          >
-            <PreferredLocationPicker
-              preferredGus={preferredGus}
-              preferredDongs={preferredDongs}
-              invalid={isInvalid("preferredLocation")}
-              onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
-                preferredRef.current = {
-                  preferredGus: nextGus,
-                  preferredDongs: nextDongs,
-                };
-                setPreferredGus(nextGus);
-                setPreferredDongs(nextDongs);
-              }}
-            />
-          </div>
-
           <div className="space-y-2">
+            <div
+              className={
+                effectiveDealType === "월세" ? "grid grid-cols-2 gap-2" : undefined
+              }
+            >
             <div
               className={emptyRequiredClass({
                 invalid: isInvalid("deposit") || isInvalid("depositTo"),
@@ -966,6 +941,7 @@ export function CustomerForm({
                 )}
               </div>
             ) : null}
+            </div>
 
             {effectiveDealType === "매매" ? (
               <label className="flex min-h-[38px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
@@ -983,6 +959,36 @@ export function CustomerForm({
                 </span>
               </label>
             ) : null}
+          </div>
+
+          {roomType === "토지" ? (
+            <LandCategoryPicker
+              value={landCategory}
+              onChange={setLandCategory}
+            />
+          ) : null}
+
+          <div
+            ref={setFieldRef("preferredLocation")}
+            className={
+              filledFromIntake && preferredDongs.length > 0
+                ? filledSectionClass
+                : ""
+            }
+          >
+            <PreferredLocationPicker
+              preferredGus={preferredGus}
+              preferredDongs={preferredDongs}
+              invalid={isInvalid("preferredLocation")}
+              onChange={({ preferredGus: nextGus, preferredDongs: nextDongs }) => {
+                preferredRef.current = {
+                  preferredGus: nextGus,
+                  preferredDongs: nextDongs,
+                };
+                setPreferredGus(nextGus);
+                setPreferredDongs(nextDongs);
+              }}
+            />
           </div>
 
           {!(effectiveDealType === "매매" && nonOccupancy) && (

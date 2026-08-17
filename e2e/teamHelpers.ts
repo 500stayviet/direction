@@ -23,6 +23,10 @@ export async function createTeamPair(browser: Browser) {
   await ownerPage.goto("/account");
   await ownerPage.getByRole("button", { name: "공유 코드 생성" }).click();
   await ownerPage.getByRole("button", { name: "동의하고 생성" }).click();
+  await expect(ownerPage.getByRole("heading", { name: "팀이름" })).toBeVisible({
+    timeout: 20_000,
+  });
+  await ownerPage.getByRole("button", { name: "나중에" }).click();
   await expect(ownerPage.getByText("공유 코드 (동료에게 전달)")).toBeVisible({
     timeout: 20_000,
   });

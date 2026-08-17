@@ -41,6 +41,7 @@ import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
+import { formatRoomNoHo } from "@/lib/propertyRoomNo";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
@@ -66,6 +67,34 @@ import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { useHasTeam } from "@/hooks/useHasTeam";
 import { invalidLabelClass, filledSectionClass, memoFilledSectionClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
+
+function ChipToggle({
+  label,
+  active,
+  onClick,
+  faint,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  faint?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-all duration-150",
+        faint ? "relative z-[1] opacity-[0.22] pointer-events-auto" : "active:scale-95",
+        active
+          ? "bg-[#3182F6] text-white"
+          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
 
 const IntakePhotoPicker = dynamic(
   () =>
@@ -105,34 +134,6 @@ interface PropertyEditorProps {
   highlightLoaded?: boolean;
 }
 
-function ChipToggle({
-  label,
-  active,
-  onClick,
-  faint,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  faint?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-all duration-150",
-        faint ? "relative z-[1] opacity-[0.22] pointer-events-auto" : "active:scale-95",
-        active
-          ? "bg-[#3182F6] text-white"
-          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-      ].join(" ")}
-    >
-      {label}
-    </button>
-  );
-}
-
 export function PropertyEditor({
   index,
   property,
@@ -168,26 +169,12 @@ export function PropertyEditor({
   const [photoError, setPhotoError] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
-  const [floorPwOpen, setFloorPwOpen] = useState(() =>
-    Boolean(property.floorPassword?.trim())
-  );
-  const [roomPwOpen, setRoomPwOpen] = useState(() =>
-    Boolean((property.roomPassword || property.password)?.trim())
-  );
   const applyingIntakeRef = useRef(false);
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);
-
-  useEffect(() => {
-    if (property.floorPassword?.trim()) setFloorPwOpen(true);
-  }, [property.floorPassword]);
-
-  useEffect(() => {
-    if ((property.roomPassword || property.password)?.trim()) setRoomPwOpen(true);
-  }, [property.roomPassword, property.password]);
 
   const reorderList = allProperties ?? [];
   const canReorder =
@@ -229,14 +216,8 @@ export function PropertyEditor({
     onChange(next);
   };
 
-  const updateAgency = (patch: Partial<Property["partnerAgency"]>) =>
-    onChange({
-      ...property,
-      partnerAgency: { ...property.partnerAgency, ...patch },
-    });
-
   const toggleList = (key: "maintenanceIncludes" | "options", value: string) => {
-    const current = property[key];
+    const current = property[key] ?? [];
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
@@ -251,8 +232,6 @@ export function PropertyEditor({
   const memoSectionClass = (property.notes ?? "").trim()
     ? memoFilledSectionClass
     : "";
-
-  const showContactFields = !property.hasPartnerAgency;
 
   useEffect(() => {
     if (!validationActive || !focusField) return;
@@ -629,97 +608,16 @@ export function PropertyEditor({
           value={property.arriveTime ?? ""}
           onChange={(arriveTime) => update({ arriveTime })}
           timeFormat="hhmm"
+          placeholder="00:00"
         />
       )}
 
       <div className="space-y-1.5">
-        <label
-          className={[
-            "flex min-h-[38px] items-center gap-3 rounded-xl border px-3.5",
-            "active:scale-[0.99] transition-all duration-150",
-            property.hasPartnerAgency
-              ? "border-emerald-300 bg-emerald-50"
-              : "border-gray-200 bg-gray-50",
-          ].join(" ")}
-        >
-          <CircleCheck
-            accent="emerald"
-            checked={property.hasPartnerAgency ?? false}
-            onChange={(e) => {
-              const on = e.target.checked;
-              update({
-                hasPartnerAgency: on,
-                partnerAgency: on
-                  ? property.partnerAgency
-                  : { name: "", phone: "", dong: "" },
-                // 협력부동산 매물은 협력 연락처만 사용
-                ...(on
-                  ? { tenantPhone: "", landlordPhone: "" }
-                  : {}),
-              });
-            }}
-          />
-          <span
-            className={[
-              "text-[15px] font-bold",
-              property.hasPartnerAgency
-                ? "text-emerald-800"
-                : "text-gray-900",
-            ].join(" ")}
-          >
-            협력 부동산 매물
-          </span>
-        </label>
-        {property.hasPartnerAgency ? (
-          <div className="space-y-1.5">
-            <div ref={setFieldRef("partnerName")}>
-              <Input
-                label="상호명"
-                value={property.partnerAgency.name}
-                onChange={(e) => updateAgency({ name: e.target.value })}
-                placeholder="OO부동산"
-                chipWhenFilled
-                chipTone="green"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div ref={setFieldRef("partnerDong")}>
-                <Input
-                  label="동"
-                  required={requireDong}
-                  invalid={isInvalid("partnerDong")}
-                  value={property.partnerAgency.dong}
-                  onChange={(e) => updateAgency({ dong: e.target.value })}
-                  placeholder="성내동"
-                  chipWhenFilled
-                  chipTone="green"
-                />
-              </div>
-              <div ref={setFieldRef("partnerPhone")}>
-                <PhoneInput
-                  label="연락처"
-                  required
-                  invalid={isInvalid("partnerPhone")}
-                  value={formatPhoneInput(property.partnerAgency.phone)}
-                  onChange={(phone) => updateAgency({ phone })}
-                  placeholder="02-1234-5678"
-                  hint=""
-                  chipTone="green"
-                />
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {showContactFields ? (
           <div
             ref={setFieldRef("contacts")}
             className={[
               emptyRequiredClass({
                 invalid: isInvalid("contacts"),
-                filled:
-                  showFilled &&
-                  Boolean(property.tenantPhone || property.landlordPhone),
               }),
             ].join(" ")}
           >
@@ -734,9 +632,6 @@ export function PropertyEditor({
                   연락처
                   <span className={requiredStarClass}>*</span>
                 </span>
-                <span className="min-w-0 font-medium text-gray-400">
-                  임차인·임대인 중 하나만 입력하면 됩니다
-                </span>
               </p>
               <p className="shrink-0 text-right text-[11px] font-medium leading-snug text-sky-400">
                 원터치 전화에 사용됩니다.
@@ -750,19 +645,22 @@ export function PropertyEditor({
                 label="임차인 번호"
                 value={formatPhoneInput(property.tenantPhone ?? "")}
                 onChange={(tenantPhone) => update({ tenantPhone })}
-                placeholder="010-1234-5678"
+                placeholder="예) 010-1234-5678"
                 hint=""
+                chipWhenFilled
+                chipTone="green"
               />
               <PhoneInput
                 label="임대인 번호"
                 value={formatPhoneInput(property.landlordPhone ?? "")}
                 onChange={(landlordPhone) => update({ landlordPhone })}
-                placeholder="010-1234-5678"
+                placeholder="예) 010-9876-5432"
                 hint=""
+                chipWhenFilled
+                chipTone="green"
               />
             </div>
           </div>
-        ) : null}
       </div>
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
@@ -888,7 +786,13 @@ export function PropertyEditor({
             onChange={(landCategory) => update({ landCategory })}
           />
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
+        <div
+          className={
+            property.dealType === "월세" && !isBuilding && !isLand
+              ? "grid grid-cols-2 gap-2"
+              : undefined
+          }
+        >
           <div ref={setFieldRef("deposit")}>
             <ManAmountInput
               label={
@@ -899,8 +803,9 @@ export function PropertyEditor({
               invalid={isInvalid("deposit")}
               value={property.deposit || 0}
               onChange={(deposit) => update({ deposit })}
-              placeholder="10000"
+              placeholder="예) 10000"
               required
+              unitHint="예) 1억 → 10000"
             />
           </div>
           {property.dealType === "월세" && !isBuilding && !isLand && (
@@ -915,34 +820,45 @@ export function PropertyEditor({
               onChange={(e) =>
                 update({ monthlyRent: Number(e.target.value) || 0 })
               }
-              placeholder="50"
-            />
-            </div>
-          )}
-          {!isLand && (
-            <div
-              className={
-                showFilled && (property.maintenanceFee ?? 0) > 0
-                  ? filledSectionClass
-                  : ""
-              }
-            >
-            <Input
-              label="관리비"
-              type="number"
-              value={property.maintenanceFee || ""}
-              accent={showFilled && (property.maintenanceFee ?? 0) > 0}
-              chipWhenFilled
-              suffix="만원"
-              onChange={(e) =>
-                update({ maintenanceFee: Number(e.target.value) || 0 })
-              }
-              placeholder="0"
+              placeholder="예) 50"
             />
             </div>
           )}
         </div>
-        {!isLand && !isBuilding && !hideResidentialExtras && (
+        {!isLand && (
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              label="관리비"
+              type="number"
+              inputMode="numeric"
+              value={property.maintenanceFee ?? ""}
+              accent={property.maintenanceFee != null}
+              chipWhenFilled
+              suffix="만원"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  update({
+                    maintenanceFee: undefined,
+                    maintenanceIncludes: [],
+                  });
+                  return;
+                }
+                const n = Number(raw);
+                if (!Number.isFinite(n) || n < 0) return;
+                update({
+                  maintenanceFee: n,
+                  ...(n > 0 ? {} : { maintenanceIncludes: [] }),
+                });
+              }}
+              placeholder="예) 10"
+            />
+          </div>
+        )}
+        {!isLand &&
+          !isBuilding &&
+          !hideResidentialExtras &&
+          (property.maintenanceFee ?? 0) > 0 && (
           <div>
             <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
               관리비 포함 항목
@@ -964,7 +880,44 @@ export function PropertyEditor({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
+        <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
+        <div
+          ref={setFieldRef("address")}
+          className={
+            showFilled && property.address?.trim()
+              ? filledSectionClass
+              : ""
+          }
+        >
+          <SeoulAddressField
+            required
+            requireDong={requireDong}
+            invalid={isInvalid("address")}
+            value={property.address}
+            onChange={(address) => update({ address })}
+          />
+        </div>
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
+          구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지
+          않습니다.
+        </p>
         {!isLand && !isBuilding && (
+          <>
+          <Input
+            label="동·호실"
+            value={property.roomNo}
+            onChange={(e) => update({ roomNo: e.target.value })}
+            onBlur={(e) => {
+              const next = formatRoomNoHo(e.target.value);
+              if (next !== property.roomNo) update({ roomNo: next });
+            }}
+            placeholder="101동 1203호"
+            chipWhenFilled
+            chipValue={formatRoomNoHo(property.roomNo)}
+          />
           <div
             ref={setFieldRef("moveIn")}
             className="border-t border-gray-200 pt-3"
@@ -1043,77 +996,7 @@ export function PropertyEditor({
             )}
           </div>
           </div>
-        )}
-      </div>
-
-      <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
-        <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
-        <div
-          ref={setFieldRef("address")}
-          className={
-            showFilled && property.address?.trim()
-              ? filledSectionClass
-              : ""
-          }
-        >
-          <SeoulAddressField
-            required
-            requireDong={requireDong}
-            invalid={isInvalid("address")}
-            value={property.address}
-            onChange={(address) => update({ address })}
-          />
-        </div>
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
-          구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지
-          않습니다.
-        </p>
-        {!isLand && !isBuilding && (
-          <Input
-            label="동·호실"
-            value={property.roomNo}
-            onChange={(e) => update({ roomNo: e.target.value })}
-            placeholder="101동 1203호"
-            chipWhenFilled={showFilled}
-          />
-        )}
-        {!isLand && (
-          <div className="grid grid-cols-2 gap-2">
-            {floorPwOpen ? (
-              <Input
-                label="1층 현관 비밀번호"
-                value={property.floorPassword ?? ""}
-                onChange={(e) => update({ floorPassword: e.target.value })}
-                placeholder="1234*"
-                chipWhenFilled={showFilled}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setFloorPwOpen(true)}
-                className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-              >
-                1층 현관 비밀번호 입력
-              </button>
-            )}
-            {roomPwOpen ? (
-              <Input
-                label="해당 호실 비밀번호"
-                value={property.roomPassword ?? property.password ?? ""}
-                onChange={(e) => update({ roomPassword: e.target.value })}
-                placeholder="5678*"
-                chipWhenFilled={showFilled}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setRoomPwOpen(true)}
-                className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-              >
-                해당 호실 비밀번호 입력
-              </button>
-            )}
-          </div>
+          </>
         )}
       </div>
 
@@ -1125,7 +1008,6 @@ export function PropertyEditor({
           <BuildingLandFields
             property={property}
             onChange={update}
-            invalidBuildingKind={isInvalid("buildingKind")}
           />
           <div className="mt-3 space-y-1.5">
             <div ref={setFieldRef("elevator")}>
@@ -1166,7 +1048,6 @@ export function PropertyEditor({
           <BuildingLandFields
             property={property}
             onChange={update}
-            invalidBuildingKind={isInvalid("buildingKind")}
           />
           <div className="mt-3 space-y-1.5">
             <div className={memoSectionClass}>
@@ -1185,6 +1066,28 @@ export function PropertyEditor({
       {!isLand && !isBuilding && (
         <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
           <p className="text-sm font-bold text-gray-800">기타</p>
+          {!hideResidentialExtras && (
+            <div>
+              <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
+                옵션
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {PROPERTY_OPTIONS.map((opt) => (
+                  <ChipToggle
+                    key={opt}
+                    label={opt}
+                    active={property.options.includes(opt)}
+                    faint={
+                      showFilled &&
+                      property.options.length > 0 &&
+                      !property.options.includes(opt)
+                    }
+                    onClick={() => toggleList("options", opt)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {!hideResidentialExtras && (
             <div ref={setFieldRef("loan")}>
               <OptionToggle
@@ -1274,7 +1177,7 @@ export function PropertyEditor({
                   parkingFee: raw === "" ? 0 : Number(raw) || 0,
                 });
               }}
-              placeholder="0"
+              placeholder="예) 10"
             />
           )}
           <div ref={setFieldRef("elevator")}>
@@ -1297,28 +1200,6 @@ export function PropertyEditor({
             }
           />
           </div>
-          {!hideResidentialExtras && (
-            <div>
-              <p className="mb-1.5 text-[13px] font-semibold text-gray-600">
-                옵션
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {PROPERTY_OPTIONS.map((opt) => (
-                  <ChipToggle
-                    key={opt}
-                    label={opt}
-                    active={property.options.includes(opt)}
-                    faint={
-                      showFilled &&
-                      property.options.length > 0 &&
-                      !property.options.includes(opt)
-                    }
-                    onClick={() => toggleList("options", opt)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
           <div className={memoSectionClass}>
             <TextArea
               label="메모"
