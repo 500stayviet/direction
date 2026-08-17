@@ -16,7 +16,8 @@ export const TALK_ENDED_MS = 2_000;
 
 export type TalkPrimaryKind = "start" | "stop" | "finish";
 
-export const TALK_ENDED_MESSAGE = "대화가 종료되었습니다.";
+export const TALK_ENDED_TITLE = "입력완료!";
+export const TALK_ENDED_MESSAGE = "입력한 내용 확인후 반영하기 누르세요";
 
 export const TALK_STOP_HINT = "녹화버튼을 눌러 대화를 이어가세요.";
 

@@ -27,6 +27,31 @@ describe("intakeAiLeftover", () => {
     assert.doesNotMatch(leftover, /암사동|원룸|전세|2억|남향/);
   });
 
+  it("희망 문장은 통째로 남기고 칸에 쓴 문장은 빼다", () => {
+    const raw =
+      "원룸 월세 2000/65 강동구천호동 엘베는 없어도되는데 있으면 좋아요";
+    const parsed = parseIntakeText(raw, "customer");
+    assert.equal(parsed.deposit, 2000);
+    assert.equal(parsed.monthlyRent, 65);
+    assert.equal(parsed.elevator, undefined);
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.match(leftover, /엘베는 없어도되는데 있으면 좋아요/);
+    assert.doesNotMatch(leftover, /강동9|강동구|천호동|2000|65|원룸|월세/);
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
+  it("엘베 유와 희망 문장이 같이 있으면 유는 남기고 희망만 leftover", () => {
+    const raw =
+      "원룸 월세 2000/65 강동구 천호동 엘리베이터 유 엘베는 없어도되는데 있으면 좋아요 보증보험은 허그 가입합니다.";
+    const parsed = parseIntakeText(raw, "customer");
+    assert.equal(parsed.elevator, "유");
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.match(leftover, /엘베는 없어도되는데 있으면 좋아요/);
+    assert.match(leftover, /보증보험은 허그/);
+    assert.doesNotMatch(leftover, /엘리베이터 유/);
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
   it("라벨 메모는 잔여에서 빼서 같은 글을 두 번 붙이지 않는다", () => {
     const raw = `김영희
 010-9876-5432
@@ -58,7 +83,7 @@ describe("intakeAiLeftover", () => {
     const parsed = parseIntakeText(raw, "customer");
     const leftover = intakeAiLeftover(raw, parsed, "message");
     assert.doesNotMatch(leftover, /강동9|강동구|천호동|2000|65|원룸|월세/);
-    assert.match(leftover, /없어도되는데/);
+    assert.match(leftover, /엘베는 없어도되는데 있으면 좋아요/);
   });
 
   it("오염된 주소 잔여는 고객·매물 모두 AI·내용에 쓰지 않는다", () => {

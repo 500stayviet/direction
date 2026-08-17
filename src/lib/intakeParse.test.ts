@@ -803,6 +803,23 @@ describe("parseIntakeText", () => {
     assert.equal(wolseOnlyAgain.monthlyRent, 80);
     assert.equal(wolseOnlyAgain.dealType, "월세");
 
+    const wolseSlashPair = parseIntakeText(
+      "원룸 월세 2000/65 강동구 천호동",
+      "customer",
+      today
+    );
+    assert.equal(wolseSlashPair.dealType, "월세");
+    assert.equal(wolseSlashPair.deposit, 2000);
+    assert.equal(wolseSlashPair.monthlyRent, 65);
+
+    const wolseSlashTight = parseIntakeText(
+      "원룸 월세2000/65",
+      "customer",
+      today
+    );
+    assert.equal(wolseSlashTight.deposit, 2000);
+    assert.equal(wolseSlashTight.monthlyRent, 65);
+
     const wolseDateNotRent = parseIntakeText(
       "원룸 월세 3월 1일",
       "property",
@@ -1107,6 +1124,24 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.parking, "무");
     assert.equal(parsed.elevator, "무");
     assert.doesNotMatch(parsed.notes, /대출|보증|주차|엘베/);
+  });
+
+  it("엘베는 없어도 되는데는 칸이 아니라 희망이고, 엘베 유는 남긴다", () => {
+    const hopeOnly = parseIntakeText(
+      "원룸 전세 2억 암사동 엘베는 없어도되는데 있으면 좋아요",
+      "customer"
+    );
+    assert.equal(hopeOnly.elevator, undefined);
+    assert.notEqual(hopeOnly.name, "엘베는");
+    assert.notEqual(hopeOnly.name, "없어도되는데");
+
+    const both = parseIntakeText(
+      "원룸 월세 2000/65 강동구 천호동 엘리베이터 유 엘베는 없어도되는데 있으면 좋아요",
+      "customer"
+    );
+    assert.equal(both.elevator, "유");
+    assert.equal(both.deposit, 2000);
+    assert.equal(both.monthlyRent, 65);
   });
 
   it("매매 1억(가 없음)도 거래가액 칸에 넣는다", () => {

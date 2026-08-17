@@ -40,7 +40,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "대출 · 보증보험 · 주차 (가능/불가) · 엘베 (유/무)",
       example: "대출 가능 · 보증 불가 · 주차 가능 · 엘베 유",
     },
-    { key: "notes", name: "메모", example: "메모: 남향 저층" },
+    { key: "notes", name: "메모", example: "남향 저층" },
   ],
   property: [
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
@@ -62,7 +62,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임차인 · 임대인 전화번호",
       example: "임차인 010-1234-5678, 임대인 010-9876-5432",
     },
-    { key: "notes", name: "메모", example: "메모: 남향 저층" },
+    { key: "notes", name: "메모", example: "남향 저층" },
   ],
 };
 

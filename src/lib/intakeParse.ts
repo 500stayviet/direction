@@ -639,6 +639,32 @@ export const INTAKE_YESNO_FIELDS = {
 
 export type IntakeYesNoField = keyof typeof INTAKE_YESNO_FIELDS;
 
+/** 엘베는 없어도 되는데처럼 희망 문장은 유/무 칸에 넣지 않음. 엘베 유는 그대로 둔다. */
+function isYesNoPreferenceMatch(
+  text: string,
+  index: number,
+  end: number
+): boolean {
+  const matched = text.slice(index, end).replace(/\s+/g, " ").trim();
+  if (
+    /^(?:엘리베이터|엘레베이터|엘베|승강기|주차(?:장)?|대출|(?:전세)?보증보험|보증)\s*(?:유|무|있음|없음|있어요|없어요|가능|불가|안됨|안돼|안돼요)$/.test(
+      matched
+    )
+  ) {
+    return false;
+  }
+  if (/[가-힣]는/.test(matched) || /는\s/.test(matched)) return true;
+  const after = text.slice(end);
+  if (
+    /^(?:도\s*되|는데|으면\s*좋|면\s*좋|고\s*(?:저층|고층|있으면|없어도))/.test(
+      after
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function matchYesNo(text: string, labels: string[]): { value: YesNo; end: number } | null {
   let found: { index: number; value: YesNo; end: number } | null = null;
   for (const label of labels) {
@@ -652,6 +678,7 @@ function matchYesNo(text: string, labels: string[]): { value: YesNo; end: number
       const value = yesNoFromToken(token);
       const index = m.index;
       const end = index + m[0].length;
+      if (isYesNoPreferenceMatch(text, index, end)) continue;
       if (!found || index < found.index) found = { index, value, end };
     }
   }
@@ -1124,6 +1151,26 @@ function isAdjacentEokGap(text: string, from: number, to: number): boolean {
   return new RegExp(`^[\\s${TILDE_CLS}]*$`).test(text.slice(from, to));
 }
 
+/** 월세 50은 월세 금액, 월세 2000/65는 보증/월세 쌍 */
+function findLabeledMonthlyRent(
+  moneyText: string
+): RegExpMatchArray | null {
+  const patterns = [
+    /월세\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/,
+    /(?<!\d)월\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/,
+    /월세\s*(\d+(?:\.\d+)?)(?!\d)(?!\s*(?:억|천|백|만|월|일))/,
+    /(?<!\d)월\s*(\d{1,4})(?!\d)(?!\s*(?:억|천|백|만|월|일))/,
+  ];
+  for (const re of patterns) {
+    const m = moneyText.match(re);
+    if (!m || m.index == null || !m[1]) continue;
+    const after = moneyText.slice(m.index + m[0].length);
+    if (/^\s*[\/／]\s*\d+/.test(after)) continue;
+    return m;
+  }
+  return null;
+}
+
 function parseMoneyManwon(
   text: string,
   opts: {
@@ -1172,11 +1219,7 @@ function parseMoneyManwon(
     }
   }
 
-  const monthly =
-    moneyText.match(/월세\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/) ||
-    moneyText.match(/(?<!\d)월\s*(\d+(?:\.\d+)?)\s*만(?!\s*월)/) ||
-    moneyText.match(/월세\s*(\d+(?:\.\d+)?)(?!\d)(?!\s*(?:억|천|백|만|월|일))/) ||
-    moneyText.match(/(?<!\d)월\s*(\d{1,4})(?!\d)(?!\s*(?:억|천|백|만|월|일))/);
+  const monthly = findLabeledMonthlyRent(moneyText);
   if (monthly && !asSale && !fieldSlashHit && monthly.index != null) {
     monthlyRent = Math.round(Number(monthly[1]));
     pushSpan(monthly.index, monthly.index + monthly[0].length);
@@ -1561,6 +1604,7 @@ const NAME_STOP = new Set([
   "고양이",
   "디딤돌",
   "버팀목",
+  "허그",
   "에어컨",
   "냉장고",
   "세탁기",
@@ -1605,7 +1649,16 @@ function isSeoulGuDongPhrase(word: string): boolean {
 
 function isNameCandidate(word: string): boolean {
   if (!/^[가-힣]{2,6}$/.test(word)) return false;
+  if (/는$/.test(word)) return false;
+  if (/없|는데|으면|좋아요/.test(word)) return false;
   if (NAME_STOP.has(word)) return false;
+  if (
+    [...NAME_STOP].some(
+      (stop) => stop.length >= 2 && word.length > stop.length && word.startsWith(stop)
+    )
+  ) {
+    return false;
+  }
   if (/층$/.test(word)) return false;
   if (isKnownSeoulDong(word)) return false;
   if (isSeoulGuDongPhrase(word)) return false;

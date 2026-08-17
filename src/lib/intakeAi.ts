@@ -56,7 +56,7 @@ const ROOM_TYPE_TOKENS = [
 
 const DEAL_TOKENS = ["매매가", "매매", "전세", "월세", "매가"];
 
-const CONSUMED_RES = [
+const STRUCTURAL_FIELD_RES = [
   /방\s*[1-9]/g,
   /[1-9]\s*룸/g,
   /화(?:장실)?\s*[1-4]\s*개?/g,
@@ -65,23 +65,22 @@ const CONSUMED_RES = [
   /\d{2,4}\s*호/g,
   /관(?:리비)?\s*\d+(?:\.\d+)?/g,
   /주(?:차)?\s*\d+\s*대/g,
-  /(?:엘리베이터|엘레베이터|엘베)/g,
   /(?:실입주|바로입주|즉시입주)(?:\s*가능)?/g,
-  /주차(?:\s*가능)?/g,
   /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
-  /(?:전세)?보증보험|대출/g,
-  /(?:메모|내용|추가\s*희망\s*사항|희망\s*사항|비고)/g,
-  /\d{1,2}\s*월\s*\d{1,2}\s*일/g,
-  /[~～〜∼\-]+/g,
 ];
 
-const MONEY_CONSUMED_RES = [
+const MONEY_FIELD_RES = [
   /\d+(?:\.\d+)?\s*억/g,
   /\d{1,3}(?:,\d{3})+\s*만(?:원)?/g,
   /\d+\s*만(?:원)?/g,
   /\d+\s*\/\s*\d+(?:\s*\/\s*\d+)?/g,
-  /(?:보증금|월세|매매가|거래가액|전세금|전세가)/g,
+  /(?:보증금|월세|매매가|거래가액|전세금|전세가)\s*\d+/g,
 ];
+
+const YESNO_TAIL =
+  "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
+  "가|불|안(?:됨|돼(?:요)?|됩니다|되)?|없(?:음|어요|어|습니다)?|" +
+  "불가(?:능)?(?:해요|합니다|함)?|무)";
 
 function moneyFieldsFilled(parsed: IntakeParseResult): boolean {
   const hasDeposit = Boolean(parsed.deposit && parsed.deposit > 0);
@@ -114,50 +113,89 @@ function dealTokensToStrip(parsed: IntakeParseResult): string[] {
   return DEAL_TOKENS;
 }
 
-function stripParsedFlagLeftover(
-  text: string,
-  parsed: IntakeParseResult
-): string {
-  let next = text;
-  if (parsed.loan) {
-    next = next.replace(/대출\s*[유무있없가능불가]+/g, " ");
-  }
+function usedFlagRes(parsed: IntakeParseResult): RegExp[] {
+  const out: RegExp[] = [];
+  if (parsed.loan) out.push(new RegExp(`대출\\s*${YESNO_TAIL}`, "gi"));
   if (parsed.insurance) {
-    next = next.replace(/(?:전세)?보증보험\s*[유무있없가능불가]+/g, " ");
+    out.push(new RegExp(`(?:전세)?보증보험\\s*${YESNO_TAIL}`, "gi"));
   }
   if (parsed.parking) {
-    next = next.replace(/주차\s*[유무있없가능불가]+/g, " ");
+    out.push(new RegExp(`주차(?:장)?\\s*${YESNO_TAIL}`, "gi"));
   }
   if (parsed.elevator) {
-    next = next.replace(
-      /(?:엘리베이터|엘레베이터|엘베)\s*[유무있없가능불가]+/g,
-      " "
+    out.push(
+      new RegExp(
+        `(?:엘리베이터|엘레베이터|엘베|승강기)\\s*${YESNO_TAIL}`,
+        "gi"
+      )
     );
   }
-  if (
-    parsed.loan ||
-    parsed.insurance ||
-    parsed.parking ||
-    parsed.elevator
-  ) {
-    // 칸에 이미 넣은 유/무 단독 잔여
-    next = next.replace(/(?:^|\s)[유무](?=\s|$)/g, " ");
-  }
-  return next;
+  return out;
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function replaceLongest(text: string, tokens: string[]): string {
+/** 칸에 쓴 구절만 끊고, leftover 문장 안의 같은 글자는 남긴다 */
+function replacePhraseBreaks(text: string, tokens: string[]): string {
   let next = text;
   const unique = [...new Set(tokens.filter(Boolean))].sort(
     (a, b) => b.length - a.length
   );
   for (const token of unique) {
     if (token.length < 2) continue;
-    next = next.replace(new RegExp(escapeRegExp(token), "g"), " ");
+    next = next.replace(
+      new RegExp(`${escapeRegExp(token)}(?![가-힣])`, "g"),
+      "\u0001"
+    );
+  }
+  return next;
+}
+
+function applyResBreaks(text: string, res: RegExp[]): string {
+  let next = text;
+  for (const re of res) {
+    next = next.replace(new RegExp(re.source, re.flags), "\u0001");
+  }
+  return next;
+}
+
+function stripUsedFieldPhrases(
+  text: string,
+  parsed: IntakeParseResult
+): string {
+  const filled = [
+    parsed.name,
+    parsed.phone,
+    parsed.tenantPhone,
+    parsed.landlordPhone,
+    parsed.gu,
+    parsed.dong,
+    parsed.jibun,
+    parsed.roomNo,
+    parsed.roomType,
+    ...(parsed.places ?? []).flatMap((p) => [p.gu, p.dong]),
+    ...usedPlaceTokens(parsed),
+  ].filter((v): v is string => Boolean(v && v.trim()));
+
+  let next = replacePhraseBreaks(text, [
+    ...filled,
+    ...ROOM_TYPE_TOKENS,
+    ...dealTokensToStrip(parsed),
+  ]);
+  next = applyResBreaks(next, STRUCTURAL_FIELD_RES);
+  if (moneyFieldsFilled(parsed)) {
+    next = applyResBreaks(next, MONEY_FIELD_RES);
+  }
+  next = applyResBreaks(next, usedFlagRes(parsed));
+  if (parsed.moveInFrom || parsed.moveInImmediate) {
+    next = next.replace(
+      /\d{2,4}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{1,2}/g,
+      "\u0001"
+    );
+    next = next.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, "\u0001");
+    next = next.replace(/[~～〜∼\-]+/g, "\u0001");
   }
   return next;
 }
@@ -206,64 +244,31 @@ export function intakeAiLeftover(
     )
     .trim();
 
-  const filled = [
-    parsed.name,
-    parsed.phone,
-    parsed.tenantPhone,
-    parsed.landlordPhone,
-    parsed.gu,
-    parsed.dong,
-    parsed.jibun,
-    parsed.roomNo,
-    parsed.roomType,
-    ...(parsed.places ?? []).flatMap((p) => [p.gu, p.dong]),
-    ...usedPlaceTokens(parsed),
-  ].filter((v): v is string => Boolean(v && v.trim()));
-
-  text = replaceLongest(text, [
-    ...filled,
-    ...ROOM_TYPE_TOKENS,
-    ...dealTokensToStrip(parsed),
-  ]);
-
-  for (const re of CONSUMED_RES) {
-    text = text.replace(new RegExp(re.source, re.flags), " ");
-  }
-  if (moneyFieldsFilled(parsed)) {
-    for (const re of MONEY_CONSUMED_RES) {
-      text = text.replace(new RegExp(re.source, re.flags), " ");
-    }
-  }
-
-  text = stripParsedFlagLeftover(text, parsed);
-
-  if (parsed.moveInFrom || parsed.moveInImmediate) {
-    text = text.replace(
-      /\d{2,4}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{1,2}/g,
-      " "
-    );
-    text = text.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, " ");
-    text = text.replace(/[~～〜∼\-]+/g, " ");
-  }
+  text = stripUsedFieldPhrases(text, parsed);
 
   const noteBits = parsed.notes
-    .split(/\n+|[\/|,]+/)
+    .split(/\n+/)
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter((part) => part.length >= 2);
-  text = replaceLongest(text, noteBits);
+  text = replacePhraseBreaks(text, noteBits);
 
-  text = text
-    .replace(/[()[\]{}<>'"“”‘’]/g, " ")
-    .replace(/[:：]/g, " ")
-    .replace(/\s+/g, " ")
+  const leftover = text
+    .split(/[\n\u0001]+/)
+    .map((part) =>
+      part
+        .replace(/[()[\]{}<>'"“”‘’]/g, " ")
+        .replace(/[:：]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
+    .filter((part) => /[가-힣]{2,}/.test(part))
+    .join(" ")
     .trim();
 
-  if (!/[가-힣]{2,}/.test(text)) return "";
-  const leftover = scrubCorruptIntakeText(text)
-    .replace(/\s+/g, " ")
-    .trim();
   if (!/[가-힣]{2,}/.test(leftover)) return "";
-  return leftover.slice(0, leftoverMaxForSource(source));
+  const cleaned = scrubCorruptIntakeText(leftover).replace(/\s+/g, " ").trim();
+  if (!/[가-힣]{2,}/.test(cleaned)) return "";
+  return cleaned.slice(0, leftoverMaxForSource(source));
 }
 
 const DATE_HINT =
@@ -271,14 +276,17 @@ const DATE_HINT =
 const JIBUN_HINT = /\d{1,5}\s*-\s*\d{1,5}/;
 const ROOM_HINT = /\d+\s*(?:동|층|호)/;
 const FIELD_RESIDUE_HINT =
-  /보증금|월세|매매가|거래가액|전세금|대출|보증보험|입주희망|희망일|\d{1,2}\s*월|\d{1,2}\s*일|\d+\s*(?:억|만)|메모/;
+  /보증금|월세|매매가|거래가액|전세금|입주희망|희망일|\d{1,2}\s*월|\d{1,2}\s*일|\d+\s*(?:억|만)|메모/;
+const FLAG_RESIDUE_HINT =
+  /(?:대출|보증보험|주차|엘베|엘리베이터)\s*[유무있없가능불가]/;
 
 const MEMO_ONLY_HINT =
-  /일요일|불가|예약|저녁|남향|북향|동향|서향|저층|고층|중층|희망층|애완|반려/;
+  /일요일|불가|예약|저녁|남향|북향|동향|서향|저층|고층|중층|희망층|애완|반려|허그|있으면\s*좋|없어도\s*되/;
 
 /** 일요일 불가처럼 숫자·칸 단어가 없으면 메모. 그 외 잔여는 DeepSeek. */
 function leftoverLooksLikeMemoOnly(text: string): boolean {
   if (/\d/.test(text)) return false;
+  if (FLAG_RESIDUE_HINT.test(text)) return false;
   if (FIELD_RESIDUE_HINT.test(text)) return false;
   if (SEOUL_GU_LIST.some((gu) => text.includes(gu))) return false;
   for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {

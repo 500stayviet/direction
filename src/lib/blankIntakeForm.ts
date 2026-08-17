@@ -222,6 +222,9 @@ function normalizeBlankMoney(dealType: string | undefined, money: string): strin
   if (d === "매매" && /^매매(?!가)/.test(m)) {
     return m.replace(/^매매/, "매매가");
   }
+  if (/^월세\s*\d+(?:\.\d+)?\s*[\/／]\s*\d+/.test(m)) {
+    return m.replace(/^월세\s*/, "");
+  }
   return m;
 }
 

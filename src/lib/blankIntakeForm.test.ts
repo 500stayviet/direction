@@ -142,6 +142,30 @@ describe("blankIntakeForm", () => {
     assert.equal(parsed.bathroomCount, 1);
   });
 
+  it("거래가액 칸의 월세 2000/65는 보증 2000 / 월 65다", () => {
+    const filled = `고객등록 양식
+고객명
+: 임지나
+거래종류
+: 월세
+매물 유형
+: 원룸
+거래가액
+: 월세 2000/65
+선호지역
+: 강동구 천호동
+────────────
+-제공-
+앱 현장동선`;
+    const pre = preprocessCustomerBlankForm(filled);
+    assert.ok(pre);
+    assert.match(pre!, /^2000\/65$/m);
+    const parsed = parseIntakeText(pre!, "customer");
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 2000);
+    assert.equal(parsed.monthlyRent, 65);
+  });
+
   it("원룸 양식의 방·화 2~3은 버리고 메모 잔여를 남기지 않는다", () => {
     const filled = `고객등록 양식
 고객명

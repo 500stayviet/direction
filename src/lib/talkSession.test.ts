@@ -8,6 +8,7 @@ import {
   TALK_MONEY_HOLD_MS,
   TALK_DATES_HOLD_MS,
   TALK_ENDED_MS,
+  TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
   TALK_RECOGNITION_FAIL,
@@ -82,7 +83,8 @@ describe("talkSession", () => {
     assert.equal(TALK_MONEY_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_DATES_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_ENDED_MS, 2_000);
-    assert.equal(TALK_ENDED_MESSAGE, "대화가 종료되었습니다.");
+    assert.equal(TALK_ENDED_TITLE, "입력완료!");
+    assert.equal(TALK_ENDED_MESSAGE, "입력한 내용 확인후 반영하기 누르세요");
     assert.match(TALK_STOP_HINT, /녹화버튼/);
     assert.match(TALK_STOP_HINT, /대화를 이어가세요/);
     assert.match(TALK_RECOGNITION_FAIL, /대화를 인식하지 못했습니다/);

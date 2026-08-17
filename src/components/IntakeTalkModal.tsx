@@ -36,6 +36,7 @@ import {
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
   TALK_ENDED_MS,
+  TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
   TALK_RECOGNITION_FAIL,
@@ -826,10 +827,10 @@ export function IntakeTalkModal({
     >
       {listening && primaryKind === "stop" ? (
         <>
-          <span className="inline-flex items-center gap-0.5" aria-hidden>
-            <span className="h-3 w-0.5 rounded-sm bg-red-500" />
-            <span className="h-3 w-0.5 rounded-sm bg-red-500" />
-          </span>
+          <span
+            className="h-3 w-3 rounded-[2px] bg-red-500"
+            aria-hidden
+          />
           {primaryLabel}
         </>
       ) : showRecordIcon ? (
@@ -1097,7 +1098,10 @@ export function IntakeTalkModal({
         >
           <div className="absolute inset-0 bg-black/30" aria-hidden />
           <div className="relative w-full max-w-[240px] rounded-2xl bg-white px-5 py-4 text-center shadow-xl">
-            <p className="text-[15px] font-semibold leading-snug text-gray-900">
+            <p className="text-[16px] font-bold leading-snug text-gray-900">
+              {TALK_ENDED_TITLE}
+            </p>
+            <p className="mt-1 text-[14px] font-medium leading-snug text-gray-700">
               {TALK_ENDED_MESSAGE}
             </p>
           </div>
