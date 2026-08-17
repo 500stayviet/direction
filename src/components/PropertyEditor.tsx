@@ -907,14 +907,14 @@ export function PropertyEditor({
         {!isLand && !isBuilding && (
           <>
           <Input
-            label="동·호실"
+            label="건물명 동 호실"
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             onBlur={(e) => {
               const next = formatRoomNoHo(e.target.value);
               if (next !== property.roomNo) update({ roomNo: next });
             }}
-            placeholder="101동 1203호"
+            placeholder="힐스테이트 101동 101호"
             chipWhenFilled
             chipValue={formatRoomNoHo(property.roomNo)}
           />

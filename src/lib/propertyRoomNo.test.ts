@@ -20,6 +20,15 @@ describe("propertyRoomNo", () => {
     assert.equal(formatRoomNoHo("1203호"), "1203호");
     assert.equal(formatRoomNoHo("101동 102호"), "101동 102호");
     assert.equal(formatRoomNoHo("101동"), "101동");
+    assert.equal(formatRoomNoHo("101-101"), "101동 101호");
+    assert.equal(formatRoomNoHo("101/101"), "101동 101호");
+    assert.equal(formatRoomNoHo("101 101호"), "101동 101호");
+    assert.equal(formatRoomNoHo("101동 101"), "101동 101호");
+    assert.equal(formatRoomNoHo("101동101호"), "101동 101호");
+    assert.equal(formatRoomNoHo("101호"), "101호");
+    assert.equal(formatRoomNoHo("힐스테이트 101-101"), "힐스테이트 101동 101호");
+    assert.equal(formatRoomNoHo("힐스테이트 101"), "힐스테이트 101호");
+    assert.equal(formatRoomNoHo("힐스테이트"), "힐스테이트");
     assert.equal(
       formatPropertyPlaceLine({
         buildingName: "힐스테이트",

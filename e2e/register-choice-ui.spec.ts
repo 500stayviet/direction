@@ -156,13 +156,42 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
     await expect(
       page.getByText("구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지 않습니다.")
     ).toBeVisible();
-    const roomNo = page.getByPlaceholder("101동 1203호");
+    const roomNo = page.getByPlaceholder("힐스테이트 101동 101호");
+    const roomChip = page.getByRole("button", { name: "건물명 동 호실" });
     await expect(roomNo).toBeVisible();
     await roomNo.fill("1203");
     await roomNo.blur();
-    await expect(page.getByRole("button", { name: "동·호실" })).toHaveText(
-      "1203호"
-    );
+    await expect(roomChip).toHaveText("1203호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("101-101");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("101동 101호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("101/101");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("101동 101호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("101 101호");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("101동 101호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("101동 101");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("101동 101호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("힐스테이트 101-101");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("힐스테이트 101동 101호");
+
+    await roomChip.click();
+    await page.getByPlaceholder("힐스테이트 101동 101호").fill("101호");
+    await page.getByPlaceholder("힐스테이트 101동 101호").blur();
+    await expect(roomChip).toHaveText("101호");
 
     await expect(page.getByText("관리비 포함 항목")).toHaveCount(0);
     const fee = page.getByLabel("관리비");
