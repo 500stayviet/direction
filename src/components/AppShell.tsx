@@ -8,7 +8,7 @@ import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
 import { TeamAlertsSync } from "@/components/TeamAlertsSync";
 
-const AUTH_PATHS = ["/login", "/signup"];
+const AUTH_PATHS = ["/login"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
   const isAdmin = pathname.startsWith("/admin");
-  // 현장 리드·관리자·로그인/가입에서는 탭바 숨김
+  // 현장 리드·관리자·로그인에서는 탭바 숨김
   const hideTab =
     isAdmin ||
     isAuthPage ||

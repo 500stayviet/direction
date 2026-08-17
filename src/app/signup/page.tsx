@@ -358,7 +358,7 @@ export default function SignupPage() {
               invalidHighlight="input"
               labelRight={
                 <span className="text-[11px] font-semibold leading-tight">
-                  비밀번호 찾기에 사용됩니다 타인과 공유금지
+                  비밀번호 변경에 사용됩니다 타인과 공유금지
                 </span>
               }
             />
@@ -429,7 +429,7 @@ export default function SignupPage() {
         )}
       </form>
 
-      <StickyActionBar aboveTab={false}>
+      <StickyActionBar>
         <Button
           type="submit"
           form="signup-form"

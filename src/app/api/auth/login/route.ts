@@ -76,7 +76,7 @@ async function __POST_handler(request: Request) {
         {
           ok: false,
           message:
-            "아이디 또는 비밀번호가 올바르지 않습니다. 「비밀번호 찾기」로 새 비밀번호를 설정해 보세요.",
+            "아이디 또는 비밀번호가 올바르지 않습니다. 「비밀번호 변경」으로 새 비밀번호를 설정해 보세요.",
         },
         { status: 401 }
       );

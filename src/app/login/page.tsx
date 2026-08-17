@@ -8,12 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { BrandIcon } from "@/components/BrandIcon";
 import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
-import {
-  getRememberedUsername,
-  isAutoLoginEnabled,
-  setAutoLoginEnabled,
-  setRememberedUsername,
-} from "@/lib/loginPrefs";
+import { isAutoLoginEnabled, setAutoLoginEnabled } from "@/lib/loginPrefs";
 import { requiredStarClass } from "@/lib/uiInvalid";
 
 export default function LoginPage() {
@@ -35,7 +30,6 @@ function LoginPageInner() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberId, setRememberId] = useState(false);
   const [autoLogin, setAutoLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -48,23 +42,8 @@ function LoginPageInner() {
     if (registered) {
       setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
     }
-
-    const applyRemembered = () => {
-      const remembered = getRememberedUsername();
-      setAutoLogin(isAutoLoginEnabled());
-      if (preset) {
-        setUsername(preset);
-        setRememberId(Boolean(remembered));
-      } else if (remembered) {
-        setUsername(remembered);
-        setRememberId(true);
-      }
-    };
-
-    applyRemembered();
-    // 브라우저 자동완성이 칸을 비운 뒤에 다시 넣음
-    const retry = window.setTimeout(applyRemembered, 80);
-    return () => window.clearTimeout(retry);
+    if (preset) setUsername(preset);
+    setAutoLogin(isAutoLoginEnabled());
   }, [searchParams]);
 
   const [findOpen, setFindOpen] = useState(false);
@@ -89,8 +68,6 @@ function LoginPageInner() {
         return;
       }
 
-      const normalized = username.trim().toLowerCase();
-      setRememberedUsername(rememberId ? normalized : null);
       setAutoLoginEnabled(autoLogin);
 
       // 세션 백업 저장 후 홈으로 (하드 새로고침 없이 → 스플래시 재표시 방지)
@@ -206,51 +183,26 @@ function LoginPageInner() {
             }
           />
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const on = !rememberId;
-                setRememberId(on);
-                setRememberedUsername(on ? username : null);
-              }}
-              className={[
-                "flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 text-[13px] font-bold transition-all duration-150 active:scale-[0.98]",
-                rememberId
-                  ? "border-[#3182F6] bg-[#E8F3FF] text-[#1B64DA]"
-                  : "border-gray-200 bg-white text-gray-500",
-              ].join(" ")}
-              aria-pressed={rememberId}
-            >
-              <PrefCheck on={rememberId} />
-              아이디 저장
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const on = !autoLogin;
-                setAutoLogin(on);
-                setAutoLoginEnabled(on);
-              }}
-              className={[
-                "flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 text-[13px] font-bold transition-all duration-150 active:scale-[0.98]",
-                autoLogin
-                  ? "border-[#3182F6] bg-[#E8F3FF] text-[#1B64DA]"
-                  : "border-gray-200 bg-white text-gray-500",
-              ].join(" ")}
-              aria-pressed={autoLogin}
-            >
-              <PrefCheck on={autoLogin} />
+          <div className="flex items-center justify-between gap-3 px-0.5">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-gray-500">
+              <input
+                type="checkbox"
+                checked={autoLogin}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setAutoLogin(on);
+                  setAutoLoginEnabled(on);
+                }}
+                className="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
+              />
               자동로그인
-            </button>
-          </div>
-          <div className="flex justify-end">
+            </label>
             <button
               type="button"
               onClick={openFind}
-              className="text-[13px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
+              className="text-[12px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
             >
-              비밀번호 찾기
+              비밀번호 변경
             </button>
           </div>
 
@@ -296,15 +248,8 @@ function LoginPageInner() {
         position="center"
         dense
         className="max-w-[340px] !rounded-[28px]"
-        title="비밀번호 찾기"
+        title={findSuccess ? "변경 완료" : "비밀번호 변경"}
       >
-        <p className="-mt-1 mb-3 text-[13px] leading-relaxed text-gray-500">
-          가입할 때 등록한{" "}
-          <span className="font-bold text-gray-700">아이디</span>와{" "}
-          <span className="font-bold text-gray-700">비밀번호 힌트</span>를
-          확인한 뒤, 새 비밀번호를 설정합니다.
-        </p>
-
         {findSuccess ? (
           <div className="space-y-3">
             <div className="rounded-2xl bg-blue-50 px-4 py-3 text-center">
@@ -320,8 +265,9 @@ function LoginPageInner() {
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleFind} className="space-y-3">
+          <form onSubmit={handleFind} className="space-y-2.5">
             <AuthField
+              dense
               label="아이디"
               required
               value={findUsername}
@@ -330,6 +276,7 @@ function LoginPageInner() {
               autoComplete="username"
             />
             <AuthField
+              dense
               label="비밀번호 힌트"
               required
               value={findHint}
@@ -338,6 +285,7 @@ function LoginPageInner() {
               autoComplete="off"
             />
             <AuthField
+              dense
               label="새 비밀번호"
               required
               value={newPassword}
@@ -347,6 +295,7 @@ function LoginPageInner() {
               autoComplete="new-password"
             />
             <AuthField
+              dense
               label="새 비밀번호 확인"
               required
               value={newPasswordConfirm}
@@ -389,6 +338,7 @@ function AuthField({
   autoComplete,
   icon,
   trailing,
+  dense = false,
 }: {
   label: string;
   value: string;
@@ -399,21 +349,41 @@ function AuthField({
   autoComplete?: string;
   icon?: React.ReactNode;
   trailing?: React.ReactNode;
+  dense?: boolean;
 }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-[13px] font-semibold text-gray-600">
+    <label className={["block", dense ? "space-y-1" : "space-y-1.5"].join(" ")}>
+      <span
+        className={[
+          "font-semibold text-gray-600",
+          dense ? "text-[12px]" : "text-[13px]",
+        ].join(" ")}
+      >
         {label}
         {required && <span className={requiredStarClass}>*</span>}
       </span>
-      <div className="flex min-h-[52px] items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3.5 transition focus-within:border-[#3182F6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#3182F6]/20">
+      <div
+        className={[
+          "flex items-center gap-2 border border-gray-200 bg-gray-50 transition",
+          "focus-within:border-[#3182F6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#3182F6]/20",
+          dense
+            ? "h-[36px] min-h-[36px] rounded-xl px-3"
+            : "min-h-[52px] rounded-2xl px-3.5",
+        ].join(" ")}
+      >
         {icon && (
           <span className="shrink-0 text-gray-400" aria-hidden>
             {icon}
           </span>
         )}
         <input
-          className="min-w-0 flex-1 bg-transparent py-3 text-[16px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
+          className={[
+            "min-w-0 flex-1 bg-transparent font-medium text-gray-900 outline-none",
+            "placeholder:font-normal placeholder:text-gray-400",
+            dense
+              ? "h-full py-0 text-[15px] placeholder:text-[13px]"
+              : "py-3 text-[16px]",
+          ].join(" ")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
@@ -424,30 +394,6 @@ function AuthField({
         {trailing}
       </div>
     </label>
-  );
-}
-
-function PrefCheck({ on }: { on: boolean }) {
-  return (
-    <span
-      className={[
-        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-        on
-          ? "border-[#3182F6] bg-[#3182F6] text-white"
-          : "border-gray-300 bg-white text-transparent",
-      ].join(" ")}
-      aria-hidden
-    >
-      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-        <path
-          d="M2.5 6.2 4.8 8.5 9.5 3.5"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
   );
 }
 
