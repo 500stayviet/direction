@@ -110,6 +110,7 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
     await expect(page.getByTestId("property-address-select")).toHaveText(
       "매물주소선택"
     );
+    await expect(page.getByText("도로명 주소 사용불가")).toBeVisible();
     await page.getByTestId("property-address-select").click();
     await expect(page.getByRole("heading", { name: "구 선택" })).toBeVisible();
     await page.getByRole("button", { name: "강동구", exact: true }).click();
@@ -124,6 +125,18 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
       page.getByText('매물주소 변경희망 시 "강동구 · 성내동"을 다시 누르세요')
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "삭제" })).toHaveCount(0);
+
+    await expect(
+      page.getByRole("button", { name: "1층 현관 비밀번호 입력" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "해당 호실 비밀번호 입력" })
+    ).toBeVisible();
+    await page.getByRole("button", { name: "1층 현관 비밀번호 입력" }).click();
+    await expect(page.getByPlaceholder("1234*")).toBeVisible();
+    await expect(
+      page.getByText("구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지 않습니다.")
+    ).toBeVisible();
   } finally {
     await purgeE2eUser(userId);
   }

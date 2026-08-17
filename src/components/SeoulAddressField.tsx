@@ -146,9 +146,7 @@ export function SeoulAddressField({
             도로명 주소 사용불가
           </span>
         </p>
-        {hasSelection ? (
-          <p className={reselectHintClass}>{reselectHint("매물주소", selectedLabel)}</p>
-        ) : labelRight ? (
+        {!hasSelection && labelRight ? (
           <span className="shrink-0 text-[12px] font-bold text-red-500">
             {labelRight}
           </span>
@@ -157,6 +155,11 @@ export function SeoulAddressField({
       {addressInvalid && (
         <p className={`text-xs ${invalidHintClass}`}>미입력</p>
       )}
+      {hasSelection ? (
+        <p className={reselectHintClass}>
+          {reselectHint("매물주소", selectedLabel)}
+        </p>
+      ) : null}
 
       {hasSelection ? (
         <button

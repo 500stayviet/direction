@@ -168,12 +168,26 @@ export function PropertyEditor({
   const [photoError, setPhotoError] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
+  const [floorPwOpen, setFloorPwOpen] = useState(() =>
+    Boolean(property.floorPassword?.trim())
+  );
+  const [roomPwOpen, setRoomPwOpen] = useState(() =>
+    Boolean((property.roomPassword || property.password)?.trim())
+  );
   const applyingIntakeRef = useRef(false);
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);
+
+  useEffect(() => {
+    if (property.floorPassword?.trim()) setFloorPwOpen(true);
+  }, [property.floorPassword]);
+
+  useEffect(() => {
+    if ((property.roomPassword || property.password)?.trim()) setRoomPwOpen(true);
+  }, [property.roomPassword, property.password]);
 
   const reorderList = allProperties ?? [];
   const canReorder =
@@ -1049,8 +1063,8 @@ export function PropertyEditor({
           />
         </div>
         <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
-          구·동·지번 본번이 정확하지 않으면 원터치 네비 기능이 정상적으로
-          지원되지 않을 수 있습니다.
+          구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지
+          않습니다.
         </p>
         {!isLand && !isBuilding && (
           <Input
@@ -1063,20 +1077,40 @@ export function PropertyEditor({
         )}
         {!isLand && (
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="1층 비밀번호"
-              value={property.floorPassword ?? ""}
-              onChange={(e) => update({ floorPassword: e.target.value })}
-              placeholder="1234*"
-              chipWhenFilled={showFilled}
-            />
-            <Input
-              label="호실 비밀번호"
-              value={property.roomPassword ?? property.password ?? ""}
-              onChange={(e) => update({ roomPassword: e.target.value })}
-              placeholder="5678*"
-              chipWhenFilled={showFilled}
-            />
+            {floorPwOpen ? (
+              <Input
+                label="1층 현관 비밀번호"
+                value={property.floorPassword ?? ""}
+                onChange={(e) => update({ floorPassword: e.target.value })}
+                placeholder="1234*"
+                chipWhenFilled={showFilled}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFloorPwOpen(true)}
+                className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+              >
+                1층 현관 비밀번호 입력
+              </button>
+            )}
+            {roomPwOpen ? (
+              <Input
+                label="해당 호실 비밀번호"
+                value={property.roomPassword ?? property.password ?? ""}
+                onChange={(e) => update({ roomPassword: e.target.value })}
+                placeholder="5678*"
+                chipWhenFilled={showFilled}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRoomPwOpen(true)}
+                className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+              >
+                해당 호실 비밀번호 입력
+              </button>
+            )}
           </div>
         )}
       </div>
