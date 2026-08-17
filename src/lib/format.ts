@@ -158,7 +158,7 @@ export function matchesBudgetSearch(
  * - 100000 → 10억
  * - 15000 → 1억 5000만
  */
-export function formatMoney(amount: number): string {
+export function formatMoney(amount: number | null | undefined): string {
   if (!amount && amount !== 0) return "-";
   const n = Math.round(amount);
   if (n >= 10000) {
