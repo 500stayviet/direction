@@ -6,6 +6,7 @@ export type DetailHeaderTone =
   | "team"
   | "teamOn"
   | "share"
+  | "form"
   | "edit"
   | "cancel"
   | "delete";
@@ -14,6 +15,7 @@ const toneClass: Record<DetailHeaderTone, string> = {
   team: "border-gray-400 text-gray-600 hover:bg-gray-50",
   teamOn: "border-violet-500 text-violet-600 hover:bg-violet-50",
   share: "border-sky-400 text-sky-600 hover:bg-sky-50",
+  form: "border-gray-200 text-gray-800 hover:bg-gray-50",
   edit: "border-emerald-500 text-emerald-600 hover:bg-emerald-50",
   cancel: "border-gray-300 text-gray-600 hover:bg-gray-50",
   delete: "border-red-500 text-red-600 hover:bg-red-50",

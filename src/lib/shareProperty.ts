@@ -3,10 +3,10 @@ import {
   formatKoreanAmPmTime,
   formatMoney,
   formatMoveInRange,
-  formatPhone,
   isInsuranceJoined,
 } from "@/lib/format";
 import { skipsResidentialExtras, needsRoomBathCounts } from "@/lib/constants";
+import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
 import type { Property, User } from "@/lib/types";
 
 /**
@@ -175,28 +175,7 @@ export function buildPropertyShareText(
     lines.push("");
   });
 
-  // 기본값 "현장동선"은 미입력으로 취급
-  const rawShop = (agent.shopName || "").trim();
-  const shop =
-    !rawShop || rawShop === "현장동선" ? "" : rawShop;
-  const agentName = (agent.name || "").trim();
-  const agentPhone =
-    formatPhone(agent.phone || "") || (agent.phone || "").trim();
-
-  lines.push("─".repeat(12));
-  // 값 있으면 값 표시, 가입 시 미입력이면 라벨만
-  // 저장 시 이미 「부동산」「공인중개사사무소」가 붙을 수 있음 — 중복 추가 금지
-  if (shop) {
-    const hasLabel =
-      shop.includes("부동산") || shop.includes("공인중개사사무소");
-    lines.push(hasLabel ? shop : `${shop} 공인중개사사무소`);
-  } else {
-    lines.push("부동산");
-  }
-  lines.push(agentName ? `담당 ${agentName}` : "담당");
-  lines.push(agentPhone ? agentPhone : "전화번호");
-  lines.push("-제공-");
-  lines.push("앱 현장동선");
+  lines.push(...buildAgentShareFooterLines(agent));
 
   return lines.join("\n").trim();
 }

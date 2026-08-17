@@ -10,6 +10,9 @@ import {
   TALK_ENDED_MS,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
+  TALK_RECOGNITION_FAIL,
+  TALK_MIC_FAIL,
+  isTalkMicError,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "./talkSession.ts";
@@ -82,6 +85,11 @@ describe("talkSession", () => {
     assert.equal(TALK_ENDED_MESSAGE, "대화가 종료되었습니다.");
     assert.match(TALK_STOP_HINT, /녹화버튼/);
     assert.match(TALK_STOP_HINT, /대화를 이어가세요/);
+    assert.match(TALK_RECOGNITION_FAIL, /대화를 인식하지 못했습니다/);
+    assert.equal(TALK_MIC_FAIL, "마이크를 연결할 수 없습니다.");
+    assert.equal(isTalkMicError("not-allowed"), true);
+    assert.equal(isTalkMicError("audio-capture"), true);
+    assert.equal(isTalkMicError("network"), false);
   });
 
   it("메모는 말을 쌓고 삭제는 비운다", () => {

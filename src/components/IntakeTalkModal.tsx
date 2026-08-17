@@ -38,6 +38,9 @@ import {
   TALK_ENDED_MS,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
+  TALK_RECOGNITION_FAIL,
+  TALK_MIC_FAIL,
+  isTalkMicError,
   talkPrimaryKind,
   talkPrimaryLabel,
 } from "@/lib/talkSession";
@@ -75,7 +78,7 @@ function getSpeechRecognition(): SpeechRec | null {
 }
 
 function activeRowClass(active: boolean, filled: boolean): string {
-  const box = "rounded-xl border p-2";
+  const box = "rounded-lg border px-2 py-1";
   if (filled) return `${box} border-green-400 bg-green-50`;
   if (active) return `${box} border-blue-400 bg-blue-50/80`;
   return `${box} border-gray-200 bg-white`;
@@ -558,7 +561,7 @@ export function IntakeTalkModal({
       const fresh = buildRecognition();
       if (!fresh) {
         haltListening();
-        setError("마이크를 시작할 수 없습니다.");
+        setError(TALK_MIC_FAIL);
         return;
       }
       recRef.current = fresh;
@@ -567,13 +570,15 @@ export function IntakeTalkModal({
       } catch {
         recRef.current = null;
         haltListening();
-        setError("마이크를 시작할 수 없습니다.");
+        setError(TALK_MIC_FAIL);
       }
     };
     rec.onerror = (ev) => {
       if (ev?.error === "aborted" || ev?.error === "no-speech") return;
       haltListening();
-      setError("말을 인식하지 못했습니다. 다시 눌러 주세요.");
+      setError(
+        isTalkMicError(ev?.error) ? TALK_MIC_FAIL : TALK_RECOGNITION_FAIL
+      );
     };
     return rec;
   }, [
@@ -601,7 +606,28 @@ export function IntakeTalkModal({
     setSpeechSupported(supported);
     if (!supported) {
       setError("이 브라우저에서는 대화를 쓸 수 없습니다. 메시지로 입력해 주세요.");
+      return;
     }
+    let cancelled = false;
+    const permissions = (
+      navigator as Navigator & {
+        permissions?: {
+          query: (desc: { name: string }) => Promise<{ state: string }>;
+        };
+      }
+    ).permissions;
+    void permissions
+      ?.query({ name: "microphone" })
+      .then((status) => {
+        if (cancelled) return;
+        if (status.state === "denied") setError(TALK_MIC_FAIL);
+      })
+      .catch(() => {
+        /* Safari 등 permissions 미지원 — 시작 시 오류로 안내 */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [
     open,
     resetWizard,
@@ -663,7 +689,7 @@ export function IntakeTalkModal({
     stopRecognition();
     const rec = buildRecognition();
     if (!rec) {
-      setError("마이크를 시작할 수 없습니다.");
+      setError(TALK_MIC_FAIL);
       return;
     }
     recRef.current = rec;
@@ -673,7 +699,7 @@ export function IntakeTalkModal({
       bumpIdleTimer();
     } catch {
       recRef.current = null;
-      setError("마이크를 시작할 수 없습니다.");
+      setError(TALK_MIC_FAIL);
     }
   };
 
@@ -831,7 +857,7 @@ export function IntakeTalkModal({
               <ListeningMicMeter live={composedLive} />
               <span>{composedLive || "듣는 중…"}</span>
             </p>
-          ) : talkStarted && !allComplete ? (
+          ) : talkStarted && !allComplete && !error ? (
             <p className="min-h-[1.25rem] text-center text-[14px] font-medium leading-snug text-gray-400">
               {TALK_STOP_HINT}
             </p>
@@ -881,7 +907,7 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="-mx-2 mb-2 space-y-1.5 rounded-2xl bg-gray-50 px-1 py-1.5">
+      <ul className="-mx-2 mb-2 space-y-0.5 rounded-2xl bg-gray-50 px-1 py-1">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";

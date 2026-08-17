@@ -20,6 +20,22 @@ export const TALK_ENDED_MESSAGE = "대화가 종료되었습니다.";
 
 export const TALK_STOP_HINT = "녹화버튼을 눌러 대화를 이어가세요.";
 
+/** 말은 들렸지만 내용 인식 실패 */
+export const TALK_RECOGNITION_FAIL =
+  "대화를 인식하지 못했습니다. 다시 눌러 주세요.";
+
+/** 권한·장치 문제로 마이크를 쓸 수 없을 때 */
+export const TALK_MIC_FAIL = "마이크를 연결할 수 없습니다.";
+
+/** SpeechRecognition onerror → 마이크 문제 */
+export function isTalkMicError(code: string | undefined): boolean {
+  return (
+    code === "not-allowed" ||
+    code === "service-not-allowed" ||
+    code === "audio-capture"
+  );
+}
+
 export function talkPrimaryKind(opts: {
   talkStarted: boolean;
   listening: boolean;

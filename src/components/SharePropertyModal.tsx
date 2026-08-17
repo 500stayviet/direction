@@ -72,7 +72,7 @@ export function SharePropertyModal({
       <div className="space-y-3">
         <div>
           <p className="text-[13px] leading-snug text-gray-500">
-            고객에게 보낼 내용입니다. 상대방 전화·고객 정보는 포함되지
+            고객에게 보낼 내용입니다. 고객과 협력 부동산 정보는 포함되지
             않습니다.
           </p>
           <div className="mt-1 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
