@@ -43,7 +43,7 @@ export function formatRoomNoHo(roomNo: string): string {
   const text = (roomNo ?? "").trim().replace(/\s+/g, " ");
   if (!text) return "";
 
-  let rest = text
+  const rest = text
     .replace(/(\d)\s*동(?:\s*동)+/g, "$1동")
     .replace(/(\d)\s*호(?:\s*호)+/g, "$1호");
 
