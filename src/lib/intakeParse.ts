@@ -332,7 +332,7 @@ function firstDealFieldText(text: string): {
 }
 
 const MEMO_LABEL_RE =
-  /(?:메모|내용|추가\s*내용|비고|특이\s*사항|참고|요청\s*사항|기타)\s*[.:：。]/gi;
+  /(?:메모|내용|추가\s*내용|추가\s*희망\s*사항|희망\s*사항|비고|특이\s*사항|참고|요청\s*사항|기타)\s*[.:：。]/gi;
 
 function splitLabeledMemo(text: string): { body: string; labeledMemo: string } {
   MEMO_LABEL_RE.lastIndex = 0;

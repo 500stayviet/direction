@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { IntakeAiBusyCover } from "@/components/IntakeAiBusyOverlay";
+import { MESSAGE_INTAKE_MAX_LENGTH } from "@/lib/blankIntakeForm";
 
 const AREA_MIN_PX = 144;
 const AREA_MAX_PX = 280;
-const MESSAGE_MAX_LENGTH = 200;
 
 export function IntakeMessageModal({
   open,
@@ -78,8 +78,10 @@ export function IntakeMessageModal({
         <textarea
           ref={areaRef}
           value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
-          maxLength={MESSAGE_MAX_LENGTH}
+          onChange={(e) =>
+            setText(e.target.value.slice(0, MESSAGE_INTAKE_MAX_LENGTH))
+          }
+          maxLength={MESSAGE_INTAKE_MAX_LENGTH}
           aria-label="메시지"
           autoFocus
           disabled={busy}
@@ -87,7 +89,7 @@ export function IntakeMessageModal({
           className="w-full resize-none overflow-y-auto rounded-xl border border-blue-400 bg-white p-2 text-[15px] font-bold leading-snug text-gray-800 outline-none disabled:opacity-60"
         />
         <p className="mt-1 px-2 text-right text-[11px] font-medium tabular-nums text-gray-400">
-          {text.length}/{MESSAGE_MAX_LENGTH}
+          {text.length}/{MESSAGE_INTAKE_MAX_LENGTH}
         </p>
       </div>
     </Modal>

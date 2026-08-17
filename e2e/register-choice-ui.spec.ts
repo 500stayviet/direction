@@ -26,16 +26,21 @@ test("고객등록: 거래종류 접기·매물유형 모달·3룸+ 방/화장�
     });
     await page.getByRole("button", { name: "고객등록 양식" }).click();
     await expect(
-      page.getByRole("heading", { name: "고객등록 양식 미리보기" })
+      page.getByRole("heading", {
+        name: "고객등록 양식 미리보기 (아파트 또는 주택, 원룸용)",
+      })
     ).toBeVisible();
     await expect(
       page.getByText(/메시지로 입력으로 붙여넣기하여 고객등록 가능합니다/)
     ).toBeVisible();
-    await expect(page.getByText(/고객명 또는 명칭:  /)).toBeVisible();
+    await expect(page.getByText(/고객명 \(예: 홍길동\)/)).toBeVisible();
+    await expect(page.getByText(/매물 유형 \(예: 아파트/)).toBeVisible();
     await expect(page.getByText("-제공-")).toBeVisible();
     await page.getByRole("button", { name: "닫기", exact: true }).filter({ hasText: "닫기" }).click();
     await expect(
-      page.getByRole("heading", { name: "고객등록 양식 미리보기" })
+      page.getByRole("heading", {
+        name: "고객등록 양식 미리보기 (아파트 또는 주택, 원룸용)",
+      })
     ).toBeHidden();
 
     await expect(page.getByRole("button", { name: "매매", exact: true })).toBeVisible();

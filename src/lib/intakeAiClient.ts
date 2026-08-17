@@ -13,6 +13,7 @@ import {
   type IntakeKind,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
+import { preprocessCustomerBlankForm } from "@/lib/blankIntakeForm";
 
 export { INTAKE_AI_MIN_WAIT_MS };
 
@@ -62,8 +63,11 @@ export async function resolveIntakeWithAi(opts: {
   source: IntakeAiSource;
   accessToken?: string | null;
 }): Promise<IntakeParseResult> {
-  const parsed = parseIntakeText(opts.raw, opts.kind);
-  const leftover = intakeAiLeftover(opts.raw, parsed, opts.source);
+  const preprocessed =
+    opts.kind === "customer" ? preprocessCustomerBlankForm(opts.raw) : null;
+  const rawForParse = preprocessed !== null ? preprocessed : opts.raw;
+  const parsed = parseIntakeText(rawForParse, opts.kind);
+  const leftover = intakeAiLeftover(rawForParse, parsed, opts.source);
   if (!leftover) return parsed;
   if (!leftoverNeedsAi(leftover, parsed)) {
     return {

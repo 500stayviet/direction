@@ -34,7 +34,10 @@ export function BlankFormModal({
     setError("");
   }, [open]);
 
-  const title = kind === "customer" ? "고객등록 양식" : "매물등록 양식";
+  const modalTitle =
+    kind === "customer"
+      ? "고객등록 양식 미리보기 (아파트 또는 주택, 원룸용)"
+      : "매물등록 양식 미리보기";
   const text = useMemo(() => {
     return kind === "customer"
       ? buildCustomerBlankFormText(agent)
@@ -66,7 +69,7 @@ export function BlankFormModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`${title} 미리보기`} dense>
+    <Modal open={open} onClose={onClose} title={modalTitle} dense>
       <div className="space-y-3">
         <p className="text-[13px] leading-snug text-gray-500">
           필요시 고객에게 전달하여 양식을 완성하세요. 그후 메시지로 입력으로
