@@ -157,7 +157,7 @@ export function Modal({
           </div>
         ) : null}
         {cover ? (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-[inherit] bg-white/90">
+          <div className="absolute inset-0 z-20 overflow-hidden rounded-[inherit]">
             {cover}
           </div>
         ) : null}

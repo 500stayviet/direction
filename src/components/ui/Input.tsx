@@ -186,7 +186,9 @@ export function Input({
             "active:scale-95 transition-all duration-150",
           ].join(" ")}
         >
-          {String(props.value)}
+          {suffix
+            ? `${String(props.value).trim()}${suffix}`
+            : String(props.value)}
         </button>
       </Field>
     );

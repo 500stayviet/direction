@@ -910,6 +910,7 @@ export function PropertyEditor({
               type="number"
               value={property.monthlyRent || ""}
               accent={(property.monthlyRent ?? 0) > 0}
+              chipWhenFilled
               suffix="만원"
               onChange={(e) =>
                 update({ monthlyRent: Number(e.target.value) || 0 })
@@ -931,6 +932,7 @@ export function PropertyEditor({
               type="number"
               value={property.maintenanceFee || ""}
               accent={showFilled && (property.maintenanceFee ?? 0) > 0}
+              chipWhenFilled
               suffix="만원"
               onChange={(e) =>
                 update({ maintenanceFee: Number(e.target.value) || 0 })
@@ -1258,10 +1260,13 @@ export function PropertyEditor({
           </div>
           {property.parkingType === "유" && (
             <Input
-              label="주차비 (만원/월)"
+              label="주차비"
               type="number"
               inputMode="numeric"
-              value={property.parkingFee ?? 0}
+              value={property.parkingFee || ""}
+              accent={(property.parkingFee ?? 0) > 0}
+              chipWhenFilled
+              suffix="만원"
               onChange={(e) => {
                 const raw = e.target.value;
                 update({

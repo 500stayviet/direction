@@ -27,6 +27,22 @@ describe("intakeAiLeftover", () => {
     assert.doesNotMatch(leftover, /암사동|원룸|전세|2억|남향/);
   });
 
+  it("라벨 메모는 잔여에서 빼서 같은 글을 두 번 붙이지 않는다", () => {
+    const raw = `김영희
+010-9876-5432
+월세
+원룸
+보증금 1000 / 월세 50
+강동구 성내동
+대출 유
+주차 유
+메모: 저층 남향 저녁시간 방문불가 아기있음 주차는 낮에만가능`;
+    const parsed = parseIntakeText(raw, "customer");
+    assert.match(parsed.notes, /주차는 낮에만가능/);
+    assert.equal(parsed.notes.split("\n").length, 1);
+    assert.equal(intakeAiLeftover(raw, parsed, "message"), "");
+  });
+
   it("잔여가 이미 내용에 있으면 API를 건너뛴다", () => {
     const raw = `천호동 314-7 제이디파크빌 403호
 방2 거실 주방
@@ -37,7 +53,16 @@ describe("intakeAiLeftover", () => {
     assert.equal(intakeAiLeftover(raw, parsed, "message"), "");
   });
 
-  it("일요일 불가 같은 메모 잔여는 API를 부르지 않는다", () => {
+  it("일요일 불가만 있으면 API를 건너뛴다", () => {
+    const parsed = parseIntakeText("원룸 전세 2억 암사동", "property");
+    assert.equal(leftoverNeedsAi("일요일불가", parsed), false);
+    assert.equal(
+      leftoverNeedsAi("집보는건 일요일불가 저녁타임 예약", parsed),
+      false
+    );
+  });
+
+  it("숫자·칸 잔여가 섞인 글은 API로 보낸다", () => {
     const raw = [
       "천호동 314-7 제이디파크빌 403호",
       "방2 거실 주방 화장실 다용도실",
@@ -49,13 +74,22 @@ describe("intakeAiLeftover", () => {
     const parsed = parseIntakeText(raw, "property");
     const leftover = intakeAiLeftover(raw, parsed, "message");
     assert.match(leftover, /일요일불가/);
-    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+    assert.equal(leftoverNeedsAi(leftover, parsed), true);
   });
 
   it("동이 비어 있고 잔여에 동이 있으면 API가 필요하다", () => {
     const leftover = "성내동 파크힐";
     const parsed = parseIntakeText("원룸 전세 2억", "property");
     assert.equal(parsed.dong, undefined);
+    assert.equal(leftoverNeedsAi(leftover, parsed), true);
+  });
+
+  it("칸에 넣은 날짜·유무 잔여는 메모가 아니라 API로 보낸다", () => {
+    const leftover = "보증금 3월 1일 ~ 4월 15일 대출 유 보증보험 무 유 유 메모";
+    const parsed = parseIntakeText(
+      "원룸 월세 성내동 3월 1일 ~ 4월 15일 대출 유",
+      "customer"
+    );
     assert.equal(leftoverNeedsAi(leftover, parsed), true);
   });
 
@@ -66,6 +100,31 @@ describe("intakeAiLeftover", () => {
     const leftover = intakeAiLeftover(raw, parsed, "photo");
     assert.ok(leftover.length <= 280);
     assert.ok(leftover.length >= 200);
+  });
+
+  it("보증금이 비면 잔여에서 금액을 남긴다", () => {
+    const leftover = intakeAiLeftover(
+      "원룸 전세 2억 블루하임",
+      {
+        roomType: "원룸",
+        dealType: "전세",
+        options: [],
+        notes: "",
+      },
+      "message"
+    );
+    assert.match(leftover, /2억/);
+    assert.match(leftover, /블루하임/);
+    assert.doesNotMatch(leftover, /전세|원룸/);
+    assert.equal(
+      leftoverNeedsAi(leftover, {
+        roomType: "원룸",
+        dealType: "전세",
+        options: [],
+        notes: "",
+      }),
+      true
+    );
   });
 });
 
@@ -86,6 +145,20 @@ describe("mergeIntakeAi", () => {
     assert.equal(merged.dealType, "전세");
     assert.equal(merged.monthlyRent, undefined);
     assert.match(merged.notes, /남향 희망/);
+  });
+
+  it("거래종류·보증금이 비면 채운다", () => {
+    const parsed = parseIntakeText("원룸 암사동 블루하임", "customer");
+    assert.equal(parsed.dealType, undefined);
+    assert.equal(parsed.deposit, undefined);
+    const merged = mergeIntakeAi(
+      parsed,
+      { dealType: "전세", deposit: 2, memo: "남향" },
+      "전세 2억 블루하임 남향"
+    );
+    assert.equal(merged.dealType, "전세");
+    assert.equal(merged.deposit, 20000);
+    assert.match(merged.notes, /남향/);
   });
 
   it("비어 있는 동·날짜만 채우고 애매한 점은 날짜로 쓰지 않는다", () => {
@@ -122,18 +195,23 @@ describe("mergeIntakeAi", () => {
 });
 
 describe("sanitizeIntakeAiPatch", () => {
-  it("전화·금액 키는 버리고 서울 동만 받는다", () => {
-    const patch = sanitizeIntakeAiPatch({
-      phone: "01012345678",
-      deposit: 1000,
-      dong: "암사동",
-      name: "성내동",
-      roomNo: "201호",
-    });
+  it("전화는 버리고 빈 거래종류·보증금은 받는다", () => {
+    const patch = sanitizeIntakeAiPatch(
+      {
+        phone: "01012345678",
+        deposit: 2,
+        dealType: "전세",
+        dong: "암사동",
+        name: "성내동",
+        roomNo: "201호",
+      },
+      "전세 2억"
+    );
     assert.equal(patch.dong, "암사동");
     assert.equal(patch.roomNo, "201호");
+    assert.equal(patch.dealType, "전세");
+    assert.equal(patch.deposit, 20000);
     assert.equal(patch.name, undefined);
     assert.equal("phone" in patch, false);
-    assert.equal("deposit" in patch, false);
   });
 });

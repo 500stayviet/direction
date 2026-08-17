@@ -918,6 +918,7 @@ export function CustomerForm({
                       inputMode="numeric"
                       value={monthlyRent || ""}
                       accent={monthlyRent > 0}
+                      chipWhenFilled
                       onChange={(e) => {
                         const next = Number(e.target.value) || 0;
                         setMonthlyRent(next);
@@ -937,6 +938,7 @@ export function CustomerForm({
                         inputMode="numeric"
                         value={monthlyRent || ""}
                         accent={monthlyRent > 0}
+                        chipWhenFilled
                         onChange={(e) =>
                           setMonthlyRent(Number(e.target.value) || 0)
                         }
@@ -952,6 +954,7 @@ export function CustomerForm({
                         inputMode="numeric"
                         value={monthlyRentTo || ""}
                         accent={monthlyRentTo > 0}
+                        chipWhenFilled
                         onChange={(e) =>
                           setMonthlyRentTo(Number(e.target.value) || 0)
                         }

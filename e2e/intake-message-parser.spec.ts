@@ -166,6 +166,9 @@ test("고객등록 양식 메시지: 채운 칸만 반영하고 예시·푸터 �
       "고객 전화번호 (예: 010-1234-5678)",
       ": 010-5555-6666",
       "",
+      "거래종류 (예: 매매, 전세, 월세)",
+      ": 월세",
+      "",
       "매물 유형 (예: 아파트, 원룸, 투룸, 3룸+)",
       ": 원룸",
       "",
@@ -204,6 +207,7 @@ test("고객등록 양식 메시지: 채운 칸만 반영하고 예시·푸터 �
       /010-1111-1111/
     );
     await expect(page.getByRole("button", { name: "원룸", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "월세", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /강동구\s*·\s*성내동/ })).toBeVisible();
     await expect(page.getByLabel("메모")).toHaveValue(/저층/);
   } finally {

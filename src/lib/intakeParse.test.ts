@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyIntakeToProperty, intakePreferredLocation, parseIntakeText } from "./intakeParse.ts";
+import { applyIntakeToProperty, appendIntakeMemo, intakePreferredLocation, parseIntakeText } from "./intakeParse.ts";
 import { createEmptyProperty } from "./constants.ts";
 import { formatPhoneInput } from "./format.ts";
 
@@ -47,6 +47,13 @@ describe("parseIntakeText", () => {
       "customer"
     );
     assert.equal(contentLabel.notes, "남향 저층");
+    assert.equal(
+      appendIntakeMemo(
+        "저층 남향 저녁시간 방문불가 아기있음 주차는 낮에만가능",
+        "저층 남향 저녁시간 방문불가 아기있음 는 낮에만가능"
+      ),
+      "저층 남향 저녁시간 방문불가 아기있음 주차는 낮에만가능"
+    );
 
     const labeledMoney = parseIntakeText(
       "원룸 전세 2억 암사동 메모: 매매 5억 남향",
@@ -83,7 +90,8 @@ describe("parseIntakeText", () => {
     const discarded = parseIntakeText("원룸 12/50 5억9 3화 물화 9/31", "customer");
     assert.equal(discarded.notes, "");
     assert.equal(discarded.deposit, undefined);
-    assert.equal(discarded.bathroomCount, undefined);
+    assert.equal(discarded.roomCount, 1);
+    assert.equal(discarded.bathroomCount, 1);
 
     const keepDir = parseIntakeText("원룸 전세 5억9 남향", "customer");
     assert.equal(keepDir.deposit, undefined);
@@ -144,6 +152,41 @@ describe("parseIntakeText", () => {
     assert.equal(laterKeptInMemo.deposit, 20000);
     assert.equal(laterKeptInMemo.dong, "천호동");
     assert.match(laterKeptInMemo.notes, /매매/);
+    assert.doesNotMatch(laterKeptInMemo.notes, /천호동/);
+
+    const laterDealKeepsFieldsOutOfMemo = parseIntakeText(
+      "원룸 전세 2억 매매 5억 강동구 암사동 5월 1일 ~ 6월 15일 대출 유 전세보증보험 유 주차 유 엘리베이터 유",
+      "customer"
+    );
+    assert.equal(laterDealKeepsFieldsOutOfMemo.dealType, "전세");
+    assert.equal(laterDealKeepsFieldsOutOfMemo.deposit, 20000);
+    assert.equal(laterDealKeepsFieldsOutOfMemo.dong, "암사동");
+    assert.equal(laterDealKeepsFieldsOutOfMemo.loan, "유");
+    assert.equal(laterDealKeepsFieldsOutOfMemo.parking, "유");
+    assert.match(laterDealKeepsFieldsOutOfMemo.notes, /매매/);
+    assert.match(laterDealKeepsFieldsOutOfMemo.notes, /5억/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /암사동/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /5월/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /대출 유/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /전세보증보험/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /주차 유/);
+    assert.doesNotMatch(laterDealKeepsFieldsOutOfMemo.notes, /엘리베이터 유/);
+
+    const jeonseThenPrice = parseIntakeText(
+      "전세 아파트 방 3개 화장실 2개 전세 2억 강동구 암사동 대출 유 전세보증보험 유 주차 유 엘리베이터 유 메모: 남향 고층",
+      "customer"
+    );
+    assert.equal(jeonseThenPrice.dealType, "전세");
+    assert.equal(jeonseThenPrice.deposit, 20000);
+    assert.equal(jeonseThenPrice.roomType, "아파트");
+    assert.equal(jeonseThenPrice.roomCount, 3);
+    assert.equal(jeonseThenPrice.bathroomCount, 2);
+    assert.equal(jeonseThenPrice.dong, "암사동");
+    assert.match(jeonseThenPrice.notes, /남향 고층/);
+    assert.doesNotMatch(jeonseThenPrice.notes, /화장실/);
+    assert.doesNotMatch(jeonseThenPrice.notes, /2억/);
+    assert.doesNotMatch(jeonseThenPrice.notes, /암사동/);
+    assert.doesNotMatch(jeonseThenPrice.notes, /전세보증보험/);
   });
 
   it("앞에 나온 전화만 칸에 넣고 뒤 번호는 내용으로 남긴다", () => {
@@ -234,11 +277,21 @@ describe("parseIntakeText", () => {
     assert.equal(bathWord.bathroomCount, 3);
 
     const bathAlone = parseIntakeText("원룸 전세 화3 암사동", "property");
-    assert.equal(bathAlone.bathroomCount, undefined);
+    assert.equal(bathAlone.roomType, "원룸");
+    assert.equal(bathAlone.roomCount, 1);
+    assert.equal(bathAlone.bathroomCount, 1);
     const bathReversed = parseIntakeText("방4 3화 전세", "property");
     assert.equal(bathReversed.bathroomCount, undefined);
     const bathCompound = parseIntakeText("방4 물화3 전세", "property");
     assert.equal(bathCompound.bathroomCount, undefined);
+
+    const oneRoomIgnoresCounts = parseIntakeText(
+      "원룸 방 3 화장실 2 월세",
+      "customer"
+    );
+    assert.equal(oneRoomIgnoresCounts.roomType, "원룸");
+    assert.equal(oneRoomIgnoresCounts.roomCount, 1);
+    assert.equal(oneRoomIgnoresCounts.bathroomCount, 1);
   });
 
   it("매물 월세·옵션·동호실", () => {
@@ -748,6 +801,11 @@ describe("parseIntakeText", () => {
     assert.equal(eokCheon.deposit, 59000);
     const eokPoint = parseIntakeText("원룸 전세 5.9억", "customer", today);
     assert.equal(eokPoint.deposit, 59000);
+    const eokPointLong = parseIntakeText("아파트 매매 2.52억", "customer", today);
+    assert.equal(eokPointLong.dealType, "매매");
+    assert.equal(eokPointLong.deposit, 25200);
+    const eokPointJeonse = parseIntakeText("원룸 전세 2.52억", "customer", today);
+    assert.equal(eokPointJeonse.deposit, 25200);
     const saleEokCheon = parseIntakeText("건물 매매 5억 9천", "property", today);
     assert.equal(saleEokCheon.deposit, 59000);
     const spokenMix = parseIntakeText("원룸 매매 3억 오천", "customer", today);

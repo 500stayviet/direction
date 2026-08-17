@@ -19,6 +19,9 @@ export type IntakeAiPatch = {
   dong?: string;
   jibun?: string;
   roomNo?: string;
+  dealType?: "매매" | "전세" | "월세";
+  deposit?: number;
+  monthlyRent?: number;
   moveInFrom?: string;
   moveInTo?: string;
   moveInImmediate?: boolean;
@@ -64,12 +67,69 @@ const CONSUMED_RES = [
   /(?:엘리베이터|엘레베이터|엘베)/g,
   /(?:실입주|바로입주|즉시입주)(?:\s*가능)?/g,
   /주차(?:\s*가능)?/g,
+  /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
+  /(?:전세)?보증보험|대출/g,
+  /(?:메모|내용|추가\s*희망\s*사항|희망\s*사항|비고)/g,
+  /\d{1,2}\s*월\s*\d{1,2}\s*일/g,
+  /[~～〜∼\-]+/g,
+];
+
+const MONEY_CONSUMED_RES = [
   /\d+(?:\.\d+)?\s*억/g,
   /\d{1,3}(?:,\d{3})+\s*만(?:원)?/g,
   /\d+\s*만(?:원)?/g,
   /\d+\s*\/\s*\d+(?:\s*\/\s*\d+)?/g,
-  /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
+  /(?:보증금|월세|매매가|거래가액|전세금|전세가)/g,
 ];
+
+function moneyFieldsFilled(parsed: IntakeParseResult): boolean {
+  const hasDeposit = Boolean(parsed.deposit && parsed.deposit > 0);
+  if (!hasDeposit) return false;
+  if (parsed.dealType === "월세") {
+    return Boolean(parsed.monthlyRent && parsed.monthlyRent > 0);
+  }
+  return true;
+}
+
+function dealTokensToStrip(parsed: IntakeParseResult): string[] {
+  if (!parsed.dealType) return [];
+  if (parsed.dealType === "월세" && !parsed.monthlyRent) {
+    return DEAL_TOKENS.filter((token) => token !== "월세");
+  }
+  return DEAL_TOKENS;
+}
+
+function stripParsedFlagLeftover(
+  text: string,
+  parsed: IntakeParseResult
+): string {
+  let next = text;
+  if (parsed.loan) {
+    next = next.replace(/대출\s*[유무있없가능불가]+/g, " ");
+  }
+  if (parsed.insurance) {
+    next = next.replace(/(?:전세)?보증보험\s*[유무있없가능불가]+/g, " ");
+  }
+  if (parsed.parking) {
+    next = next.replace(/주차\s*[유무있없가능불가]+/g, " ");
+  }
+  if (parsed.elevator) {
+    next = next.replace(
+      /(?:엘리베이터|엘레베이터|엘베)\s*[유무있없가능불가]+/g,
+      " "
+    );
+  }
+  if (
+    parsed.loan ||
+    parsed.insurance ||
+    parsed.parking ||
+    parsed.elevator
+  ) {
+    // 칸에 이미 넣은 유/무 단독 잔여
+    next = next.replace(/(?:^|\s)[유무](?=\s|$)/g, " ");
+  }
+  return next;
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -100,6 +160,15 @@ export function listEmptyIntakeAiFields(parsed: IntakeParseResult): string[] {
   if (!parsed.dong?.trim()) empty.push("dong");
   if (!parsed.jibun?.trim()) empty.push("jibun");
   if (!parsed.roomNo?.trim()) empty.push("roomNo");
+  if (!parsed.dealType) empty.push("dealType");
+  if (!parsed.deposit || parsed.deposit <= 0) empty.push("deposit");
+  if (
+    parsed.dealType !== "전세" &&
+    parsed.dealType !== "매매" &&
+    (!parsed.monthlyRent || parsed.monthlyRent <= 0)
+  ) {
+    empty.push("monthlyRent");
+  }
   if (!parsed.moveInFrom && !parsed.moveInImmediate) {
     empty.push("moveInFrom", "moveInTo", "moveInImmediate");
   }
@@ -115,6 +184,13 @@ export function intakeAiLeftover(
   let text = normalizeIntakeInput(raw);
   if (!text) return "";
 
+  text = text
+    .replace(
+      /(?:메모|내용|추가\s*내용|추가\s*희망\s*사항|희망\s*사항|비고|특이\s*사항|참고|요청\s*사항|기타)\s*[:：。][\s\S]*$/i,
+      " "
+    )
+    .trim();
+
   const filled = [
     parsed.name,
     parsed.phone,
@@ -125,20 +201,32 @@ export function intakeAiLeftover(
     parsed.jibun,
     parsed.roomNo,
     parsed.roomType,
-    parsed.dealType,
   ].filter((v): v is string => Boolean(v && v.trim()));
 
-  text = replaceLongest(text, [...filled, ...ROOM_TYPE_TOKENS, ...DEAL_TOKENS]);
+  text = replaceLongest(text, [
+    ...filled,
+    ...ROOM_TYPE_TOKENS,
+    ...dealTokensToStrip(parsed),
+  ]);
 
   for (const re of CONSUMED_RES) {
     text = text.replace(new RegExp(re.source, re.flags), " ");
   }
+  if (moneyFieldsFilled(parsed)) {
+    for (const re of MONEY_CONSUMED_RES) {
+      text = text.replace(new RegExp(re.source, re.flags), " ");
+    }
+  }
+
+  text = stripParsedFlagLeftover(text, parsed);
 
   if (parsed.moveInFrom || parsed.moveInImmediate) {
     text = text.replace(
       /\d{2,4}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{1,2}/g,
       " "
     );
+    text = text.replace(/\d{1,2}\s*월\s*\d{1,2}\s*일/g, " ");
+    text = text.replace(/[~～〜∼\-]+/g, " ");
   }
 
   const noteBits = parsed.notes
@@ -161,14 +249,34 @@ const DATE_HINT =
   /\d{2,4}\s*[.\-/]\s*\d{1,2}|\d+\s*월\s*\d+\s*일|즉시|바로\s*입주|실입주/;
 const JIBUN_HINT = /\d{1,5}\s*-\s*\d{1,5}/;
 const ROOM_HINT = /\d+\s*(?:동|층|호)/;
+const FIELD_RESIDUE_HINT =
+  /보증금|월세|매매가|거래가액|전세금|대출|보증보험|입주희망|희망일|\d{1,2}\s*월|\d{1,2}\s*일|\d+\s*(?:억|만)|메모/;
 
-/** 주소·이름·날짜처럼 빈 칸을 채울 잔여일 때만 DeepSeek를 부른다. 메모만이면 내용에 붙인다. */
+const MEMO_ONLY_HINT =
+  /일요일|불가|예약|저녁|남향|북향|동향|서향|저층|고층|중층|희망층|애완|반려/;
+
+/** 일요일 불가처럼 숫자·칸 단어가 없으면 메모. 그 외 잔여는 DeepSeek. */
+function leftoverLooksLikeMemoOnly(text: string): boolean {
+  if (/\d/.test(text)) return false;
+  if (FIELD_RESIDUE_HINT.test(text)) return false;
+  if (SEOUL_GU_LIST.some((gu) => text.includes(gu))) return false;
+  for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {
+    if (isKnownSeoulDong(m[0] ?? "")) return false;
+  }
+  if (JIBUN_HINT.test(text) || ROOM_HINT.test(text)) return false;
+  return true;
+}
+
+/** 빈 칸을 채울 잔여·애매한 잔여는 DeepSeek. 분명한 메모만 내용에 붙인다. */
 export function leftoverNeedsAi(
   leftover: string,
   parsed: IntakeParseResult
 ): boolean {
   const text = leftover.replace(/\s+/g, " ").trim();
   if (text.length < 2) return false;
+  if (MEMO_ONLY_HINT.test(text) && leftoverLooksLikeMemoOnly(text)) {
+    return false;
+  }
 
   const needName = !parsed.name?.trim();
   const needGu = !parsed.gu?.trim();
@@ -176,6 +284,18 @@ export function leftoverNeedsAi(
   const needJibun = !parsed.jibun?.trim();
   const needRoom = !parsed.roomNo?.trim();
   const needMove = !parsed.moveInFrom && !parsed.moveInImmediate;
+  const needDeal = !parsed.dealType;
+  const needDeposit = !parsed.deposit || parsed.deposit <= 0;
+  const needRent =
+    parsed.dealType !== "전세" &&
+    parsed.dealType !== "매매" &&
+    (!parsed.monthlyRent || parsed.monthlyRent <= 0);
+
+  if (needDeal && /매매|전세|월세/.test(text)) return true;
+  if (needDeposit && /(?:보증금|전세가|매매가|\d+\s*(?:억|만))/.test(text)) {
+    return true;
+  }
+  if (needRent && /월세\s*\d+|\d+\s*\/\s*\d+/.test(text)) return true;
 
   if (needDong) {
     for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {
@@ -194,7 +314,8 @@ export function leftoverNeedsAi(
   ) {
     return true;
   }
-  return false;
+  if (leftoverLooksLikeMemoOnly(text)) return false;
+  return true;
 }
 
 function isIsoDate(value: string): boolean {
@@ -248,6 +369,44 @@ function sanitizeMemo(value: string): string | undefined {
   return next.slice(0, 200);
 }
 
+function sanitizeDealType(value: unknown): IntakeAiPatch["dealType"] {
+  if (value === "매매" || value === "전세" || value === "월세") return value;
+  return undefined;
+}
+
+function toPositiveInt(value: unknown): number | undefined {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.replace(/,/g, "").trim())
+        : NaN;
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined;
+  return n;
+}
+
+const MAX_DEPOSIT_MAN = 2_000_000;
+const MIN_MONTHLY_RENT = 5;
+const MAX_MONTHLY_RENT = 300;
+
+function sanitizeDepositManwon(
+  value: unknown,
+  leftover: string
+): number | undefined {
+  const n = toPositiveInt(value);
+  if (n == null) return undefined;
+  const asEok = n >= 1 && n <= 99 && /억/.test(leftover) ? n * 10000 : n;
+  if (asEok > MAX_DEPOSIT_MAN) return undefined;
+  return asEok;
+}
+
+function sanitizeMonthlyRent(value: unknown): number | undefined {
+  const n = toPositiveInt(value);
+  if (n == null) return undefined;
+  if (n < MIN_MONTHLY_RENT || n > MAX_MONTHLY_RENT) return undefined;
+  return n;
+}
+
 export function sanitizeIntakeAiPatch(
   input: unknown,
   leftover = ""
@@ -280,6 +439,12 @@ export function sanitizeIntakeAiPatch(
     const roomNo = sanitizeRoomNo(raw.roomNo);
     if (roomNo) patch.roomNo = roomNo;
   }
+  const dealType = sanitizeDealType(raw.dealType);
+  if (dealType) patch.dealType = dealType;
+  const deposit = sanitizeDepositManwon(raw.deposit, leftover);
+  if (deposit) patch.deposit = deposit;
+  const monthlyRent = sanitizeMonthlyRent(raw.monthlyRent);
+  if (monthlyRent) patch.monthlyRent = monthlyRent;
 
   const consultMoveIn = /이사\s*협의/.test(leftover);
   if (!consultMoveIn && typeof raw.moveInFrom === "string") {
@@ -317,6 +482,18 @@ export function mergeIntakeAi(
   if (!next.dong && patch.dong) next.dong = patch.dong;
   if (!next.jibun && patch.jibun) next.jibun = patch.jibun;
   if (!next.roomNo && patch.roomNo) next.roomNo = patch.roomNo;
+  if (!next.dealType && patch.dealType) next.dealType = patch.dealType;
+  if (!(next.deposit && next.deposit > 0) && patch.deposit) {
+    next.deposit = patch.deposit;
+  }
+  if (
+    !(next.monthlyRent && next.monthlyRent > 0) &&
+    patch.monthlyRent &&
+    (next.dealType === "월세" || next.dealType === undefined)
+  ) {
+    next.monthlyRent = patch.monthlyRent;
+    if (!next.dealType) next.dealType = "월세";
+  }
 
   if (!next.moveInFrom && !next.moveInImmediate) {
     if (patch.moveInFrom) {

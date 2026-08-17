@@ -26,6 +26,7 @@ function buildBlankForm(
 const CUSTOMER_BLANK_LABELS = [
   "고객명 (예: 홍길동)",
   "고객 전화번호 (예: 010-1234-5678)",
+  "거래종류 (예: 매매, 전세, 월세)",
   "매물 유형 (예: 아파트, 원룸, 투룸, 3룸+)",
   "방 수 (예: 2개)",
   "화장실 수 (예: 1개)",
@@ -76,7 +77,18 @@ export function buildPropertyBlankFormText(agent: Agent): string {
 }
 
 export function isCustomerBlankFormText(raw: string): boolean {
-  return /^\s*고객등록\s*양식/m.test(raw);
+  if (/^\s*(?:고객등록|객등록)\s*양식/m.test(raw)) return true;
+  const labelHits = [
+    /고객명/,
+    /고객\s*전화번호|전화번호/,
+    /거래종류/,
+    /매물\s*유형/,
+    /거래가액/,
+    /선호지역/,
+    /입주희망일/,
+    /추가\s*희망사항/,
+  ].filter((re) => re.test(raw)).length;
+  return labelHits >= 5;
 }
 
 function stripExampleHint(label: string): string {
@@ -87,9 +99,9 @@ function stripExampleHint(label: string): string {
 }
 
 function cutAgentFooter(text: string): string {
-  const cut = text.search(/\n[─-]{3,}/);
+  const cut = text.search(/[─-]{3,}/);
   if (cut >= 0) return text.slice(0, cut).trimEnd();
-  const provided = text.search(/\n\s*-제공-\s*/);
+  const provided = text.search(/\s*-제공-\s*/);
   if (provided >= 0) return text.slice(0, provided).trimEnd();
   return text.trimEnd();
 }
@@ -100,6 +112,7 @@ type BlankFieldKey =
   | "roomType"
   | "roomCount"
   | "bathroomCount"
+  | "dealType"
   | "money"
   | "location"
   | "dates"
@@ -116,6 +129,7 @@ function mapBlankLabel(label: string): BlankFieldKey | null {
   if (/^(매물유형|유형)$/.test(key)) return "roomType";
   if (/^(방수|방)$/.test(key)) return "roomCount";
   if (/^(화장실수|화장실|화)$/.test(key)) return "bathroomCount";
+  if (/^(거래종류|거래유형|매매전세월세)$/.test(key)) return "dealType";
   if (/^(거래가액|보증금|월세|매매가|금액)$/.test(key)) return "money";
   if (/^(선호지역|선호위치|지역)$/.test(key)) return "location";
   if (/^(입주희망일|입주|희망일)$/.test(key)) return "dates";
@@ -127,12 +141,43 @@ function mapBlankLabel(label: string): BlankFieldKey | null {
   return null;
 }
 
+function isBlankFormLabelLine(raw: string): boolean {
+  const line = stripExampleHint(raw.trim());
+  if (!line || /^[:：]/.test(line)) return false;
+  const sameLine = line.match(/^(.+?)\s*[:：]\s*/);
+  if (sameLine) return mapBlankLabel(sameLine[1]) != null;
+  return mapBlankLabel(line) != null;
+}
+
+function collectContinuation(
+  lines: string[],
+  start: number
+): { extra: string; nextIndex: number } {
+  const parts: string[] = [];
+  let j = start;
+  while (j < lines.length) {
+    const raw = lines[j]?.trim() ?? "";
+    if (!raw) {
+      j += 1;
+      continue;
+    }
+    if (isBlankFormLabelLine(raw) || /^[:：]/.test(raw)) break;
+    parts.push(raw);
+    j += 1;
+  }
+  return { extra: parts.join(" ").trim(), nextIndex: j };
+}
+
+function joinFieldValue(first: string, extra: string): string {
+  return [first.trim(), extra].filter(Boolean).join(" ").trim();
+}
+
 function extractBlankFields(body: string): Partial<Record<BlankFieldKey, string>> {
   const fields: Partial<Record<BlankFieldKey, string>> = {};
   const lines = body.replace(/\r\n/g, "\n").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i]?.trim() ?? "";
-    if (!rawLine || /^고객등록\s*양식/.test(rawLine)) continue;
+    if (!rawLine || /^(?:고객등록|객등록)\s*양식/.test(rawLine)) continue;
 
     const line = stripExampleHint(rawLine);
     if (!line) continue;
@@ -140,17 +185,21 @@ function extractBlankFields(body: string): Partial<Record<BlankFieldKey, string>
     const sameLine = line.match(/^(.+?)\s*[:：]\s*(.+)$/);
     if (sameLine) {
       const mapped = mapBlankLabel(sameLine[1]);
-      const value = sameLine[2].trim();
+      const { extra, nextIndex } = collectContinuation(lines, i + 1);
+      const value = joinFieldValue(sameLine[2], extra);
       if (mapped && value) fields[mapped] = value;
+      if (extra) i = nextIndex - 1;
       continue;
     }
 
     const next = lines[i + 1]?.trim() ?? "";
     if (/^[:：]/.test(next)) {
       const mapped = mapBlankLabel(line);
-      const value = next.replace(/^[:：]\s*/, "").trim();
+      const first = next.replace(/^[:：]\s*/, "").trim();
+      const { extra, nextIndex } = collectContinuation(lines, i + 2);
+      const value = joinFieldValue(first, extra);
       if (mapped && value) fields[mapped] = value;
-      i += 1;
+      i = extra ? nextIndex - 1 : i + 1;
     }
   }
   return fields;
@@ -163,6 +212,19 @@ function yesNoToken(value: string): string {
   return value.trim();
 }
 
+/** 거래종류를 이미 넣었으면 금액 앞의 같은 단어는 가격 라벨로 바꿈 */
+function normalizeBlankMoney(dealType: string | undefined, money: string): string {
+  const m = money.trim();
+  const d = (dealType ?? "").trim();
+  if (d === "전세" && /^전세(?!가|금|보증)/.test(m)) {
+    return m.replace(/^전세/, "전세가");
+  }
+  if (d === "매매" && /^매매(?!가)/.test(m)) {
+    return m.replace(/^매매/, "매매가");
+  }
+  return m;
+}
+
 /** 양식 → 기존 parseIntakeText가 잘 읽는 짧은 메시지 */
 function rebuildCustomerIntakeMessage(
   fields: Partial<Record<BlankFieldKey, string>>
@@ -170,18 +232,22 @@ function rebuildCustomerIntakeMessage(
   const parts: string[] = [];
   if (fields.name) parts.push(fields.name);
   if (fields.phone) parts.push(fields.phone);
+  if (fields.dealType) parts.push(fields.dealType.trim());
   if (fields.roomType) parts.push(fields.roomType);
-  if (fields.roomCount) {
+  const isOneRoom = /원룸/.test((fields.roomType ?? "").replace(/\s+/g, ""));
+  if (!isOneRoom && fields.roomCount) {
     const n = fields.roomCount.replace(/\s+/g, "");
     parts.push(/방/.test(n) ? fields.roomCount : `방 ${fields.roomCount}`);
   }
-  if (fields.bathroomCount) {
+  if (!isOneRoom && fields.bathroomCount) {
     const n = fields.bathroomCount.replace(/\s+/g, "");
     parts.push(
       /화장|화/.test(n) ? fields.bathroomCount : `화장실 ${fields.bathroomCount}`
     );
   }
-  if (fields.money) parts.push(fields.money);
+  if (fields.money) {
+    parts.push(normalizeBlankMoney(fields.dealType, fields.money));
+  }
   if (fields.location) parts.push(fields.location);
   if (fields.dates) parts.push(fields.dates);
   if (fields.loan) parts.push(`대출 ${yesNoToken(fields.loan)}`);
@@ -198,11 +264,15 @@ function rebuildCustomerIntakeMessage(
 
 /**
  * 고객등록 양식이면 예시·푸터를 빼고 채운 값만 남긴 메시지로 바꾼다.
- * 양식이 아니면 null (기존 raw 유지). 값은 없어도 빈 문자열을 돌려 예시 오인을 막는다.
+ * 양식이 아니면 null (기존 raw 유지). 붙여넣은 빈 양식은 "" 로 예시 오인을 막는다.
+ * 사진 OCR처럼 줄이 붙고 라벨이 빠지면 null 을 돌려 원문을 파싱한다.
  */
 export function preprocessCustomerBlankForm(raw: string): string | null {
   if (!isCustomerBlankFormText(raw)) return null;
   const body = cutAgentFooter(raw);
   const fields = extractBlankFields(body);
-  return rebuildCustomerIntakeMessage(fields);
+  const rebuilt = rebuildCustomerIntakeMessage(fields);
+  if (rebuilt) return rebuilt;
+  if (/\n\s*[:：]/.test(body) || /[:：]\s*$/m.test(body)) return "";
+  return null;
 }

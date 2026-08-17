@@ -221,20 +221,20 @@ export function NaviListCard({
     <div
       className={[
         "relative",
-        done || kind === "today" || kind === "tomorrow" ? "pt-2" : "",
+        done || kind === "today" || kind === "tomorrow" ? "pt-3" : "",
         className,
       ].join(" ")}
     >
       {done ? (
-        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-gray-300 bg-gray-100 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-gray-500 shadow-sm ring-2 ring-[#F9FAFB]">
+        <span className="absolute left-3 top-2.5 z-10 -translate-y-1/2 rounded-lg border border-gray-300 bg-gray-100 px-2.5 py-1 text-[16px] font-extrabold leading-none text-gray-500 shadow-sm ring-2 ring-[#F9FAFB]">
           종료
         </span>
       ) : kind === "today" ? (
-        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-orange-400 bg-orange-50 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-orange-700 shadow-sm ring-2 ring-[#F9FAFB]">
+        <span className="absolute left-3 top-2.5 z-10 -translate-y-1/2 rounded-lg border border-orange-400 bg-orange-50 px-2.5 py-1 text-[16px] font-extrabold leading-none text-orange-700 shadow-sm ring-2 ring-[#F9FAFB]">
           오늘
         </span>
       ) : kind === "tomorrow" ? (
-        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-[#3182F6] bg-[#E8F3FF] px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-[#1B64DA] shadow-sm ring-2 ring-[#F9FAFB]">
+        <span className="absolute left-3 top-2.5 z-10 -translate-y-1/2 rounded-lg border border-[#3182F6] bg-[#E8F3FF] px-2.5 py-1 text-[16px] font-extrabold leading-none text-[#1B64DA] shadow-sm ring-2 ring-[#F9FAFB]">
           하루전
         </span>
       ) : null}

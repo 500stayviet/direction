@@ -195,6 +195,10 @@ function parseRoomSpec(text: string): {
     }
     return { roomType, roomCount: 1, bathroomCount };
   }
+  // 원룸은 방·화 1/1이 기본. 양식에 2·3이 있어도 유형이 원룸이면 무시
+  if (roomType === "원룸") {
+    return { roomType: "원룸", roomCount: 1, bathroomCount: 1 };
+  }
   if (lastCount && (!roomType || lastCount.start < typeIndex)) {
     return typeFromCount(lastCount.n);
   }
@@ -249,7 +253,16 @@ function roomAliasHits(
   return unique;
 }
 
-/** 전세대출 안의 전세는 거래종류가 아님 */
+/** 전세대출·전세보증보험·전세가 안의 전세는 거래종류가 아님 */
+function isJeonseDealToken(text: string, index: number): boolean {
+  const rest = text.slice(index);
+  if (rest.startsWith("전세대출")) return false;
+  if (rest.startsWith("전세보증")) return false;
+  if (rest.startsWith("전세금")) return false;
+  if (rest.startsWith("전세가")) return false;
+  return true;
+}
+
 function dealTypeHits(text: string): { key: DealType; index: number }[] {
   const hits: { key: DealType; index: number }[] = [];
   for (const key of DEAL_TYPES) {
@@ -261,14 +274,11 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
         from = index + key.length;
         continue;
       }
-      // 전세가 2억은 금액 라벨 — 거래종류 토큰으로 세지 않음
-      if (key === "전세" && text.slice(index + key.length).startsWith("가")) {
+      if (key === "전세" && !isJeonseDealToken(text, index)) {
         from = index + key.length;
         continue;
       }
-      if (!(key === "전세" && text.slice(index).startsWith("전세대출"))) {
-        hits.push({ key, index });
-      }
+      hits.push({ key, index });
       from = index + 1;
     }
   }
@@ -293,6 +303,26 @@ function isSalePriceAfterMaemae(text: string, index: number): boolean {
 function isMonthlyRentAfterWolse(text: string, index: number): boolean {
   const tail = text.slice(index + "월세".length);
   return /^\s*\d+(?:\.\d+)?/.test(tail);
+}
+
+/** 전세 2억·전세가 2억처럼 뒤 전세는 금액 라벨 (거래종류 재등장 아님) */
+function isJeonsePriceAfterJeonse(text: string, index: number): boolean {
+  const tail = text.slice(index + "전세".length);
+  return /^(?:금|가)?\s*\d+(?:\.\d+)?/.test(tail);
+}
+
+/** 뒤 거래는 종류+금액만 내용으로 남기고, 이미 칸에 넣은 지역·날짜·유무는 넣지 않음 */
+function leftoverSecondDealPhrase(
+  text: string,
+  index: number,
+  key: DealType
+): string {
+  const tail = text.slice(index);
+  const re = new RegExp(
+    `^${key}(?:가|금)?(?:\\s*\\d+(?:\\.\\d+)?(?:\\s*(?:억(?:\\s*\\d+(?:\\.\\d+)?\\s*(?:천|만))?|만|천))?(?:\\s*[\\/／]\\s*\\d+(?:\\.\\d+)?)*)?`
+  );
+  const m = tail.match(re);
+  return (m?.[0] ?? key).replace(/\s+/g, " ").trim();
 }
 
 /** 처음 나온 거래종류만 쓰고, 뒤에 또 나온 매매·전세·월세는 칸에서 빼고 내용으로 남김 */
@@ -323,11 +353,19 @@ function firstDealFieldText(text: string): {
   ) {
     return { dealType: first.key, fieldText: text, moneyText: text };
   }
+  // 앞이 전세일 때 뒤 "전세 2억"은 전세 금액 — 잘라내지 않음
+  if (
+    first.key === "전세" &&
+    second.key === "전세" &&
+    isJeonsePriceAfterJeonse(text, second.index)
+  ) {
+    return { dealType: first.key, fieldText: text, moneyText: text };
+  }
   return {
     dealType: first.key,
     fieldText: text,
     moneyText: text.slice(0, second.index).trimEnd(),
-    leftoverDeal: text.slice(second.index).replace(/\s+/g, " ").trim(),
+    leftoverDeal: leftoverSecondDealPhrase(text, second.index, second.key),
   };
 }
 
@@ -365,9 +403,10 @@ const INTENT_MEMO_PATTERNS: RegExp[] = [
   /권리금(?:\s*협의)?|인테리어/,
   /현\s*임\s*차\s*인(?:\s*거주\s*중)?|현임차인(?:\s*거주\s*중)?/,
   /이사\s*협의\s*\d+\s*[~～〜∼~－-]\s*\d+\s*개월/,
-  /(?:거실|주방|다용도실|화장실(?:\s*포함)?)/,
+  /(?:거실|주방|다용도실|화장실(?:\s*포함)?(?!\s*\d))/,
   /주차\s*\d+\s*대(?:\s*가능)?/,
-  /(?:엘리베이터|엘레베이터)(?:\s*주차)?/,
+  // 유/무 칸용 「엘리베이터 유」는 빼고, 옵션·희망 표현만 메모로
+  /(?:엘리베이터|엘레베이터)(?!\s*(?:유|무|있음|없음|가능|불가|OK|ok))(?:\s*주차)?/,
   /(?:빌라|다세대|다가구|단독|연립|테라스|옥탑|복층|분리형|오픈형|투베이|쓰리베이)/,
   /전임차인/,
 ];
@@ -404,14 +443,25 @@ function splitNoteChunks(value: string): string[] {
     .filter(Boolean);
 }
 
+function noteKey(value: string): string {
+  return value.replace(/\s+/g, "").replace(/주차/g, "");
+}
+
 function uniqueNoteParts(parts: string[]): string {
-  const seen = new Set<string>();
   const out: string[] = [];
   for (const part of parts) {
     for (const chunk of splitNoteChunks(part)) {
-      if (seen.has(chunk)) continue;
-      seen.add(chunk);
-      out.push(chunk);
+      const key = noteKey(chunk);
+      if (key.length < 2) continue;
+      const idx = out.findIndex((prev) => {
+        const pk = noteKey(prev);
+        return pk.includes(key) || key.includes(pk);
+      });
+      if (idx < 0) {
+        out.push(chunk);
+        continue;
+      }
+      if (key.length > noteKey(out[idx]).length) out[idx] = chunk;
     }
   }
   return out.join("\n");
@@ -1038,7 +1088,7 @@ function maskSlashDates(text: string): string {
   );
   // / . , 모두 — 달력에 맞는 월·일은 금액으로 안 읽게 가림
   const pairRe = new RegExp(
-    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
+    `(?<![${PAIR_SEP_CLS}\\d])(\\d{1,2})\\s*[${PAIR_SEP_CLS}]\\s*(\\d{1,2})(?!\\d)(?!\\s*[${PAIR_SEP_CLS}])(?!\\s*(?:억|만|원))`,
     "g"
   );
   return masked
@@ -1397,9 +1447,11 @@ function isLikelyPhone(
   const raw = text.slice(index, end);
   const after = text.slice(end).trimStart();
   if (/^(억|만|원)(?![가-힣])/.test(after)) return false;
-  if (/^[일월년]/.test(after)) return false;
-  const before = text.slice(Math.max(0, index - 2), index);
-  if (/[월년]\s*$/.test(before)) return false;
+  // 날짜(3월·1일·2024년)는 제외. 월세(거래)는 허용.
+  if (/^[일년]/.test(after)) return false;
+  if (/^월(?!세)/.test(after)) return false;
+  const before = text.slice(Math.max(0, index - 4), index);
+  if (/\d\s*월\s*$/.test(before) || /년\s*$/.test(before)) return false;
   if (/[\/／.,．，~～〜∼]/.test(raw)) return false;
   if (isKrPhoneDigitRun(digits)) return true;
   if (n === 7 && /^[1-9]\d{6}$/.test(digits)) {

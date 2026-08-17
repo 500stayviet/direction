@@ -5,7 +5,14 @@ import { Field, Input } from "@/components/ui/Input";
 import { formatManReadable } from "@/lib/format";
 import { filledBoxClass } from "@/lib/uiInvalid";
 
-/** 매매가·보증금 — 입력 후 파란 칸에 억/천으로 표시 */
+/** 매매가·보증금 — 입력 후 파란 칸에 억/천·만원으로 표시 */
+function manAmountChipLabel(value: number): string {
+  const readable = formatManReadable(value);
+  if (!readable) return "";
+  if (readable.includes("만원") || readable.includes("억")) return readable;
+  return `${readable}만원`;
+}
+
 export function ManAmountInput({
   label,
   value,
@@ -46,7 +53,7 @@ export function ManAmountInput({
             "active:scale-95 transition-all duration-150",
           ].join(" ")}
         >
-          {formatManReadable(value)}
+          {manAmountChipLabel(value)}
         </button>
       </Field>
     );
