@@ -24,7 +24,7 @@ export type IntakeStepLine = {
 
 export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
   customer: [
-    { key: "name", name: "고객명 또는 명칭", example: "홍길동  ·  명칭" },
+    { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
     { key: "phone", name: "전화번호", example: "010-1234-5678" },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },

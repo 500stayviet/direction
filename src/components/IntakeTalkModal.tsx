@@ -31,6 +31,7 @@ import {
   composeTalkText,
   readSpeechResultsSince,
 } from "@/lib/speechTranscript";
+import { useScreenWakeLock } from "@/hooks/useScreenWakeLock";
 import {
   applyNotesUtterance,
   TALK_IDLE_MS,
@@ -182,6 +183,8 @@ export function IntakeTalkModal({
   const scheduleFieldHoldRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
   const lastDealTypeRef = useRef<DealType | "">("");
+
+  useScreenWakeLock(open && listening);
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
