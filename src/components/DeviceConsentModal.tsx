@@ -22,9 +22,6 @@ export function DeviceConsentModal({
     <Modal
       open={Boolean(kind)}
       onClose={onDeny}
-      title={copy?.title}
-      description={copy?.body}
-      descriptionClassName="text-[14px] font-medium leading-snug text-gray-600"
       position="center"
       dense
       className="!max-w-[340px]"
@@ -39,10 +36,16 @@ export function DeviceConsentModal({
         </div>
       }
     >
-      <p className="text-[12px] font-medium leading-snug text-gray-400">
-        허용하면 이 안내를 30일 동안 다시 표시하지 않습니다. 허용 안 함을 누르면
-        다음에 다시 묻습니다.
-      </p>
+      {copy ? (
+        <div className="space-y-3">
+          <h2 className="text-center text-lg font-bold leading-snug text-gray-900">
+            {copy.title}
+          </h2>
+          <p className="text-center text-[12px] font-semibold leading-snug text-red-500">
+            허용하면 30일간 다시 묻지 않습니다.
+          </p>
+        </div>
+      ) : null}
     </Modal>
   );
 }

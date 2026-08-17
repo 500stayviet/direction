@@ -803,9 +803,8 @@ export function PropertyEditor({
               invalid={isInvalid("deposit")}
               value={property.deposit || 0}
               onChange={(deposit) => update({ deposit })}
-              placeholder="예) 10000"
+              placeholder="예) 1억 → 10000"
               required
-              unitHint="예) 1억 → 10000"
             />
           </div>
           {property.dealType === "월세" && !isBuilding && !isLand && (

@@ -645,7 +645,7 @@ export function CustomerForm({
               invalid={isInvalid("name")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="홍길동"
+              placeholder="예) 홍길동"
               chipWhenFilled
               chipTone="green"
             />
@@ -659,6 +659,7 @@ export function CustomerForm({
               value={phone}
               onChange={setPhone}
               chipTone="green"
+              placeholder="예) 010-1234-5678"
               labelHint="원터치 전화걸기에 사용됩니다."
               labelRight={
                 duplicateCustomer ? "동일 고객이 존재합니다" : undefined
@@ -813,9 +814,7 @@ export function CustomerForm({
                       setDeposit(next);
                       setDepositTo(next);
                     }}
-                    placeholder={
-                      effectiveDealType === "매매" ? "50000" : "10000"
-                    }
+                    placeholder="예) 1억 → 10000"
                   />
                 </div>
               ) : (
@@ -826,9 +825,7 @@ export function CustomerForm({
                       required
                       value={deposit}
                       onChange={setDeposit}
-                      placeholder={
-                        effectiveDealType === "매매" ? "40000" : "8000"
-                      }
+                      placeholder="예) 1억 → 10000"
                     />
                   </div>
                   <div ref={setFieldRef("depositTo")}>
@@ -837,9 +834,7 @@ export function CustomerForm({
                       required
                       value={depositTo}
                       onChange={setDepositTo}
-                      placeholder={
-                        effectiveDealType === "매매" ? "50000" : "10000"
-                      }
+                      placeholder="예) 1억 → 10000"
                     />
                   </div>
                 </div>
@@ -899,7 +894,7 @@ export function CustomerForm({
                         setMonthlyRent(next);
                         setMonthlyRentTo(next);
                       }}
-                      placeholder="50"
+                      placeholder="예) 50"
                       suffix="만원"
                     />
                   </div>
@@ -917,7 +912,7 @@ export function CustomerForm({
                         onChange={(e) =>
                           setMonthlyRent(Number(e.target.value) || 0)
                         }
-                        placeholder="40"
+                        placeholder="예) 40"
                         suffix="만원"
                       />
                     </div>
@@ -933,7 +928,7 @@ export function CustomerForm({
                         onChange={(e) =>
                           setMonthlyRentTo(Number(e.target.value) || 0)
                         }
-                        placeholder="60"
+                        placeholder="예) 60"
                         suffix="만원"
                       />
                     </div>

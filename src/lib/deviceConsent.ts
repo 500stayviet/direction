@@ -6,15 +6,13 @@ const STORAGE_PREFIX = "direction.deviceConsent.";
 
 export const DEVICE_CONSENT_COPY: Record<
   DeviceConsentKind,
-  { title: string; body: string }
+  { title: string; body?: string }
 > = {
   microphone: {
     title: "마이크를 사용하도록 허용하시겠습니까?",
-    body: "'현장동선'에서 대화로 입력할 때 마이크를 사용합니다.",
   },
   photos: {
-    title: "사진 및 카메라에 액세스하도록 허용하시겠습니까?",
-    body: "'현장동선'에서 사진으로 입력할 때 촬영하거나 앨범에서 사진을 고릅니다.",
+    title: "사진 및 카메라 액세스 허용하시겠습니까?",
   },
 };
 

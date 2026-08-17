@@ -103,7 +103,7 @@ export function Field({
 }
 
 const controlSurfaceClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
+  "w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-[16px] text-gray-900 outline-none transition placeholder:text-[13px] placeholder:font-medium placeholder:text-gray-400 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20";
 
 const inputClass = `${controlSurfaceClass} h-[36px] min-h-[36px] py-0 leading-[34px]`;
 
