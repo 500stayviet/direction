@@ -356,7 +356,11 @@ export default function SignupPage() {
               placeholder="본인만 알아볼 수 있는 힌트"
               invalid={isInvalid("passwordHint")}
               invalidHighlight="input"
-              labelRight="비밀번호 찾을 때 사용하는 힌트예요 · 타인과 공유금지"
+              labelRight={
+                <span className="text-[11px] font-semibold leading-tight">
+                  비밀번호 찾기에 사용됩니다 타인과 공유금지
+                </span>
+              }
             />
           </div>
           <Input
