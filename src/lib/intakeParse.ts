@@ -16,6 +16,7 @@ import {
   findAllDongsInText,
   isKnownSeoulDong,
   resolveGuFromDong,
+  SEOUL_DONG_BY_GU,
   SEOUL_GU_LIST,
 } from "@/lib/seoulRegions";
 import type { DealType, ParkingType, Property, RoomType } from "@/lib/types";
@@ -58,6 +59,11 @@ export type IntakeParseResult = {
   notes: string;
   nameLabeled?: boolean;
 };
+
+const SEOUL_GUS_LONGEST = [...SEOUL_GU_LIST].sort((a, b) => b.length - a.length);
+const SEOUL_DONGS_LONGEST = [
+  ...new Set(Object.values(SEOUL_DONG_BY_GU).flat()),
+].sort((a, b) => b.length - a.length);
 
 const ROOM_ALIASES: { keys: string[]; value: RoomType }[] = [
   { keys: ["3룸+", "쓰리룸+", "쓰리룸", "3룸", "쓰리 룸", "3R", "3r"], value: "3룸+" },
@@ -475,8 +481,11 @@ function buildIntakeMemoNotes(body: string, labeledMemo: string): string {
 }
 
 function appendMemoPart(notes: string, extra: string): string {
-  if (!extra.trim()) return notes;
-  return uniqueNoteParts([notes, extra].filter(Boolean));
+  const cleanExtra = scrubCorruptIntakeText(extra);
+  if (!cleanExtra) return scrubCorruptIntakeText(notes);
+  return scrubCorruptIntakeText(
+    uniqueNoteParts([notes, cleanExtra].filter(Boolean))
+  );
 }
 
 export function appendIntakeMemo(notes: string, extra: string): string {
@@ -1577,11 +1586,29 @@ const NAME_STOP = new Set([
   "희망층",
 ]);
 
+function isSeoulGuDongPhrase(word: string): boolean {
+  const compact = word.replace(/\s+/g, "");
+  if (compact.length < 4) return false;
+  for (const gu of SEOUL_GUS_LONGEST) {
+    if (!compact.startsWith(gu)) continue;
+    const rest = compact.slice(gu.length);
+    if (!rest) continue;
+    for (const dong of SEOUL_DONGS_LONGEST) {
+      if (rest === dong) return true;
+      if (!dong.endsWith("동")) continue;
+      const stem = dong.slice(0, -1);
+      if (new RegExp(`^${stem}\\d+동$`).test(rest)) return true;
+    }
+  }
+  return false;
+}
+
 function isNameCandidate(word: string): boolean {
   if (!/^[가-힣]{2,6}$/.test(word)) return false;
   if (NAME_STOP.has(word)) return false;
   if (/층$/.test(word)) return false;
   if (isKnownSeoulDong(word)) return false;
+  if (isSeoulGuDongPhrase(word)) return false;
   if (SEOUL_GU_LIST.some((gu) => gu === word)) return false;
   if (SEOUL_GU_LIST.some((gu) => gu.replace(/구$/, "") === word)) return false;
   return true;
@@ -1732,11 +1759,63 @@ function expandSpokenDates(text: string): string {
   return s;
 }
 
+function dongMatchLengthAt(text: string, index: number, dong: string): number {
+  const rest = text.slice(index);
+  if (rest.startsWith(dong)) return dong.length;
+  if (!dong.endsWith("동")) return 0;
+  const stem = dong.slice(0, -1);
+  const admin = rest.match(new RegExp(`^${stem}\\d+동`));
+  return admin?.[0]?.length ?? 0;
+}
+
 /**
- * 음성인식 「삼억 오천」「월세 오십」「이백」→ 「3억 5천」「월세 50」「2백」
+ * 강동구천호동·구로구 천왕동처럼 목록에 있는 구+동은 금액 읽기 전에 잠시 가린다.
+ */
+function protectSeoulGuDongPlaces(text: string): {
+  text: string;
+  restore: (s: string) => string;
+} {
+  const spans: { start: number; end: number }[] = [];
+  for (const gu of SEOUL_GUS_LONGEST) {
+    let from = 0;
+    while (from < text.length) {
+      const gStart = text.indexOf(gu, from);
+      if (gStart < 0) break;
+      let i = gStart + gu.length;
+      while (text[i] === " " || text[i] === "\t") i += 1;
+      for (const dong of SEOUL_DONGS_LONGEST) {
+        const n = dongMatchLengthAt(text, i, dong);
+        if (n <= 0) continue;
+        const span = { start: gStart, end: i + n };
+        if (!spans.some((s) => span.start < s.end && span.end > s.start)) {
+          spans.push(span);
+        }
+        break;
+      }
+      from = gStart + 1;
+    }
+  }
+  spans.sort((a, b) => b.start - a.start);
+  const saved: string[] = [];
+  let masked = text;
+  for (const span of spans) {
+    saved.push(masked.slice(span.start, span.end));
+    masked = `${masked.slice(0, span.start)}\uE000${saved.length - 1}\uE001${masked.slice(span.end)}`;
+  }
+  return {
+    text: masked,
+    restore: (s) =>
+      s.replace(/\uE000(\d+)\uE001/g, (_, n) => saved[Number(n)] ?? ""),
+  };
+}
+
+/**
+ * 음성인식 「삼억 오천」「월세 오십」「이억구천」→ 「3억 5천」「월세 50」「2억9천」
+ * 구·동 주소는 protectSeoulGuDongPlaces로 가린 뒤에만 돌린다.
  */
 function expandSpokenMoney(text: string): string {
   const digit = "(?:한|일|이|삼|사|오|육|륙|칠|팔|구)";
+  const notDong = "(?![가-힣]{0,8}동)";
   const tens: Record<string, string> = {
     십: "10",
     일십: "10",
@@ -1752,11 +1831,14 @@ function expandSpokenMoney(text: string): string {
   };
   return text
     .replace(
-      /(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)\s*(억|천|백|만)/g,
+      new RegExp(
+        `(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)\\s*(억|천|백|만)${notDong}`,
+        "g"
+      ),
       (_, w: string, unit: string) => `${tens[w] ?? w}${unit}`
     )
     .replace(
-      new RegExp(`(${digit})\\s*(억|천|백|만)`, "g"),
+      new RegExp(`(${digit})\\s*(억|천|백|만)${notDong}`, "g"),
       (_, w: string, unit: string) => `${SPOKEN_MONEY_DIGIT[w] ?? w}${unit}`
     )
     .replace(
@@ -1767,6 +1849,39 @@ function expandSpokenMoney(text: string): string {
       /([\/／]\s*)(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)(?!\s*(?:억|천|백|만))/g,
       (_, pre: string, w: string) => `${pre}${tens[w] ?? w}`
     );
+}
+
+/**
+ * 금액 읽기 오염(강동9천호동)처럼 칸에 쓴 주소가 깨진 토큰은 내용·잔여에서 버린다.
+ * 암사1동·천호2동 같은 행정동 숫자 표기는 유지한다.
+ */
+export function scrubCorruptIntakeText(text: string): string {
+  if (!text.trim()) return "";
+  return text
+    .split(/\n+/)
+    .map((line) => scrubCorruptIntakeLine(line))
+    .filter(Boolean)
+    .join("\n");
+}
+
+function scrubCorruptIntakeLine(line: string): string {
+  let s = line.replace(/[가-힣]{2,12}\d+[가-힣]{0,12}동/g, (tok) => {
+    if (/^[가-힣]+\d{1,2}동$/.test(tok)) {
+      const base = tok.replace(/\d+동$/, "동");
+      if (isKnownSeoulDong(base)) return tok;
+    }
+    return " ";
+  });
+  // 동만 빠진 뒤 남은 「강동9」「강동9천」도 버린다
+  for (const gu of SEOUL_GU_LIST) {
+    const stem = gu.replace(/구$/, "");
+    if (stem.length < 2) continue;
+    s = s.replace(
+      new RegExp(`${stem}\\d+(?:천|억|백|만)?`, "g"),
+      " "
+    );
+  }
+  return s.replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -2104,22 +2219,28 @@ function parseMoveInDates(
   return {};
 }
 
-export function normalizeIntakeInput(raw: string): string {
+export type IntakeNormalizeMode = "text" | "spoken";
+
+/** 구·동은 가리고, 이억·구천·삼월 등 음성 읽기만 숫자로 바꾼다. 메시지·사진·마이크 공통. */
+export function normalizeIntakeInput(
+  raw: string,
+  _mode: IntakeNormalizeMode = "text"
+): string {
+  const base = normalizeFieldShorthands(
+    raw
+      .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
+      .replace(/[０-９]/g, (ch) =>
+        String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
+      )
+      .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+  const protectedPlaces = protectSeoulGuDongPlaces(base);
   return collapseThousandCommas(
-    expandSpokenMoney(
-      expandSpokenDates(
-        expandSpokenPhones(
-          normalizeFieldShorthands(
-            raw
-              .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
-              .replace(/[０-９]/g, (ch) =>
-                String.fromCharCode(ch.charCodeAt(0) - 0xff10 + 0x30)
-              )
-              .replace(/[\u2212\u2013\u2014\u2010\u2011]/g, "-")
-              .replace(/\s+/g, " ")
-              .trim()
-          )
-        )
+    protectedPlaces.restore(
+      expandSpokenMoney(
+        expandSpokenDates(expandSpokenPhones(protectedPlaces.text))
       )
     )
   );
@@ -2128,9 +2249,10 @@ export function normalizeIntakeInput(raw: string): string {
 export function parseIntakeText(
   raw: string,
   kind: IntakeKind,
-  today: Date = new Date()
+  today: Date = new Date(),
+  mode: IntakeNormalizeMode = "text"
 ): IntakeParseResult {
-  const text = normalizeIntakeInput(raw);
+  const text = normalizeIntakeInput(raw, mode);
   const result: IntakeParseResult = { options: [], notes: "" };
   if (!text) return result;
 
@@ -2291,6 +2413,7 @@ export function parseIntakeText(
     );
   }
 
+  result.notes = scrubCorruptIntakeText(result.notes);
   return result;
 }
 

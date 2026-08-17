@@ -7,7 +7,8 @@ import {
   preprocessCustomerBlankForm,
 } from "./blankIntakeForm.ts";
 import { buildAgentShareFooterLines } from "./shareAgentFooter.ts";
-import { parseIntakeText } from "./intakeParse.ts";
+import { parseIntakeText, intakePreferredLocation } from "./intakeParse.ts";
+import { intakeAiLeftover, leftoverNeedsAi } from "./intakeAi.ts";
 
 describe("blankIntakeForm", () => {
   it("고객 양식은 예시를 넣고 : 를 다음 줄에 둔다", () => {
@@ -373,5 +374,81 @@ describe("blankIntakeForm", () => {
     assert.doesNotMatch(parsed.notes, /화장실|희망층|원룸|투룸|3룸\+/);
     assert.doesNotMatch(parsed.notes, /010-3333-4444|010-1111-1111/);
     assert.doesNotMatch(parsed.notes, /은 있어야하고|전세/);
+  });
+
+  it("선호지역 천호동은 구천으로 바뀌지 않고 희망사항만 메모에 남긴다", () => {
+    const filled = `고객등록 양식
+
+고객명 (예: 홍길동)
+: 임지나
+
+고객 전화번호 (예: 010-1234-5678)
+: 01055555555
+
+거래종류 (예: 매매, 전세, 월세)
+: 월세
+
+매물 유형 (예: 아파트, 원룸, 투룸, 3룸+)
+: 원룸
+
+방 수 (예: 2개)
+: 1
+
+화장실 수 (예: 1개)
+:1
+
+거래가액 (예: 보증금 1000 / 월세 50, 또는 매매 5억)
+: 2000/65
+
+선호지역 (예: 강동구 성내동, 암사동 등)
+: 강동구 천호동 고덕동
+
+입주희망일 (예: 3월 1일 ~ 4월 15일)
+:8월21일 ~ 10월 22일
+
+대출 (예: 유 / 무)
+: 무
+
+전세보증보험 (예: 유 / 무)
+: 유
+
+주차 (예: 유 / 무)
+:유
+
+엘리베이터 (예: 유 / 무)
+:유 
+
+추가 희망사항 (예: 희망층)
+: 엘베는 없어도되는데 있으면 좋아요 보증보험은 허그 가입합니다.
+
+────────────
+봄날 공인중개사사무소
+담당 하지영
+010-1111-1111
+-제공-
+앱 현장동선`;
+
+    const pre = preprocessCustomerBlankForm(filled);
+    assert.ok(pre);
+    assert.match(pre!, /강동구 천호동 고덕동/);
+    const parsed = parseIntakeText(pre!, "customer");
+    assert.equal(parsed.name, "임지나");
+    assert.equal(parsed.phone, "010-5555-5555");
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.deposit, 2000);
+    assert.equal(parsed.monthlyRent, 65);
+    const loc = intakePreferredLocation(parsed);
+    assert.deepEqual(loc.preferredGus, ["강동구"]);
+    assert.deepEqual(loc.preferredDongs.sort(), [
+      "강동구|고덕동",
+      "강동구|천호동",
+    ].sort());
+    assert.match(parsed.notes, /엘베는 없어도되는데 있으면 좋아요/);
+    assert.match(parsed.notes, /허그/);
+    assert.doesNotMatch(parsed.notes, /강동9/);
+    const leftover = intakeAiLeftover(pre!, parsed, "message");
+    assert.doesNotMatch(leftover, /강동9|천호동|고덕동|강동구/);
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
   });
 });

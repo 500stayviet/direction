@@ -1,6 +1,7 @@
 import {
   appendIntakeMemo,
   normalizeIntakeInput,
+  scrubCorruptIntakeText,
   type IntakeKind,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
@@ -89,6 +90,20 @@ function moneyFieldsFilled(parsed: IntakeParseResult): boolean {
     return Boolean(parsed.monthlyRent && parsed.monthlyRent > 0);
   }
   return true;
+}
+
+function usedPlaceTokens(parsed: IntakeParseResult): string[] {
+  const pairs = [
+    ...(parsed.places ?? []),
+    parsed.gu && parsed.dong ? { gu: parsed.gu, dong: parsed.dong } : null,
+  ].filter((p): p is { gu: string; dong: string } => Boolean(p?.gu && p?.dong));
+  const out: string[] = [];
+  for (const { gu, dong } of pairs) {
+    out.push(`${gu}${dong}`, `${gu} ${dong}`);
+    const stem = dong.endsWith("동") ? dong.slice(0, -1) : dong;
+    out.push(`${gu}${stem}`, `${gu} ${stem}`);
+  }
+  return out;
 }
 
 function dealTokensToStrip(parsed: IntakeParseResult): string[] {
@@ -201,6 +216,8 @@ export function intakeAiLeftover(
     parsed.jibun,
     parsed.roomNo,
     parsed.roomType,
+    ...(parsed.places ?? []).flatMap((p) => [p.gu, p.dong]),
+    ...usedPlaceTokens(parsed),
   ].filter((v): v is string => Boolean(v && v.trim()));
 
   text = replaceLongest(text, [
@@ -242,7 +259,11 @@ export function intakeAiLeftover(
     .trim();
 
   if (!/[가-힣]{2,}/.test(text)) return "";
-  return text.slice(0, leftoverMaxForSource(source));
+  const leftover = scrubCorruptIntakeText(text)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!/[가-힣]{2,}/.test(leftover)) return "";
+  return leftover.slice(0, leftoverMaxForSource(source));
 }
 
 const DATE_HINT =
@@ -272,7 +293,7 @@ export function leftoverNeedsAi(
   leftover: string,
   parsed: IntakeParseResult
 ): boolean {
-  const text = leftover.replace(/\s+/g, " ").trim();
+  const text = scrubCorruptIntakeText(leftover).replace(/\s+/g, " ").trim();
   if (text.length < 2) return false;
   if (MEMO_ONLY_HINT.test(text) && leftoverLooksLikeMemoOnly(text)) {
     return false;
@@ -505,11 +526,12 @@ export function mergeIntakeAi(
   }
 
   if (patch.buildingName) {
-    next.notes = appendIntakeMemo(next.notes, patch.buildingName);
+    next.notes = appendIntakeMemo(next.notes, scrubCorruptIntakeText(patch.buildingName));
   }
   if (patch.memo) {
-    next.notes = appendIntakeMemo(next.notes, patch.memo);
+    next.notes = appendIntakeMemo(next.notes, scrubCorruptIntakeText(patch.memo));
   }
+  next.notes = scrubCorruptIntakeText(next.notes);
   return next;
 }
 

@@ -570,7 +570,7 @@ export function locationStepReadyToAdvance(
   if (kind !== "customer") return true;
   const dongs = customerLocationDongCount(partial);
   if (dongs < 1) return false;
-  const normalized = normalizeIntakeInput(text);
+  const normalized = normalizeIntakeInput(text, "spoken");
   const end = locationConsumedEnd(normalized, partial, kind);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
   if (
@@ -593,7 +593,7 @@ export function moneyStepReadyToAdvance(
   dealType?: IntakeParseResult["dealType"]
 ): boolean {
   if (!moneyFieldsComplete(partial, dealType)) return false;
-  const normalized = normalizeIntakeInput(text);
+  const normalized = normalizeIntakeInput(text, "spoken");
   const end = moneyConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
   if (!rest) return false;
@@ -611,7 +611,7 @@ export function datesStepReadyToAdvance(
   const to = partial.moveInTo || from;
   if (from !== to) return true;
 
-  const normalized = normalizeIntakeInput(text);
+  const normalized = normalizeIntakeInput(text, "spoken");
   const end = datesConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
   if (dateRangeLinkTail(normalized)) return false;
@@ -637,7 +637,7 @@ export function extractTalkStepRemainder(
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): string {
-  const text = normalizeIntakeInput(raw);
+  const text = normalizeIntakeInput(raw, "spoken");
   if (!text) return "";
 
   if (step === "name" && partial.name) {
@@ -721,7 +721,7 @@ export function parseIntakeStepChain(
   const guide = INTAKE_GUIDE_STEPS[kind];
   const steps = { ...existingSteps };
   const commits: IntakeStepChainResult["commits"] = [];
-  let text = normalizeIntakeInput(raw);
+  let text = normalizeIntakeInput(raw, "spoken");
   let index = startIndex;
 
   while (index < guide.length && text) {
@@ -788,7 +788,7 @@ export function parseIntakeStep(
   prior?: Partial<IntakeParseResult>,
   today: Date = new Date()
 ): IntakeStepParseOutcome {
-  const text = normalizeIntakeInput(raw);
+  const text = normalizeIntakeInput(raw, "spoken");
   if (!text) return { ok: false, partial: {}, display: "" };
 
   if (step === "notes") {
@@ -834,7 +834,7 @@ export function parseIntakeStep(
   }
 
   if (step === "share") {
-    const shared = parseIntakeText(text, kind, today).workspaceShared;
+    const shared = parseIntakeText(text, kind, today, "spoken").workspaceShared;
     if (!shared) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = {
       workspaceShared: shared,
@@ -848,7 +848,7 @@ export function parseIntakeStep(
   }
 
   const scoped = stepParseInput(text, step, kind, prior);
-  const parsed = parseIntakeText(scoped, kind, today);
+  const parsed = parseIntakeText(scoped, kind, today, "spoken");
 
   if (step === "phone") {
     const phone = parsed.phone;

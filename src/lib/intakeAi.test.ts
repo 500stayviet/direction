@@ -43,6 +43,45 @@ describe("intakeAiLeftover", () => {
     assert.equal(intakeAiLeftover(raw, parsed, "message"), "");
   });
 
+  it("선호 동이 여러 개여도 구·동은 잔여에서 뺀다", () => {
+    const raw =
+      "임지나 01055555555 월세 원룸 2000/65 강동구 천호동 고덕동 8월21일 ~ 10월 22일 대출 무 전세보증보험 유 주차 유 엘리베이터 유 엘베는 없어도되는데 있으면 좋아요 보증보험은 허그 가입합니다.";
+    const parsed = parseIntakeText(raw, "customer");
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.doesNotMatch(leftover, /강동9|천호동|고덕동|강동구/);
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
+  it("칸에 넣은 구·동은 붙여 쓴 원문도 잔여에서 빼고 희망사항만 남긴다", () => {
+    const raw =
+      "원룸 월세 2000/65 강동구천호동 엘베는 없어도되는데 있으면 좋아요";
+    const parsed = parseIntakeText(raw, "customer");
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.doesNotMatch(leftover, /강동9|강동구|천호동|2000|65|원룸|월세/);
+    assert.match(leftover, /없어도되는데/);
+  });
+
+  it("오염된 주소 잔여는 고객·매물 모두 AI·내용에 쓰지 않는다", () => {
+    const customer = parseIntakeText(
+      "원룸 월세 강동구 천호동 2000/65",
+      "customer"
+    );
+    const property = parseIntakeText(
+      "원룸 월세 강동구 천호동 2000/65",
+      "property"
+    );
+    assert.equal(intakeAiLeftover("강동9천호동", customer, "message"), "");
+    assert.equal(intakeAiLeftover("강동9천호동", property, "message"), "");
+    assert.equal(leftoverNeedsAi("강동9천호동", customer), false);
+    assert.equal(leftoverNeedsAi("강동9천호동", property), false);
+    const merged = mergeIntakeAi(customer, {
+      buildingName: "강동9천호동",
+      memo: "강동9천호동 남향",
+    }, "강동9천호동");
+    assert.doesNotMatch(merged.notes, /강동9/);
+    assert.match(merged.notes, /남향/);
+  });
+
   it("잔여가 이미 내용에 있으면 API를 건너뛴다", () => {
     const raw = `천호동 314-7 제이디파크빌 403호
 방2 거실 주방

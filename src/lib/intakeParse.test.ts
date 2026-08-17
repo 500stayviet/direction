@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyIntakeToProperty, appendIntakeMemo, intakePreferredLocation, parseIntakeText } from "./intakeParse.ts";
+import { applyIntakeToProperty, appendIntakeMemo, intakePreferredLocation, normalizeIntakeInput, parseIntakeText, scrubCorruptIntakeText } from "./intakeParse.ts";
 import { createEmptyProperty } from "./constants.ts";
 import { formatPhoneInput } from "./format.ts";
 
@@ -370,6 +370,95 @@ describe("parseIntakeText", () => {
     ].sort());
   });
 
+  it("구·동은 주소로 두고 이억·구천만 금액으로 바꾼다", () => {
+    const withMoney = parseIntakeText(
+      "원룸 월세 강동구 천호동 2000/65",
+      "customer"
+    );
+    assert.equal(withMoney.dong, "천호동");
+    assert.equal(withMoney.gu, "강동구");
+    assert.equal(withMoney.deposit, 2000);
+    assert.equal(withMoney.monthlyRent, 65);
+    assert.doesNotMatch(withMoney.notes, /강동9|9천/);
+
+    const tight = parseIntakeText(
+      "원룸 월세 강동구천호동 2000/65",
+      "customer"
+    );
+    assert.equal(tight.dong, "천호동");
+    assert.equal(tight.gu, "강동구");
+    assert.notEqual(tight.name, "강동구천호동");
+    assert.doesNotMatch(tight.notes, /강동9|9천/);
+
+    const cheonwang = parseIntakeText(
+      "원룸 전세 2억 구로구천왕동",
+      "property"
+    );
+    assert.equal(cheonwang.dong, "천왕동");
+    assert.equal(cheonwang.gu, "구로구");
+    assert.doesNotMatch(cheonwang.notes, /9천왕|구로9/);
+
+    const cheonyeon = parseIntakeText(
+      "원룸 전세 1억 서대문구 천연동",
+      "property"
+    );
+    assert.equal(cheonyeon.dong, "천연동");
+    assert.equal(cheonyeon.gu, "서대문구");
+
+    assert.equal(
+      normalizeIntakeInput("강동구 천호동"),
+      "강동구 천호동"
+    );
+    assert.equal(
+      normalizeIntakeInput("강동구천호동", "spoken"),
+      "강동구천호동"
+    );
+
+    const spokenMoney = parseIntakeText(
+      "원룸 전세 이억구천이백십만",
+      "customer"
+    );
+    assert.equal(spokenMoney.deposit, 29210);
+  });
+
+  it("구 다음 동 이름은 구천 금액으로 바꾸지 않는다", () => {
+    const parsed = parseIntakeText(
+      "임지나 01055555555 월세 원룸 2000/65 강동구 천호동 고덕동 8월21일 ~ 10월 22일 대출 무 전세보증보험 유 주차 유 엘리베이터 유 메모: 엘베는 없어도되는데 있으면 좋아요 보증보험은 허그 가입합니다.",
+      "customer"
+    );
+    const loc = intakePreferredLocation(parsed);
+    assert.deepEqual(loc.preferredGus, ["강동구"]);
+    assert.deepEqual(loc.preferredDongs.sort(), [
+      "강동구|고덕동",
+      "강동구|천호동",
+    ].sort());
+    assert.doesNotMatch(parsed.notes, /강동9/);
+    assert.doesNotMatch(parsed.notes, /강동구 천호동/);
+    assert.match(parsed.notes, /허그/);
+  });
+
+  it("매물도 구 다음 동을 금액으로 바꾸지 않고 오염 잔여를 내용에 안 넣는다", () => {
+    const parsed = parseIntakeText(
+      "원룸 월세 2000/65 강동구 천호동 주차 유 엘베 유",
+      "property"
+    );
+    assert.equal(parsed.dong, "천호동");
+    assert.equal(parsed.gu, "강동구");
+    assert.doesNotMatch(parsed.notes, /강동9|9천호/);
+    assert.equal(
+      appendIntakeMemo(parsed.notes, "강동9천호동 남향"),
+      "남향"
+    );
+  });
+
+  it("깨진 주소 토큰은 내용에서 지우고 행정동 숫자는 남긴다", () => {
+    assert.equal(scrubCorruptIntakeText("강동9천호동"), "");
+    assert.equal(scrubCorruptIntakeText("강동9"), "");
+    assert.equal(scrubCorruptIntakeText("남향 강동9천호동 저층"), "남향 저층");
+    assert.equal(scrubCorruptIntakeText("암사1동 남향"), "암사1동 남향");
+    assert.equal(scrubCorruptIntakeText("천호2동"), "천호2동");
+  });
+
   it("매물에 라벨 없는 전화는 임차인 칸에 넣는다", () => {
     const parsed = parseIntakeText("원룸 전세 홍길동 010-1234-5678 암사동", "property");
     assert.equal(parsed.phone, "010-1234-5678");
@@ -483,19 +572,30 @@ describe("parseIntakeText", () => {
     expectRange("8.20 9.1");
     expectRange("8/20 9/1");
 
-    const spoken = parseIntakeText("삼월 일일 사월 십오일", "property", today);
+    const spoken = parseIntakeText(
+      "삼월 일일 사월 십오일",
+      "property",
+      today,
+      "spoken"
+    );
     assert.equal(spoken.moveInFrom, "2027-03-01");
     assert.equal(spoken.moveInTo, "2027-04-15");
 
     const spokenSpaced = parseIntakeText(
       "삼 월 일 일 사 월 십오 일",
       "property",
-      today
+      today,
+      "spoken"
     );
     assert.equal(spokenSpaced.moveInFrom, "2027-03-01");
     assert.equal(spokenSpaced.moveInTo, "2027-04-15");
 
-    const mixed = parseIntakeText("3월 일일 4월 십오일", "property", today);
+    const mixed = parseIntakeText(
+      "3월 일일 4월 십오일",
+      "property",
+      today,
+      "spoken"
+    );
     assert.equal(mixed.moveInFrom, "2027-03-01");
     assert.equal(mixed.moveInTo, "2027-04-15");
 
@@ -640,7 +740,8 @@ describe("parseIntakeText", () => {
     const compoundSpoken = parseIntakeText(
       "원룸 전세 이억구천이백십만",
       "customer",
-      today
+      today,
+      "spoken"
     );
     assert.equal(compoundSpoken.deposit, 29210);
     const compoundManOnly = parseIntakeText(
@@ -713,21 +814,24 @@ describe("parseIntakeText", () => {
     const spokenSmall = parseIntakeText(
       "원룸 월세 보증금 오천 월세 오십",
       "customer",
-      today
+      today,
+      "spoken"
     );
     assert.equal(spokenSmall.deposit, 5000);
     assert.equal(spokenSmall.monthlyRent, 50);
     const spokenCheonSlash = parseIntakeText(
       "원룸 월세 오천/오십",
       "customer",
-      today
+      today,
+      "spoken"
     );
     assert.equal(spokenCheonSlash.deposit, 5000);
     assert.equal(spokenCheonSlash.monthlyRent, 50);
     const spokenWol = parseIntakeText(
       "원룸 월세 성내동 월 오십",
       "customer",
-      today
+      today,
+      "spoken"
     );
     assert.equal(spokenWol.monthlyRent, 50);
     const jeonsega = parseIntakeText(
@@ -808,11 +912,26 @@ describe("parseIntakeText", () => {
     assert.equal(eokPointJeonse.deposit, 25200);
     const saleEokCheon = parseIntakeText("건물 매매 5억 9천", "property", today);
     assert.equal(saleEokCheon.deposit, 59000);
-    const spokenMix = parseIntakeText("원룸 매매 3억 오천", "customer", today);
+    const spokenMix = parseIntakeText(
+      "원룸 매매 3억 오천",
+      "customer",
+      today,
+      "spoken"
+    );
     assert.equal(spokenMix.deposit, 35000);
-    const spokenAll = parseIntakeText("원룸 매매 삼억 오천", "customer", today);
+    const spokenAll = parseIntakeText(
+      "원룸 매매 삼억 오천",
+      "customer",
+      today,
+      "spoken"
+    );
     assert.equal(spokenAll.deposit, 35000);
-    const saleSpoken = parseIntakeText("매매가 삼억오천", "property", today);
+    const saleSpoken = parseIntakeText(
+      "매매가 삼억오천",
+      "property",
+      today,
+      "spoken"
+    );
     assert.equal(saleSpoken.deposit, 35000);
 
     const shopSale = parseIntakeText("상가 매매 509", "property", today);
@@ -909,7 +1028,12 @@ describe("parseIntakeText", () => {
       "010-1111-1111"
     );
     assert.equal(
-      parseIntakeText("공일공에 일일일일 일일일일 원룸 전세", "customer").phone,
+      parseIntakeText(
+        "공일공에 일일일일 일일일일 원룸 전세",
+        "customer",
+        new Date(),
+        "spoken"
+      ).phone,
       "010-1111-1111"
     );
     assert.equal(

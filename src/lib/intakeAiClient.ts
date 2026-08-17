@@ -10,6 +10,7 @@ import {
 import {
   appendIntakeMemo,
   parseIntakeText,
+  scrubCorruptIntakeText,
   type IntakeKind,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
@@ -25,7 +26,7 @@ export async function requestIntakeAi(opts: {
   accessToken?: string | null;
 }): Promise<IntakeAiPatch | null> {
   if (typeof window === "undefined") return null;
-  const leftover = opts.leftover.trim();
+  const leftover = scrubCorruptIntakeText(opts.leftover).trim();
   if (!leftover) return null;
   const token = opts.accessToken?.trim();
   if (!token) return null;
@@ -67,7 +68,9 @@ export async function resolveIntakeWithAi(opts: {
     opts.kind === "customer" ? preprocessCustomerBlankForm(opts.raw) : null;
   const rawForParse = preprocessed !== null ? preprocessed : opts.raw;
   const parsed = parseIntakeText(rawForParse, opts.kind);
-  const leftover = intakeAiLeftover(rawForParse, parsed, opts.source);
+  const leftover = scrubCorruptIntakeText(
+    intakeAiLeftover(rawForParse, parsed, opts.source)
+  );
   if (!leftover) return parsed;
   if (!leftoverNeedsAi(leftover, parsed)) {
     return {
