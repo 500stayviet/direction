@@ -7,11 +7,17 @@ import { BottomTabBar } from "@/components/BottomTabBar";
 import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
 import { TeamAlertsSync } from "@/components/TeamAlertsSync";
+import { useAppScreenWakeLock } from "@/hooks/useScreenWakeLock";
 
 const AUTH_PATHS = ["/login"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // 앱이 보일 때 약 10분만 화면 유지 (이후 슬립 허용)
+  useAppScreenWakeLock();
+  const isAuthPage = AUTH_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
   const isAuthPage = AUTH_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );

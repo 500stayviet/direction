@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -32,15 +32,6 @@ import { WORKSPACE_NAME_MAX, normalizeWorkspaceName } from "@/lib/workspaceName"
 import type { User } from "@/lib/types";
 import { planDisplayForUser } from "@/lib/planDisplay";
 import { PlanBadge } from "@/components/PlanBadge";
-
-function formatRemain(expiresAt: string | null | undefined): string {
-  if (!expiresAt) return "만료됨";
-  const ms = Date.parse(expiresAt) - Date.now();
-  if (!Number.isFinite(ms) || ms <= 0) return "만료됨";
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${m}분 ${String(s).padStart(2, "0")}초 남음`;
-}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -121,12 +112,6 @@ export default function AccountPage() {
     return () => window.clearInterval(t);
   }, [workspace?.shareCodeExpiresAt]);
 
-  const codeRemainLabel = useMemo(
-    () => formatRemain(workspace?.shareCodeExpiresAt),
-    // nowTick keeps the label fresh
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- nowTick forces the countdown to tick
-    [workspace?.shareCodeExpiresAt, nowTick]
-  );
   const codeValid =
     Boolean(workspace?.shareCodeExpiresAt) &&
     Date.parse(workspace?.shareCodeExpiresAt ?? "") > nowTick;
@@ -202,7 +187,7 @@ export default function AccountPage() {
       setNameError("");
       setNameOpen("set");
       setWsMessage(
-        "공유 코드가 발급되었습니다. 동료가 참여하면 팀이 됩니다. 코드는 약 5분간 유효합니다."
+        "공유 코드가 발급되었습니다. 공유 코드는 공유받는 기기의 「공유 코드 입력」칸에 입력하면 팀원이 됩니다."
       );
     } finally {
       setWsBusy(false);
@@ -237,7 +222,9 @@ export default function AccountPage() {
       }
       setWorkspace(result.workspace);
       setCodeConsent(null);
-      setWsMessage("새 공유 코드가 발급되었습니다. 약 5분간 유효합니다.");
+      setWsMessage(
+        "새 공유 코드가 발급되었습니다. 공유 코드는 공유받는 기기의 「공유 코드 입력」칸에 입력하면 팀원이 됩니다."
+      );
     } finally {
       setWsBusy(false);
     }
@@ -370,8 +357,9 @@ export default function AccountPage() {
           <div>
             <p className="text-[14px] font-bold text-gray-900">팀 공유</p>
             <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-              코드로 동료와 고객·매물·네비를 같이 씁니다. 고객리스트·매물리스트·네비에서
-              「팀 공유하기」를 눌러야 공유됩니다.
+              코드를 생성하여 팀원과 고객·매물·네비를 공유할 수 있습니다. 공유는
+              고객리스트·매물리스트·네비 리스트에서 「팀공유하기」 버튼을 눌러야
+              가능합니다.
             </p>
           </div>
 
@@ -464,10 +452,6 @@ export default function AccountPage() {
                       </p>
                       <p className="mt-1 font-mono text-[22px] font-extrabold tracking-[0.2em] text-[#1B64DA]">
                         {workspace.shareCode}
-                      </p>
-                      <p className="mt-1 text-[11px] font-semibold text-emerald-600">
-                        {codeRemainLabel} · 다른 화면을 다녀와도 이 시간이 지나기
-                        전에는 같은 코드가 유지됩니다.
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col gap-1">
@@ -633,8 +617,8 @@ export default function AccountPage() {
         }
         description={
           codeConsent === "reissue"
-            ? "새 코드를 발급하면 기존 코드는 바로 사용할 수 없습니다. 코드를 받은 제3자가 팀에 참여하면 팀원 정보(업장명·이름·아이디 등)와 공유된 고객·매물·일정이 그 사람에게 보일 수 있으며, 개인정보 제공·유출 등으로 법적 문제가 될 수 있습니다. 이에 동의하십니까?"
-            : "동의하시면 공유 코드가 생성됩니다. 같은 코드를 입력한 사람이 팀에 참여하면 팀원 정보(업장명·이름·아이디 등)와 「팀 공유하기」로 켠 고객·매물·일정이 그 사람에게 보일 수 있으며, 개인정보 제공·유출 등으로 법적 문제가 될 수 있습니다. 코드는 약 5분만 유효합니다. 이에 동의하십니까?"
+            ? "기존 코드는 바로 무효가 됩니다. 매물·고객 정보가 팀에 노출될 수 있으니 주의하세요."
+            : "매물·고객 정보가 팀에 노출될 수 있으니 주의하세요."
         }
       >
         <div className="grid grid-cols-2 gap-2">
@@ -659,7 +643,7 @@ export default function AccountPage() {
         open={nameOpen !== null}
         onClose={closeNameModal}
         title="팀이름"
-        description="동료가 볼 팀 이름입니다. 다른 팀과 같아도 됩니다."
+        description="초대한 팀원과 함께 사용할 공간의 이름을 설정하세요."
         position="center"
       >
         <div className="space-y-3">
