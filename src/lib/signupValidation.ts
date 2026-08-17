@@ -45,7 +45,7 @@ const MESSAGES: Record<SignupFieldKey, (input: SignupValidationInput) => string>
         ? "비밀번호 확인이 일치하지 않습니다."
         : "비밀번호 확인 칸 입력은 필수입니다.",
     passwordHint: () => "비밀번호 힌트 칸 입력은 필수입니다.",
-    agreed: () => "이용약관에 동의해 주세요.",
+    agreed: () => "약관 동의는 필수입니다.",
   };
 
 export function getMissingSignupFields(

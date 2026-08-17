@@ -20,6 +20,7 @@ interface PhoneInputProps {
   chipWhenFilled?: boolean;
   chipTone?: "blue" | "green";
   labelHint?: string;
+  unitHint?: string;
 }
 
 export function PhoneInput({
@@ -35,6 +36,7 @@ export function PhoneInput({
   chipWhenFilled = true,
   chipTone = "blue",
   labelHint,
+  unitHint,
 }: PhoneInputProps) {
   return (
     <Input
@@ -46,6 +48,7 @@ export function PhoneInput({
       chipTone={chipTone}
       labelRight={labelRight}
       labelHint={labelHint}
+      unitHint={unitHint}
       type="text"
       autoComplete="off"
       autoCorrect="off"

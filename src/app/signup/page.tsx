@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
-import { BrandIcon } from "@/components/BrandIcon";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { hardRedirectLogin, registerUser } from "@/lib/auth";
@@ -16,7 +15,6 @@ import {
   getSignupFieldMessage,
   type SignupFieldKey,
 } from "@/lib/signupValidation";
-import { requiredStarClass } from "@/lib/uiInvalid";
 
 type UsernameCheck =
   | { status: "idle" }
@@ -217,23 +215,50 @@ export default function SignupPage() {
         ? usernameCheck.message
         : usernameCheck.status === "checking"
           ? "확인 중…"
-          : isInvalid("username")
-            ? getSignupFieldMessage("username", signupInput)
-            : "영문 소문자·숫자 4자 이상 · 중복 확인을 눌러 주세요";
+          : "";
+
+  const passwordConfirmInvalidRight =
+    passwordConfirm && password !== passwordConfirm
+      ? "비밀번호와 다릅니다"
+      : "필수 입력";
 
   return (
-    <main className="py-6 pb-10">
-      <div className="mb-6 px-1">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl shadow-[0_8px_20px_rgba(49,130,246,0.3)]">
-          <BrandIcon size={48} />
-        </div>
+    <main className="py-6">
+      <div className="mb-1.5 px-1">
         <p className="text-[13px] font-bold text-[#3182F6]">현장동선</p>
         <h1 className="mt-2 text-[28px] font-bold tracking-tight text-gray-900">
           회원가입
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          약관 동의와 아이디·비밀번호·확인·힌트만 필수예요. 나머지는 선택입니다.
-        </p>
+        <div ref={setFieldRef("agreed")} className="mt-2">
+          <label
+            className={[
+              "flex cursor-pointer items-center gap-2.5 py-0.5",
+              isInvalid("agreed") ? "rounded-lg bg-red-50 px-2 py-1" : "",
+            ].join(" ")}
+          >
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="h-4 w-4 shrink-0 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
+            />
+            <span
+              className={[
+                "min-w-0 text-[13px] font-medium leading-snug",
+                isInvalid("agreed") ? "text-red-600" : "text-gray-600",
+              ].join(" ")}
+            >
+              <Link
+                href="/terms"
+                className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                이용약관 · 개인정보 · 광고 · 면책 안내
+              </Link>
+              에 동의합니다.
+            </span>
+          </label>
+        </div>
       </div>
 
       <form
@@ -243,42 +268,6 @@ export default function SignupPage() {
         className="space-y-3"
       >
         <Card className="space-y-2.5">
-          <p className="text-sm font-bold text-gray-800">필수</p>
-          <div ref={setFieldRef("agreed")} className="space-y-1.5">
-            <p className="text-[13px] font-bold text-gray-700">
-              이용약관 동의
-              <span className={requiredStarClass}>*</span>
-            </p>
-            <label
-              className={[
-                "flex cursor-pointer items-start gap-3 rounded-2xl border px-3.5 py-3 active:scale-[0.99] transition-all duration-150",
-                isInvalid("agreed")
-                  ? "border-red-500 bg-red-50"
-                  : "border-gray-100 bg-gray-50",
-              ].join(" ")}
-            >
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1 h-5 w-5 shrink-0 rounded border-gray-300 text-[#3182F6] accent-[#3182F6]"
-              />
-              <span className="text-[13px] leading-relaxed text-gray-600">
-                <Link
-                  href="/terms"
-                  className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  이용약관 · 개인정보 · 광고 · 면책 안내
-                </Link>
-                에 동의합니다.
-                <span className="mt-1 block text-[12px] text-gray-400">
-                  업무 편의 도구이며, 고객·매물·방문 일정을 현장에서 편하게
-                  정리할 수 있습니다.
-                </span>
-              </span>
-            </label>
-          </div>
           <div ref={setFieldRef("username")} className="space-y-1.5">
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
@@ -290,13 +279,22 @@ export default function SignupPage() {
                   placeholder="영문·숫자 4자 이상"
                   autoComplete="username"
                   invalid={isInvalid("username")}
+                  invalidHighlight="input"
+                  invalidLabelRight={
+                    missingFields.includes("username") ? "필수 입력" : null
+                  }
                   hint=""
                 />
               </div>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="!min-h-[48px] shrink-0 !px-3.5 !text-[14px]"
+                className={[
+                  "h-[36px] shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3",
+                  "text-[13px] font-semibold text-gray-700 outline-none",
+                  "transition-all duration-150 active:scale-95",
+                  "hover:border-[#3182F6] hover:bg-white hover:text-[#3182F6]",
+                  "disabled:pointer-events-none disabled:opacity-40",
+                ].join(" ")}
                 disabled={
                   usernameCheck.status === "checking" ||
                   !normalizeUsername(username)
@@ -304,22 +302,23 @@ export default function SignupPage() {
                 onClick={() => void checkUsername()}
               >
                 {usernameCheck.status === "checking" ? "확인 중" : "중복확인"}
-              </Button>
+              </button>
             </div>
-            <p
-              className={[
-                "px-0.5 text-xs font-semibold",
-                usernameCheck.status === "ok"
-                  ? "text-emerald-600"
-                  : usernameCheck.status === "taken" ||
-                      usernameCheck.status === "error" ||
-                      isInvalid("username")
-                    ? "text-red-500"
-                    : "text-gray-400",
-              ].join(" ")}
-            >
-              {checkHint}
-            </p>
+            {checkHint ? (
+              <p
+                className={[
+                  "px-0.5 text-xs font-semibold",
+                  usernameCheck.status === "ok"
+                    ? "text-emerald-600"
+                    : usernameCheck.status === "taken" ||
+                        usernameCheck.status === "error"
+                      ? "text-red-500"
+                      : "text-gray-400",
+                ].join(" ")}
+              >
+                {checkHint}
+              </p>
+            ) : null}
           </div>
           <div ref={setFieldRef("password")}>
             <Input
@@ -331,7 +330,7 @@ export default function SignupPage() {
               placeholder="6자 이상"
               autoComplete="new-password"
               invalid={isInvalid("password")}
-              hint={isInvalid("password") ? "미입력" : undefined}
+              invalidHighlight="input"
             />
           </div>
           <div ref={setFieldRef("passwordConfirm")}>
@@ -344,11 +343,8 @@ export default function SignupPage() {
               placeholder="비밀번호 다시 입력"
               autoComplete="new-password"
               invalid={isInvalid("passwordConfirm")}
-              hint={
-                isInvalid("passwordConfirm")
-                  ? "미입력 또는 비밀번호와 다릅니다"
-                  : undefined
-              }
+              invalidHighlight="input"
+              invalidLabelRight={passwordConfirmInvalidRight}
             />
           </div>
           <div ref={setFieldRef("passwordHint")}>
@@ -359,39 +355,28 @@ export default function SignupPage() {
               onChange={(e) => setPasswordHint(e.target.value)}
               placeholder="본인만 알아볼 수 있는 힌트"
               invalid={isInvalid("passwordHint")}
-              hint={
-                isInvalid("passwordHint")
-                  ? "미입력"
-                  : "비밀번호 찾을 때 쓰는 힌트예요. 잊지 말고 공유하지 마세요."
-              }
+              invalidHighlight="input"
+              labelRight="비밀번호 찾을 때 사용하는 힌트예요 · 타인과 공유금지"
             />
           </div>
-        </Card>
-
-        <Card className="space-y-2.5">
-          <p className="text-sm font-bold text-gray-800">선택</p>
-          <p className="rounded-xl bg-[#E8F3FF] px-3 py-2.5 text-[12px] font-medium leading-relaxed text-[#1B64DA]">
-            업장명·이름·전화번호는 매물 공유 시 고객에게 안내되는 연락 정보예요.
-            필요할 때 쓰이니 가능하면 적어 주세요.
-          </p>
           <Input
-            label="업장명"
+            label="업장명 (선택)"
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
-            placeholder="예: 천호동 (선택)"
+            placeholder="예: 천호동"
             hint="「부동산」「공인중개사사무소」가 없으면 저장 시 공인중개사사무소가 붙습니다"
           />
           <Input
-            label="이름"
+            label="이름 (선택)"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동 (선택)"
+            placeholder="홍길동"
           />
           <PhoneInput
-            label="전화번호"
+            label="전화번호 (선택)"
             value={phone}
             onChange={setPhone}
-            hint="선택 입력 · 매물 공유 시 사용"
+            hint=""
           />
           <div className="overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50/80">
             <button
@@ -440,7 +425,7 @@ export default function SignupPage() {
         )}
       </form>
 
-      <StickyActionBar>
+      <StickyActionBar aboveTab={false}>
         <Button
           type="submit"
           form="signup-form"

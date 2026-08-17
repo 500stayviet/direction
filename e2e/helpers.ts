@@ -62,8 +62,8 @@ export function uniqueUser(prefix = "e2e"): TestUser {
 }
 
 export async function fillSignupForm(page: Page, user: TestUser) {
-  await page.getByPlaceholder("예: 천호동 (선택)").fill(user.shopName);
-  await page.getByPlaceholder("홍길동 (선택)").fill(user.name);
+  await page.getByPlaceholder("예: 천호동").fill(user.shopName);
+  await page.getByPlaceholder("홍길동").fill(user.name);
   await page.getByPlaceholder("영문·숫자 4자 이상").fill(user.username);
   await page.getByRole("button", { name: "중복확인" }).click();
   await expect(page.getByText("사용 가능한 아이디")).toBeVisible();

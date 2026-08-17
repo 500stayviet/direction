@@ -18,6 +18,14 @@ interface FieldProps {
   hint?: string;
   required?: boolean;
   invalid?: boolean;
+  /**
+   * invalid 표시 방식.
+   * - wrap: 라벨+칸 전체 박스 + 아래「미입력」(기본, 고객·매물 폼)
+   * - input: 입력칸 테두리만 + 라벨 우측 문구(invalidLabelRight)
+   */
+  invalidHighlight?: "wrap" | "input";
+  /** invalidHighlight="input"일 때 라벨 바로 옆. 기본「필수 입력」 */
+  invalidLabelRight?: React.ReactNode;
   /** 반영된 값 — 파란 칸, 흰 글자 */
   accent?: boolean;
   /** 라벨 옆 단위. 예: -만원- */
@@ -39,6 +47,8 @@ export function Field({
   hint,
   required,
   invalid,
+  invalidHighlight = "wrap",
+  invalidLabelRight,
   labelRight,
   unitHint,
   labelHint,
@@ -47,42 +57,62 @@ export function Field({
   children: React.ReactNode;
   labelRight?: React.ReactNode;
 }) {
+  const inputOnly = invalidHighlight === "input";
+  const showWrap = Boolean(invalid && label && !inputOnly);
+  const resolvedInvalidRight =
+    invalidLabelRight === undefined ? "필수 입력" : invalidLabelRight;
+  const besideLabelInvalid =
+    invalid && inputOnly && resolvedInvalidRight != null && resolvedInvalidRight !== ""
+      ? resolvedInvalidRight
+      : null;
+  /** input 모드 오류 문구는 라벨 바로 옆 — labelRight는 우측 끝 유지 */
+  const farRight = besideLabelInvalid ? null : labelRight;
+
   return (
     <label
       className={[
         "block space-y-1",
-        invalid && label ? emptyRequiredClass({ invalid: true }) : "",
+        showWrap ? emptyRequiredClass({ invalid: true }) : "",
       ].join(" ")}
     >
-      {label || labelRight || unitHint || labelHint ? (
+      {label || besideLabelInvalid || farRight || unitHint || labelHint ? (
         <span className="flex items-baseline justify-between gap-2">
-          {label ? (
-            <span
-              className={[
-                "shrink-0 text-[13px] font-semibold",
-                invalid ? invalidLabelClass : "text-gray-600",
-              ].join(" ")}
-            >
-              {label}
-              {required && (
-                <span className={requiredStarClass}>
-                  *
+          {label || besideLabelInvalid ? (
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              {label ? (
+                <span
+                  className={[
+                    "shrink-0 text-[13px] font-semibold",
+                    showWrap ? invalidLabelClass : "text-gray-600",
+                  ].join(" ")}
+                >
+                  {label}
+                  {required && (
+                    <span className={requiredStarClass}>
+                      *
+                    </span>
+                  )}
                 </span>
-              )}
+              ) : null}
+              {besideLabelInvalid ? (
+                <span className="shrink-0 text-[12px] font-bold text-red-400">
+                  {besideLabelInvalid}
+                </span>
+              ) : null}
             </span>
           ) : (
             <span />
           )}
-          {unitHint || labelRight || labelHint ? (
+          {unitHint || farRight || labelHint ? (
             <span className="flex min-w-0 flex-1 items-baseline justify-end gap-2">
               {unitHint ? (
                 <span className="shrink-0 text-[11px] font-medium text-gray-500">
                   {unitHint}
                 </span>
               ) : null}
-              {labelRight ? (
+              {farRight ? (
                 <span className="shrink-0 text-[12px] font-bold text-red-400">
-                  {labelRight}
+                  {farRight}
                 </span>
               ) : labelHint ? (
                 <span className={reselectHintClass}>{labelHint}</span>
@@ -91,7 +121,7 @@ export function Field({
           ) : null}
         </span>
       ) : null}
-      {invalid && label ? (
+      {showWrap ? (
         <span className={`block text-xs ${invalidHintClass}`}>미입력</span>
       ) : null}
       {children}
@@ -115,6 +145,8 @@ export function Input({
   hint,
   required,
   invalid,
+  invalidHighlight = "wrap",
+  invalidLabelRight,
   labelRight,
   unitHint,
   chipWhenFilled,
@@ -134,6 +166,13 @@ export function Input({
   const [focused, setFocused] = useState(false);
   const hasValue = String(props.value ?? "").trim().length > 0;
   const showChip = Boolean(chipWhenFilled && hasValue && !focused && !invalid);
+  const fieldInvalidProps = {
+    invalid,
+    invalidHighlight,
+    invalidLabelRight,
+  };
+  const controlInvalidClass =
+    invalid && invalidHighlight === "input" ? invalidInputClass : "";
 
   const inputEl = (
     <input
@@ -142,6 +181,7 @@ export function Input({
         suffix
           ? "pr-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           : "",
+        controlInvalidClass,
         accent && !invalid ? filledInputClass : "",
         className,
       ].join(" ")}
@@ -180,10 +220,10 @@ export function Input({
         label={label}
         hint={hint}
         required={required}
-        invalid={invalid}
         labelRight={labelRight}
         unitHint={unitHint}
         labelHint={labelHint}
+        {...fieldInvalidProps}
       >
         <button
           type="button"
@@ -208,10 +248,10 @@ export function Input({
       label={label}
       hint={hint}
       required={required}
-      invalid={invalid}
       labelRight={labelRight}
       unitHint={unitHint}
       labelHint={labelHint}
+      {...fieldInvalidProps}
     >
       {control}
     </Field>
