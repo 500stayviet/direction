@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type {
   BuildingKind,
@@ -226,7 +226,7 @@ export function CustomerForm({
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
   const applyingIntakeRef = useRef(false);
   const intakeModalOpen = messageOpen || talkOpen;
-  const closeIntakeModalFromBack = useCallback(() => {
+  const closeIntakeModalFromBack = () => {
     if (talkOpen) {
       setTalkOpen(false);
       return true;
@@ -237,7 +237,7 @@ export function CustomerForm({
       return true;
     }
     return false;
-  }, [aiBusy, messageOpen, talkOpen]);
+  };
   useModalBackClose({
     open: intakeModalOpen,
     onRequestClose: closeIntakeModalFromBack,

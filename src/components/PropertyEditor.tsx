@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { Property, RoomType } from "@/lib/types";
@@ -171,7 +171,7 @@ export function PropertyEditor({
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
   const intakeModalOpen = messageOpen || talkOpen;
-  const closeIntakeModalFromBack = useCallback(() => {
+  const closeIntakeModalFromBack = () => {
     if (talkOpen) {
       setTalkOpen(false);
       return true;
@@ -182,7 +182,7 @@ export function PropertyEditor({
       return true;
     }
     return false;
-  }, [aiBusy, messageOpen, talkOpen]);
+  };
   useModalBackClose({
     open: intakeModalOpen,
     onRequestClose: closeIntakeModalFromBack,
