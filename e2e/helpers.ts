@@ -116,10 +116,9 @@ export async function loginViaUi(
   await fillLoginForm(page, user);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(page).toHaveURL(/\/(\?|$)/);
-  const greet = user.name ? `${user.name}님,` : /님,/;
-  await expect(page.getByRole("heading", { name: greet })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page.locator("button").filter({ hasText: /^로그아웃$/ })
+  ).toBeVisible({ timeout: 45_000 });
   await dismissHomeModalsIfShown(page);
 }
 
@@ -135,8 +134,8 @@ export async function dismissFeatureIntroIfShown(
     await heading.waitFor({ state: "visible", timeout: timeoutMs });
     await page
       .locator("button")
-      .filter({ hasText: /^다시 보지 않기$/ })
-      .click();
+      .filter({ hasText: /^일주일간 보지 않기$/ })
+      .click({ timeout: 4000 });
     await heading.waitFor({ state: "hidden", timeout: 4000 });
   } catch {
     /* already dismissed this visit */

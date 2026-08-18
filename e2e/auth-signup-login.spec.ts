@@ -11,7 +11,9 @@ test("회원가입 → 로그인 → 홈", async ({ page }) => {
   const user = uniqueUser("auth");
   await signupViaUi(page, user);
   await loginViaUi(page, user);
-  await expect(page.getByText(`${user.name}님,`)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: new RegExp(`${user.name}님`) })
+  ).toBeVisible();
   await expect(page.getByText(/공인중개사사무소/)).toBeVisible();
 });
 
@@ -35,7 +37,7 @@ test("로그인 후 기능 소개 모달 · 닫기/일주일간 보지 않기", 
   await page.locator("button").filter({ hasText: /^닫기$/ }).click();
   await expect(introHeading).toBeHidden({ timeout: 5_000 });
 
-  await page.getByRole("link", { name: "고객리스트" }).click();
+  await page.locator("nav a[href='/customers']").click();
   await expect(page).toHaveURL(/\/customers/);
   await page.getByRole("link", { name: "홈", exact: true }).click();
   await expect(introHeading).toBeVisible({ timeout: 10_000 });

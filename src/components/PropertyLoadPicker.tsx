@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { PropertyListCard } from "@/components/PropertyListCard";
 import { createId } from "@/lib/id";
 import { getListedProperties } from "@/lib/storage";
+import { peekCurrentUser } from "@/lib/auth";
 import type { ListedProperty, Property } from "@/lib/types";
 
 interface PropertyLoadPickerProps {
@@ -26,6 +27,7 @@ function matchesProperty(p: ListedProperty, q: string): boolean {
 }
 
 export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
+  const viewerId = peekCurrentUser()?.id;
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [all, setAll] = useState<ListedProperty[]>([]);
@@ -104,7 +106,7 @@ export function PropertyLoadPicker({ onSelect }: PropertyLoadPickerProps) {
                 }}
                 className="cursor-pointer active:scale-[0.99] transition-all duration-150"
               >
-                <PropertyListCard property={p} />
+                <PropertyListCard property={p} viewerId={viewerId} />
               </div>
             ))
           )}

@@ -50,6 +50,8 @@ interface PropertyListCardProps {
   showAgencyBadge?: boolean;
   /** 공유 신규(정적) | 매칭 신규(반짝임) */
   alertHighlight?: "share" | "match" | null;
+  /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
+  viewerId?: string;
 }
 
 export function PropertyListCard({
@@ -61,6 +63,7 @@ export function PropertyListCard({
   showSavedDate = true,
   showAgencyBadge = false,
   alertHighlight = null,
+  viewerId,
 }: PropertyListCardProps) {
   const saved = showSavedDate ? formatSavedDate(p.createdAt) : "";
   const moneyLabel = formatDepositRent(
@@ -75,7 +78,7 @@ export function PropertyListCard({
   const sharer = teamSharerLabel(
     p.createdByName,
     p.createdBy,
-    peekCurrentUser()?.id
+    viewerId ?? peekCurrentUser()?.id
   );
   const typeLabel = displayRoomType(p.roomType, p.buildingKind);
   const dealLabel = p.dealType?.trim() || "";

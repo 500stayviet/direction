@@ -33,6 +33,8 @@ interface CustomerListCardProps {
   showSavedDate?: boolean;
   /** 공유 신규(정적) | 매칭 신규(반짝임) */
   alertHighlight?: "share" | "match" | null;
+  /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
+  viewerId?: string;
 }
 
 function MoneyPhoneRow({
@@ -82,6 +84,7 @@ export function CustomerListCard({
   showDeadline = true,
   showSavedDate = true,
   alertHighlight = null,
+  viewerId,
 }: CustomerListCardProps) {
   const saved = showSavedDate ? formatSavedDate(c.createdAt) : "";
   const done = Boolean(c.contractCompleted);
@@ -90,7 +93,7 @@ export function CustomerListCard({
   const sharer = teamSharerLabel(
     c.createdByName,
     c.createdBy,
-    peekCurrentUser()?.id
+    viewerId ?? peekCurrentUser()?.id
   );
   const preferredLabel = formatPreferredLocationLabel(c);
   const moveInLabel = getCustomerMoveInLabel(c);

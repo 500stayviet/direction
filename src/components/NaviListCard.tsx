@@ -87,6 +87,7 @@ interface NaviListCardProps {
   renderCard?: (card: ReactElement) => ReactNode;
   className?: string;
   alertHighlight?: "share" | "match" | null;
+  viewerId?: string;
 }
 
 export function NaviListCard({
@@ -96,6 +97,7 @@ export function NaviListCard({
   renderCard = (card) => card,
   className = "",
   alertHighlight = null,
+  viewerId,
 }: NaviListCardProps) {
   const done = isScheduleEnded(s);
   const kind = visitWhenKind(s.visitDate, done);
@@ -110,7 +112,7 @@ export function NaviListCard({
   const sharer = teamSharerLabel(
     s.createdByName,
     s.createdBy,
-    peekCurrentUser()?.id
+    viewerId ?? peekCurrentUser()?.id
   );
 
   const card = (

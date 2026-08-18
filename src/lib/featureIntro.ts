@@ -39,14 +39,6 @@ export function isFeatureIntroHidden(
   }
 }
 
-/** 소개를 띄워야 하는지 */
-export function shouldShowFeatureIntro(
-  userId: string,
-  now: number = Date.now()
-): boolean {
-  return !isFeatureIntroHidden(userId, now);
-}
-
 /** 홈에 있을 때만. 숨김 기간이 남은 계정은 제외 */
 export function shouldOpenFeatureIntroOnHome(
   pathname: string,
@@ -55,7 +47,7 @@ export function shouldOpenFeatureIntroOnHome(
 ): boolean {
   if (pathname !== "/") return false;
   if (!userId) return false;
-  return shouldShowFeatureIntro(userId, now);
+  return !isFeatureIntroHidden(userId, now);
 }
 
 /** 「다시 보지 않기」→ now부터 1주일 동안 숨김 */

@@ -208,6 +208,7 @@ export default function CustomerListPage() {
                 <PrefetchHref href={customerHref(c)} />
                 <CustomerListCard
                   customer={c}
+                  viewerId={myId}
                   alertHighlight={listCardHighlight("customers", c.id)}
                   right={
                     showTeamChip ? (

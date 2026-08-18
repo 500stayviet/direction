@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useState, useSyncExternalStore, type MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
@@ -130,10 +130,13 @@ export function BottomTabBar() {
     getAuthEpoch,
     () => 0
   );
-  const loggedIn = useMemo(() => {
-    void authEpoch;
-    return Boolean(peekCurrentUser()?.id);
-  }, [authEpoch]);
+  const user = useSyncExternalStore(
+    subscribeAuthChange,
+    peekCurrentUser,
+    () => null
+  );
+  void authEpoch;
+  const loggedIn = Boolean(user?.id);
 
   // 현장 리드 중에는 하단 CTA만 남김
   if (pathname.startsWith("/navi/") && pathname !== "/navi") {

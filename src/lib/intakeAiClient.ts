@@ -21,14 +21,23 @@ import {
 
 export { INTAKE_AI_MIN_WAIT_MS };
 
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err instanceof Error && err.name === "AbortError")
+  );
+}
+
 export async function requestIntakeAi(opts: {
   leftover: string;
   kind: IntakeKind;
   source: IntakeAiSource;
   parsed: IntakeParseResult;
   accessToken?: string | null;
+  signal?: AbortSignal;
 }): Promise<IntakeAiPatch | null> {
   if (typeof window === "undefined") return null;
+  if (opts.signal?.aborted) return null;
   const leftover = scrubCorruptIntakeText(opts.leftover).trim();
   if (!leftover) return null;
   const token = opts.accessToken?.trim();
@@ -43,6 +52,7 @@ export async function requestIntakeAi(opts: {
     const res = await fetch("/api/intake-ai", {
       method: "POST",
       headers,
+      signal: opts.signal,
       body: JSON.stringify({
         leftover,
         kind: opts.kind,
@@ -56,7 +66,8 @@ export async function requestIntakeAi(opts: {
       return null;
     }
     return body.patch as IntakeAiPatch;
-  } catch {
+  } catch (err) {
+    if (isAbortError(err)) return null;
     return null;
   }
 }
@@ -66,6 +77,7 @@ export async function resolveIntakeWithAi(opts: {
   kind: IntakeKind;
   source: IntakeAiSource;
   accessToken?: string | null;
+  signal?: AbortSignal;
 }): Promise<IntakeParseResult> {
   const preprocessed =
     opts.kind === "customer"
@@ -86,12 +98,14 @@ export async function resolveIntakeWithAi(opts: {
       notes: appendIntakeMemo(parsed.notes, leftover),
     };
   }
+  if (opts.signal?.aborted) return parsed;
   const patch = await requestIntakeAi({
     leftover,
     kind: opts.kind,
     source: opts.source,
     parsed,
     accessToken: opts.accessToken,
+    signal: opts.signal,
   });
   if (!patch) return parsed;
   return mergeIntakeAi(parsed, patch, leftover);

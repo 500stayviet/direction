@@ -8,6 +8,7 @@ import { PropertyListCard } from "@/components/PropertyListCard";
 import { SiteShareMatchingEmpty } from "@/components/SiteShareUi";
 import { MAX_SCHEDULE_PROPERTIES } from "@/lib/constants";
 import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import { peekCurrentUser } from "@/lib/auth";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 export function MatchingPropertyPickModal({
@@ -24,6 +25,7 @@ export function MatchingPropertyPickModal({
   onConfirm: (picked: ListedProperty[]) => void;
 }) {
   const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const viewerId = peekCurrentUser()?.id;
 
   useEffect(() => {
     if (open) setPickedIds([]);
@@ -101,6 +103,7 @@ export function MatchingPropertyPickModal({
                 >
                   <PropertyListCard
                     property={p}
+                    viewerId={viewerId}
                     className="!mb-0"
                     showSavedDate={false}
                     showAgencyBadge

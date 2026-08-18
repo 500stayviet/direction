@@ -202,6 +202,7 @@ export default function PropertyListPage() {
                 <PrefetchHref href={propertyHref(p)} />
                 <PropertyListCard
                   property={p}
+                  viewerId={myId}
                   alertHighlight={listCardHighlight("properties", p.id)}
                   right={
                     showTeamChip ? (

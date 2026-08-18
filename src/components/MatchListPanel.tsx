@@ -66,6 +66,7 @@ export function MatchingPropertiesSection({
   customerId?: string;
 }) {
   useAlertsTick();
+  const viewerId = peekCurrentUser()?.id;
   const [preview, setPreview] = useState<ListedProperty | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ListedProperty | null>(
     null
@@ -124,6 +125,7 @@ export function MatchingPropertiesSection({
             >
               <PropertyListCard
                 property={p}
+                viewerId={viewerId}
                 className="!mb-1.5"
                 showSavedDate={false}
                 showAgencyBadge
@@ -229,6 +231,7 @@ export function MatchingCustomersSection({
   propertyId?: string;
 }) {
   useAlertsTick();
+  const viewerId = peekCurrentUser()?.id;
   const [preview, setPreview] = useState<Customer | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
   const [busy, setBusy] = useState(false);
@@ -279,6 +282,7 @@ export function MatchingCustomersSection({
             >
               <CustomerListCard
                 customer={c}
+                viewerId={viewerId}
                 className="!mb-1.5"
                 showDeadline={false}
                 showSavedDate={false}

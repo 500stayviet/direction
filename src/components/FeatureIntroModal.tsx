@@ -45,11 +45,11 @@ const FEATURES = [
 export function FeatureIntroModal({
   open,
   onClose,
-  onHideForever,
+  onSnooze,
 }: {
   open: boolean;
   onClose: () => void;
-  onHideForever: () => void;
+  onSnooze: () => void;
 }) {
   return (
     <Modal
@@ -94,7 +94,7 @@ export function FeatureIntroModal({
         <div className="mt-3 flex items-center gap-1.5">
           <button
             type="button"
-            onClick={onHideForever}
+            onClick={onSnooze}
             className="flex h-8 min-w-0 flex-1 items-center justify-center rounded-full border border-gray-200 bg-white px-2 text-[12px] font-semibold text-gray-500 active:scale-[0.98] transition-all duration-150"
           >
             일주일간 보지 않기

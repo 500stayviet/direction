@@ -20,6 +20,11 @@ import {
   SEOUL_GU_LIST,
 } from "@/lib/seoulRegions";
 import type { DealType, ParkingType, Property, RoomType } from "@/lib/types";
+import {
+  applyCustomerDealType,
+  applyCustomerRoomType,
+  type CustomerFormDraft,
+} from "@/lib/customerFormDraft";
 
 export type IntakeKind = "customer" | "property";
 export type YesNo = "유" | "무";
@@ -2906,10 +2911,6 @@ export function intakeMoveInPeriod(parsed: IntakeParseResult): {
   return null;
 }
 
-export function intakeMoveInDate(parsed: IntakeParseResult): string {
-  return intakeMoveInPeriod(parsed)?.from ?? "";
-}
-
 export function applyIntakeToProperty(
   current: Property,
   parsed: IntakeParseResult
@@ -2988,3 +2989,70 @@ export function applyIntakeToProperty(
   }
   return next;
 }
+
+/** 파싱 결과를 고객 draft에 한 번에 반영. 이미 있는 칸은 파싱 값이 있을 때만 덮어쓴다. */
+export function applyIntakeToCustomer(
+  current: CustomerFormDraft,
+  parsed: IntakeParseResult,
+  opts?: { hasTeam?: boolean }
+): CustomerFormDraft {
+  let next = { ...current };
+  const nextPhone =
+    parsed.phone || parsed.tenantPhone || parsed.landlordPhone || "";
+  if (nextPhone) next.phone = formatPhoneInput(nextPhone);
+  if (parsed.name) next.name = parsed.name;
+  if (parsed.roomType) {
+    next = applyCustomerRoomType(next, parsed.roomType);
+    if (needsRoomBathCounts(parsed.roomType)) {
+      const defaults = defaultRoomBathCounts(parsed.roomType);
+      next.roomCount = parsed.roomCount ?? defaults.roomCount;
+      next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
+    }
+  }
+  if (parsed.dealType) next = applyCustomerDealType(next, parsed.dealType);
+  if (parsed.deposit && parsed.deposit > 0) {
+    next.deposit = parsed.deposit;
+    if (parsed.depositTo && parsed.depositTo !== parsed.deposit) {
+      next.depositTo = parsed.depositTo;
+      next.depositSingle = false;
+    } else {
+      next.depositTo = parsed.deposit;
+      next.depositSingle = true;
+    }
+  }
+  if (parsed.monthlyRent && parsed.monthlyRent > 0) {
+    next.monthlyRent = parsed.monthlyRent;
+    if (parsed.monthlyRentTo && parsed.monthlyRentTo !== parsed.monthlyRent) {
+      next.monthlyRentTo = parsed.monthlyRentTo;
+      next.monthlyRentSingle = false;
+    } else {
+      next.monthlyRentTo = parsed.monthlyRent;
+      next.monthlyRentSingle = true;
+    }
+    if (!parsed.dealType) next.dealType = "월세";
+  }
+  const loc = intakePreferredLocation(parsed);
+  if (loc.preferredDongs.length > 0) {
+    next.preferredGus = loc.preferredGus;
+    next.preferredDongs = loc.preferredDongs;
+  }
+  const move = intakeMoveInPeriod(parsed);
+  if (move) {
+    next.moveInFrom = move.from;
+    next.moveInTo = move.to;
+    next.moveInSingle = move.single;
+  }
+  if (parsed.loan) next.loanNeeded = parsed.loan;
+  if (parsed.insurance) next.insuranceNeeded = parsed.insurance;
+  if (parsed.parking) next.parkingType = parsed.parking;
+  if (parsed.elevator) next.elevatorNeeded = parsed.elevator;
+  if (parsed.workspaceShared && opts?.hasTeam) {
+    next.workspaceShared = parsed.workspaceShared === "유";
+  }
+  if (parsed.notes) {
+    const prev = next.notes.trim();
+    next.notes = prev ? `${prev}\n${parsed.notes}` : parsed.notes;
+  }
+  return next;
+}
+

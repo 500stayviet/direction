@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Property, RoomType } from "@/lib/types";
 import {
@@ -53,19 +52,9 @@ import {
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
 import { RoomBathCountFields, RoomBathCountGrids } from "@/components/RoomBathCountFields";
-import type { IntakeParseResult } from "@/lib/intakeParse";
-import {
-  recordIntakeSample,
-  type IntakeSampleSource,
-} from "@/lib/intakeSampleCollect";
-import { getAccessToken } from "@/lib/auth";
 import { isPlaceholderAddress } from "@/lib/seoulRegions";
-import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
-import { IntakeResetModal } from "@/components/IntakeResetModal";
-import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
-import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { useHasTeam } from "@/hooks/useHasTeam";
-import { useModalBackClose } from "@/hooks/useModalBackClose";
+import { useIntakeApply } from "@/hooks/useIntakeApply";
 import { invalidLabelClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 
@@ -93,12 +82,6 @@ function ChipToggle({
     </button>
   );
 }
-
-const IntakePhotoPicker = dynamic(
-  () =>
-    import("@/components/IntakePhotoPicker").then((m) => m.IntakePhotoPicker),
-  { ssr: false }
-);
 
 interface PropertyEditorProps {
   index: number;
@@ -155,41 +138,51 @@ export function PropertyEditor({
     {}
   );
   const [moveOpen, setMoveOpen] = useState(false);
-  const [filledFromIntake, setFilledFromIntake] = useState(false);
-  const showMissing = filledFromIntake || highlightLoaded;
   const [lockHintOpen, setLockHintOpen] = useState(false);
   const lockedListedId = property.listedFromId?.trim() || "";
-  const [resetOpen, setResetOpen] = useState(false);
-  const [pendingMethod, setPendingMethod] = useState<IntakeMethod | null>(null);
-  const [messageOpen, setMessageOpen] = useState(false);
-  const [talkOpen, setTalkOpen] = useState(false);
-  const [photoRequestId, setPhotoRequestId] = useState(0);
-  const [photoError, setPhotoError] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
-  const applyingIntakeRef = useRef(false);
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
-  const intakeModalOpen = messageOpen || talkOpen;
-  const closeIntakeModalFromBack = () => {
-    if (talkOpen) {
-      setTalkOpen(false);
-      return true;
-    }
-    if (messageOpen) {
-      if (aiBusy) return false;
-      setMessageOpen(false);
-      return true;
-    }
-    return false;
-  };
-  useModalBackClose({
-    open: intakeModalOpen,
-    onRequestClose: closeIntakeModalFromBack,
-  });
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);
+
+  const resetPropertyDraft = useCallback(() => {
+    const empty = createEmptyProperty();
+    onChange({
+      ...empty,
+      id: property.id,
+    });
+  }, [onChange, property.id]);
+
+  const applyIntakeParsed = useCallback(
+    (parsed: import("@/lib/intakeParse").IntakeParseResult) => {
+      void import("@/lib/intakeParse").then(({ applyIntakeToProperty }) => {
+        const next = applyIntakeToProperty(propertyRef.current, parsed);
+        if (!hasTeam) next.workspaceShared = false;
+        onChange(next);
+      });
+    },
+    [hasTeam, onChange]
+  );
+
+  const intake = useIntakeApply({
+    kind: "property",
+    enabled: enableIntake,
+    hasDraftContent: Boolean(
+      highlightLoaded ||
+        onlyDigits(property.tenantPhone ?? "").length >= 9 ||
+        onlyDigits(property.landlordPhone ?? "").length >= 9 ||
+        (property.notes ?? "").trim() ||
+        (property.deposit ?? 0) > 0 ||
+        (property.roomNo ?? "").trim() ||
+        !isPlaceholderAddress(property.address ?? "")
+    ),
+    onResetDraft: resetPropertyDraft,
+    onApplyParsed: applyIntakeParsed,
+    sourceClassName: "mb-3 space-y-1",
+  });
+  const showMissing = intake.filledFromIntake || highlightLoaded;
 
   const reorderList = allProperties ?? [];
   const canReorder =
@@ -313,85 +306,6 @@ export function PropertyEditor({
       patch.bathroomCount = undefined;
     }
     update(patch);
-  };
-
-  const formHasContent = Boolean(
-    showMissing ||
-      onlyDigits(property.tenantPhone ?? "").length >= 9 ||
-      onlyDigits(property.landlordPhone ?? "").length >= 9 ||
-      (property.notes ?? "").trim() ||
-      (property.deposit ?? 0) > 0 ||
-      (property.roomNo ?? "").trim() ||
-      !isPlaceholderAddress(property.address ?? "")
-  );
-
-  const startIntake = (method: IntakeMethod) => {
-    setPhotoError("");
-    if (method === "message") setMessageOpen(true);
-    if (method === "talk") setTalkOpen(true);
-    if (method === "photo") setPhotoRequestId((n) => n + 1);
-  };
-
-  const requestIntake = (method: IntakeMethod) => {
-    if (formHasContent) {
-      setPendingMethod(method);
-      setResetOpen(true);
-      return;
-    }
-    startIntake(method);
-  };
-
-  const resetPropertyDraft = () => {
-    const empty = createEmptyProperty();
-    onChange({
-      ...empty,
-      id: property.id,
-    });
-    setFilledFromIntake(false);
-    setPhotoError("");
-  };
-
-  const applyIntakeParsed = async (parsed: IntakeParseResult) => {
-    const { applyIntakeToProperty } = await import("@/lib/intakeParse");
-    const next = applyIntakeToProperty(propertyRef.current, parsed);
-    if (!hasTeam) next.workspaceShared = false;
-    onChange(next);
-    setFilledFromIntake(true);
-    setMessageOpen(false);
-    setTalkOpen(false);
-  };
-
-  const applyIntakeText = async (raw: string, source: IntakeSampleSource) => {
-    if (applyingIntakeRef.current) return;
-    applyingIntakeRef.current = true;
-    setAiBusy(true);
-    if (source !== "message") setMessageOpen(false);
-    const started = Date.now();
-    try {
-      const accessToken = await getAccessToken();
-      const { INTAKE_AI_MIN_WAIT_MS, resolveIntakeWithAi } = await import(
-        "@/lib/intakeAiClient"
-      );
-      const parsed = await resolveIntakeWithAi({
-        raw,
-        kind: "property",
-        source,
-        accessToken,
-      });
-      const wait = Math.max(0, INTAKE_AI_MIN_WAIT_MS - (Date.now() - started));
-      if (wait) await new Promise((resolve) => window.setTimeout(resolve, wait));
-      void recordIntakeSample({
-        raw,
-        kind: "property",
-        source,
-        parsed,
-        accessToken,
-      });
-      await applyIntakeParsed(parsed);
-    } finally {
-      setAiBusy(false);
-      applyingIntakeRef.current = false;
-    }
   };
 
   const teamShareFields = showTeamShare ? (
@@ -529,23 +443,8 @@ export function PropertyEditor({
 
   return (
     <>
-    <IntakeAiBusyOverlay open={aiBusy} />
-    {enableIntake ? (
-      <div className="mb-3 space-y-1">
-        <IntakeSourceBar onSelect={requestIntake} />
-        {photoError ? (
-          <p className="text-[12px] font-semibold text-red-400">{photoError}</p>
-        ) : null}
-        {photoRequestId > 0 ? (
-          <IntakePhotoPicker
-            requestId={photoRequestId}
-            onBusyChange={setAiBusy}
-            onText={(text) => applyIntakeText(text, "photo")}
-            onError={setPhotoError}
-          />
-        ) : null}
-      </div>
-    ) : null}
+    {intake.overlay}
+    {intake.sourceSection}
     <Card
       className={[
         "space-y-2 !p-3",
@@ -557,7 +456,7 @@ export function PropertyEditor({
       {enableLoad && (
         <PropertyLoadPicker
           onSelect={(listed) => {
-            setFilledFromIntake(true);
+            intake.setFilledFromIntake(true);
             onChange(
               applyListedToProperty(
                 property.id,
@@ -1156,43 +1055,7 @@ export function PropertyEditor({
         </div>
       )}
     </Card>
-    {enableIntake ? (
-      <>
-        <IntakeResetModal
-          open={resetOpen}
-          onClose={() => {
-            setResetOpen(false);
-            setPendingMethod(null);
-          }}
-          onConfirm={() => {
-            const method = pendingMethod;
-            setResetOpen(false);
-            setPendingMethod(null);
-            resetPropertyDraft();
-            if (method) startIntake(method);
-          }}
-        />
-        {messageOpen ? (
-          <IntakeMessageModal
-            open={messageOpen}
-            busy={aiBusy}
-            onClose={() => {
-              if (aiBusy) return;
-              setMessageOpen(false);
-            }}
-            onApply={(text) => void applyIntakeText(text, "message")}
-          />
-        ) : null}
-        {talkOpen ? (
-          <IntakeTalkModal
-            open={talkOpen}
-            kind="property"
-            onClose={() => setTalkOpen(false)}
-            onApply={(parsed) => void applyIntakeParsed(parsed)}
-          />
-        ) : null}
-      </>
-    ) : null}
+    {intake.modals}
     </>
   );
 }

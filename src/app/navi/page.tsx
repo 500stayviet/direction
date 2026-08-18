@@ -242,6 +242,7 @@ export default function NaviEntryPage() {
                 <NaviListCard
                   schedule={s}
                   customers={customers}
+                  viewerId={myId}
                   alertHighlight={listCardHighlight("navi", s.id)}
                   right={
                     <TeamShareChip

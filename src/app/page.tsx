@@ -38,9 +38,14 @@ function useAuthUser(): User | null {
     getAuthEpoch,
     () => 0
   );
-  // epoch마다 최신 peek — useMemo로 User 참조를 고정하면 업장명 보정이 안 보임
+  const user = useSyncExternalStore(
+    subscribeAuthChange,
+    peekCurrentUser,
+    () => null
+  );
+  // epoch: 업장명 보정처럼 같은 세션을 고쳐도 다시 그림. 첫 화면은 null로 SSR과 맞춤
   void epoch;
-  return peekCurrentUser();
+  return user;
 }
 
 const menus = [
@@ -206,21 +211,6 @@ export default function HomePage() {
                 </>
               )}
             </h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
-              {user ? (
-                <>
-                  전화·네비는 원클릭으로.
-                  <br />
-                  부동산 업무를 더 빠르고 가볍게.
-                </>
-              ) : (
-                <>
-                  전화·네비는 원클릭으로.
-                  <br />
-                  회원가입 후 바로 시작해 보세요.
-                </>
-              )}
-            </p>
           </div>
           {user ? (
             <div className="flex shrink-0 items-center gap-2.5 pt-1">
@@ -276,6 +266,19 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
+          {user ? (
+            <span className="whitespace-nowrap">
+              전화·네비는 원클릭으로. 오늘 동선도 가볍게.
+            </span>
+          ) : (
+            <>
+              전화·네비는 원클릭으로.
+              <br />
+              회원가입 후 바로 시작해 보세요.
+            </>
+          )}
+        </p>
       </div>
 
       <div className="flex flex-col gap-2.5 pb-2">

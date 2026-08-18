@@ -783,30 +783,28 @@ export async function getListedPropertyById(
     return undefined;
   }
   if (cached) {
-    void (async () => {
-      try {
-        const row = await findRow("listed_properties", id);
-        if (!row || row.deleted_at) {
-          removePropertyFromCache(id);
-          return;
-        }
-        if (isDemoEntityId(id)) {
-          const userId = await requireUserId();
-          if (row.user_id !== userId) {
-            removePropertyFromCache(id);
-            return;
-          }
-        }
-        const item = applyPropertyDueComplete(enrichProperty(row));
-        upsertPropertyInCache(item);
-        if (item.contractCompleted && !cached.contractCompleted) {
-          void upsertListedProperty(item).catch(() => undefined);
-        }
-      } catch {
-        /* ignore */
+    try {
+      const row = await findRow("listed_properties", id);
+      if (!row || row.deleted_at) {
+        removePropertyFromCache(id);
+        return undefined;
       }
-    })();
-    return applyPropertyDueComplete(cached);
+      if (isDemoEntityId(id)) {
+        const userId = await requireUserId();
+        if (row.user_id !== userId) {
+          removePropertyFromCache(id);
+          return undefined;
+        }
+      }
+      const item = applyPropertyDueComplete(enrichProperty(row));
+      upsertPropertyInCache(item);
+      if (item.contractCompleted && !cached.contractCompleted) {
+        void upsertListedProperty(item).catch(() => undefined);
+      }
+      return item;
+    } catch {
+      return applyPropertyDueComplete(cached);
+    }
   }
   try {
     const row = await findRow("listed_properties", id);

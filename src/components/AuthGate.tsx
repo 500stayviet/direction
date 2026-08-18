@@ -58,6 +58,22 @@ function isAuthPath(pathname: string): boolean {
   return pathname === "/login" || pathname === "/signup";
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: () => T): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => resolve(fallback()), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -102,10 +118,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
       try {
         // 최초 부팅·세션 변경만 전체 조회. 경로 이동은 peek만 쓴다.
-        const user = light ? peekCurrentUser() : await getCurrentUser();
+        const user = light
+          ? peekCurrentUser()
+          : await withTimeout(getCurrentUser(), 6000, () => peekCurrentUser());
         const sid = light
           ? peekCurrentUser()?.id ?? "guest"
-          : (await getSessionUserId()) ?? "guest";
+          : (await withTimeout(
+              getSessionUserId(),
+              6000,
+              () => peekCurrentUser()?.id ?? null
+            )) ?? "guest";
         if (cancelled) return;
         setSessionKey(sid);
 
@@ -119,7 +141,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         }
 
         if (user && (currentPath === "/login" || currentPath === "/signup")) {
-          await seedDemoDataIfNeeded().catch(() => undefined);
+          void seedDemoDataIfNeeded().catch(() => undefined);
           if (cancelled) return;
           router.replace("/");
           setReady(true);
@@ -127,7 +149,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         }
 
         if (user && !light) {
-          await seedDemoDataIfNeeded().catch(() => undefined);
+          void seedDemoDataIfNeeded().catch(() => undefined);
         }
         if (cancelled) return;
         setReady(true);
