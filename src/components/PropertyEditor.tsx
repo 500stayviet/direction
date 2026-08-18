@@ -542,8 +542,7 @@ export function PropertyEditor({
                 onChange={(tenantPhone) => update({ tenantPhone })}
                 placeholder="예) 010-1234-5678"
                 invalid={isInvalid("contacts")}
-                labelHint="원터치 전화에 사용됩니다."
-                hint=""
+                hint="원터치 전화에 사용됩니다."
               />
               <PhoneInput
                 label="임대인 전화번호"

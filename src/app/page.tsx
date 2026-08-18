@@ -189,28 +189,6 @@ export default function HomePage() {
                 {user.shopName.trim()}
               </p>
             ) : null}
-            <h1
-              className={`${
-                user?.shopName?.trim() &&
-                user.shopName.trim() !== "현장동선"
-                  ? "mt-0"
-                  : "mt-2"
-              } text-[30px] font-bold leading-[1.25] tracking-tight text-gray-900`}
-            >
-              {user ? (
-                <>
-                  {user.name || user.username}님,
-                  <br />
-                  {dailyGreeting}
-                </>
-              ) : (
-                <>
-                  고객 브리핑부터
-                  <br />
-                  동선 관리까지
-                </>
-              )}
-            </h1>
           </div>
           {user ? (
             <div className="flex shrink-0 items-center gap-2.5 pt-1">
@@ -266,11 +244,34 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        <h1
+          className={`${
+            user?.shopName?.trim() && user.shopName.trim() !== "현장동선"
+              ? "mt-0"
+              : "mt-2"
+          } text-[30px] font-bold leading-[1.25] tracking-tight text-gray-900`}
+        >
+          {user ? (
+            <>
+              {user.name || user.username}님,
+              <br />
+              <span className="whitespace-nowrap">{dailyGreeting}</span>
+            </>
+          ) : (
+            <>
+              고객 브리핑부터
+              <br />
+              동선 관리까지
+            </>
+          )}
+        </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
           {user ? (
-            <span className="whitespace-nowrap">
-              전화·네비는 원클릭으로. 오늘 동선도 가볍게.
-            </span>
+            <>
+              전화·네비는 원클릭으로.
+              <br />
+              부동산 업무를 더 빠르고 가볍게.
+            </>
           ) : (
             <>
               전화·네비는 원클릭으로.
