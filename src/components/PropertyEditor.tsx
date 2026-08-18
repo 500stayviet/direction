@@ -40,7 +40,7 @@ import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
-import { formatRoomNoHo } from "@/lib/propertyRoomNo";
+import { composeRestAddress, splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   applyListedToProperty,
   PropertyLoadPicker,
@@ -176,6 +176,7 @@ export function PropertyEditor({
         (property.notes ?? "").trim() ||
         (property.deposit ?? 0) > 0 ||
         (property.roomNo ?? "").trim() ||
+        (property.buildingName ?? "").trim() ||
         !isPlaceholderAddress(property.address ?? "")
     ),
     onResetDraft: resetPropertyDraft,
@@ -769,11 +770,18 @@ export function PropertyEditor({
           <>
           <Input
             label="나머지 주소"
-            value={property.roomNo}
-            onChange={(e) => update({ roomNo: e.target.value })}
+            value={composeRestAddress(property.buildingName, property.roomNo)}
+            onChange={(e) =>
+              update({ roomNo: e.target.value, buildingName: "" })
+            }
             onBlur={(e) => {
-              const next = formatRoomNoHo(e.target.value);
-              if (next !== property.roomNo) update({ roomNo: next });
+              const next = splitRestAddress(e.target.value);
+              if (
+                next.buildingName !== (property.buildingName ?? "") ||
+                next.roomNo !== (property.roomNo ?? "")
+              ) {
+                update(next);
+              }
             }}
             placeholder="예) 힐스테이트 ooo동 ooo호"
           />

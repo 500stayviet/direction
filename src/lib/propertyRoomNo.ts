@@ -34,6 +34,42 @@ function composeDongHo(dong: string, ho: string): string {
   return "";
 }
 
+const TRAILING_ROOM_RE =
+  /(?:\d+\s*동(?:\s+\d+\s*호)?|\d+\s*층\s+\d+\s*호|\d+\s*호)$/;
+
+/** 나머지 주소 한 줄. 건물명이 roomNo 앞에 이미 있으면 중복하지 않는다. */
+export function composeRestAddress(
+  buildingName?: string,
+  roomNo?: string
+): string {
+  const name = (buildingName ?? "").trim();
+  const room = (roomNo ?? "").trim();
+  if (!name) return room;
+  if (!room) return name;
+  if (room.startsWith(name)) return room;
+  return `${name} ${room}`;
+}
+
+/**
+ * 나머지 주소 → 건물명 / 동·호.
+ * 동·호가 없으면 전체를 건물명으로 둔다.
+ */
+export function splitRestAddress(text: string): {
+  buildingName: string;
+  roomNo: string;
+} {
+  const formatted = formatRoomNoHo(text);
+  if (!formatted) return { buildingName: "", roomNo: "" };
+  const m = formatted.match(TRAILING_ROOM_RE);
+  if (!m || m.index == null) {
+    return { buildingName: formatted, roomNo: "" };
+  }
+  return {
+    buildingName: formatted.slice(0, m.index).trim(),
+    roomNo: formatted.slice(m.index).trim(),
+  };
+}
+
 /**
  * 건물명 동 호실 칸 정규화.
  * 앞 건물명은 두고, 101-101 / 101/101 / 101 101호 → 101동 101호.
@@ -91,5 +127,5 @@ export function formatPropertyPlaceLine(p: {
   buildingName?: string;
   roomNo?: string;
 }): string {
-  return [p.buildingName?.trim(), p.roomNo?.trim()].filter(Boolean).join(" ");
+  return composeRestAddress(p.buildingName, p.roomNo);
 }

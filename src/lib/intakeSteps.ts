@@ -16,6 +16,7 @@ import {
   formatTalkFlagValue,
   MOVE_IN_IMMEDIATE_RE,
 } from "@/lib/intakeParse";
+import { splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   findAllDongsInText,
   findLastGuInText,
@@ -1193,12 +1194,42 @@ export function parseIntakeStep(
   }
 
   if (step === "restAddress") {
-    if (!parsed.buildingName && !parsed.roomNo) {
+    let buildingName = parsed.buildingName;
+    let roomNo = parsed.roomNo;
+    if (!buildingName && !roomNo) {
+      const rest = splitRestAddress(text);
+      const name = rest.buildingName;
+      const looksLikeNextField =
+        /^(?:매매|전세|월세|보증금|대출|주차|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지)/.test(
+          (name ?? "").replace(/\s+/g, "")
+        );
+      const looksLikeSpokenNumber = (name ?? "")
+        .trim()
+        .split(/\s+/)
+        .every(
+          (part) =>
+            /^(?:영|공|일|이|삼|사|오|육|륙|칠|팔|구|십|백|천|만|억|하나|둘|셋|넷|다섯|여섯|일곱|여덟|아홉|열|스물)/.test(
+              part
+            ) || /^\d+$/.test(part)
+        );
+      const looksLikeDate = /\d+\s*월|\d+\s*일/.test(name ?? "");
+      if (
+        name &&
+        /[가-힣A-Za-z]/.test(name) &&
+        !looksLikeNextField &&
+        !looksLikeSpokenNumber &&
+        !looksLikeDate
+      ) {
+        buildingName = name;
+        roomNo = rest.roomNo || undefined;
+      }
+    }
+    if (!buildingName && !roomNo) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
-      buildingName: parsed.buildingName ?? prior?.buildingName,
-      roomNo: parsed.roomNo ?? prior?.roomNo,
+      buildingName: buildingName ?? prior?.buildingName,
+      roomNo: roomNo ?? prior?.roomNo,
       options: [],
     };
     return {

@@ -24,6 +24,7 @@ import {
   type PropertyFieldKey,
 } from "@/lib/propertyValidation";
 import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
+import { composeRestAddress } from "@/lib/propertyRoomNo";
 import { findMatchingCustomersGrouped } from "@/lib/matchCustomerProperty";
 import {
   deleteListedProperty,
@@ -186,7 +187,7 @@ export default function PropertyDetailPage() {
     if (
       findPropertyBySameAddressRoom(
         property.address,
-        property.roomNo ?? "",
+        composeRestAddress(property.buildingName, property.roomNo),
         listed,
         property.id
       )

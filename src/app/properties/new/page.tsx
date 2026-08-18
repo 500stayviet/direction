@@ -14,6 +14,7 @@ import { SaveCompleteModal } from "@/components/SaveCompleteModal";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { createEmptyProperty } from "@/lib/constants";
 import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
+import { composeRestAddress } from "@/lib/propertyRoomNo";
 import {
   getMissingRequiredFields,
   getFieldErrorMessage,
@@ -80,7 +81,7 @@ export default function NewPropertyPage() {
     if (
       findPropertyBySameAddressRoom(
         property.address,
-        property.roomNo ?? "",
+        composeRestAddress(property.buildingName, property.roomNo),
         listed,
         property.id
       )

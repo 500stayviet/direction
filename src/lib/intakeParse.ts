@@ -612,15 +612,17 @@ function parseFieldEokSlashMoney(text: string): {
 
 const YESNO_VALUE =
   "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
-  "가|불|" +
-  "안(?:됨|돼(?:요)?|됩니다|되)?|안\\s*돼(?:요)?|안\\s*됨|안돼(?:요)?|안됩니다|" +
+  "가|불필요(?:합니다|해요|함)?|불|" +
+  "필요(?:합니다|해요|함)?|" +
+  "안\\s*(?:됩니다|되요|돼요|됨|돼(?:요)?|되)|" +
+  "안돼(?:요)?|안됩니다|안되요|" +
   "없(?:음|어요|어|습니다)?|불가(?:능)?(?:해요|합니다|함)?|무)";
 
 function yesNoFromToken(token: string): YesNo {
   const compact = token.replace(/\s+/g, "");
   if (/^(불|무)$/.test(compact)) return "무";
   if (/^(가|유)$/.test(compact)) return "유";
-  return /없|불가|무|안돼|안됨|안되/.test(compact) ? "무" : "유";
+  return /없|불가|무|안돼|안됨|안되|불필요/.test(compact) ? "무" : "유";
 }
 
 function yesNoLabelPattern(label: string): string {
@@ -648,7 +650,7 @@ function isYesNoPreferenceMatch(
 ): boolean {
   const matched = text.slice(index, end).replace(/\s+/g, " ").trim();
   if (
-    /^(?:엘리베이터|엘레베이터|엘베|승강기|주차(?:장)?|대출|(?:전세)?보증보험|보증)\s*(?:유|무|있음|없음|있어요|없어요|가능|불가|안됨|안돼|안돼요)$/.test(
+    /^(?:엘리베이터|엘레베이터|엘베|승강기|주차(?:장)?|대출|(?:전세)?보증보험|보증)\s*(?:유|무|있음|없음|있어요|없어요|가능|불가|필요|불필요|안됨|안돼|안돼요|안되요)$/.test(
       matched
     )
   ) {
@@ -1542,51 +1544,77 @@ function parseRoomNo(text: string): string | undefined {
 
 const BUILDING_NAME_TOKEN =
   String.raw`[가-힣A-Za-z][가-힣A-Za-z0-9]{1,24}`;
+const BUILDING_NAME_PHRASE = String.raw`${BUILDING_NAME_TOKEN}(?:\s+${BUILDING_NAME_TOKEN}){0,4}`;
 
 function isBuildingNameCandidate(raw: string): boolean {
-  const word = raw.replace(/\s+/g, "").trim();
-  if (word.length < 2 || word.length > 24) return false;
-  if (NAME_STOP.has(word)) return false;
-  if (isKnownSeoulDong(word)) return false;
-  if (SEOUL_GU_LIST.includes(word as (typeof SEOUL_GU_LIST)[number])) {
-    return false;
+  const parts = raw.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (parts.length === 0) return false;
+  const compact = parts.join("");
+  if (compact.length < 2 || compact.length > 24) return false;
+  return parts.every((part) => {
+    if (NAME_STOP.has(part)) return false;
+    if (isKnownSeoulDong(part)) return false;
+    if (SEOUL_GU_LIST.includes(part as (typeof SEOUL_GU_LIST)[number])) {
+      return false;
+    }
+    return /^[가-힣A-Za-z][가-힣A-Za-z0-9]*$/.test(part);
+  });
+}
+
+function longestBuildingName(raw: string): string | undefined {
+  const parts = raw.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  for (let i = 0; i < parts.length; i += 1) {
+    const slice = parts.slice(i).join(" ");
+    if (isBuildingNameCandidate(slice)) return slice;
   }
-  if (!/^[가-힣A-Za-z][가-힣A-Za-z0-9]*$/.test(word)) return false;
-  return true;
+  return undefined;
 }
 
 function parseBuildingName(text: string): string | undefined {
   const labeled = text.match(
     new RegExp(
-      String.raw`(?:단지명|건물명)\s*[:：]?\s*(${BUILDING_NAME_TOKEN})`
+      String.raw`(?:단지명|건물명)\s*[:：]?\s*(${BUILDING_NAME_PHRASE})`
     )
   );
-  if (labeled?.[1] && isBuildingNameCandidate(labeled[1])) {
-    return labeled[1].trim();
+  if (labeled?.[1]) {
+    const name = longestBuildingName(labeled[1]);
+    if (name) return name;
   }
   const beforeRoom = text.match(
     new RegExp(
-      String.raw`(?:\d{1,5}\s*[-−~]\s*\d{1,5}|\d{1,5}|[가-힣]+동)\s+(${BUILDING_NAME_TOKEN})\s+(?=\d+\s*동|\d+\s*호)`
+      String.raw`(?:\d{1,5}\s*[-−~]\s*\d{1,5}|\d{1,5}|[가-힣]+동)\s+(${BUILDING_NAME_PHRASE})\s+(?=\d+\s*동|\d+\s*호)`
     )
   );
-  if (beforeRoom?.[1] && isBuildingNameCandidate(beforeRoom[1])) {
-    return beforeRoom[1].trim();
+  if (beforeRoom?.[1]) {
+    const name = longestBuildingName(beforeRoom[1]);
+    if (name) return name;
+  }
+  const afterJibunBeforeRoom = text.match(
+    new RegExp(
+      String.raw`\d{1,5}(?:\s*[-−~]\s*\d{1,5})?\s+(${BUILDING_NAME_PHRASE})\s+(?=\d+\s*동|\d+\s*호)`
+    )
+  );
+  if (afterJibunBeforeRoom?.[1]) {
+    const name = longestBuildingName(afterJibunBeforeRoom[1]);
+    if (name) return name;
   }
   const afterJibun = text.match(
     new RegExp(
       String.raw`\d{1,5}(?:\s*[-−~]\s*\d{1,5})?\s+(${BUILDING_NAME_TOKEN})(?=\s|$)`
     )
   );
-  if (afterJibun?.[1] && isBuildingNameCandidate(afterJibun[1])) {
-    return afterJibun[1].trim();
+  if (afterJibun?.[1]) {
+    const name = longestBuildingName(afterJibun[1]);
+    if (name) return name;
   }
   const beforeDongHo = text.match(
     new RegExp(
-      String.raw`(${BUILDING_NAME_TOKEN})\s+(?=\d+\s*동(?:\s*\d+\s*호)?|\d+\s*호)`
+      String.raw`(${BUILDING_NAME_PHRASE})\s+(?=\d+\s*동(?:\s*\d+\s*호)?|\d+\s*호)`
     )
   );
-  if (beforeDongHo?.[1] && isBuildingNameCandidate(beforeDongHo[1])) {
-    return beforeDongHo[1].trim();
+  if (beforeDongHo?.[1]) {
+    const name = longestBuildingName(beforeDongHo[1]);
+    if (name) return name;
   }
   return undefined;
 }

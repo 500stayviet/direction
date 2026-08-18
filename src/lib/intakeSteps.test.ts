@@ -147,6 +147,57 @@ describe("intakeSteps", () => {
     assert.equal(elevator.partial.elevator, "무");
   });
 
+  it("주차안되요는 무, 주차필요는 유로 받는다", () => {
+    assert.equal(
+      parseIntakeStep("주차안되요", "flags", "property").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("주차 안되요", "flags", "property").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("주차필요", "flags", "property").partial.parking,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("주차 필요", "flags", "property").partial.parking,
+      "유"
+    );
+  });
+
+  it("필요·불필요는 대출·보증·주차·엘베 모두 받는다", () => {
+    assert.equal(parseIntakeStep("대출필요", "flags", "property").partial.loan, "유");
+    assert.equal(
+      parseIntakeStep("대출불필요", "flags", "property").partial.loan,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("보증 필요", "flags", "property").partial.insurance,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("보증 불필요", "flags", "property").partial.insurance,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("주차 필요", "flags", "property").partial.parking,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("주차 불필요", "flags", "property").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("엘베필요", "elevator", "property").partial.elevator,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("엘베 불필요", "elevator", "property").partial.elevator,
+      "무"
+    );
+  });
+
   it("대출 가·대출 가능도 유로 받는다", () => {
     assert.equal(parseIntakeStep("대출 가", "flags", "property").partial.loan, "유");
     assert.equal(parseIntakeStep("대출 가능", "flags", "property").partial.loan, "유");
@@ -964,6 +1015,20 @@ describe("intakeSteps", () => {
     const hoOnly = parseIntakeStep("302호", "restAddress", "property");
     assert.equal(hoOnly.ok, true);
     assert.equal(hoOnly.partial.roomNo, "302호");
+
+    const nameOnly = parseIntakeStep("힐스테이트", "restAddress", "property");
+    assert.equal(nameOnly.ok, true);
+    assert.equal(nameOnly.partial.buildingName, "힐스테이트");
+    assert.equal(nameOnly.partial.roomNo, undefined);
+
+    const twoWord = parseIntakeStep(
+      "힐스테이트 리버파크 101동 102호",
+      "restAddress",
+      "property"
+    );
+    assert.equal(twoWord.ok, true);
+    assert.equal(twoWord.partial.buildingName, "힐스테이트 리버파크");
+    assert.equal(twoWord.partial.roomNo, "101동 102호");
 
     const afterJibun = parseIntakeStepChain(
       "힐스테이트 101동 102호",

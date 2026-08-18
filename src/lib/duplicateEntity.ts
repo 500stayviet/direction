@@ -1,4 +1,5 @@
 import { onlyDigits } from "@/lib/format";
+import { composeRestAddress } from "@/lib/propertyRoomNo";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 /** 전화번호가 내 고객 목록에 이미 있는지 (자기 자신 제외) */
@@ -39,6 +40,6 @@ export function findPropertyBySameAddressRoom(
     (p) =>
       p.id !== excludeId &&
       normAddress(p.address) === addr &&
-      normRoomNo(p.roomNo ?? "") === room
+      normRoomNo(composeRestAddress(p.buildingName, p.roomNo)) === room
   );
 }

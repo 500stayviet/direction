@@ -349,6 +349,12 @@ describe("parseIntakeText", () => {
     assert.equal(dongHo.jibun, "111-1");
     assert.equal(dongHo.buildingName, "힐스테이트");
     assert.equal(dongHo.roomNo, "101동 102호");
+    const twoWord = parseIntakeText(
+      "성내동 111-1 힐스테이트 리버파크 101동 102호 원룸 전세",
+      "property"
+    );
+    assert.equal(twoWord.buildingName, "힐스테이트 리버파크");
+    assert.equal(twoWord.roomNo, "101동 102호");
 
     const eJibun = parseIntakeText("성내동 111에1 원룸 전세", "property");
     assert.equal(eJibun.jibun, "111-1");
@@ -1321,6 +1327,19 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.parking, "유");
     assert.equal(parsed.elevator, "무");
     assert.doesNotMatch(parsed.notes, /대출|보증|주차|엘베/);
+  });
+
+  it("주차안되요는 무, 주차필요는 유로 받는다", () => {
+    const noPark = parseIntakeText(
+      "원룸 전세 암사동 주차안되요",
+      "property"
+    );
+    assert.equal(noPark.parking, "무");
+    const needPark = parseIntakeText(
+      "원룸 전세 암사동 주차필요",
+      "property"
+    );
+    assert.equal(needPark.parking, "유");
   });
 
   it("구어체·오타에 가까운 유/무 표현도 칸에 넣는다", () => {
