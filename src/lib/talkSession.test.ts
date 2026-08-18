@@ -4,11 +4,7 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
-  TALK_LOCATION_HOLD_MS,
-  TALK_MONEY_HOLD_MS,
-  TALK_DATES_HOLD_MS,
-  TALK_CONTACTS_HOLD_MS,
-  TALK_NOTES_HOLD_MS,
+  TALK_LISTEN_RESTART_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
@@ -83,11 +79,7 @@ describe("talkSession", () => {
     );
     assert.equal(TALK_IDLE_MS, 10_000);
     assert.equal(TALK_FIELD_HOLD_MS, 2_000);
-    assert.equal(TALK_LOCATION_HOLD_MS, TALK_FIELD_HOLD_MS);
-    assert.equal(TALK_MONEY_HOLD_MS, TALK_FIELD_HOLD_MS);
-    assert.equal(TALK_DATES_HOLD_MS, TALK_FIELD_HOLD_MS);
-    assert.equal(TALK_CONTACTS_HOLD_MS, TALK_FIELD_HOLD_MS);
-    assert.equal(TALK_NOTES_HOLD_MS, TALK_FIELD_HOLD_MS);
+    assert.equal(TALK_LISTEN_RESTART_MS, 120);
     assert.equal(talkStepUsesFieldHold("location"), true);
     assert.equal(talkStepUsesFieldHold("restAddress"), true);
     assert.equal(talkStepUsesFieldHold("tenantPhone"), true);
@@ -124,5 +116,8 @@ describe("talkSession", () => {
     const cleared = applyNotesUtterance(second.draft, "삭제");
     assert.equal(cleared.clear, true);
     assert.equal(cleared.draft, "");
+
+    const dasiClear = applyNotesUtterance("남향", "다시");
+    assert.equal(dasiClear.clear, true);
   });
 });

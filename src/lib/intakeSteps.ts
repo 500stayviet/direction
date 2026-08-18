@@ -107,19 +107,30 @@ export type IntakeStepCancelSplit = {
   remainder: string;
 };
 
-const CANCEL_ONLY =
-  /^(?:삭제|지워(?:주세요|줘)?|지우기|취소|없애(?:줘|주세요)?|아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?|다시)$/;
+const CANCEL_STEM =
+  "삭제|지워(?:주세요|줘)?|지우기|취소|없애(?:줘|주세요)?|아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?";
 
-export function splitIntakeStepCancel(text: string): IntakeStepCancelSplit {
+export function talkDasiIsHyphen(
+  kind: IntakeKind,
+  key: IntakeStepKey
+): boolean {
+  return kind === "property" && key === "location";
+}
+
+export function splitIntakeStepCancel(
+  text: string,
+  opts?: { dasiIsHyphen?: boolean }
+): IntakeStepCancelSplit {
   const trimmed = text.trim();
   if (!trimmed) return { cancel: false, remainder: "" };
+  const dasi = opts?.dasiIsHyphen ? "" : "|다시";
   const prefixed = trimmed.match(
-    /^(?:삭제|지워(?:주세요|줘)?|지우기|취소|없애(?:줘|주세요)?|아니(?:야|요|인데)?|틀렸(?:어|어요|습니다)?|다시)\s+(.+)$/
+    new RegExp(`^(?:${CANCEL_STEM}${dasi})\\s+(.+)$`)
   );
   if (prefixed?.[1]) {
     return { cancel: true, remainder: prefixed[1].trim() };
   }
-  if (CANCEL_ONLY.test(trimmed)) {
+  if (new RegExp(`^(?:${CANCEL_STEM}${dasi})$`).test(trimmed)) {
     return { cancel: true, remainder: "" };
   }
   return { cancel: false, remainder: trimmed };
@@ -626,8 +637,8 @@ function propertyJibunHasMainAndSub(jibun?: string): boolean {
   return Boolean(sub);
 }
 
-/** 선호지역·주소지·나머지주소: 동·지번 등 채운 뒤 잠시 머문다.
- *  매물 주소지: 본번·부번이 있으면 바로 넘어가고, 본번만 있거나 지번이 없으면 2초 뒤 넘어간다. */
+/** 선호지역·주소지: 말이 끊긴 뒤 2초 머문다.
+ *  매물 주소지: 본번·부번이면 바로 넘어가고, 아니면 말이 끊긴 뒤 2초 뒤 넘어간다. */
 export function locationStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined,
   kind: IntakeKind
@@ -648,8 +659,7 @@ export function restAddressStepNeedsHold(
 }
 
 /** 고객 선호지역: 동이 있어야 하고, 다른 구·동을 더 고를 수 있으면 넘기지 않는다.
- *  매물 주소지: 본번·부번이면 바로 다음 칸. 본번만 있거나 지번이 없으면 2초 홀드.
- *  (필드 홀드 자동 진행) */
+ *  매물 주소지: 본번·부번이면 바로 다음 칸. 아니면 말이 끊긴 뒤 2초 홀드. */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,
@@ -859,7 +869,9 @@ export function parseIntakeStepChain(
     const key = guide[index]?.key;
     if (!key || key === "notes") break;
 
-    const { cancel, remainder: cancelText } = splitIntakeStepCancel(text);
+    const { cancel, remainder: cancelText } = splitIntakeStepCancel(text, {
+      dasiIsHyphen: talkDasiIsHyphen(kind, key),
+    });
     if (cancel && !cancelText) break;
     if (cancelText) text = cancelText;
 

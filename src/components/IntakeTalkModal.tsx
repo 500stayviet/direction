@@ -24,6 +24,7 @@ import {
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
+  talkDasiIsHyphen,
   type IntakeStepKey,
 } from "@/lib/intakeSteps";
 import {
@@ -36,6 +37,7 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
+  TALK_LISTEN_RESTART_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_SILENCE_STOP_MESSAGE,
@@ -176,9 +178,16 @@ export function IntakeTalkModal({
   const stepSpeechRef = useRef("");
   const notesDraftRef = useRef("");
   const processedResultIndexRef = useRef(0);
+  const speechResultsRef = useRef<ArrayLike<unknown> | null>(null);
   const listeningRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fieldHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingListenRef = useRef(false);
+  const listenRetryRef = useRef(0);
+  const listenRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const startFreshRef = useRef<() => void>(() => {});
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
@@ -389,7 +398,9 @@ export function IntakeTalkModal({
         return true;
       }
 
-      const { cancel, remainder } = splitIntakeStepCancel(trimmed);
+      const { cancel, remainder } = splitIntakeStepCancel(trimmed, {
+        dasiIsHyphen: talkDasiIsHyphen(kind, key),
+      });
       if (cancel && !remainder) {
         heardCommittedRef.current = true;
         clearStep(key);
@@ -482,6 +493,10 @@ export function IntakeTalkModal({
     (
       results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>
     ) => {
+      if (speechResultsRef.current !== results) {
+        speechResultsRef.current = results;
+        processedResultIndexRef.current = 0;
+      }
       for (
         let i = processedResultIndexRef.current;
         i < results.length;
@@ -517,11 +532,20 @@ export function IntakeTalkModal({
     idleTimerRef.current = null;
   }, []);
 
+  const clearListenRetryTimer = useCallback(() => {
+    if (listenRetryTimerRef.current == null) return;
+    clearTimeout(listenRetryTimerRef.current);
+    listenRetryTimerRef.current = null;
+  }, []);
+
   const stopRecognition = useCallback(() => {
+    pendingListenRef.current = false;
+    listenRetryRef.current = 0;
+    clearListenRetryTimer();
     const rec = recRef.current;
     recRef.current = null;
     rec?.stop();
-  }, []);
+  }, [clearListenRetryTimer]);
 
   const haltListening = useCallback(() => {
     setListeningBoth(false);
@@ -561,31 +585,26 @@ export function IntakeTalkModal({
     rec.continuous = true;
     rec.onresult = (ev) => {
       const spoken = readSpeechResultsSince(ev.results, 0);
-      if (spoken.sessionFinal || spoken.live) bumpIdleTimer();
+      if (spoken.sessionFinal || spoken.live) {
+        bumpIdleTimer();
+        scheduleFieldHoldAdvance();
+      }
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
       processNewFinalResults(ev.results);
-      if (spoken.live) scheduleFieldHoldAdvance();
     };
     rec.onend = () => {
+      if (pendingListenRef.current) {
+        if (recRef.current === rec) recRef.current = null;
+        startFreshRef.current();
+        return;
+      }
       if (recRef.current !== rec) return;
       resetStepSpeech();
       processedResultIndexRef.current = 0;
       if (!listeningRef.current) return;
-      const fresh = buildRecognition();
-      if (!fresh) {
-        haltListening();
-        setError(TALK_MIC_FAIL);
-        return;
-      }
-      recRef.current = fresh;
-      try {
-        fresh.start();
-      } catch {
-        recRef.current = null;
-        haltListening();
-        setError(TALK_MIC_FAIL);
-      }
+      recRef.current = null;
+      startFreshRef.current();
     };
     rec.onerror = (ev) => {
       if (ev?.error === "aborted" || ev?.error === "no-speech") return;
@@ -679,11 +698,54 @@ export function IntakeTalkModal({
         clearTimeout(fieldHoldTimerRef.current);
         fieldHoldTimerRef.current = null;
       }
+      if (listenRetryTimerRef.current != null) {
+        clearTimeout(listenRetryTimerRef.current);
+        listenRetryTimerRef.current = null;
+      }
+      pendingListenRef.current = false;
       const rec = recRef.current;
       recRef.current = null;
       rec?.stop();
     };
   }, []);
+
+  const startFreshRecognition = useCallback(() => {
+    pendingListenRef.current = false;
+    clearListenRetryTimer();
+    processedResultIndexRef.current = 0;
+    const rec = buildRecognition();
+    if (!rec) {
+      setListeningBoth(false);
+      setError(TALK_MIC_FAIL);
+      return;
+    }
+    recRef.current = rec;
+    try {
+      rec.start();
+      listenRetryRef.current = 0;
+      setListeningBoth(true);
+      bumpIdleTimer();
+    } catch {
+      recRef.current = null;
+      if (listenRetryRef.current < 1) {
+        listenRetryRef.current += 1;
+        pendingListenRef.current = true;
+        listenRetryTimerRef.current = setTimeout(() => {
+          listenRetryTimerRef.current = null;
+          if (pendingListenRef.current) startFreshRef.current();
+        }, TALK_LISTEN_RESTART_MS);
+        return;
+      }
+      listenRetryRef.current = 0;
+      pendingListenRef.current = false;
+      setListeningBoth(false);
+      setError(TALK_MIC_FAIL);
+    }
+  }, [buildRecognition, bumpIdleTimer, clearListenRetryTimer]);
+
+  useEffect(() => {
+    startFreshRef.current = startFreshRecognition;
+  }, [startFreshRecognition]);
 
   const startListening = () => {
     const key = guide[activeIndexRef.current]?.key;
@@ -696,21 +758,15 @@ export function IntakeTalkModal({
     clearStepSpeechBuffer();
     processedResultIndexRef.current = 0;
     heardCommittedRef.current = false;
-    stopRecognition();
-    const rec = buildRecognition();
-    if (!rec) {
-      setError(TALK_MIC_FAIL);
+    pendingListenRef.current = true;
+    listenRetryRef.current = 0;
+    clearListenRetryTimer();
+    const rec = recRef.current;
+    if (rec) {
+      rec.stop();
       return;
     }
-    recRef.current = rec;
-    try {
-      rec.start();
-      setListeningBoth(true);
-      bumpIdleTimer();
-    } catch {
-      recRef.current = null;
-      setError(TALK_MIC_FAIL);
-    }
+    startFreshRecognition();
   };
 
   const commitNotesDraft = useCallback(() => {
@@ -780,14 +836,11 @@ export function IntakeTalkModal({
     const key = guide[index]?.key;
     if (!key) return;
     const fromKey = guide[activeIndexRef.current]?.key;
-    if (listeningRef.current) {
-      haltListening();
-      if (
-        fromKey === "notes" &&
-        !guideStepComplete("notes", stepsRef.current.notes)
-      ) {
-        setNotesDraftBoth("");
-      }
+    if (
+      fromKey === "notes" &&
+      !guideStepComplete("notes", stepsRef.current.notes)
+    ) {
+      setNotesDraftBoth("");
     }
     clearFieldHoldTimer();
     activeIndexRef.current = index;

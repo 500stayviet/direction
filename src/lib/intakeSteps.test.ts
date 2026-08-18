@@ -10,6 +10,7 @@ import {
   flagsStepComplete,
   guideStepComplete,
   splitIntakeStepCancel,
+  talkDasiIsHyphen,
   moneyStepExample,
   dealTypeStepExample,
   inferDealTypeFromMoney,
@@ -34,6 +35,17 @@ describe("intakeSteps", () => {
   it("단계 취소 키워드를 분리한다", () => {
     assert.equal(splitIntakeStepCancel("삭제").cancel, true);
     assert.equal(splitIntakeStepCancel("아니 투룸").remainder, "투룸");
+    assert.equal(splitIntakeStepCancel("다시").cancel, true);
+    assert.equal(splitIntakeStepCancel("다시 일").cancel, true);
+    assert.equal(splitIntakeStepCancel("다시 일").remainder, "일");
+    assert.equal(talkDasiIsHyphen("property", "location"), true);
+    assert.equal(talkDasiIsHyphen("customer", "location"), false);
+    const locDasi = { dasiIsHyphen: true };
+    assert.equal(splitIntakeStepCancel("다시", locDasi).cancel, false);
+    assert.equal(splitIntakeStepCancel("다시", locDasi).remainder, "다시");
+    assert.equal(splitIntakeStepCancel("다시 일", locDasi).cancel, false);
+    assert.equal(splitIntakeStepCancel("다시 일", locDasi).remainder, "다시 일");
+    assert.equal(splitIntakeStepCancel("삭제", locDasi).cancel, true);
   });
 
   it("단계별 확정값을 조립한다", () => {
@@ -685,6 +697,29 @@ describe("intakeSteps", () => {
       { location: dongOnly.commits[0]!.partial }
     );
     assert.equal(spokenDasi.commits[0]?.partial.jibun, "111-1");
+    const hangulDasi = parseIntakeStepChain(
+      "일일일다시일",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(hangulDasi.commits[0]?.partial.jibun, "111-1");
+    assert.equal(hangulDasi.nextIndex, locationIndex + 1);
+    const dasiOnlySub = parseIntakeStepChain(
+      "111 다시 일",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(dasiOnlySub.commits[0]?.partial.jibun, "111-1");
+    const dasiNotCancel = parseIntakeStepChain(
+      "다시",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(dasiNotCancel.commits[0]?.partial.dong, "성내동");
+    assert.equal(dasiNotCancel.commits[0]?.partial.jibun, undefined);
 
     const spokenSino = parseIntakeStepChain(
       "백오십일 다시 오",

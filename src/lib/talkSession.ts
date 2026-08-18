@@ -6,13 +6,10 @@ import {
 } from "@/lib/intakeSteps";
 
 export const TALK_IDLE_MS = 10_000;
-/** 선호지역·주소지·거래가액·희망일·연락처·메모: 다음 말이 없으면 2초 여유 */
+/** 칸에 값이 있고 말이 끊긴 뒤 다음 칸으로 가는 여유 */
 export const TALK_FIELD_HOLD_MS = 2_000;
-export const TALK_LOCATION_HOLD_MS = TALK_FIELD_HOLD_MS;
-export const TALK_MONEY_HOLD_MS = TALK_FIELD_HOLD_MS;
-export const TALK_DATES_HOLD_MS = TALK_FIELD_HOLD_MS;
-export const TALK_CONTACTS_HOLD_MS = TALK_FIELD_HOLD_MS;
-export const TALK_NOTES_HOLD_MS = TALK_FIELD_HOLD_MS;
+/** stop 직후 start가 거절되면 한 번 더 켜기까지 대기 */
+export const TALK_LISTEN_RESTART_MS = 120;
 
 export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (

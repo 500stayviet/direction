@@ -107,7 +107,17 @@ test("매물 대화 입력: 한글 지번을 넣고 본번·부번이면 나머�
     ).toHaveAttribute("aria-current", "step");
 
     await emitTalkStep(page, "삭제");
-    await emitTalkStep(page, "성내동 111-1");
+    await emitTalkStep(page, "성내동 일일일다시일");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "111-1"
+    );
+    await expect(
+      page.getByTestId("intake-guide-row-restAddress").getByRole("button")
+    ).toHaveAttribute("aria-current", "step");
+
+    await page.getByTestId("intake-guide-row-location").click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
+    await emitTalkStep(page, "성내동 일일일 다시 일");
     await expect(page.getByTestId("intake-guide-row-location")).toContainText(
       "111-1"
     );
