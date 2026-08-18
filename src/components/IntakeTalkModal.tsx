@@ -281,7 +281,7 @@ export function IntakeTalkModal({
       activeIndexRef.current = next;
       setActiveIndex(next);
     }, TALK_FIELD_HOLD_MS);
-  }, [clearFieldHoldTimer, guide]);
+  }, [clearFieldHoldTimer, guide, kind]);
 
   useEffect(() => {
     scheduleFieldHoldRef.current = scheduleFieldHoldAdvance;

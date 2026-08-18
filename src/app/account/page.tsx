@@ -153,11 +153,7 @@ export default function AccountPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    codeValid,
-    workspace?.workspaceId,
-    workspace?.memberCount,
-  ]);
+  }, [codeValid, workspace]);
 
   /** 이 화면에서 카운트다운이 끝난 경우에만 빨간 만료 UI (팀이 있을 때) */
   const showExpiredCodeUi =

@@ -423,7 +423,7 @@ function locationConsumedRange(
     const hits = findAllDongsInText(text);
     if (hits.length > 0) {
       let start = hits[0]!.start;
-      let end = hits[hits.length - 1]!.end;
+      const end = hits[hits.length - 1]!.end;
       for (const hit of hits) {
         const guBefore = findLastGuInText(text.slice(0, hit.start));
         if (guBefore) {

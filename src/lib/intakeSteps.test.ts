@@ -623,9 +623,6 @@ describe("intakeSteps", () => {
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"
     );
-    const restIndex = INTAKE_GUIDE_STEPS.property.findIndex(
-      (line) => line.key === "restAddress"
-    );
 
     const dongOnly = parseIntakeStepChain(
       "강동구 성내동",
