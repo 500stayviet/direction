@@ -118,7 +118,7 @@ describe("talkSession", () => {
       TALK_SILENCE_STOP_MESSAGE,
       "대화가 없어 마이크 정지 되었습니다."
     );
-    assert.equal(TALK_SILENCE_STOP_MS, 1_500);
+    assert.equal(TALK_SILENCE_STOP_MS, 2_500);
     assert.match(TALK_RECOGNITION_FAIL, /대화를 인식하지 못했습니다/);
     assert.equal(TALK_MIC_FAIL, "마이크를 연결할 수 없습니다.");
     assert.equal(isTalkMicError("not-allowed"), true);

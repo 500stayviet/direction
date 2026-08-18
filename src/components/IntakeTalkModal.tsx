@@ -177,7 +177,6 @@ export function IntakeTalkModal({
   const [speechSupported, setSpeechSupported] = useState(true);
 
   const recRef = useRef<SpeechRec | null>(null);
-  const sessionFinalRef = useRef("");
   const stepSpeechRef = useRef("");
   const notesDraftRef = useRef("");
   const processedResultIndexRef = useRef(0);
@@ -200,12 +199,13 @@ export function IntakeTalkModal({
   const heardCommittedRef = useRef(false);
   const lastDealTypeRef = useRef<DealType | "">("");
   const stepLiveRef = useRef("");
+  const lastSpeechAtRef = useRef(0);
+  const silenceAutoStoppedRef = useRef(false);
 
   useScreenWakeLock(open && listening);
 
   const resetStepSpeech = useCallback(() => {
     setStepLive("");
-    sessionFinalRef.current = "";
   }, []);
 
   const clearStepSpeechBuffer = useCallback(() => {
@@ -383,7 +383,6 @@ export function IntakeTalkModal({
       });
       if (key === "notes") setNotesDraftBoth("");
       setStepLive("");
-      sessionFinalRef.current = "";
       clearStepSpeechBuffer();
     },
     [clearFieldHoldTimer, clearStepSpeechBuffer, setNotesDraftBoth]
@@ -633,11 +632,20 @@ export function IntakeTalkModal({
   const bumpIdleTimer = useCallback(() => {
     clearIdleTimer();
     if (!listeningRef.current) return;
-    idleTimerRef.current = setTimeout(() => {
-      if (!listeningRef.current) return;
-      haltListening();
-      setShowSilenceStop(true);
-    }, TALK_IDLE_MS);
+    const scheduleNext = () => {
+      idleTimerRef.current = setTimeout(() => {
+        if (!listeningRef.current) return;
+        const idleFor = Date.now() - lastSpeechAtRef.current;
+        if (idleFor >= TALK_IDLE_MS) {
+          silenceAutoStoppedRef.current = true;
+          haltListening();
+          setShowSilenceStop(true);
+          return;
+        }
+        scheduleNext();
+      }, 1_000);
+    };
+    scheduleNext();
   }, [clearIdleTimer, haltListening]);
 
   const buildRecognition = useCallback((): SpeechRec | null => {
@@ -649,6 +657,8 @@ export function IntakeTalkModal({
     rec.onresult = (ev) => {
       const spoken = readSpeechResultsSince(ev.results, 0);
       if (spoken.sessionFinal || spoken.live) {
+        silenceAutoStoppedRef.current = false;
+        lastSpeechAtRef.current = Date.now();
         bumpIdleTimer();
         scheduleFieldHoldAdvance();
       }
@@ -664,7 +674,6 @@ export function IntakeTalkModal({
           processLiveAddressRef.current(composed);
         }
       }
-      sessionFinalRef.current = spoken.sessionFinal;
       stepLiveRef.current = spoken.live;
       setStepLive(spoken.live);
     };
@@ -675,6 +684,7 @@ export function IntakeTalkModal({
         return;
       }
       if (recRef.current !== rec) return;
+      if (silenceAutoStoppedRef.current) return;
       resetStepSpeech();
       processedResultIndexRef.current = 0;
       if (!listeningRef.current) return;
@@ -829,6 +839,8 @@ export function IntakeTalkModal({
     setError("");
     setShowTalkEnded(false);
     setShowSilenceStop(false);
+    silenceAutoStoppedRef.current = false;
+    lastSpeechAtRef.current = Date.now();
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
