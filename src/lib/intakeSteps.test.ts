@@ -198,6 +198,52 @@ describe("intakeSteps", () => {
     );
   });
 
+  it("불가·불가능은 띄어쓰기 없어도 무로 받는다", () => {
+    assert.equal(
+      parseIntakeStep("주차불가", "flags", "property").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("주차불가능", "flags", "property").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("보증불가", "flags", "property").partial.insurance,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("보증보험 불가능", "flags", "property").partial.insurance,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("대출불가", "flags", "property").partial.loan,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("엘베불가능", "elevator", "property").partial.elevator,
+      "무"
+    );
+  });
+
+  it("엘베·엘리베이터 있음·없음도 받는다", () => {
+    assert.equal(
+      parseIntakeStep("엘베 있음", "elevator", "property").partial.elevator,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("엘베없음", "elevator", "property").partial.elevator,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("엘리베이터 있음", "elevator", "property").partial.elevator,
+      "유"
+    );
+    assert.equal(
+      parseIntakeStep("엘리베이터없음", "elevator", "property").partial.elevator,
+      "무"
+    );
+  });
+
   it("대출 가·대출 가능도 유로 받는다", () => {
     assert.equal(parseIntakeStep("대출 가", "flags", "property").partial.loan, "유");
     assert.equal(parseIntakeStep("대출 가능", "flags", "property").partial.loan, "유");
@@ -334,7 +380,7 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       INTAKE_GUIDE_STEPS.property.find((l) => l.key === "notes")?.example,
-      "관리비 · 남향 저층"
+      "관리비. 남향. 저층 등"
     );
   });
 
@@ -725,6 +771,14 @@ describe("intakeSteps", () => {
     );
     assert.equal(restLine?.name, "나머지 주소");
     assert.equal(restLine?.example, "힐스테이트 ooo동 ooo호");
+
+    const flagsLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "flags");
+    assert.equal(flagsLine?.nameHint, "(가능/불가)");
+    assert.equal(flagsLine?.example, "대출가능 보증보험 가능 주차불가");
+
+    const elevLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "elevator");
+    assert.equal(elevLine?.nameHint, "(있음/없음)");
+    assert.equal(elevLine?.example, "엘리베이터 있음");
 
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"

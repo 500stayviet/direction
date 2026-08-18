@@ -99,14 +99,14 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "flags",
       name: "대출 · 보증보험 · 주차",
-      nameHint: "(유/무)",
-      example: "대출유 · 보증유 · 주차유",
+      nameHint: "(가능/불가)",
+      example: "대출가능 보증보험 가능 주차불가",
     },
     {
       key: "elevator",
       name: "엘리베이터",
-      nameHint: "(유/무)",
-      example: "엘베 유",
+      nameHint: "(있음/없음)",
+      example: "엘리베이터 있음",
     },
     {
       key: "tenantPhone",
@@ -118,7 +118,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       name: "임대인 전화번호",
       example: "010-9876-5432",
     },
-    { key: "notes", name: "메모", example: "관리비 · 남향 저층" },
+    { key: "notes", name: "메모", example: "관리비. 남향. 저층 등" },
   ],
 };
 
