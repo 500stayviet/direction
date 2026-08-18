@@ -451,7 +451,9 @@ function locationConsumedRange(
     const [main, sub] = partial.jibun.split("-");
     if (main && sub) {
       const spoken = text.match(
-        new RegExp(`${main}\\s*(?:[-−~]|에|의|다시)\\s*${sub}`)
+        new RegExp(
+          `${main}\\s*(?:[-−~]|에|의|에서|다시|대시|하이픈|빼기|내지)\\s*${sub}`
+        )
       );
       if (spoken?.index != null) {
         start = Math.min(start, spoken.index);
@@ -618,8 +620,14 @@ function mergeTalkDates(
   return { moveInFrom: newFrom, moveInTo: newTo };
 }
 
+function propertyJibunHasMainAndSub(jibun?: string): boolean {
+  if (!jibun) return false;
+  const sub = jibun.split("-")[1]?.trim();
+  return Boolean(sub);
+}
+
 /** 선호지역·주소지·나머지주소: 동·지번 등 채운 뒤 잠시 머문다.
- *  매물 주소지는 지번까지 있어야 2초 뒤 넘어간다. 동만 있으면 지번을 기다린다. */
+ *  매물 주소지: 본번·부번이 있으면 바로 넘어가고, 본번만 있거나 지번이 없으면 2초 뒤 넘어간다. */
 export function locationStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined,
   kind: IntakeKind
@@ -628,7 +636,8 @@ export function locationStepNeedsHold(
   if (kind === "customer") {
     return customerLocationDongCount(partial) >= 1;
   }
-  return Boolean(partial.dong && partial.jibun);
+  if (propertyJibunHasMainAndSub(partial.jibun)) return false;
+  return Boolean(partial.dong || partial.jibun);
 }
 
 export function restAddressStepNeedsHold(
@@ -639,8 +648,8 @@ export function restAddressStepNeedsHold(
 }
 
 /** 고객 선호지역: 동이 있어야 하고, 다른 구·동을 더 고를 수 있으면 넘기지 않는다.
- *  매물 주소지: 구·동·지번. 나머지 주소는 다음 칸.
- *  (필드 홀드 자동 진행 — 동·지번·동 목록 말한 뒤 2초) */
+ *  매물 주소지: 본번·부번이면 바로 다음 칸. 본번만 있거나 지번이 없으면 2초 홀드.
+ *  (필드 홀드 자동 진행) */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,
@@ -655,12 +664,9 @@ export function locationStepReadyToAdvance(
       partial,
       kind
     );
-    if (!partial.jibun) {
-      if (!remainder) return false;
-      return NEXT_AFTER_LOCATION.test(remainder);
-    }
+    if (propertyJibunHasMainAndSub(partial.jibun)) return true;
     if (!remainder) return false;
-    return true;
+    return NEXT_AFTER_LOCATION.test(remainder);
   }
   const dongs = customerLocationDongCount(partial);
   if (dongs < 1) return false;

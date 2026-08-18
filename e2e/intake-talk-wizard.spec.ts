@@ -60,14 +60,60 @@ test("매물 대화 입력: 순차 가이드로 칸을 채운다", async ({ page
 
     await expect(
       page.getByRole("button", { name: "원룸", exact: true })
-    ).toHaveClass(/bg-\[#3182F6\]/);
+    ).toHaveClass(/border-green-400/);
+    await expect(page.getByTestId("option-거래종류")).toHaveClass(
+      /border-green-400/
+    );
     await expect(
       page.getByRole("button", { name: "매매", exact: true })
-    ).toHaveClass(/bg-\[#3182F6\]/);
-    await expect(page.getByRole("button", { name: /매매가/ })).toHaveText("1억");
+    ).toBeVisible();
+    await expect(page.getByRole("spinbutton", { name: /매매가/ })).toHaveValue(
+      "10000"
+    );
     await expect(page.getByTestId("property-address-chip")).toHaveText(
       /성내동/
     );
+  } finally {
+    await purgeE2eUser(userId);
+  }
+});
+
+test("매물 대화 입력: 한글 지번을 넣고 본번·부번이면 나머지 주소로 바로 간다", async ({
+  page,
+}) => {
+  requireE2eBackendEnv(test);
+  const user = uniqueUser("talkjibun");
+  let userId: string | undefined;
+  try {
+    await prepareIntakeE2ePage(page);
+    await signupViaUi(page, user);
+    await loginViaUi(page, user);
+
+    const auth = await getAppAuth(page);
+    userId = auth?.user?.id;
+
+    await page.goto("/properties/new");
+    await page.getByRole("button", { name: "마이크로 입력하기" }).click();
+    await allowDeviceConsentIfShown(page);
+    await page.getByRole("button", { name: "대화 시작" }).click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
+
+    await emitTalkStep(page, "성내동 백오십일");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "151"
+    );
+    await expect(
+      page.getByTestId("intake-guide-row-location").getByRole("button")
+    ).toHaveAttribute("aria-current", "step");
+
+    await emitTalkStep(page, "삭제");
+    await emitTalkStep(page, "성내동 111-1");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "111-1"
+    );
+    await expect(
+      page.getByTestId("intake-guide-row-restAddress").getByRole("button")
+    ).toHaveAttribute("aria-current", "step");
   } finally {
     await purgeE2eUser(userId);
   }

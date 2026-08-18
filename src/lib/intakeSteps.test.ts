@@ -649,9 +649,17 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.equal(withJibun.nextIndex, locationIndex);
+    assert.equal(withJibun.nextIndex, locationIndex + 1);
     assert.equal(withJibun.commits[0]?.partial.dong, "성내동");
     assert.equal(withJibun.commits[0]?.partial.jibun, "111-1");
+    assert.equal(
+      locationStepReadyToAdvance(
+        "강동구 성내동 111-1",
+        withJibun.commits[0]!.partial,
+        "property"
+      ),
+      true
+    );
 
     const addedJibun = parseIntakeStepChain(
       "111-1",
@@ -659,7 +667,7 @@ describe("intakeSteps", () => {
       "property",
       { location: dongOnly.commits[0]!.partial }
     );
-    assert.equal(addedJibun.nextIndex, locationIndex);
+    assert.equal(addedJibun.nextIndex, locationIndex + 1);
     assert.equal(addedJibun.commits[0]?.partial.dong, "성내동");
     assert.equal(addedJibun.commits[0]?.partial.jibun, "111-1");
 
@@ -700,13 +708,51 @@ describe("intakeSteps", () => {
     );
     assert.equal(arabicSpaced.commits[0]?.partial.jibun, "111-5");
 
+    const sinoMain = parseIntakeStepChain(
+      "백오십일",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(sinoMain.commits[0]?.partial.dong, "성내동");
+    assert.equal(sinoMain.commits[0]?.partial.jibun, "151");
+
+    const guDongSino = parseIntakeStepChain(
+      "강동구 성내동 백오십일",
+      locationIndex,
+      "property",
+      {}
+    );
+    assert.equal(guDongSino.commits[0]?.partial.jibun, "151");
+
+    const spacedSinoMain = parseIntakeStepChain(
+      "백 오십 일",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(spacedSinoMain.commits[0]?.partial.jibun, "151");
+
+    const digitsOnly = parseIntakeStepChain(
+      "151",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(digitsOnly.commits[0]?.partial.jibun, "151");
+    assert.equal(digitsOnly.nextIndex, locationIndex);
+
     assert.equal(
       locationStepNeedsHold(dongOnly.commits[0]!.partial, "property"),
-      false
+      true
+    );
+    assert.equal(
+      locationStepNeedsHold(digitsOnly.commits[0]!.partial, "property"),
+      true
     );
     assert.equal(
       locationStepNeedsHold(withJibun.commits[0]!.partial, "property"),
-      true
+      false
     );
 
     const restIndexForJibun = INTAKE_GUIDE_STEPS.property.findIndex(

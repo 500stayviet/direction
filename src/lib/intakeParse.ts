@@ -1413,6 +1413,8 @@ function maskUsedSpans(
   return chars.join("");
 }
 
+const JIBUN_SEP = "(?:에|의|에서|다시|대시|하이픈|빼기|내지|-)";
+
 function parseJibunFromAfter(after: string): string | undefined {
   // 111-1 · 111−1 · 111~1
   const pair = after.match(
@@ -1423,9 +1425,9 @@ function parseJibunFromAfter(after: string): string | undefined {
   if (pair?.[1] && !pair[1].startsWith("0")) {
     return `${pair[1]}-${pair[2]}`;
   }
-  // 음성: 111에1 · 111 에 1 · 111다시1 · 111 하이픈 5
+  // 음성: 111에1 · 111 에 1 · 111다시1 · 111 하이픈 5 · 111에서 5
   const spokenPair = after.match(
-    /^\s*(\d{1,5})\s*(?:에|의|다시|하이픈|빼기)\s*(\d{1,5})(?!\d)/
+    new RegExp(`^\\s*(\\d{1,5})\\s*${JIBUN_SEP}\\s*(\\d{1,5})(?!\\d)`)
   );
   if (spokenPair?.[1] && !spokenPair[1].startsWith("0")) {
     return `${spokenPair[1]}-${spokenPair[2]}`;
@@ -1446,13 +1448,25 @@ function parseJibunFromAfter(after: string): string | undefined {
   if (bunji?.[1] && !bunji[1].startsWith("0")) return bunji[1];
   const main = after.match(
     new RegExp(
-      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|에|의|다시|하이픈|빼기|[${PAIR_SEP_CLS}]))`
+      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|에|의|에서|다시|대시|하이픈|빼기|내지|[${PAIR_SEP_CLS}]))`
     )
   );
   if (!main?.[1] || main[1].startsWith("0")) return undefined;
   const n = Number(main[1]);
   if (n >= 1900 && n <= 2100) return undefined;
   return main[1];
+}
+
+function parseJibunOnlyText(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (
+    !/^\d{1,5}(?:\s*(?:[-−~]|에|의|에서|다시|대시|하이픈|빼기|내지)\s*\d{1,5})?(?:\s*번(?:지)?)?$/.test(
+      trimmed
+    )
+  ) {
+    return undefined;
+  }
+  return parseJibunFromAfter(trimmed);
 }
 
 function parseLocation(
@@ -1463,7 +1477,9 @@ function parseLocation(
   const dongHit = findDongInText(locText, hintedGu);
   const dong = dongHit?.dong;
   const gu = dongHit?.gu ?? hintedGu;
-  if (!dongHit || !dong) return { gu, dong, jibun: undefined };
+  if (!dongHit || !dong) {
+    return { gu, dong, jibun: parseJibunOnlyText(locText) };
+  }
 
   const sourceHit = findDongInText(sourceText, hintedGu);
   const after =
@@ -1791,15 +1807,23 @@ function expandSpokenJibunDigits(text: string): string {
   const unitChunk =
     "(?:[공영일이삼사오육륙칠팔구]*[십백천])+[공영일이삼사오육륙칠팔구]*";
   const spacedDigits = `${digit}(?:\\s+${digit}){1,4}`;
-  const sep = "(?:다시|에|의|하이픈|빼기|-)";
+  const sep = "(?:다시|에|의|에서|대시|하이픈|빼기|내지|-)";
   const toDigits = (chunk: string) =>
     sinoKoreanPlaceValue(chunk) ??
     (/^(?:공|영|일|이|삼|사|오|육|륙|칠|팔|구)+$/.test(chunk.replace(/\s/g, ""))
       ? spokenRun(chunk)
       : "");
 
-  return text
-    .replace(new RegExp(spacedDigits, "g"), (run) => run.replace(/\s+/g, ""))
+  let out = text.replace(new RegExp(spacedDigits, "g"), (run) =>
+    run.replace(/\s+/g, "")
+  );
+  // 백 오십 일 → 백오십일. 강동구 백오십일·성내동 천호동 사이 공백은 유지
+  const glueNumeral =
+    /([공영일이삼사오육륙칠팔십백천])\s+(?=[공영일이삼사오육륙칠팔구십백천])/;
+  while (glueNumeral.test(out)) {
+    out = out.replace(new RegExp(glueNumeral, "g"), "$1");
+  }
+  return out
     .replace(
       new RegExp(`(${unitChunk})\\s*${sep}\\s*(${unitChunk}|(?:${digit})+)`, "g"),
       (chunk, main: string, sub: string) => {
@@ -1807,13 +1831,6 @@ function expandSpokenJibunDigits(text: string): string {
         const b = toDigits(sub);
         if (!a || !b) return chunk;
         return `${a}-${b}`;
-      }
-    )
-    .replace(
-      new RegExp(`(동)\\s*(${unitChunk})(?![가-힣])`, "g"),
-      (chunk, dong: string, num: string) => {
-        const n = sinoKoreanPlaceValue(num);
-        return n ? `${dong} ${n}` : chunk;
       }
     )
     .replace(
@@ -1828,9 +1845,38 @@ function expandSpokenJibunDigits(text: string): string {
         return `${a}-${b}`;
       }
     )
-    .replace(/(\d{1,5})\s*(?:하이픈|빼기)\s*(\d{1,5})(?!\d)/g, "$1-$2")
-    .replace(new RegExp(`(?<![\\d])((?:${digit}){2,5})(?!\\d)`, "g"), (run) =>
-      spokenRun(run)
+    .replace(
+      new RegExp(`(\\d{1,5})\\s*${sep}\\s*(\\d{1,5})(?!\\d)`, "g"),
+      "$1-$2"
+    )
+    .replace(
+      new RegExp(`(\\d{1,5})\\s*${sep}\\s*((?:${digit})+)(?![가-힣\\d])`, "g"),
+      (chunk, main: string, sub: string) => {
+        const b = toDigits(sub);
+        return b ? `${main}-${b}` : chunk;
+      }
+    )
+    // 동 뒤 백오십일·일오일. 천호동처럼 뒤에 한글이 이어지면 그대로 둔다.
+    .replace(
+      new RegExp(
+        `(동)\\s*(${unitChunk}|(?:${digit}){2,5})(?=\\s|$|번|다시|에|의|에서|대시|하이픈|빼기|내지|-)`,
+        "g"
+      ),
+      (chunk, dong: string, num: string) => {
+        const n = toDigits(num);
+        return n ? `${dong} ${n}` : chunk;
+      }
+    )
+    // 칸에 숫자만 말한 경우. 9천·2백처럼 금액 조각은 앞에 숫자가 있어 제외.
+    .replace(
+      new RegExp(
+        `(^|\\s)(${unitChunk}|(?:${digit}){2,5})(?=\\s|$|번)`,
+        "g"
+      ),
+      (chunk, lead: string, num: string) => {
+        const n = toDigits(num);
+        return n ? `${lead}${n}` : chunk;
+      }
     );
 }
 
@@ -2060,8 +2106,16 @@ function expandSpokenMoney(text: string): string {
       (_, w: string, unit: string) => `${tens[w] ?? w}${unit}`
     )
     .replace(
-      new RegExp(`(${digit})\\s*(억|천|백|만)${notDong}`, "g"),
+      new RegExp(`(${digit})\\s*(억|천|만)${notDong}`, "g"),
       (_, w: string, unit: string) => `${SPOKEN_MONEY_DIGIT[w] ?? w}${unit}`
+    )
+    // 삼백십사(314)처럼 백 뒤에 십·일이 오면 금액이 아니라 지번이다
+    .replace(
+      new RegExp(
+        `(${digit})\\s*백(?![공영일이삼사오육륙칠팔구십])${notDong}`,
+        "g"
+      ),
+      (_, w: string) => `${SPOKEN_MONEY_DIGIT[w] ?? w}백`
     )
     .replace(
       /((?:월세|보증금|보증|(?<![가-힣\d])월|(?<![가-힣])보)\s*)(이십|삼십|사십|오십|육십|륙십|칠십|팔십|구십|일십|십)(?!\s*(?:억|천|백|만))/g,
@@ -2485,10 +2539,10 @@ export function normalizeIntakeInput(
   const expanded = expandSpokenMoney(
     expandSpokenDates(expandSpokenPhones(protectedPlaces.text))
   );
+  const restored = protectedPlaces.restore(expanded);
+  // 구·동을 되살린 뒤에 지번 한글 숫자를 바꾼다. 가린 채 바꾸면 백오십일이 그대로 남음.
   return collapseThousandCommas(
-    protectedPlaces.restore(
-      mode === "spoken" ? expandSpokenJibunDigits(expanded) : expanded
-    )
+    mode === "spoken" ? expandSpokenJibunDigits(restored) : restored
   );
 }
 

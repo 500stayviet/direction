@@ -46,6 +46,7 @@ export function DealTypeToggle({
         invalid,
         filled: Boolean(selected) && !invalid,
       })}
+      data-testid={`option-${label.replace(/\s+/g, "")}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <p

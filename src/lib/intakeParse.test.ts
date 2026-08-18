@@ -381,6 +381,42 @@ describe("parseIntakeText", () => {
       "spoken"
     );
     assert.equal(spacedArabic.jibun, "151-5");
+    const sinoMainOnly = parseIntakeText(
+      "강동구 성내동 백오십일 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(sinoMainOnly.dong, "성내동");
+    assert.equal(sinoMainOnly.jibun, "151");
+    const sinoSpacedMain = parseIntakeText(
+      "강동구 성내동 백 오십 일 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(sinoSpacedMain.jibun, "151");
+    const sino314 = parseIntakeText(
+      "강동구 성내동 삼백십사 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(sino314.jibun, "314");
+    const whereSep = parseIntakeText(
+      "성내동 151에서 5 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(whereSep.jibun, "151-5");
+    const hangulOnly = parseIntakeText(
+      "성내동 일오일 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(hangulOnly.jibun, "151");
     const applied = applyIntakeToProperty(createEmptyProperty(), dongHo);
     assert.equal(applied.roomNo, "101동 102호");
     assert.equal(applied.buildingName, "힐스테이트");

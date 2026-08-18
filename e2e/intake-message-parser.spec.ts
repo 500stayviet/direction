@@ -46,11 +46,16 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
 
     await expect(
       page.getByRole("button", { name: "원룸", exact: true })
-    ).toHaveClass(/bg-\[#3182F6\]/);
+    ).toHaveClass(/border-green-400/);
+    await expect(page.getByTestId("option-거래종류")).toHaveClass(
+      /border-green-400/
+    );
     await expect(
       page.getByRole("button", { name: "매매", exact: true })
-    ).toHaveClass(/bg-\[#3182F6\]/);
-    await expect(page.getByRole("button", { name: /매매가/ })).toHaveText("1억");
+    ).toBeVisible();
+    await expect(page.getByRole("spinbutton", { name: /매매가/ })).toHaveValue(
+      "10000"
+    );
     await expect(page.getByTestId("property-address-chip")).toHaveText(
       /성내동/
     );
@@ -98,9 +103,6 @@ test("매물 메시지 입력: 라벨·의도 키워드만 메모에 넣고 주�
     await expect(page.getByLabel("메모")).toHaveValue(/남향 저층/, {
       timeout: 15_000,
     });
-    await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
-      /border-amber-300/
-    );
   } finally {
     await purgeE2eUser(userId);
   }
@@ -128,9 +130,6 @@ test("매물 메시지 입력: 의도 키워드만 메모에 넣는다", async (
     await expect(page.getByLabel("메모")).toHaveValue("남향", {
       timeout: 15_000,
     });
-    await expect(page.getByLabel("메모").locator("..").locator("..")).toHaveClass(
-      /border-amber-300/
-    );
   } finally {
     await purgeE2eUser(userId);
   }
@@ -195,15 +194,11 @@ test("고객등록 양식 메시지: 채운 칸만 반영하고 예시·푸터 �
       timeout: 15_000,
     });
 
-    // Chip buttons use the field label as accessible name; value is button text.
-    await expect(page.getByRole("button", { name: "고객명 또는 명칭*" })).toHaveText(
-      /이몽룡/,
-      { timeout: 20_000 }
-    );
-    await expect(page.getByRole("button", { name: /고객 전화번호/ })).toHaveText(
-      /010-5555-6666/
-    );
-    await expect(page.getByRole("button", { name: /고객 전화번호/ })).not.toHaveText(
+    await expect(page.getByLabel(/고객명 또는 명칭/)).toHaveValue(/이몽룡/, {
+      timeout: 20_000,
+    });
+    await expect(page.getByLabel(/고객 전화번호/)).toHaveValue(/010-5555-6666/);
+    await expect(page.getByLabel(/고객 전화번호/)).not.toHaveValue(
       /010-1111-1111/
     );
     await expect(page.getByRole("button", { name: "원룸", exact: true })).toBeVisible();
