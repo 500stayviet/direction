@@ -15,7 +15,7 @@ test("회원가입 → 로그인 → 홈", async ({ page }) => {
   await expect(page.getByText(/공인중개사사무소/)).toBeVisible();
 });
 
-test("로그인 후 기능 소개 모달 · 닫기/다시 보지 않기", async ({ page }) => {
+test("로그인 후 기능 소개 모달 · 닫기/일주일간 보지 않기", async ({ page }) => {
   const user = uniqueUser("intro");
   await signupViaUi(page, user);
   await prepareAppPage(page);
@@ -42,7 +42,7 @@ test("로그인 후 기능 소개 모달 · 닫기/다시 보지 않기", async 
 
   await page
     .locator("button")
-    .filter({ hasText: /^다시 보지 않기$/ })
+    .filter({ hasText: /^일주일간 보지 않기$/ })
     .click();
   await expect(introHeading).toBeHidden({ timeout: 5_000 });
 

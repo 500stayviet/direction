@@ -9,11 +9,11 @@ import {
   subscribeAuthChange,
 } from "@/lib/auth";
 import {
-  hideFeatureIntroForever,
   shouldOpenFeatureIntroOnHome,
+  snoozeFeatureIntro,
 } from "@/lib/featureIntro";
 
-/** 탭 이동·앱 복귀에도 홈이면 다시 연다. 다시 보지 않기만 영구 숨김. */
+/** 탭 이동·앱 복귀에도 홈이면 다시 연다. 「다시 보지 않기」는 1주일 숨김. */
 export function FeatureIntroHost() {
   const pathname = usePathname();
   const epoch = useSyncExternalStore(
@@ -51,7 +51,7 @@ export function FeatureIntroHost() {
       open={open}
       onClose={() => setOpen(false)}
       onHideForever={() => {
-        hideFeatureIntroForever(userId);
+        snoozeFeatureIntro(userId);
         setOpen(false);
       }}
     />
