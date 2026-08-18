@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { Property, RoomType } from "@/lib/types";
@@ -65,6 +65,7 @@ import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { useHasTeam } from "@/hooks/useHasTeam";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 import { invalidLabelClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 
@@ -169,6 +170,23 @@ export function PropertyEditor({
   const applyingIntakeRef = useRef(false);
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
+  const intakeModalOpen = messageOpen || talkOpen;
+  const closeIntakeModalFromBack = useCallback(() => {
+    if (talkOpen) {
+      setTalkOpen(false);
+      return true;
+    }
+    if (messageOpen) {
+      if (aiBusy) return false;
+      setMessageOpen(false);
+      return true;
+    }
+    return false;
+  }, [aiBusy, messageOpen, talkOpen]);
+  useModalBackClose({
+    open: intakeModalOpen,
+    onRequestClose: closeIntakeModalFromBack,
+  });
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);

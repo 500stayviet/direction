@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type {
   BuildingKind,
@@ -62,6 +62,7 @@ import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { useHasTeam } from "@/hooks/useHasTeam";
+import { useModalBackClose } from "@/hooks/useModalBackClose";
 
 const IntakePhotoPicker = dynamic(
   () =>
@@ -224,6 +225,23 @@ export function CustomerForm({
   const [aiBusy, setAiBusy] = useState(false);
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
   const applyingIntakeRef = useRef(false);
+  const intakeModalOpen = messageOpen || talkOpen;
+  const closeIntakeModalFromBack = useCallback(() => {
+    if (talkOpen) {
+      setTalkOpen(false);
+      return true;
+    }
+    if (messageOpen) {
+      if (aiBusy) return false;
+      setMessageOpen(false);
+      return true;
+    }
+    return false;
+  }, [aiBusy, messageOpen, talkOpen]);
+  useModalBackClose({
+    open: intakeModalOpen,
+    onRequestClose: closeIntakeModalFromBack,
+  });
 
   const duplicateCustomer = useMemo(
     () => findCustomerBySamePhone(phone, customers, initial?.id),
