@@ -1913,27 +1913,18 @@ function expandSpokenJibunDigits(text: string): string {
         return b ? `${main}-${b}` : chunk;
       }
     )
-    // STT가 일일일을 1월 11일·일월 십일로 바꾸는 경우. 십일의 일은 날짜 접미가 아님.
+    // STT가 일일일을 날짜처럼 바꾼 뒤(메시지 spoken) 또는 그대로(마이크 talk-location) 지번으로 되돌림.
+    // 날짜 확장(expandSpokenDates)이 아니라 지번 전용. 1월·일월만 (5월 1일 같은 진짜 날짜는 건드리지 않음).
     .replace(
       /(동)\s*1\s*월\s*(\d{1,2})(?:\s*일)?(?!\d)/g,
       (_, dong: string, b: string) => `${dong} 1${b}`
     )
     .replace(
       new RegExp(
-        `(동)\\s*1\\s*월\\s*((?:${digit}|십)+)(?![가-힣])`,
+        `(동)\\s*(?:1|일)\\s*월\\s*((?:${digit}|십)+)(?![가-힣])`,
         "g"
       ),
       (chunk, dong: string, b: string) => {
-        const right = toDigits(b) || spokenRun(b);
-        return right ? `${dong} 1${right}` : chunk;
-      }
-    )
-    .replace(
-      new RegExp(
-        `(동)\\s*(일)\\s*월\\s*((?:${digit}|십)+)(?![가-힣])`,
-        "g"
-      ),
-      (chunk, dong: string, _a: string, b: string) => {
         const right = toDigits(b) || spokenRun(b);
         return right ? `${dong} 1${right}` : chunk;
       }
@@ -2087,11 +2078,13 @@ function hangulDayNumber(raw: string): number | null {
 }
 
 /**
- * 음성인식 「삼월 일일 사월 십오일」「삼 월 일 일」→ 「3월 1일 4월 15일」
+ * 음성인식 「삼월 일일 사월 십오일」→ 「3월 1일 4월 15일」
+ * 메시지·사진(text/spoken)·마이크 날짜 칸(talk-dates)만 사용.
+ * 마이크 주소지(talk-location)는 이 함수를 타지 않는다.
  */
 function offsetAfterAddressDong(text: string, offset: number): boolean {
   const before = text.slice(0, offset);
-  // 구·동을 \uE000n\uE001로 가린 뒤에도 동 뒤 일월·십일을 날짜로 바꾸지 않는다
+  // 메시지 spoken 한 줄에 동+지번이 있을 때 동 뒤를 입주일로 바꾸지 않는다
   return /(?:[가-힣]동|\uE000\d+\uE001)\s*$/.test(before);
 }
 

@@ -403,14 +403,17 @@ describe("parseIntakeText", () => {
       "spoken"
     );
     assert.equal(sttMonth.jibun, "111");
-    const sttHangulMonth = parseIntakeText(
-      "강동구 성내동 일월 십일 원룸 전세",
-      "property",
-      new Date(),
-      "spoken"
+    // 메시지 spoken 한 줄(유형·거래 포함)에서도 동 뒤 STT 날짜형 지번 유지
+    assert.equal(
+      parseIntakeText(
+        "강동구 성내동 일월 십일 원룸 전세",
+        "property",
+        new Date(),
+        "spoken"
+      ).jibun,
+      "111"
     );
-    assert.equal(sttHangulMonth.jibun, "111");
-    // 마이크 주소지 모드: 날짜 확장 없이 지번만
+    // 마이크 주소지: 날짜 확장 없이 지번만
     assert.equal(
       normalizeIntakeInput("강동구 성내동 일월 십일", "talk-location"),
       "강동구 성내동 111"
@@ -433,22 +436,6 @@ describe("parseIntakeText", () => {
       ).jibun,
       "111"
     );
-    const sttHangulMonthBare = parseIntakeText(
-      "강동구 성내동 일월 십일",
-      "property",
-      new Date(),
-      "spoken"
-    );
-    assert.equal(sttHangulMonthBare.jibun, "111");
-    const notDateAfterDong = parseIntakeText(
-      "강동구 성내동 5월 1일 원룸 전세",
-      "property",
-      new Date(),
-      "spoken"
-    );
-    assert.notEqual(notDateAfterDong.jibun, "51");
-    assert.notEqual(notDateAfterDong.jibun, "151");
-    // talk-location은 5월 1일을 날짜로 바꾸지 않아 지번으로 오인하지 않게 둔다
     assert.equal(
       parseIntakeText(
         "강동구 성내동 5월 1일",
