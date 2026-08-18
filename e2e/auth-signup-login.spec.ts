@@ -60,7 +60,7 @@ test("회원가입 약관 미동의 시 안내 모달", async ({ page }) => {
   await expect(page.getByText("약관 동의는 필수입니다.")).toBeVisible({
     timeout: 5_000,
   });
-  await page.getByRole("button", { name: "확인" }).click();
+  await page.getByRole("button", { name: "확인", exact: true }).click();
 });
 
 test("회원가입 필수칸 미입력 시 라벨 옆 필수 입력", async ({ page }) => {

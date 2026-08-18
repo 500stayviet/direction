@@ -637,8 +637,8 @@ function propertyJibunHasMainAndSub(jibun?: string): boolean {
   return Boolean(sub);
 }
 
-/** 선호지역·주소지: 말이 끊긴 뒤 2초 머문다.
- *  매물 주소지: 본번·부번이면 바로 넘어가고, 아니면 말이 끊긴 뒤 2초 뒤 넘어간다. */
+/** 선호지역·주소지: 말이 끊긴 뒤 머문다.
+ *  매물 주소지: 본번·부번이면 바로, 본번만 있으면 2초, 구·동만 있으면 4초. */
 export function locationStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined,
   kind: IntakeKind
@@ -659,7 +659,7 @@ export function restAddressStepNeedsHold(
 }
 
 /** 고객 선호지역: 동이 있어야 하고, 다른 구·동을 더 고를 수 있으면 넘기지 않는다.
- *  매물 주소지: 본번·부번이면 바로 다음 칸. 아니면 말이 끊긴 뒤 2초 홀드. */
+ *  매물 주소지: 본번·부번이면 바로 다음 칸. 아니면 말이 끊긴 뒤 홀드. */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,

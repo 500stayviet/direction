@@ -116,11 +116,11 @@ export async function loginViaUi(
   await fillLoginForm(page, user);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(page).toHaveURL(/\/(\?|$)/);
-  await dismissFeatureIntroIfShown(page, 4000);
   const greet = user.name ? `${user.name}님,` : /님,/;
   await expect(page.getByRole("heading", { name: greet })).toBeVisible({
     timeout: 30_000,
   });
+  await dismissHomeModalsIfShown(page);
 }
 
 /** 로그인 후 홈 기능 소개 모달이 있으면 닫기 */
@@ -143,10 +143,31 @@ export async function dismissFeatureIntroIfShown(
   }
 }
 
+/** 데모 시드 고객이 있으면 홈에 뜨는 계약 데드라인 모달 */
+export async function dismissDeadlineModalIfShown(
+  page: Page,
+  timeoutMs = 2500
+) {
+  const heading = page.getByRole("heading", { name: "마지막 계약 데드라인" });
+  try {
+    await heading.waitFor({ state: "visible", timeout: timeoutMs });
+    await page.getByRole("button", { name: "확인", exact: true }).click();
+    await heading.waitFor({ state: "hidden", timeout: 4000 });
+  } catch {
+    /* none this visit */
+  }
+}
+
+/** 홈 위 기능소개·데드라인 모달이 로그아웃 등을 가리지 않게 닫기 */
+export async function dismissHomeModalsIfShown(page: Page) {
+  await dismissFeatureIntroIfShown(page, 4000);
+  await dismissDeadlineModalIfShown(page, 2500);
+}
+
 export async function logoutViaHome(page: Page) {
   await prepareAppPage(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await dismissFeatureIntroIfShown(page, 800);
+  await dismissHomeModalsIfShown(page);
   await page.getByRole("button", { name: "로그아웃" }).click();
   await expect(page.getByRole("link", { name: "로그인" })).toBeVisible({
     timeout: 20_000,

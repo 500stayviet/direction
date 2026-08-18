@@ -2,6 +2,21 @@ import type { ReactNode } from "react";
 import { displayRoomType, normalizeRoomType } from "@/lib/constants";
 import type { RoomType } from "@/lib/types";
 
+/** 계약완료·일정 종료 카드 — 매매 왼쪽(네비는 상단)에 두는 회색 박스 */
+export function EndedBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      data-testid="list-card-ended"
+      className={[
+        "inline-flex shrink-0 items-center rounded-md border-2 border-gray-400 bg-gray-400 px-2 py-1 text-[16px] font-extrabold leading-none text-white",
+        className,
+      ].join(" ")}
+    >
+      종료됨
+    </span>
+  );
+}
+
 export function roomTypeChipClass(roomType?: RoomType | string, done?: boolean) {
   if (done) return "bg-gray-400";
   switch (normalizeRoomType(roomType) ?? roomType) {

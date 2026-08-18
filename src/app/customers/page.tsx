@@ -15,7 +15,7 @@ import {
   matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
-import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
+import { consumeListSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteCustomer, upsertCustomer } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -55,7 +55,7 @@ export default function CustomerListPage() {
 
   useEffect(() => {
     if (customers.length === 0) return;
-    if (consumeCustomerSwipeNudge()) setNudgeFirstCard(true);
+    if (consumeListSwipeNudge("customers")) setNudgeFirstCard(true);
   }, [customers.length]);
 
   const filtered = useMemo(() => {

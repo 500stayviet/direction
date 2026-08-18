@@ -2,7 +2,11 @@
 
 import type { ReactElement, ReactNode } from "react";
 import { PhoneChip } from "@/components/PhoneLink";
-import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
+import {
+  dealTypeBarClass,
+  dealTypeTextClass,
+  EndedBadge,
+} from "@/components/ListEdgeChips";
 import { displayRoomType } from "@/lib/constants";
 import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import { formatSavedDate } from "@/lib/date";
@@ -107,6 +111,7 @@ export function PropertyListCard({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {done ? <EndedBadge /> : null}
               {dealLabel ? (
                 <span
                   className={[

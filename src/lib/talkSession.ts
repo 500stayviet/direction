@@ -1,4 +1,5 @@
 import { absorbCommitted } from "@/lib/speechTranscript";
+import type { IntakeKind } from "@/lib/intakeParse";
 import {
   splitIntakeStepCancel,
   stripTalkNotesPrefix,
@@ -8,8 +9,20 @@ import {
 export const TALK_IDLE_MS = 10_000;
 /** 칸에 값이 있고 말이 끊긴 뒤 다음 칸으로 가는 여유 */
 export const TALK_FIELD_HOLD_MS = 2_000;
+/** 매물 주소지: 구·동만 있고 지번이 없을 때. 동 뒤 STT 끊김을 지번으로 받을 여유 */
+export const TALK_LOCATION_DONG_HOLD_MS = 4_000;
 /** stop 직후 start가 거절되면 한 번 더 켜기까지 대기 */
 export const TALK_LISTEN_RESTART_MS = 120;
+
+export function talkLocationHoldMs(
+  kind: IntakeKind,
+  partial: { dong?: string; jibun?: string } | undefined
+): number {
+  if (kind === "property" && partial?.dong && !partial.jibun?.trim()) {
+    return TALK_LOCATION_DONG_HOLD_MS;
+  }
+  return TALK_FIELD_HOLD_MS;
+}
 
 export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (

@@ -38,6 +38,7 @@ import {
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
   TALK_LISTEN_RESTART_MS,
+  talkLocationHoldMs,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_SILENCE_STOP_MESSAGE,
@@ -276,6 +277,10 @@ export function IntakeTalkModal({
       if (key === "location" && !locationStepNeedsHold(rec.partial, kind)) return;
       if (key === "restAddress" && !restAddressStepNeedsHold(rec.partial)) return;
     }
+    const holdMs =
+      key === "location"
+        ? talkLocationHoldMs(kind, stepsRef.current.location?.partial)
+        : TALK_FIELD_HOLD_MS;
     fieldHoldTimerRef.current = setTimeout(() => {
       fieldHoldTimerRef.current = null;
       if (!listeningRef.current) return;
@@ -301,7 +306,7 @@ export function IntakeTalkModal({
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;
       setActiveIndex(next);
-    }, TALK_FIELD_HOLD_MS);
+    }, holdMs);
   }, [clearFieldHoldTimer, guide, kind]);
 
   useEffect(() => {

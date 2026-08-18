@@ -30,7 +30,7 @@ test("2자가 공유 매물 수정·목록 숨김", async ({ browser }) => {
   await expect(pair.memberPage.getByText("매물 정보 수정")).toBeVisible();
   const note = `2자수정-${Date.now()}`;
   await pair.memberPage
-    .getByPlaceholder("건축연도, 층, 방향, 애완동물, 특이사항 등")
+    .getByPlaceholder("예) 남향 저층")
     .fill(note);
   await pair.memberPage.getByRole("button", { name: "변경사항 저장" }).click();
   await expect(

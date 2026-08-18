@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactElement, ReactNode } from "react";
+import { EndedBadge } from "@/components/ListEdgeChips";
 import { PhoneChip } from "@/components/PhoneLink";
 import { formatVisitDateTime } from "@/lib/format";
 import {
@@ -226,9 +227,7 @@ export function NaviListCard({
       ].join(" ")}
     >
       {done ? (
-        <span className="absolute left-3 top-2.5 z-10 -translate-y-1/2 rounded-lg border border-gray-300 bg-gray-100 px-2.5 py-1 text-[16px] font-extrabold leading-none text-gray-500 shadow-sm ring-2 ring-[#F9FAFB]">
-          종료
-        </span>
+        <EndedBadge className="absolute left-3 top-2.5 z-10 -translate-y-1/2 shadow-sm ring-2 ring-[#F9FAFB]" />
       ) : kind === "today" ? (
         <span className="absolute left-3 top-2.5 z-10 -translate-y-1/2 rounded-lg border border-orange-400 bg-orange-50 px-2.5 py-1 text-[16px] font-extrabold leading-none text-orange-700 shadow-sm ring-2 ring-[#F9FAFB]">
           오늘

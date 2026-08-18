@@ -12,7 +12,7 @@ import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { NaviListCard, scheduleTitle } from "@/components/NaviListCard";
 import { isScheduleEnded, todayISO } from "@/lib/date";
-import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
+import { consumeListSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteSchedule, setScheduleWorkspaceShared, upsertSchedule } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -97,7 +97,7 @@ export default function NaviEntryPage() {
 
   useEffect(() => {
     if (schedules.length === 0) return;
-    if (consumeCustomerSwipeNudge()) setNudgeFirstCard(true);
+    if (consumeListSwipeNudge("navi")) setNudgeFirstCard(true);
   }, [schedules.length]);
 
   const sorted = useMemo(

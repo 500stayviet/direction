@@ -4,7 +4,9 @@ import {
   applyNotesUtterance,
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
+  TALK_LOCATION_DONG_HOLD_MS,
   TALK_LISTEN_RESTART_MS,
+  talkLocationHoldMs,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
@@ -79,6 +81,19 @@ describe("talkSession", () => {
     );
     assert.equal(TALK_IDLE_MS, 10_000);
     assert.equal(TALK_FIELD_HOLD_MS, 2_000);
+    assert.equal(TALK_LOCATION_DONG_HOLD_MS, 4_000);
+    assert.equal(
+      talkLocationHoldMs("property", { dong: "성내동" }),
+      TALK_LOCATION_DONG_HOLD_MS
+    );
+    assert.equal(
+      talkLocationHoldMs("property", { dong: "성내동", jibun: "151" }),
+      TALK_FIELD_HOLD_MS
+    );
+    assert.equal(
+      talkLocationHoldMs("customer", { dong: "성내동" }),
+      TALK_FIELD_HOLD_MS
+    );
     assert.equal(TALK_LISTEN_RESTART_MS, 120);
     assert.equal(talkStepUsesFieldHold("location"), true);
     assert.equal(talkStepUsesFieldHold("restAddress"), true);

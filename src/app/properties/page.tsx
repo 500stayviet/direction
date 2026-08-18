@@ -12,7 +12,7 @@ import { StickyActionBar } from "@/components/StickyActionBar";
 import { SwipeRevealRow } from "@/components/SwipeRevealRow";
 import { PropertyListCard } from "@/components/PropertyListCard";
 import { ListSearchInput } from "@/components/CustomerSearchInput";
-import { consumeCustomerSwipeNudge } from "@/lib/customerSwipeHint";
+import { consumeListSwipeNudge } from "@/lib/customerSwipeHint";
 import { deleteListedProperty, upsertListedProperty } from "@/lib/storage";
 import { peekCurrentUser } from "@/lib/auth";
 import {
@@ -52,7 +52,7 @@ export default function PropertyListPage() {
 
   useEffect(() => {
     if (properties.length === 0) return;
-    if (consumeCustomerSwipeNudge()) setNudgeFirstCard(true);
+    if (consumeListSwipeNudge("properties")) setNudgeFirstCard(true);
   }, [properties.length]);
 
   const filtered = useMemo(() => {
