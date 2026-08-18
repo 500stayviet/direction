@@ -59,8 +59,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "location", name: "주소지", example: "강동구 성내동 111-1" },
     {
       key: "restAddress",
-      name: "나머지 주소 (건물명 동 호실)",
-      example: "힐스테이트 101동 102호",
+      name: "나머지 주소",
+      example: "건물명 동 호실",
     },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
@@ -309,6 +309,7 @@ export function guideStepComplete(
 ): boolean {
   if (key === "flags") return flagsStepComplete(row?.partial);
   if (key === "elevator") return elevatorStepComplete(row?.partial);
+  /** 선택 칸: 비어도 다음으로 넘어가지만, 대화 UI 초록은 display가 있을 때만 */
   if (key === "restAddress") return !row || Boolean(row?.display);
   if (key === "notes") return Boolean(row?.complete) || Boolean(row?.display);
   if (key === "money") {

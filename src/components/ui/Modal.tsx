@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from "react";
 interface ModalProps {
   open: boolean;
   title?: string;
-  description?: string;
+  description?: ReactNode;
   onClose: () => void;
   children: React.ReactNode;
   /** bottom: 하단 시트(기본) / center: 화면 중앙 */

@@ -618,7 +618,8 @@ describe("intakeSteps", () => {
     const restLine = INTAKE_GUIDE_STEPS.property.find(
       (l) => l.key === "restAddress"
     );
-    assert.equal(restLine?.name, "나머지 주소 (건물명 동 호실)");
+    assert.equal(restLine?.name, "나머지 주소");
+    assert.equal(restLine?.example, "건물명 동 호실");
 
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"

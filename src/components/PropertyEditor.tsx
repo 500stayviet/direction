@@ -865,7 +865,8 @@ export function PropertyEditor({
         {!isLand && !isBuilding && (
           <>
           <Input
-            label="나머지주소 (건물명 동 호실)"
+            label="나머지 주소"
+            unitHint="예) 건물명 동 호실"
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             onBlur={(e) => {

@@ -80,7 +80,7 @@ function getSpeechRecognition(): SpeechRec | null {
 }
 
 function activeRowClass(active: boolean, filled: boolean): string {
-  const box = "rounded-lg border px-2.5 py-1.5 min-h-9";
+  const box = "rounded-lg border px-2 py-1 min-h-8";
   if (filled) return `${box} border-green-400 bg-green-50`;
   if (active) return `${box} border-blue-400 bg-blue-50/80`;
   return `${box} border-gray-200 bg-white`;
@@ -88,7 +88,7 @@ function activeRowClass(active: boolean, filled: boolean): string {
 
 function navStepButtonClass(disabled = false): string {
   return [
-    "inline-flex h-12 box-border items-center justify-center gap-0.5 rounded-xl border border-gray-200 bg-white px-1.5",
+    "inline-flex h-11 box-border items-center justify-center gap-0.5 rounded-xl border border-gray-200 bg-white px-1.5",
     "text-[12px] font-semibold leading-none text-gray-700 active:scale-95 transition-transform",
     disabled ? "opacity-30 active:scale-100" : "",
   ].join(" ");
@@ -806,7 +806,7 @@ export function IntakeTalkModal({
     <button
       type="button"
       className={[
-        "inline-flex h-12 box-border w-full items-center justify-center gap-1 rounded-2xl px-3",
+        "inline-flex h-11 box-border w-full items-center justify-center gap-1 rounded-2xl px-3",
         "text-[13px] font-semibold leading-none",
         "active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:active:scale-100",
         listening || showRecordIcon
@@ -859,29 +859,38 @@ export function IntakeTalkModal({
         open={open}
         onClose={onClose}
         title="대화로 입력"
-        description="순서대로 대화로 입력하세요."
+        description={
+          <>
+            순서대로 대화로 입력 또는 항목을 선택하여 입력하세요.
+            <span className="mt-0.5 block text-[12px] font-medium leading-snug text-orange-400">
+              수정 팁: 항목을 선택하면 입력된 내용은 삭제되며 대화로 다시 입력하시면
+              됩니다.
+            </span>
+          </>
+        }
         dense
         overlayClassName="z-50 max-sm:!px-0"
-        className="h-[100dvh] !max-h-[100dvh] max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
+        descriptionClassName="text-[13px] leading-snug"
+        className="h-[100dvh] !max-h-[100dvh] !pt-3 max-sm:!rounded-none sm:h-auto sm:!max-h-[min(92dvh,800px)]"
         footer={
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {listening ? (
-            <p className="flex min-h-[1.25rem] items-center justify-center gap-2 break-words text-[14px] font-medium text-gray-400">
+            <p className="flex min-h-[1.125rem] items-center justify-center gap-2 break-words text-[13px] font-medium text-gray-400">
               <ListeningMicMeter live={composedLive} />
               <span>{composedLive || "듣는 중…"}</span>
             </p>
           ) : talkStarted && !allComplete && !error ? (
-            <p className="min-h-[1.25rem] text-center text-[14px] font-medium leading-snug text-gray-400">
+            <p className="min-h-[1.125rem] text-center text-[13px] font-medium leading-snug text-gray-400">
               {TALK_STOP_HINT}
             </p>
           ) : (
-            <p className="min-h-[1.25rem]" aria-hidden />
+            <p className="min-h-[1.125rem]" aria-hidden />
           )}
           {error ? (
             <p className="text-center text-[12px] font-semibold text-red-400">{error}</p>
           ) : null}
           {talkStarted ? (
-            <div className="grid grid-cols-3 items-stretch gap-2">
+            <div className="grid grid-cols-3 items-stretch gap-1.5">
               <button
                 type="button"
                 disabled={activeIndex === 0}
@@ -904,12 +913,18 @@ export function IntakeTalkModal({
           ) : (
             primaryButton
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" fullWidth onClick={onClose}>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button
+              variant="secondary"
+              fullWidth
+              className="!min-h-11 !py-0 !text-[14px]"
+              onClick={onClose}
+            >
               취소
             </Button>
             <Button
               fullWidth
+              className="!min-h-11 !py-0 !text-[14px]"
               disabled={!hasAnyStep}
               onClick={handleApply}
               data-testid="intake-talk-apply"
@@ -920,13 +935,10 @@ export function IntakeTalkModal({
         </div>
       }
     >
-      <ul className="-mx-2 mb-2 space-y-1 rounded-2xl bg-gray-50 px-1.5 py-1.5">
+      <ul className="-mx-1 space-y-0.5 overflow-x-hidden rounded-2xl bg-gray-50 px-1 py-1">
         {guide.map((line, index) => {
           const row = steps[line.key];
           const isFlags = line.key === "flags";
-          const done = isFlags
-            ? flagsStepComplete(row?.partial)
-            : guideStepComplete(line.key, row, steps);
           const resolvedDeal = resolveTalkDealType(
             steps.dealType?.partial,
             steps.money?.partial
@@ -940,16 +952,20 @@ export function IntakeTalkModal({
           const flagsValues = isFlags
             ? formatFlagsValueLine(row?.partial ?? {})
             : "";
-          const filled = done;
-          const active = index === activeIndex;
           const rowDisplay = isFlags
             ? flagsValues || row?.display || ""
             : row?.display || "";
           const hasEnteredValue = Boolean(rowDisplay);
-          const showColon = done || active || hasEnteredValue || Boolean(stepExample);
+          const filled = isFlags
+            ? flagsStepComplete(row?.partial)
+            : hasEnteredValue ||
+              (line.key === "notes" && Boolean(row?.complete));
+          const active = index === activeIndex;
+          const showColon =
+            filled || active || hasEnteredValue || Boolean(stepExample);
 
           let valueText: string | null = null;
-          if (done) {
+          if (filled) {
             valueText =
               line.key === "notes" && active && notesPreview.trim()
                 ? notesPreview
@@ -959,17 +975,16 @@ export function IntakeTalkModal({
               valueText = notesPreview;
             } else if (composedLive.trim()) {
               valueText = composedLive;
-            } else if (hasEnteredValue) {
-              valueText = rowDisplay;
             } else if (stepExample) {
               valueText = `예) ${stepExample}`;
             }
-          } else if (hasEnteredValue) {
-            valueText = rowDisplay;
           } else if (stepExample) {
             valueText = `예) ${stepExample}`;
           }
 
+          const isNotes = line.key === "notes";
+          const notesGrowing =
+            isNotes && Boolean(valueText) && valueText !== `예) ${stepExample}`;
           return (
             <li
               key={line.key}
@@ -980,32 +995,39 @@ export function IntakeTalkModal({
                 aria-current={active ? "step" : undefined}
                 onClick={() => selectGuideRow(index)}
                 className={[
-                  "flex w-full min-w-0 items-center gap-1.5 text-left",
+                  "flex w-full min-w-0 gap-1 text-left",
+                  notesGrowing ? "items-start" : "items-center overflow-hidden",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
               <span
                 className={[
-                  "w-3.5 shrink-0 text-center text-[14px] font-bold leading-none",
+                  "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
+                  notesGrowing ? "mt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
               >
                 ▶
               </span>
-              <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+              <div
+                className={[
+                  "flex min-w-0 flex-1 gap-1",
+                  notesGrowing ? "items-start" : "items-baseline",
+                ].join(" ")}
+              >
                 <span
                   className={[
-                    "shrink-0 text-[16px] font-bold leading-snug",
-                    done ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
+                    "shrink-0 text-[15px] font-bold leading-snug",
+                    filled ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
                   ].join(" ")}
                 >
                   {line.name}
                   {line.nameHint ? (
                     <span
                       className={[
-                        "ml-1 text-[12px] font-medium leading-none",
-                        done
+                        "ml-1 text-[11px] font-medium leading-none",
+                        filled
                           ? "text-green-700/70"
                           : active
                             ? "text-blue-700/70"
@@ -1020,8 +1042,11 @@ export function IntakeTalkModal({
                 {valueText ? (
                   <span
                     className={[
-                      "min-w-0 truncate text-[14px] leading-snug",
-                      done || (hasEnteredValue && !active)
+                      "min-w-0 text-[13px] leading-snug",
+                      notesGrowing
+                        ? "whitespace-pre-wrap break-words"
+                        : "truncate",
+                      filled || (hasEnteredValue && !active)
                         ? "font-semibold text-green-700"
                         : active
                           ? "font-medium text-blue-700"
