@@ -16,6 +16,7 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
+  controlStatusClass,
 } from "@/lib/uiInvalid";
 import { addPreferredHint, reselectHintClass } from "@/lib/choiceHint";
 
@@ -147,9 +148,10 @@ export function PreferredLocationPicker({
 
   return (
     <div
-      className={
-        invalid ? emptyRequiredClass({ invalid: true }) : "space-y-1.5"
-      }
+      className={emptyRequiredClass({
+        invalid,
+        filled: hasSelection && !invalid,
+      })}
     >
       <div className="flex items-baseline justify-between gap-2">
         <p className={`shrink-0 ${labelClass}`}>
@@ -172,7 +174,10 @@ export function PreferredLocationPicker({
             return (
               <div
                 key={gu}
-                className="flex min-h-[36px] w-full items-center gap-2 rounded-xl bg-[#3182F6] px-4 text-[15px] font-bold text-white"
+                className={[
+                  "flex min-h-[36px] w-full items-center gap-2 rounded-xl px-4 text-[15px]",
+                  controlStatusClass({ filled: true }),
+                ].join(" ")}
               >
                 <button
                   type="button"
@@ -206,8 +211,8 @@ export function PreferredLocationPicker({
         }
         onClick={openPicker}
         className={[
-          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
-          "bg-gray-100 text-gray-700",
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+          controlStatusClass({ invalid: Boolean(invalid) && !hasSelection, filled: false }),
           "active:scale-95 transition-all duration-150",
         ].join(" ")}
       >

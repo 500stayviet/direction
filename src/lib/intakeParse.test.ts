@@ -345,6 +345,21 @@ describe("parseIntakeText", () => {
     assert.equal(dasiJibun.jibun, "111-1");
     const dasiTight = parseIntakeText("성내동 111다시1 원룸 전세", "property");
     assert.equal(dasiTight.jibun, "111-1");
+    const glued = parseIntakeText(
+      "강동구성내동151다시5 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(glued.dong, "성내동");
+    assert.equal(glued.jibun, "151-5");
+    const spokenDigits = parseIntakeText(
+      "성내동 일오일 다시 오 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(spokenDigits.jibun, "151-5");
     const applied = applyIntakeToProperty(createEmptyProperty(), dongHo);
     assert.equal(applied.roomNo, "101동 102호");
     assert.equal(applied.buildingName, "힐스테이트");

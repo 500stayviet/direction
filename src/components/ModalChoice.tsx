@@ -8,7 +8,8 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
-  spaceClass,
+  emptyRequiredClass,
+  controlStatusClass,
 } from "@/lib/uiInvalid";
 
 interface ModalChoiceProps<T extends string> {
@@ -19,7 +20,6 @@ interface ModalChoiceProps<T extends string> {
   onChange: (value: T) => void;
   columns?: 1 | 2 | 3 | 4;
   invalid?: boolean;
-  filled?: boolean;
   position?: "bottom" | "center";
   keepOpen?: (value: T) => boolean;
   extra?: ReactNode;
@@ -39,7 +39,6 @@ export function ModalChoice<T extends string>({
   onChange,
   columns = 3,
   invalid,
-  filled,
   position = "center",
   keepOpen,
   extra,
@@ -67,9 +66,10 @@ export function ModalChoice<T extends string>({
 
   return (
     <div
-      className={["space-y-1 rounded-xl", spaceClass({ invalid: hideLabel ? false : invalid, filled })].join(
-        " "
-      )}
+      className={emptyRequiredClass({
+        invalid: hideLabel ? false : invalid,
+        filled: Boolean(selected) && !invalid && !hideLabel,
+      })}
     >
       {hideLabel ? null : (
       <div className="flex items-baseline justify-between gap-2">
@@ -103,9 +103,9 @@ export function ModalChoice<T extends string>({
           type="button"
           onClick={openPicker}
           className={[
-            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
-            "bg-[#3182F6] text-white shadow-sm",
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
             "active:scale-95 transition-all duration-150",
+            controlStatusClass({ filled: true }),
           ].join(" ")}
         >
           {selected}
@@ -115,9 +115,9 @@ export function ModalChoice<T extends string>({
           type="button"
           onClick={openPicker}
           className={[
-            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
-            "bg-gray-100 text-gray-700",
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
             "active:scale-95 transition-all duration-150",
+            controlStatusClass({ invalid: Boolean(invalid), filled: false }),
           ].join(" ")}
         >
           {pickLabel}

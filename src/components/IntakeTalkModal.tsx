@@ -19,6 +19,8 @@ import {
   dealTypeStepExample,
   resolveTalkDealType,
   datesStepNeedsHold,
+  locationStepNeedsHold,
+  restAddressStepNeedsHold,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -250,6 +252,8 @@ export function IntakeTalkModal({
         if (!moneyFieldsComplete(rec.partial, deal)) return;
       }
       if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
+      if (key === "location" && !locationStepNeedsHold(rec.partial, kind)) return;
+      if (key === "restAddress" && !restAddressStepNeedsHold(rec.partial)) return;
     }
     fieldHoldTimerRef.current = setTimeout(() => {
       fieldHoldTimerRef.current = null;
@@ -270,6 +274,8 @@ export function IntakeTalkModal({
         if (!moneyFieldsComplete(held.partial, deal)) return;
       }
       if (key === "dates" && !datesStepNeedsHold(held.partial)) return;
+      if (key === "location" && !locationStepNeedsHold(held.partial, kind)) return;
+      if (key === "restAddress" && !restAddressStepNeedsHold(held.partial)) return;
       if (activeIndexRef.current >= guide.length - 1) return;
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;

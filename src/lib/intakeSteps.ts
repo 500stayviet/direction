@@ -12,7 +12,11 @@ import {
   type IntakeYesNoField,
   formatTalkFlagValue,
 } from "@/lib/intakeParse";
-import { resolveGuFromDong } from "@/lib/seoulRegions";
+import {
+  findAllDongsInText,
+  findLastGuInText,
+  resolveGuFromDong,
+} from "@/lib/seoulRegions";
 
 export type IntakeStepKey = IntakeGuideKey;
 
@@ -52,7 +56,12 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     { key: "notes", name: "메모", example: "남향 저층" },
   ],
   property: [
-    { key: "location", name: "주소지", example: "강동구 성내동 111-1 힐스테이트 101동 102호" },
+    { key: "location", name: "주소지", example: "강동구 성내동 111-1" },
+    {
+      key: "restAddress",
+      name: "나머지 주소 (건물명 동 호실)",
+      example: "힐스테이트 101동 102호",
+    },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
     { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
@@ -300,6 +309,7 @@ export function guideStepComplete(
 ): boolean {
   if (key === "flags") return flagsStepComplete(row?.partial);
   if (key === "elevator") return elevatorStepComplete(row?.partial);
+  if (key === "restAddress") return !row || Boolean(row?.display);
   if (key === "notes") return Boolean(row?.complete) || Boolean(row?.display);
   if (key === "money") {
     const deal = resolveTalkDealType(
@@ -409,6 +419,23 @@ function locationConsumedRange(
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): { start: number; end: number } {
+  if (kind === "customer") {
+    const hits = findAllDongsInText(text);
+    if (hits.length > 0) {
+      let start = hits[0]!.start;
+      let end = hits[hits.length - 1]!.end;
+      for (const hit of hits) {
+        const guBefore = findLastGuInText(text.slice(0, hit.start));
+        if (guBefore) {
+          const idx = text.lastIndexOf(guBefore, hit.start);
+          if (idx >= 0 && idx + guBefore.length <= hit.start) {
+            start = Math.min(start, idx);
+          }
+        }
+      }
+      return { start, end };
+    }
+  }
   let start = text.length;
   let end = 0;
   const bump = (token?: string) => {
@@ -418,9 +445,6 @@ function locationConsumedRange(
     start = Math.min(start, idx);
     end = Math.max(end, idx + token.length);
   };
-  bump(partial.roomNo);
-  if (partial.roomNo) bump(partial.roomNo.replace(/\s+/g, ""));
-  bump(partial.buildingName);
   bump(partial.jibun);
   if (partial.jibun) {
     const [main, sub] = partial.jibun.split("-");
@@ -444,6 +468,26 @@ function locationConsumedRange(
     bump(partial.gu);
     bump(partial.dong);
   }
+  if (end <= 0) return { start: 0, end: 0 };
+  return { start, end };
+}
+
+function restAddressConsumedRange(
+  text: string,
+  partial: Partial<IntakeParseResult>
+): { start: number; end: number } {
+  let start = text.length;
+  let end = 0;
+  const bump = (token?: string) => {
+    if (!token) return;
+    const idx = text.lastIndexOf(token);
+    if (idx < 0) return;
+    start = Math.min(start, idx);
+    end = Math.max(end, idx + token.length);
+  };
+  bump(partial.roomNo);
+  if (partial.roomNo) bump(partial.roomNo.replace(/\s+/g, ""));
+  bump(partial.buildingName);
   if (end <= 0) return { start: 0, end: 0 };
   return { start, end };
 }
@@ -573,31 +617,51 @@ function mergeTalkDates(
   return { moveInFrom: newFrom, moveInTo: newTo };
 }
 
-/** 고객 선호지역: 동이 있어야 하고, 다른 구를 더 고를 수 있으면 넘기지 않는다.
- *  매물 주소지: 구·동·지번을 이어서 말할 수 있게, 다음 칸 말이 없으면 머문다.
- *  (필드 홀드 자동 진행 없음 — 동만 말하고 지번을 이어서 받을 수 있게) */
+/** 선호지역·주소지·나머지주소: 동·지번 등 채운 뒤 잠시 머문다 */
+export function locationStepNeedsHold(
+  partial: Partial<IntakeParseResult> | undefined,
+  kind: IntakeKind
+): boolean {
+  if (!partial) return false;
+  if (kind === "customer") {
+    return customerLocationDongCount(partial) >= 1;
+  }
+  return Boolean(partial.dong);
+}
+
+export function restAddressStepNeedsHold(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  if (!partial) return false;
+  return Boolean(partial.buildingName || partial.roomNo);
+}
+
+/** 고객 선호지역: 동이 있어야 하고, 다른 구·동을 더 고를 수 있으면 넘기지 않는다.
+ *  매물 주소지: 구·동·지번. 나머지 주소는 다음 칸.
+ *  (필드 홀드 자동 진행 — 동·지번·동 목록 말한 뒤 2초) */
 export function locationStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): boolean {
+  const normalized = normalizeIntakeInput(text, "spoken");
   if (kind === "property") {
-    if (!(partial.dong || partial.jibun || partial.roomNo || partial.buildingName)) {
-      return false;
-    }
-    const normalized = normalizeIntakeInput(text, "spoken");
+    if (!partial.dong) return false;
     const remainder = extractTalkStepRemainder(
       normalized,
       "location",
       partial,
       kind
     );
+    if (!partial.jibun) {
+      if (!remainder) return false;
+      return NEXT_AFTER_LOCATION.test(remainder);
+    }
     if (!remainder) return false;
-    return NEXT_AFTER_LOCATION.test(remainder);
+    return true;
   }
   const dongs = customerLocationDongCount(partial);
   if (dongs < 1) return false;
-  const normalized = normalizeIntakeInput(text, "spoken");
   const remainder = extractTalkStepRemainder(
     normalized,
     "location",
@@ -613,6 +677,22 @@ export function locationStepReadyToAdvance(
   if (/^(?:그리고|또는|아니면|이랑|랑|하고|와|과|또|,)/.test(remainder)) {
     return false;
   }
+  return NEXT_AFTER_LOCATION.test(remainder);
+}
+
+export function restAddressStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>
+): boolean {
+  if (!partial.buildingName && !partial.roomNo) return false;
+  const normalized = normalizeIntakeInput(text, "spoken");
+  const remainder = extractTalkStepRemainder(
+    normalized,
+    "restAddress",
+    partial,
+    "property"
+  );
+  if (!remainder) return true;
   return NEXT_AFTER_LOCATION.test(remainder);
 }
 
@@ -700,6 +780,13 @@ export function extractTalkStepRemainder(
     const after = text.slice(end).replace(/^\s+/, "");
     return [before, after].filter(Boolean).join(" ");
   }
+  if (step === "restAddress") {
+    const { start, end } = restAddressConsumedRange(text, partial);
+    if (end <= 0) return "";
+    const before = text.slice(0, start).trim();
+    const after = text.slice(end).replace(/^\s+/, "");
+    return [before, after].filter(Boolean).join(" ");
+  }
   if (step === "money" && (partial.deposit || partial.monthlyRent)) {
     const end = moneyConsumedEnd(text);
     return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
@@ -776,7 +863,9 @@ export function parseIntakeStepChain(
           ? { ...prior, ...steps.elevator }
           : key === "location" && steps.location
             ? { ...prior, ...steps.location }
-            : key === "dates" && steps.dates
+            : key === "restAddress" && steps.restAddress
+              ? { ...prior, ...steps.restAddress }
+              : key === "dates" && steps.dates
               ? { ...prior, ...steps.dates }
               : key === "money" && steps.money
                 ? { ...prior, ...steps.money }
@@ -786,7 +875,16 @@ export function parseIntakeStepChain(
                     ? { ...prior, ...steps.landlordPhone }
                     : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
-    if (!parsed.ok) break;
+    if (!parsed.ok) {
+      if (
+        key === "restAddress" &&
+        NEXT_AFTER_LOCATION.test(normalizeIntakeInput(text, "spoken").trim())
+      ) {
+        index += 1;
+        continue;
+      }
+      break;
+    }
 
     commits.push({
       key,
@@ -800,6 +898,12 @@ export function parseIntakeStepChain(
     if (
       key === "location" &&
       !locationStepReadyToAdvance(text, parsed.partial, kind)
+    ) {
+      break;
+    }
+    if (
+      key === "restAddress" &&
+      !restAddressStepReadyToAdvance(text, parsed.partial)
     ) {
       break;
     }
@@ -953,11 +1057,7 @@ export function parseIntakeStep(
     const hasCustomerLoc =
       kind === "customer" && (mergedPlaces?.places.length ?? 0) > 0;
     const hasPropertyLoc =
-      kind === "property" &&
-      (parsed.dong ||
-        parsed.jibun ||
-        parsed.roomNo ||
-        parsed.buildingName);
+      kind === "property" && (parsed.dong || parsed.jibun);
     if (!hasCustomerLoc && !hasPropertyLoc) {
       return { ok: false, partial: {}, display: "" };
     }
@@ -966,6 +1066,20 @@ export function parseIntakeStep(
       dong: mergedPlaces?.dong ?? parsed.dong ?? prior?.dong,
       jibun: parsed.jibun ?? prior?.jibun,
       places: mergedPlaces?.places ?? parsed.places,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "restAddress") {
+    if (!parsed.buildingName && !parsed.roomNo) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const partial: Partial<IntakeParseResult> = {
       buildingName: parsed.buildingName ?? prior?.buildingName,
       roomNo: parsed.roomNo ?? prior?.roomNo,
       options: [],
@@ -973,7 +1087,11 @@ export function parseIntakeStep(
     return {
       ok: true,
       partial,
-      display: stepDisplay(partial, kind, step),
+      display: stepDisplay(
+        { options: [], notes: "", ...prior, ...partial },
+        kind,
+        step
+      ),
     };
   }
 
@@ -1098,10 +1216,20 @@ function mergePartial(
   if (partial.maintenanceFee != null) {
     target.maintenanceFee = partial.maintenanceFee;
   }
-  if (partial.gu) target.gu = partial.gu;
-  if (partial.dong) target.dong = partial.dong;
+  if (partial.places?.length) {
+    const merged = mergeCustomerPlaces(
+      { places: target.places, gu: target.gu, dong: target.dong },
+      { places: partial.places, gu: partial.gu, dong: partial.dong }
+    );
+    target.places = merged.places;
+    if (merged.gu) target.gu = merged.gu;
+    if (merged.dong) target.dong = merged.dong;
+  } else if (partial.gu) {
+    target.gu = partial.gu;
+  } else if (partial.dong) {
+    target.dong = partial.dong;
+  }
   if (partial.jibun) target.jibun = partial.jibun;
-  if (partial.places?.length) target.places = partial.places;
   if (partial.buildingName) target.buildingName = partial.buildingName;
   if (partial.roomNo) target.roomNo = partial.roomNo;
   if (partial.moveInFrom) {

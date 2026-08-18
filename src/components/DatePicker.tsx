@@ -13,7 +13,7 @@ import {
   parseISODate,
   todayISO,
 } from "@/lib/date";
-import { filledBoxClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { controlStatusClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 
 interface DatePickerProps {
   label: string;
@@ -102,11 +102,9 @@ export function DatePicker({
         type="button"
         onClick={openPicker}
         className={[
-          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-bold",
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
           "active:scale-95 transition-all duration-150",
-          value
-            ? filledBoxClass
-            : "border border-gray-200 bg-gray-100 text-gray-700",
+          controlStatusClass({ invalid: Boolean(invalid && !value), filled: Boolean(value) }),
         ].join(" ")}
       >
         <span className="text-center leading-snug">

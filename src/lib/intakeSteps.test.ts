@@ -354,7 +354,7 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[2]?.key, "dealType");
     assert.equal(chain.commits[3]?.key, "money");
     assert.equal(chain.commits[3]?.partial.deposit, 20000);
-    assert.equal(chain.nextIndex, 3);
+    assert.equal(chain.nextIndex, 4);
     assert.match(chain.leftover, /매매가\s*2억/);
     const built = buildIntakeFromSteps(
       Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
@@ -599,15 +599,32 @@ describe("intakeSteps", () => {
     );
     assert.equal(secondDong.nextIndex, locationIndex);
     assert.equal(secondDong.commits[0]?.partial.places?.length, 2);
+
+    const threeDongs = parseIntakeStepChain(
+      "강동구 성내동 송파구 풍납동 강남구 역삼동",
+      locationIndex,
+      "customer",
+      {}
+    );
+    assert.equal(threeDongs.commits[0]?.partial.places?.length, 3);
+    assert.equal(threeDongs.nextIndex, locationIndex);
   });
 
   it("매물 주소지는 지번을 이어서 받을 수 있게 다음 칸으로 바로 넘기지 않는다", () => {
     const locLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "location");
     assert.equal(locLine?.name, "주소지");
-    assert.equal(locLine?.example, "강동구 성내동 111-1 힐스테이트 101동 102호");
+    assert.equal(locLine?.example, "강동구 성내동 111-1");
+
+    const restLine = INTAKE_GUIDE_STEPS.property.find(
+      (l) => l.key === "restAddress"
+    );
+    assert.equal(restLine?.name, "나머지 주소 (건물명 동 호실)");
 
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"
+    );
+    const restIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "restAddress"
     );
 
     const dongOnly = parseIntakeStepChain(
@@ -673,9 +690,12 @@ describe("intakeSteps", () => {
     assert.ok(withMoney.commits.some((row) => row.key === "money"));
   });
 
-  it("매물 주소지는 건물명·동호수·호수만도 받는다", () => {
+  it("매물 주소지와 나머지주소는 칸을 나눠 받는다", () => {
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"
+    );
+    const restIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "restAddress"
     );
 
     const full = parseIntakeStepChain(
@@ -684,20 +704,21 @@ describe("intakeSteps", () => {
       "property",
       {}
     );
-    assert.equal(full.nextIndex, locationIndex);
+    assert.equal(full.nextIndex, restIndex + 1);
     assert.equal(full.commits[0]?.partial.jibun, "111-1");
-    assert.equal(full.commits[0]?.partial.buildingName, "힐스테이트");
-    assert.equal(full.commits[0]?.partial.roomNo, "101동 102호");
-    assert.match(full.commits[0]?.display ?? "", /힐스테이트/);
-    assert.match(full.commits[0]?.display ?? "", /101동 102호/);
+    assert.equal(full.commits[0]?.partial.buildingName, undefined);
+    assert.equal(full.commits[0]?.partial.roomNo, undefined);
+    assert.equal(full.commits[1]?.key, "restAddress");
+    assert.equal(full.commits[1]?.partial.buildingName, "힐스테이트");
+    assert.equal(full.commits[1]?.partial.roomNo, "101동 102호");
 
-    const hoOnly = parseIntakeStep("302호", "location", "property");
+    const hoOnly = parseIntakeStep("302호", "restAddress", "property");
     assert.equal(hoOnly.ok, true);
     assert.equal(hoOnly.partial.roomNo, "302호");
 
     const afterJibun = parseIntakeStepChain(
       "힐스테이트 101동 102호",
-      locationIndex,
+      restIndex,
       "property",
       {
         location: {
@@ -708,20 +729,20 @@ describe("intakeSteps", () => {
         },
       }
     );
-    assert.equal(afterJibun.nextIndex, locationIndex);
+    assert.equal(afterJibun.nextIndex, restIndex + 1);
     assert.equal(afterJibun.commits[0]?.partial.buildingName, "힐스테이트");
     assert.equal(afterJibun.commits[0]?.partial.roomNo, "101동 102호");
-    assert.equal(afterJibun.commits[0]?.partial.jibun, "111-1");
 
     const hoAfterDong = parseIntakeStepChain(
       "302호",
-      locationIndex,
+      restIndex,
       "property",
-      { location: { gu: "강동구", dong: "성내동", options: [] } }
+      {
+        location: { gu: "강동구", dong: "성내동", options: [] },
+      }
     );
-    assert.equal(hoAfterDong.nextIndex, locationIndex);
+    assert.equal(hoAfterDong.nextIndex, restIndex + 1);
     assert.equal(hoAfterDong.commits[0]?.partial.roomNo, "302호");
-    assert.equal(hoAfterDong.commits[0]?.partial.dong, "성내동");
   });
 
   it("임차인·임대인 번호는 칸을 나눠 받는다", () => {

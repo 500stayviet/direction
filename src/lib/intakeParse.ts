@@ -1720,6 +1720,55 @@ function nearestPhoneAfter(
   return hits.find((h) => h.index >= from && h.index - from <= within);
 }
 
+/** 대화에서 「151다시5」「일오일 다시 오」처럼 나온 지번 숫자 */
+function expandSpokenJibunDigits(text: string): string {
+  const digit = "(?:공|영|일|이|삼|사|오|육|륙|칠|팔|구)";
+  const map: Record<string, string> = {
+    공: "0",
+    영: "0",
+    일: "1",
+    이: "2",
+    삼: "3",
+    사: "4",
+    오: "5",
+    육: "6",
+    륙: "6",
+    칠: "7",
+    팔: "8",
+    구: "9",
+  };
+  const spokenRun = (run: string) =>
+    [...run.replace(/\s/g, "")]
+      .map((ch) => map[ch] ?? ch)
+      .join("");
+  return text
+    .replace(
+      new RegExp(
+        `((?:${digit})+)(?:\\s*(?:다시|에|의|하이픈|빼기|-)\\s*((?:${digit})+))(?!\\d)`,
+        "g"
+      ),
+      (chunk, main: string, sub: string) => {
+        const a = spokenRun(main);
+        const b = spokenRun(sub);
+        if (!a || !b) return chunk;
+        return `${a}-${b}`;
+      }
+    )
+    .replace(new RegExp(`(?<![\\d])((?:${digit}){2,5})(?!\\d)`, "g"), (run) =>
+      spokenRun(run)
+    );
+}
+
+/** 동·구 뒤에 붙은 지번 숫자는 띄어 읽기 (알려진 행정동만) */
+function separateDongFromJibunDigits(text: string): string {
+  let out = text;
+  for (const dong of SEOUL_DONGS_LONGEST) {
+    const escaped = dong.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(${escaped})(\\d)`, "g"), "$1 $2");
+  }
+  return out;
+}
+
 /** 대화에서 「공일공…」처럼 나온 숫자를 번호로 */
 function expandSpokenPhones(text: string): string {
   const token = "(?:공|영|일|이|삼|사|오|육|칠|팔|구)";
@@ -2343,7 +2392,7 @@ export type IntakeNormalizeMode = "text" | "spoken";
 /** 구·동은 가리고, 이억·구천·삼월 등 음성 읽기만 숫자로 바꾼다. 메시지·사진·마이크 공통. */
 export function normalizeIntakeInput(
   raw: string,
-  _mode: IntakeNormalizeMode = "text"
+  mode: IntakeNormalizeMode = "text"
 ): string {
   const base = normalizeFieldShorthands(
     raw
@@ -2355,12 +2404,15 @@ export function normalizeIntakeInput(
       .replace(/\s+/g, " ")
       .trim()
   );
-  const protectedPlaces = protectSeoulGuDongPlaces(base);
+  const withJibunSpace =
+    mode === "spoken" ? separateDongFromJibunDigits(base) : base;
+  const protectedPlaces = protectSeoulGuDongPlaces(withJibunSpace);
+  const expanded = expandSpokenMoney(
+    expandSpokenDates(expandSpokenPhones(protectedPlaces.text))
+  );
   return collapseThousandCommas(
     protectedPlaces.restore(
-      expandSpokenMoney(
-        expandSpokenDates(expandSpokenPhones(protectedPlaces.text))
-      )
+      mode === "spoken" ? expandSpokenJibunDigits(expanded) : expanded
     )
   );
 }

@@ -7,7 +7,7 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
-  spaceClass,
+  emptyRequiredClass,
 } from "@/lib/uiInvalid";
 
 interface DealTypeToggleProps {
@@ -16,11 +16,9 @@ interface DealTypeToggleProps {
   value?: DealType | "";
   onChange: (value: DealType | "") => void;
   invalid?: boolean;
-  /** 표시할 거래 유형. 기본 매매·전세·월세 */
   /** 라벨 옆 예) 안내 */
   hint?: string;
   types?: readonly DealType[];
-  filled?: boolean;
 }
 
 export function DealTypeToggle({
@@ -30,7 +28,6 @@ export function DealTypeToggle({
   onChange,
   invalid,
   types = DEAL_TYPES,
-  filled,
   hint,
 }: DealTypeToggleProps) {
   const allowed: DealType[] = types.filter((type) =>
@@ -45,9 +42,10 @@ export function DealTypeToggle({
 
   return (
     <div
-      className={["space-y-1 rounded-xl", spaceClass({ invalid, filled })].join(
-        " "
-      )}
+      className={emptyRequiredClass({
+        invalid,
+        filled: Boolean(selected) && !invalid,
+      })}
     >
       <div className="flex items-baseline justify-between gap-2">
         <p

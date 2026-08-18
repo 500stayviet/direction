@@ -65,27 +65,24 @@ import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
 import { IntakeAiBusyOverlay } from "@/components/IntakeAiBusyOverlay";
 import { useHasTeam } from "@/hooks/useHasTeam";
-import { invalidLabelClass, filledSectionClass, memoFilledSectionClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
+import { invalidLabelClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 
 function ChipToggle({
   label,
   active,
   onClick,
-  faint,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
-  faint?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-all duration-150",
-        faint ? "relative z-[1] opacity-[0.22] pointer-events-auto" : "active:scale-95",
+        "rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-all duration-150 active:scale-95",
         active
           ? "bg-[#3182F6] text-white"
           : "bg-gray-100 text-gray-600 hover:bg-gray-200",
@@ -130,7 +127,7 @@ interface PropertyEditorProps {
   showTeamShare?: boolean;
   /** 메시지·대화·사진으로 칸 채우기 (매물 등록/수정) */
   enableIntake?: boolean;
-  /** 매물리스트에서 불러온 직후 — 입력된 칸 파란 표시 */
+  /** 매물리스트에서 불러온 직후 — 빠진 필수 칸 빨간 테두리 */
   highlightLoaded?: boolean;
 }
 
@@ -158,7 +155,7 @@ export function PropertyEditor({
   );
   const [moveOpen, setMoveOpen] = useState(false);
   const [filledFromIntake, setFilledFromIntake] = useState(false);
-  const showFilled = filledFromIntake || highlightLoaded;
+  const showMissing = filledFromIntake || highlightLoaded;
   const [lockHintOpen, setLockHintOpen] = useState(false);
   const lockedListedId = property.listedFromId?.trim() || "";
   const [resetOpen, setResetOpen] = useState(false);
@@ -225,13 +222,10 @@ export function PropertyEditor({
   };
 
   const missingFields =
-    validationActive || showFilled
+    validationActive || showMissing
       ? getMissingRequiredFields(property, { requireDong })
       : [];
   const isInvalid = (key: PropertyFieldKey) => missingFields.includes(key);
-  const memoSectionClass = (property.notes ?? "").trim()
-    ? memoFilledSectionClass
-    : "";
 
   useEffect(() => {
     if (!validationActive || !focusField) return;
@@ -304,7 +298,7 @@ export function PropertyEditor({
   };
 
   const formHasContent = Boolean(
-    showFilled ||
+    showMissing ||
       onlyDigits(property.tenantPhone ?? "").length >= 9 ||
       onlyDigits(property.landlordPhone ?? "").length >= 9 ||
       (property.notes ?? "").trim() ||
@@ -527,7 +521,8 @@ export function PropertyEditor({
         {photoRequestId > 0 ? (
           <IntakePhotoPicker
             requestId={photoRequestId}
-            onText={(text) => void applyIntakeText(text, "photo")}
+            onBusyChange={setAiBusy}
+            onText={(text) => applyIntakeText(text, "photo")}
             onError={setPhotoError}
           />
         ) : null}
@@ -618,6 +613,11 @@ export function PropertyEditor({
             className={[
               emptyRequiredClass({
                 invalid: isInvalid("contacts"),
+                filled:
+                  Boolean(
+                    (property.tenantPhone ?? "").trim() ||
+                      (property.landlordPhone ?? "").trim()
+                  ) && !isInvalid("contacts"),
               }),
             ].join(" ")}
           >
@@ -647,8 +647,6 @@ export function PropertyEditor({
                 onChange={(tenantPhone) => update({ tenantPhone })}
                 placeholder="예) 010-1234-5678"
                 hint=""
-                chipWhenFilled
-                chipTone="green"
               />
               <PhoneInput
                 label="임대인 번호"
@@ -656,8 +654,6 @@ export function PropertyEditor({
                 onChange={(landlordPhone) => update({ landlordPhone })}
                 placeholder="예) 010-9876-5432"
                 hint=""
-                chipWhenFilled
-                chipTone="green"
               />
             </div>
           </div>
@@ -668,6 +664,7 @@ export function PropertyEditor({
           ref={setFieldRef("roomType")}
           className={emptyRequiredClass({
             invalid: isInvalid("roomType"),
+            filled: Boolean(property.roomType) && !isInvalid("roomType"),
           })}
         >
         <div className="flex items-baseline justify-between gap-2">
@@ -697,7 +694,6 @@ export function PropertyEditor({
         <ModalChoice
           label="매물 유형"
           hideLabel
-          filled={showFilled && Boolean(property.roomType)}
           invalid={isInvalid("roomType")}
           value={
             normalizeRoomType(property.roomType) ?? property.roomType
@@ -723,20 +719,7 @@ export function PropertyEditor({
           }
         />
         </div>
-      <div
-        ref={setFieldRef("roomCount")}
-        className={
-          showFilled &&
-          needsRoomBathCounts(
-            normalizeRoomType(property.roomType) ?? property.roomType
-          ) &&
-          ((normalizeRoomType(property.roomType) ?? property.roomType) ===
-            "투룸" ||
-            (property.roomCount ?? 0) > 0)
-            ? filledSectionClass
-            : ""
-        }
-      >
+      <div ref={setFieldRef("roomCount")}>
         <RoomBathCountFields
           roomType={
             normalizeRoomType(property.roomType) ?? property.roomType
@@ -755,15 +738,7 @@ export function PropertyEditor({
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">금액 & 조건</p>
         <div className="border-b border-gray-200 pb-3">
-        <div
-          ref={setFieldRef("dealType")}
-          className={
-            showFilled &&
-            Boolean(isBuilding || isLand ? "매매" : property.dealType)
-              ? filledSectionClass
-              : ""
-          }
-        >
+        <div ref={setFieldRef("dealType")}>
           <DealTypeToggle
             label="거래종류"
             required
@@ -813,8 +788,6 @@ export function PropertyEditor({
               label="월세"
               type="number"
               value={property.monthlyRent || ""}
-              accent={(property.monthlyRent ?? 0) > 0}
-              chipWhenFilled
               suffix="만원"
               onChange={(e) =>
                 update({ monthlyRent: Number(e.target.value) || 0 })
@@ -831,8 +804,6 @@ export function PropertyEditor({
               type="number"
               inputMode="numeric"
               value={property.maintenanceFee ?? ""}
-              accent={property.maintenanceFee != null}
-              chipWhenFilled
               suffix="만원"
               onChange={(e) => {
                 const raw = e.target.value;
@@ -868,11 +839,6 @@ export function PropertyEditor({
                   key={opt}
                   label={opt}
                   active={property.maintenanceIncludes.includes(opt)}
-                  faint={
-                    showFilled &&
-                    property.maintenanceIncludes.length > 0 &&
-                    !property.maintenanceIncludes.includes(opt)
-                  }
                   onClick={() => toggleList("maintenanceIncludes", opt)}
                 />
               ))}
@@ -883,14 +849,7 @@ export function PropertyEditor({
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <p className="text-sm font-bold text-gray-800">위치 / 현장</p>
-        <div
-          ref={setFieldRef("address")}
-          className={
-            showFilled && property.address?.trim()
-              ? filledSectionClass
-              : ""
-          }
-        >
+        <div ref={setFieldRef("address")}>
           <SeoulAddressField
             required
             requireDong={requireDong}
@@ -906,7 +865,7 @@ export function PropertyEditor({
         {!isLand && !isBuilding && (
           <>
           <Input
-            label="건물명 동 호실"
+            label="나머지주소 (건물명 동 호실)"
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             onBlur={(e) => {
@@ -914,8 +873,6 @@ export function PropertyEditor({
               if (next !== property.roomNo) update({ roomNo: next });
             }}
             placeholder="힐스테이트 101동 101호"
-            chipWhenFilled
-            chipValue={formatRoomNoHo(property.roomNo)}
           />
           <div
             ref={setFieldRef("moveIn")}
@@ -924,6 +881,7 @@ export function PropertyEditor({
           <div
             className={emptyRequiredClass({
               invalid: isInvalid("moveIn"),
+              filled: Boolean(moveInFrom) && !isInvalid("moveIn"),
             })}
           >
             <div className="flex items-center justify-between gap-2">
@@ -1013,7 +971,6 @@ export function PropertyEditor({
             <OptionToggle
               label="엘리베이터"
               required
-              compact={showFilled}
               invalid={isInvalid("elevator")}
               columns={2}
               value={
@@ -1029,7 +986,7 @@ export function PropertyEditor({
               }
             />
             </div>
-            <div className={memoSectionClass}>
+            <div>
               <TextArea
                 label="메모"
                 value={property.notes ?? ""}
@@ -1049,7 +1006,7 @@ export function PropertyEditor({
             onChange={update}
           />
           <div className="mt-3 space-y-1.5">
-            <div className={memoSectionClass}>
+            <div>
               <TextArea
                 label="메모"
                 value={property.notes ?? ""}
@@ -1075,13 +1032,8 @@ export function PropertyEditor({
                   <ChipToggle
                     key={opt}
                     label={opt}
-                    active={property.options.includes(opt)}
-                    faint={
-                      showFilled &&
-                      property.options.length > 0 &&
-                      !property.options.includes(opt)
-                    }
-                    onClick={() => toggleList("options", opt)}
+                  active={property.options.includes(opt)}
+                  onClick={() => toggleList("options", opt)}
                   />
                 ))}
               </div>
@@ -1092,7 +1044,6 @@ export function PropertyEditor({
               <OptionToggle
                 label="대출"
                 required
-                compact={showFilled}
                 invalid={isInvalid("loan")}
                 columns={2}
                 value={
@@ -1114,7 +1065,6 @@ export function PropertyEditor({
               <OptionToggle
                 label="전세보증보험 가입 가능 여부"
                 required
-                compact={showFilled}
                 invalid={isInvalid("insurance")}
                 columns={2}
                 value={
@@ -1135,7 +1085,6 @@ export function PropertyEditor({
             <OptionToggle
               label="주차"
               required
-              compact={showFilled}
               invalid={isInvalid("parking")}
               columns={2}
               value={
@@ -1166,8 +1115,6 @@ export function PropertyEditor({
               type="number"
               inputMode="numeric"
               value={property.parkingFee || ""}
-              accent={(property.parkingFee ?? 0) > 0}
-              chipWhenFilled
               suffix="만원"
               onChange={(e) => {
                 const raw = e.target.value;
@@ -1183,7 +1130,6 @@ export function PropertyEditor({
           <OptionToggle
             label="엘리베이터"
             required
-            compact={showFilled}
             invalid={isInvalid("elevator")}
             columns={2}
             value={
@@ -1199,7 +1145,7 @@ export function PropertyEditor({
             }
           />
           </div>
-          <div className={memoSectionClass}>
+          <div>
             <TextArea
               label="메모"
               value={property.notes ?? ""}

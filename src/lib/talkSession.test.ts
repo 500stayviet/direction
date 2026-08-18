@@ -86,7 +86,8 @@ describe("talkSession", () => {
     assert.equal(TALK_DATES_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_CONTACTS_HOLD_MS, TALK_FIELD_HOLD_MS);
     assert.equal(TALK_NOTES_HOLD_MS, TALK_FIELD_HOLD_MS);
-    assert.equal(talkStepUsesFieldHold("location"), false);
+    assert.equal(talkStepUsesFieldHold("location"), true);
+    assert.equal(talkStepUsesFieldHold("restAddress"), true);
     assert.equal(talkStepUsesFieldHold("tenantPhone"), true);
     assert.equal(talkStepUsesFieldHold("landlordPhone"), true);
     assert.equal(talkStepUsesFieldHold("notes"), true);

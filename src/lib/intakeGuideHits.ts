@@ -22,6 +22,7 @@ export type IntakeGuideKey =
   | "roomType"
   | "dealType"
   | "location"
+  | "restAddress"
   | "money"
   | "dates"
   | "flags"
@@ -71,15 +72,18 @@ function formatLocationGuide(
     if (parsed.dong) return `${parsed.gu ?? ""} ${parsed.dong}`.trim();
     return "";
   }
-  if (!parsed.dong && !parsed.jibun && !parsed.roomNo && !parsed.buildingName) {
+  if (!parsed.dong && !parsed.jibun) {
     return "";
   }
   const gu =
     parsed.gu ||
     (parsed.dong ? resolveGuFromDong(parsed.dong) : "") ||
     "";
-  const addr = composeSeoulAddress(gu, parsed.dong ?? "", parsed.jibun ?? "");
-  return [addr, parsed.buildingName, parsed.roomNo].filter(Boolean).join(" ");
+  return composeSeoulAddress(gu, parsed.dong ?? "", parsed.jibun ?? "");
+}
+
+function formatRestAddressGuide(parsed: IntakeParseResult): string {
+  return [parsed.buildingName, parsed.roomNo].filter(Boolean).join(" ");
 }
 
 export function intakeGuideHits(
@@ -109,6 +113,10 @@ export function intakeGuideHits(
 
   const location = formatLocationGuide(parsed, kind);
   if (location) hits.location = location;
+  if (kind === "property") {
+    const rest = formatRestAddressGuide(parsed);
+    if (rest) hits.restAddress = rest;
+  }
 
   const money = formatMoneyGuide(parsed, kind);
   if (money) hits.money = money;

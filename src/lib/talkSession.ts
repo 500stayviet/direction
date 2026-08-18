@@ -16,6 +16,8 @@ export const TALK_NOTES_HOLD_MS = TALK_FIELD_HOLD_MS;
 
 export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (
+    key === "location" ||
+    key === "restAddress" ||
     key === "money" ||
     key === "dates" ||
     key === "tenantPhone" ||

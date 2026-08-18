@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass, controlStatusClass } from "@/lib/uiInvalid";
 
 interface OptionPickerProps {
   label: string;
@@ -69,9 +69,9 @@ export function OptionPicker({
           disabled={disabled}
           onClick={openPicker}
           className={[
-            "min-h-[36px] max-w-full rounded-xl px-4 text-[15px] font-bold",
-            "bg-[#3182F6] text-white shadow-sm",
+            "min-h-[36px] max-w-full rounded-xl px-4 text-[15px]",
             "active:scale-95 transition-all duration-150",
+            controlStatusClass({ filled: true }),
             disabled ? "opacity-50" : "",
           ].join(" ")}
         >
@@ -83,11 +83,12 @@ export function OptionPicker({
           disabled={disabled}
           onClick={openPicker}
           className={[
-            "min-h-[36px] rounded-xl px-4 text-[15px] font-bold",
+            "min-h-[36px] rounded-xl px-4 text-[15px]",
             "transition-all duration-150",
             disabled
-              ? "cursor-default bg-gray-100 text-gray-400"
-              : "bg-gray-100 text-gray-700 active:scale-95",
+              ? "cursor-default opacity-50"
+              : "active:scale-95",
+            controlStatusClass({ invalid: Boolean(invalid), filled: false }),
           ].join(" ")}
         >
           {pickLabel}

@@ -12,6 +12,7 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
+  controlStatusClass,
 } from "@/lib/uiInvalid";
 
 type Props = {
@@ -180,11 +181,11 @@ function CountButton({
         type="button"
         onClick={onClick}
         className={[
-          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3 text-[15px] font-bold",
+          "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3 text-[15px]",
           "transition-all duration-150 active:scale-95",
           empty
-            ? "bg-gray-100 text-gray-700"
-            : "bg-[#3182F6] text-white shadow-sm",
+            ? controlStatusClass({ invalid, filled: false })
+            : controlStatusClass({ filled: true }),
         ].join(" ")}
       >
         {empty ? `${label} 선택` : valueLabel}

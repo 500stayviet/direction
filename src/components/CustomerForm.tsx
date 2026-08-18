@@ -56,7 +56,7 @@ import {
   type IntakeSampleSource,
 } from "@/lib/intakeSampleCollect";
 import { getAccessToken } from "@/lib/auth";
-import { filledSectionClass, memoFilledSectionClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 import { IntakeSourceBar, type IntakeMethod } from "@/components/IntakeSourceBar";
 import { IntakeResetModal } from "@/components/IntakeResetModal";
 import { IntakeMessageModal, IntakeTalkModal } from "@/components/intakeLazy";
@@ -633,7 +633,8 @@ export function CustomerForm({
         {photoRequestId > 0 ? (
           <IntakePhotoPicker
             requestId={photoRequestId}
-            onText={(text) => void applyIntakeText(text, "photo")}
+            onBusyChange={setAiBusy}
+            onText={(text) => applyIntakeText(text, "photo")}
             onError={setPhotoError}
           />
         ) : null}
@@ -646,8 +647,6 @@ export function CustomerForm({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예) 홍길동"
-              chipWhenFilled
-              chipTone="green"
             />
           </div>
           <div ref={setFieldRef("phone")}>
@@ -658,7 +657,6 @@ export function CustomerForm({
               invalid={isInvalid("phone")}
               value={phone}
               onChange={setPhone}
-              chipTone="green"
               placeholder="예) 010-1234-5678"
               labelHint="원터치 전화걸기에 사용됩니다."
               labelRight={
@@ -671,7 +669,6 @@ export function CustomerForm({
           <ModalChoice
             label="매물 유형"
             required
-            filled={filledFromIntake && Boolean(roomType)}
             invalid={isInvalid("roomType")}
             value={roomType || undefined}
             options={ROOM_TYPES}
@@ -700,7 +697,6 @@ export function CustomerForm({
               <ModalChoice
                 label="건물 종류"
                 required
-                filled={filledFromIntake && Boolean(buildingKind)}
                 invalid={isInvalid("buildingKind")}
                 value={buildingKind || undefined}
                 options={BUILDING_KINDS}
@@ -710,16 +706,7 @@ export function CustomerForm({
             </div>
           ) : null}
 
-          <div
-            ref={setFieldRef("roomCount")}
-            className={
-              filledFromIntake &&
-              needsRoomBathCounts(roomType) &&
-              (roomType === "투룸" || roomCount > 0)
-                ? filledSectionClass
-                : ""
-            }
-          >
+          <div ref={setFieldRef("roomCount")}>
             <RoomBathCountFields
               roomType={roomType}
               roomCount={roomCount}
@@ -733,14 +720,7 @@ export function CustomerForm({
             />
           </div>
 
-          <div
-            ref={setFieldRef("dealType")}
-            className={
-              filledFromIntake && Boolean(effectiveDealType)
-                ? filledSectionClass
-                : ""
-            }
-          >
+          <div ref={setFieldRef("dealType")}>
           <DealTypeToggle
             label="거래종류"
             required
@@ -760,6 +740,10 @@ export function CustomerForm({
             <div
               className={emptyRequiredClass({
                 invalid: isInvalid("deposit") || isInvalid("depositTo"),
+                filled:
+                  deposit > 0 &&
+                  !isInvalid("deposit") &&
+                  !isInvalid("depositTo"),
               })}
             >
               <div className="flex items-center justify-between gap-2">
@@ -809,6 +793,7 @@ export function CustomerForm({
                   <ManAmountInput
                     label=""
                     required
+                    invalid={isInvalid("deposit")}
                     value={deposit}
                     onChange={(next) => {
                       setDeposit(next);
@@ -823,6 +808,7 @@ export function CustomerForm({
                     <ManAmountInput
                       label="부터"
                       required
+                      invalid={isInvalid("deposit")}
                       value={deposit}
                       onChange={setDeposit}
                       placeholder="예) 1억 → 10000"
@@ -832,6 +818,7 @@ export function CustomerForm({
                     <ManAmountInput
                       label="까지"
                       required
+                      invalid={isInvalid("depositTo")}
                       value={depositTo}
                       onChange={setDepositTo}
                       placeholder="예) 1억 → 10000"
@@ -846,6 +833,10 @@ export function CustomerForm({
                 className={emptyRequiredClass({
                   invalid:
                     isInvalid("monthlyRent") || isInvalid("monthlyRentTo"),
+                  filled:
+                    monthlyRent > 0 &&
+                    !isInvalid("monthlyRent") &&
+                    !isInvalid("monthlyRentTo"),
                 })}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -887,8 +878,7 @@ export function CustomerForm({
                       type="number"
                       inputMode="numeric"
                       value={monthlyRent || ""}
-                      accent={monthlyRent > 0}
-                      chipWhenFilled
+                      invalid={isInvalid("monthlyRent")}
                       onChange={(e) => {
                         const next = Number(e.target.value) || 0;
                         setMonthlyRent(next);
@@ -907,8 +897,7 @@ export function CustomerForm({
                         type="number"
                         inputMode="numeric"
                         value={monthlyRent || ""}
-                        accent={monthlyRent > 0}
-                        chipWhenFilled
+                        invalid={isInvalid("monthlyRent")}
                         onChange={(e) =>
                           setMonthlyRent(Number(e.target.value) || 0)
                         }
@@ -923,8 +912,7 @@ export function CustomerForm({
                         type="number"
                         inputMode="numeric"
                         value={monthlyRentTo || ""}
-                        accent={monthlyRentTo > 0}
-                        chipWhenFilled
+                        invalid={isInvalid("monthlyRentTo")}
                         onChange={(e) =>
                           setMonthlyRentTo(Number(e.target.value) || 0)
                         }
@@ -963,14 +951,7 @@ export function CustomerForm({
             />
           ) : null}
 
-          <div
-            ref={setFieldRef("preferredLocation")}
-            className={
-              filledFromIntake && preferredDongs.length > 0
-                ? filledSectionClass
-                : ""
-            }
-          >
+          <div ref={setFieldRef("preferredLocation")}>
             <PreferredLocationPicker
               preferredGus={preferredGus}
               preferredDongs={preferredDongs}
@@ -991,6 +972,7 @@ export function CustomerForm({
               ref={setFieldRef("moveIn")}
               className={emptyRequiredClass({
                 invalid: isInvalid("moveIn"),
+                filled: Boolean(moveInFrom) && !isInvalid("moveIn"),
               })}
             >
               <div className="flex items-center justify-between gap-2">
@@ -1066,7 +1048,6 @@ export function CustomerForm({
                 <OptionToggle
                   label="대출"
                   required
-                  compact={filledFromIntake}
                   invalid={isInvalid("loan")}
                   columns={2}
                   value={loanNeeded || undefined}
@@ -1078,7 +1059,6 @@ export function CustomerForm({
                 <OptionToggle
                   label="전세보증보험 가입 가능 여부"
                   required
-                  compact={filledFromIntake}
                   invalid={isInvalid("insurance")}
                   columns={2}
                   value={insuranceNeeded || undefined}
@@ -1094,7 +1074,6 @@ export function CustomerForm({
                 <OptionToggle
                   label="주차"
                   required
-                  compact={filledFromIntake}
                   invalid={isInvalid("parking")}
                   columns={2}
                   value={parkingType || undefined}
@@ -1107,14 +1086,13 @@ export function CustomerForm({
           {roomType !== "토지" && (
             <OptionToggle
               label="엘리베이터"
-              compact={filledFromIntake}
               columns={2}
               value={elevatorNeeded || undefined}
               options={["유", "무"] as const}
               onChange={setElevatorNeeded}
             />
           )}
-          <div className={notes.trim() ? memoFilledSectionClass : ""}>
+          <div>
             <TextArea
               label="메모"
               value={notes}

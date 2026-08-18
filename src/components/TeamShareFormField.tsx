@@ -1,6 +1,7 @@
 "use client";
 
 import { useHasTeam } from "@/hooks/useHasTeam";
+import { controlStatusClass } from "@/lib/uiInvalid";
 
 export function TeamShareFormField({
   value,
@@ -9,9 +10,6 @@ export function TeamShareFormField({
 }: {
   value: boolean | undefined;
   onChange: (next: boolean) => void;
-  compact?: boolean;
-  required?: boolean;
-  invalid?: boolean;
   hasTeam?: boolean;
 }) {
   const detected = useHasTeam(hasTeamProp === undefined);
@@ -25,10 +23,8 @@ export function TeamShareFormField({
       type="button"
       onClick={() => onChange(!shared)}
       className={[
-        "flex min-h-[44px] w-full items-center justify-center rounded-xl text-[15px] font-bold transition-all duration-150 active:scale-95",
-        shared
-          ? "bg-emerald-500 text-white shadow-sm"
-          : "bg-gray-100 text-gray-700",
+        "flex min-h-[44px] w-full items-center justify-center rounded-xl text-[15px] transition-all duration-150 active:scale-95",
+        controlStatusClass({ filled: shared }),
       ].join(" ")}
     >
       {shared ? "팀 공유 중" : "팀 공유하기"}

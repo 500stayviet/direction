@@ -1,6 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/Input";
+import { filledInputClass } from "@/lib/uiInvalid";
 import {
   EMPTY_UNIT_COUNTS,
   normalizeUnitCounts,
@@ -49,7 +50,6 @@ export function BuildingLandFields({
             type="number"
             inputMode="decimal"
             value={property.landArea ?? ""}
-            chipWhenFilled
             onChange={(e) =>
               onChange({
                 landArea:
@@ -61,7 +61,6 @@ export function BuildingLandFields({
           <Input
             label="용도"
             value={property.landUse ?? ""}
-            chipWhenFilled
             onChange={(e) => onChange({ landUse: e.target.value })}
             placeholder="예) 제2종일반주거"
           />
@@ -98,7 +97,10 @@ export function BuildingLandFields({
                 })
               }
               placeholder="예) 1"
-              className="h-[48px] w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-7 pr-3.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20"
+              className={[
+                "h-[48px] w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-7 pr-3.5 text-[16px] text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
+                property.floorsBasement ? filledInputClass : "",
+              ].join(" ")}
             />
           </div>
         </label>
@@ -107,7 +109,6 @@ export function BuildingLandFields({
           type="number"
           inputMode="numeric"
           value={property.floorsAbove ?? ""}
-          chipWhenFilled
           onChange={(e) =>
             onChange({
               floorsAbove:
@@ -124,7 +125,6 @@ export function BuildingLandFields({
           type="number"
           inputMode="decimal"
           value={property.landArea ?? ""}
-          chipWhenFilled
           onChange={(e) =>
             onChange({
               landArea:
@@ -138,7 +138,6 @@ export function BuildingLandFields({
           type="number"
           inputMode="decimal"
           value={property.buildingArea ?? ""}
-          chipWhenFilled
           onChange={(e) =>
             onChange({
               buildingArea:
@@ -169,7 +168,10 @@ export function BuildingLandFields({
                     setUnitCount(key, parseCount(e.target.value))
                   }
                   placeholder="예) 2"
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-1 text-center text-[15px] font-bold tabular-nums text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20"
+                  className={[
+                    "h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-1 text-center text-[15px] font-bold tabular-nums text-gray-900 outline-none transition focus:border-[#3182F6] focus:bg-white focus:ring-1 focus:ring-[#3182F6]/20",
+                    unitCounts[key] ? filledInputClass : "",
+                  ].join(" ")}
                 />
               </label>
             )
@@ -182,7 +184,6 @@ export function BuildingLandFields({
         type="number"
         inputMode="numeric"
         value={property.parkingSpaces ?? ""}
-        chipWhenFilled
         onChange={(e) => {
           const n =
             e.target.value === "" ? undefined : Number(e.target.value) || 0;

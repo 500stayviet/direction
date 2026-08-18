@@ -18,6 +18,7 @@ import {
   emptyRequiredClass,
   invalidHintClass,
   invalidLabelClass,
+  controlStatusClass,
 } from "@/lib/uiInvalid";
 
 interface SeoulAddressFieldProps {
@@ -121,11 +122,10 @@ export function SeoulAddressField({
 
   return (
     <div
-      className={
-        addressInvalid
-          ? emptyRequiredClass({ invalid: true })
-          : "space-y-2"
-      }
+      className={emptyRequiredClass({
+        invalid: addressInvalid,
+        filled: hasSelection && !addressInvalid,
+      })}
     >
       <div className="flex items-baseline justify-between gap-2">
         <p
@@ -166,7 +166,11 @@ export function SeoulAddressField({
           type="button"
           data-testid="property-address-chip"
           onClick={openPicker}
-          className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-[#3182F6] px-4 text-[15px] font-bold text-white active:scale-95 transition-all duration-150"
+          className={[
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+            "active:scale-95 transition-all duration-150",
+            controlStatusClass({ filled: true }),
+          ].join(" ")}
         >
           {selectedLabel}
         </button>
@@ -175,16 +179,18 @@ export function SeoulAddressField({
           type="button"
           data-testid="property-address-select"
           onClick={openPicker}
-          className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-4 text-[15px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+          className={[
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+            "active:scale-95 transition-all duration-150",
+            controlStatusClass({ invalid: addressInvalid, filled: false }),
+          ].join(" ")}
         >
           매물주소선택
         </button>
       )}
 
       <div className="space-y-1">
-        <p className="text-[13px] font-semibold text-gray-600">
-          나머지 주소 (지번)
-        </p>
+        <p className="text-[13px] font-semibold text-gray-600">지번</p>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-1.5">
           <Input
             label="본번"
@@ -192,7 +198,6 @@ export function SeoulAddressField({
             invalid={false}
             inputMode="numeric"
             value={jibunMain}
-            chipWhenFilled
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunMain(next);
@@ -207,7 +212,6 @@ export function SeoulAddressField({
             label="부번"
             inputMode="numeric"
             value={jibunSub}
-            chipWhenFilled
             onChange={(e) => {
               const next = e.target.value.replace(/[^\d]/g, "");
               setJibunSub(next);

@@ -1,15 +1,11 @@
 "use client";
 
-import { InputHTMLAttributes, TextareaHTMLAttributes, forwardRef, useEffect, useRef, useState } from "react";
+import { InputHTMLAttributes, TextareaHTMLAttributes, forwardRef, useEffect, useRef } from "react";
 import {
-  invalidHintClass,
   invalidInputClass,
   invalidLabelClass,
   requiredStarClass,
-  emptyRequiredClass,
   filledInputClass,
-  filledBoxClass,
-  filledGreenBoxClass,
 } from "@/lib/uiInvalid";
 import { reselectHintClass } from "@/lib/choiceHint";
 
@@ -20,26 +16,18 @@ interface FieldProps {
   invalid?: boolean;
   /**
    * invalid 표시 방식.
-   * - wrap: 라벨+칸 전체 박스 + 아래「미입력」(기본, 고객·매물 폼)
-   * - input: 입력칸 테두리만 + 라벨 우측 문구(invalidLabelRight)
+   * - wrap: 라벨만 붉게 (고객·매물 폼, 테두리는 입력칸)
+   * - input: 입력칸 테두리 + 라벨 우측 문구(invalidLabelRight)
    */
   invalidHighlight?: "wrap" | "input";
   /** invalidHighlight="input"일 때 라벨 바로 옆. 기본「필수 입력」 */
   invalidLabelRight?: React.ReactNode;
-  /** 반영된 값 — 파란 칸, 흰 글자 */
-  accent?: boolean;
   /** 라벨 옆 단위. 예: -만원- */
   unitHint?: string;
-  /** 값 있으면 보증금처럼 파란 칸 · 흰 글자. 누르면 다시 수정 */
-  chipWhenFilled?: boolean;
-  /** 채워진 칸 색. 기본 파랑. 협력부동산은 green */
-  chipTone?: "blue" | "green";
   /** 라벨 우측 안내. 매물유형 변경 안내와 같은 하늘색 */
   labelHint?: string;
   /** 입력칸 안쪽 끝 단위. 예: 만원 */
   suffix?: string;
-  /** 채워진 칩에 보여줄 글. 없으면 value */
-  chipValue?: string;
 }
 
 export function Field({
@@ -58,7 +46,6 @@ export function Field({
   labelRight?: React.ReactNode;
 }) {
   const inputOnly = invalidHighlight === "input";
-  const showWrap = Boolean(invalid && label && !inputOnly);
   const resolvedInvalidRight =
     invalidLabelRight === undefined ? "필수 입력" : invalidLabelRight;
   const besideLabelInvalid =
@@ -69,12 +56,7 @@ export function Field({
   const farRight = besideLabelInvalid ? null : labelRight;
 
   return (
-    <label
-      className={[
-        "block space-y-1",
-        showWrap ? emptyRequiredClass({ invalid: true }) : "",
-      ].join(" ")}
-    >
+    <label className="block space-y-1">
       {label || besideLabelInvalid || farRight || unitHint || labelHint ? (
         <span className="flex items-baseline justify-between gap-2">
           {label || besideLabelInvalid ? (
@@ -83,7 +65,7 @@ export function Field({
                 <span
                   className={[
                     "shrink-0 text-[13px] font-semibold",
-                    showWrap ? invalidLabelClass : "text-gray-600",
+                    invalid ? invalidLabelClass : "text-gray-600",
                   ].join(" ")}
                 >
                   {label}
@@ -121,9 +103,6 @@ export function Field({
           ) : null}
         </span>
       ) : null}
-      {showWrap ? (
-        <span className={`block text-xs ${invalidHintClass}`}>미입력</span>
-      ) : null}
       {children}
       {hint && !invalid ? (
         <span className="block text-xs text-gray-400">{hint}</span>
@@ -137,9 +116,6 @@ const controlSurfaceClass =
 
 const inputClass = `${controlSurfaceClass} h-[36px] min-h-[36px] py-0 leading-[34px]`;
 
-const filledChipClass =
-  "flex min-h-[36px] w-full items-center justify-center rounded-xl px-3.5 text-[15px] font-bold";
-
 export function Input({
   label,
   hint,
@@ -149,30 +125,20 @@ export function Input({
   invalidLabelRight,
   labelRight,
   unitHint,
-  chipWhenFilled,
-  chipTone = "blue",
   labelHint,
   suffix,
-  chipValue,
   className = "",
-  accent,
-  onFocus,
-  onBlur,
   ...props
 }: FieldProps &
   InputHTMLAttributes<HTMLInputElement> & {
     labelRight?: React.ReactNode;
   }) {
-  const [focused, setFocused] = useState(false);
   const hasValue = String(props.value ?? "").trim().length > 0;
-  const showChip = Boolean(chipWhenFilled && hasValue && !focused && !invalid);
-  const fieldInvalidProps = {
-    invalid,
-    invalidHighlight,
-    invalidLabelRight,
-  };
-  const controlInvalidClass =
-    invalid && invalidHighlight === "input" ? invalidInputClass : "";
+  const statusClass = invalid
+    ? invalidInputClass
+    : hasValue
+      ? filledInputClass
+      : "";
 
   const inputEl = (
     <input
@@ -181,32 +147,17 @@ export function Input({
         suffix
           ? "pr-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           : "",
-        controlInvalidClass,
-        accent && !invalid ? filledInputClass : "",
+        statusClass,
         className,
       ].join(" ")}
       {...props}
-      autoFocus={focused}
-      onFocus={(e) => {
-        setFocused(true);
-        onFocus?.(e);
-      }}
-      onBlur={(e) => {
-        setFocused(false);
-        onBlur?.(e);
-      }}
     />
   );
 
   const control = suffix ? (
     <span className="relative block">
       {inputEl}
-      <span
-        className={[
-          "pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-medium",
-          accent && !invalid ? "text-white/80" : "text-gray-400",
-        ].join(" ")}
-      >
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-medium text-gray-400">
         {suffix}
       </span>
     </span>
@@ -214,44 +165,17 @@ export function Input({
     inputEl
   );
 
-  if (showChip) {
-    return (
-      <Field
-        label={label}
-        hint={hint}
-        required={required}
-        labelRight={labelRight}
-        unitHint={unitHint}
-        labelHint={labelHint}
-        {...fieldInvalidProps}
-      >
-        <button
-          type="button"
-          onClick={() => setFocused(true)}
-          className={[
-            filledChipClass,
-            chipTone === "green" ? filledGreenBoxClass : filledBoxClass,
-            "active:scale-95 transition-all duration-150",
-          ].join(" ")}
-        >
-          {chipValue ??
-            (suffix
-              ? `${String(props.value).trim()}${suffix}`
-              : String(props.value))}
-        </button>
-      </Field>
-    );
-  }
-
   return (
     <Field
       label={label}
       hint={hint}
       required={required}
+      invalid={invalid}
+      invalidHighlight={invalidHighlight}
+      invalidLabelRight={invalidLabelRight}
       labelRight={labelRight}
       unitHint={unitHint}
       labelHint={labelHint}
-      {...fieldInvalidProps}
     >
       {control}
     </Field>
@@ -269,6 +193,7 @@ export const TextArea = forwardRef<
   ref
 ) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasValue = String(value ?? "").trim().length > 0;
 
   const resize = () => {
     const el = innerRef.current;
@@ -301,7 +226,7 @@ export const TextArea = forwardRef<
         className={[
           controlSurfaceClass,
           "min-h-[96px] resize-none overflow-y-auto py-1.5 leading-snug",
-          invalid ? invalidInputClass : "",
+          invalid ? invalidInputClass : hasValue ? filledInputClass : "",
           className,
         ].join(" ")}
       />
@@ -316,14 +241,19 @@ export function Select({
   invalid,
   className = "",
   children,
+  value,
   ...props
 }: FieldProps & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const hasValue = String(value ?? "").trim().length > 0;
   return (
     <Field label={label} hint={hint} required={required} invalid={invalid}>
       <select
-        className={[inputClass, invalid ? invalidInputClass : "", className].join(
-          " "
-        )}
+        value={value}
+        className={[
+          inputClass,
+          invalid ? invalidInputClass : hasValue ? filledInputClass : "",
+          className,
+        ].join(" ")}
         {...props}
       >
         {children}

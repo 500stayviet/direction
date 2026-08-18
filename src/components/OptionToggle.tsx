@@ -5,7 +5,7 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
-  spaceClass,
+  emptyRequiredClass,
 } from "@/lib/uiInvalid";
 
 interface OptionToggleProps<T extends string> {
@@ -18,10 +18,6 @@ interface OptionToggleProps<T extends string> {
   onChange: (value: T | "") => void;
   columns?: 1 | 2 | 3 | 4;
   invalid?: boolean;
-  /** @deprecated 고르면 한 칸으로 접힘 */
-  compact?: boolean;
-  /** 반영되어 값이 있는 구역 */
-  filled?: boolean;
   disabled?: boolean;
 }
 
@@ -34,7 +30,6 @@ export function OptionToggle<T extends string>({
   onChange,
   columns = 3,
   invalid,
-  filled,
   disabled = false,
 }: OptionToggleProps<T>) {
   const selected = (value || "") as T | "";
@@ -56,9 +51,10 @@ export function OptionToggle<T extends string>({
 
   return (
     <div
-      className={["space-y-1 rounded-xl", spaceClass({ invalid, filled })].join(
-        " "
-      )}
+      className={emptyRequiredClass({
+        invalid,
+        filled: Boolean(selected) && !invalid,
+      })}
       data-testid={`option-${label.replace(/\s+/g, "")}`}
     >
       <div className="flex items-baseline justify-between gap-2">
