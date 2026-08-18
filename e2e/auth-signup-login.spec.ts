@@ -35,8 +35,9 @@ test("로그인 후 기능 소개 모달 · 닫기/다시 보지 않기", async 
   await page.locator("button").filter({ hasText: /^닫기$/ }).click();
   await expect(introHeading).toBeHidden({ timeout: 5_000 });
 
-  await page.goto("/customers");
-  await page.goto("/");
+  await page.getByRole("link", { name: "고객리스트" }).click();
+  await expect(page).toHaveURL(/\/customers/);
+  await page.getByRole("link", { name: "홈", exact: true }).click();
   await expect(introHeading).toBeVisible({ timeout: 10_000 });
 
   await page

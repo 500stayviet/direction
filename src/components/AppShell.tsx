@@ -7,6 +7,7 @@ import { BottomTabBar } from "@/components/BottomTabBar";
 import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
 import { TeamAlertsSync } from "@/components/TeamAlertsSync";
+import { FeatureIntroHost } from "@/components/FeatureIntroHost";
 import { useAppScreenWakeLock } from "@/hooks/useScreenWakeLock";
 
 const AUTH_PATHS = ["/login"];
@@ -64,6 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {!hideTab && <BottomTabBar />}
           {!hideTab && <AdConsentNotice />}
+          <FeatureIntroHost />
           </AccountSuspendedGate>
         </AuthGate>
       </div>

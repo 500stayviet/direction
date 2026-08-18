@@ -19,6 +19,16 @@ export function shouldShowFeatureIntro(userId: string): boolean {
   return !isFeatureIntroHidden(userId);
 }
 
+/** 홈에 있을 때만. 다시 보지 않기를 누른 계정은 제외 */
+export function shouldOpenFeatureIntroOnHome(
+  pathname: string,
+  userId: string | undefined
+): boolean {
+  if (pathname !== "/") return false;
+  if (!userId) return false;
+  return shouldShowFeatureIntro(userId);
+}
+
 export function hideFeatureIntroForever(userId: string): void {
   try {
     localStorage.setItem(foreverKey(userId), "1");
