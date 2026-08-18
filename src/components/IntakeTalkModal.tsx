@@ -51,6 +51,7 @@ import {
   talkPrimaryLabel,
   talkStepUsesFieldHold,
   looksLikeTalkJibunUtterance,
+  TALK_LOCATION_JIBUN_LISTENING,
 } from "@/lib/talkSession";
 
 type StepRecord = {
@@ -653,13 +654,15 @@ export function IntakeTalkModal({
       }
       processNewFinalResults(ev.results);
       const key = guide[activeIndexRef.current]?.key;
-      if (
-        spoken.live &&
-        (key === "location" || key === "restAddress")
-      ) {
-        processLiveAddressRef.current(
-          absorbCommitted(stepSpeechRef.current, spoken.live)
+      if (key === "location" || key === "restAddress") {
+        const composed = composeTalkText(
+          stepSpeechRef.current,
+          spoken.sessionFinal,
+          spoken.live
         );
+        if (composed.trim()) {
+          processLiveAddressRef.current(composed);
+        }
       }
       sessionFinalRef.current = spoken.sessionFinal;
       stepLiveRef.current = spoken.live;
@@ -942,6 +945,13 @@ export function IntakeTalkModal({
   );
   const composedLive = stepLive;
   const notesPreview = composeTalkText(notesDraft, "", composedLive);
+  const showJibunListening =
+    listening &&
+    kind === "property" &&
+    guide[activeIndex]?.key === "location" &&
+    Boolean(steps.location?.partial.dong) &&
+    !steps.location?.partial.jibun?.trim() &&
+    looksLikeTalkJibunUtterance(composedLive);
   const showRecordIcon = talkStarted && !listening && primaryKind === "stop";
   const primaryButton = (
     <button
@@ -1018,7 +1028,11 @@ export function IntakeTalkModal({
           {listening ? (
             <p className="flex min-h-[1.125rem] items-center justify-center gap-2 break-words text-[13px] font-medium text-gray-400">
               <ListeningMicMeter live={composedLive} />
-              <span>{composedLive || "듣는 중…"}</span>
+              <span>
+                {showJibunListening
+                  ? TALK_LOCATION_JIBUN_LISTENING
+                  : composedLive || "듣는 중…"}
+              </span>
             </p>
           ) : talkStarted && !allComplete && !error ? (
             <p className="min-h-[1.125rem] text-center text-[13px] font-medium leading-snug text-gray-400">

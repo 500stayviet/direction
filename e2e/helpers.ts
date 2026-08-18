@@ -225,9 +225,28 @@ export async function prepareIntakeE2ePage(page: Page) {
 
       start() {
         (
-          window as unknown as { __e2eEmitSpeech?: (text: string) => void }
+          window as unknown as {
+            __e2eEmitSpeech?: (text: string) => void;
+            __e2eEmitSpeechResults?: (
+              rows: Array<{ isFinal: boolean; transcript: string }>
+            ) => void;
+          }
         ).__e2eEmitSpeech = (text: string) => {
           const results = [{ isFinal: true, 0: { transcript: text } }];
+          this.onresult?.({ results });
+          this.onend?.();
+        };
+        (
+          window as unknown as {
+            __e2eEmitSpeechResults?: (
+              rows: Array<{ isFinal: boolean; transcript: string }>
+            ) => void;
+          }
+        ).__e2eEmitSpeechResults = (rows) => {
+          const results = rows.map((row) => ({
+            isFinal: row.isFinal,
+            0: { transcript: row.transcript },
+          }));
           this.onresult?.({ results });
           this.onend?.();
         };
@@ -258,6 +277,26 @@ export async function emitTalkStep(page: Page, text: string) {
     }
     emit(spoken);
   }, text);
+}
+
+/** STT가 동만 final·전체는 interim처럼 쪼개 보낼 때 */
+export async function emitTalkSttResults(
+  page: Page,
+  rows: Array<{ isFinal: boolean; transcript: string }>
+) {
+  await page.evaluate((spokenRows) => {
+    const emit = (
+      window as unknown as {
+        __e2eEmitSpeechResults?: (
+          r: Array<{ isFinal: boolean; transcript: string }>
+        ) => void;
+      }
+    ).__e2eEmitSpeechResults;
+    if (!emit) {
+      throw new Error("mock speech not ready — click 대화 시작 first");
+    }
+    emit(spokenRows);
+  }, rows);
 }
 
 export async function skipTalkSteps(page: Page, count: number) {

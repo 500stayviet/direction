@@ -229,6 +229,39 @@ function hasStandaloneDealType(
   return new RegExp(`(?:^|\\s)${dealType}(?:\\s|$)`).test(text);
 }
 
+/** STT가 구·동을 이미 말한 뒤 전체 주소를 다시 보낼 때 prior 접두를 붙이지 않는다 */
+function textAlreadyHasPriorStepContext(
+  text: string,
+  step: IntakeStepKey,
+  kind: IntakeKind,
+  prior?: Partial<IntakeParseResult>
+): boolean {
+  if (!prior) return false;
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return false;
+  if (step === "location") {
+    if (prior.dong && normalized.includes(prior.dong)) return true;
+    if (kind === "property" && prior.gu && normalized.includes(prior.gu)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** 본번·부번이 나눠 들어올 때 더 완전한 지번을 유지한다 */
+function mergeTalkLocationJibun(
+  next?: string,
+  keep?: string
+): string | undefined {
+  if (!next) return keep;
+  if (!keep) return next;
+  const nextSub = next.split("-")[1]?.trim();
+  const keepSub = keep.split("-")[1]?.trim();
+  if (nextSub && !keepSub) return next;
+  if (keepSub && !nextSub) return keep;
+  return next;
+}
+
 /** 짧은 답변에만 이전 단계 맥락을 붙인다. 전체 문장을 다시 말하면 중복 매매 등으로 파싱이 깨진다. */
 function stepParseInput(
   text: string,
@@ -240,6 +273,7 @@ function stepParseInput(
   const prefix = priorContext(prior, kind);
   if (!prefix) return text;
   if (prior?.dealType && hasStandaloneDealType(text, prior.dealType)) return text;
+  if (textAlreadyHasPriorStepContext(text, step, kind, prior)) return text;
   return [prefix, text].filter(Boolean).join(" ");
 }
 
@@ -1144,7 +1178,7 @@ export function parseIntakeStep(
     const partial: Partial<IntakeParseResult> = {
       gu: mergedPlaces?.gu ?? parsed.gu ?? prior?.gu,
       dong: mergedPlaces?.dong ?? parsed.dong ?? prior?.dong,
-      jibun: parsed.jibun ?? prior?.jibun,
+      jibun: mergeTalkLocationJibun(parsed.jibun, prior?.jibun),
       places: mergedPlaces?.places ?? parsed.places,
       options: [],
     };

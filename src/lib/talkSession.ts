@@ -64,6 +64,9 @@ export const TALK_SILENCE_STOP_MS = 1_500;
 export const TALK_RECOGNITION_FAIL =
   "대화를 인식하지 못했습니다. 다시 눌러 주세요.";
 
+/** 구·동은 잡혔고 지번 숫자가 들리는 중 */
+export const TALK_LOCATION_JIBUN_LISTENING = "지번 인식 중…";
+
 /** 권한·장치 문제로 마이크를 쓸 수 없을 때 */
 export const TALK_MIC_FAIL = "마이크를 연결할 수 없습니다.";
 

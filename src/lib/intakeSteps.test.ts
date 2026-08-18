@@ -724,6 +724,46 @@ describe("intakeSteps", () => {
     assert.equal(addedJibun.commits[0]?.partial.dong, "성내동");
     assert.equal(addedJibun.commits[0]?.partial.jibun, "111-1");
 
+    const priorDong = dongOnly.commits[0]!.partial;
+    const fullAfterDong = parseIntakeStep(
+      "강동구 성내동 111-1",
+      "location",
+      "property",
+      priorDong
+    );
+    assert.equal(fullAfterDong.ok, true);
+    assert.equal(fullAfterDong.partial.jibun, "111-1");
+
+    const fullChainAfterDong = parseIntakeStepChain(
+      "강동구 성내동 111-1",
+      locationIndex,
+      "property",
+      { location: priorDong }
+    );
+    assert.equal(fullChainAfterDong.commits[0]?.partial.jibun, "111-1");
+    assert.equal(fullChainAfterDong.nextIndex, locationIndex + 1);
+
+    const spacedAfterDong = parseIntakeStepChain(
+      "강동구 성내동 111 1",
+      locationIndex,
+      "property",
+      { location: priorDong }
+    );
+    assert.equal(spacedAfterDong.commits[0]?.partial.jibun, "111-1");
+
+    const dongOnlyAfterJibun = parseIntakeStep(
+      "강동구 성내동",
+      "location",
+      "property",
+      {
+        gu: "강동구",
+        dong: "성내동",
+        jibun: "111-1",
+        options: [],
+      }
+    );
+    assert.equal(dongOnlyAfterJibun.partial.jibun, "111-1");
+
     const spokenE = parseIntakeStepChain(
       "111에1",
       locationIndex,

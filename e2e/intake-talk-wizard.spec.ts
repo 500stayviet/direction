@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   allowDeviceConsentIfShown,
   emitTalkStep,
+  emitTalkSttResults,
   getAppAuth,
   loginViaUi,
   prepareIntakeE2ePage,
@@ -123,6 +124,48 @@ test("매물 대화 입력: 한글 지번을 넣고 본번·부번이면 나머�
     await page.getByTestId("intake-guide-row-location").click();
     await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
     await emitTalkStep(page, "성내동 일일일 다시 일");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "111-1"
+    );
+    await expect(
+      page.getByTestId("intake-guide-row-restAddress").getByRole("button")
+    ).toHaveAttribute("aria-current", "step");
+  } finally {
+    await purgeE2eUser(userId);
+  }
+});
+
+test("매물 대화 입력: 동만 확정된 뒤 전체 주소가 들어와도 지번을 잡는다", async ({
+  page,
+}) => {
+  requireE2eBackendEnv(test);
+  const user = uniqueUser("talkaddr");
+  let userId: string | undefined;
+  try {
+    await prepareIntakeE2ePage(page);
+    await signupViaUi(page, user);
+    await loginViaUi(page, user);
+
+    const auth = await getAppAuth(page);
+    userId = auth?.user?.id;
+
+    await page.goto("/properties/new");
+    await page.getByRole("button", { name: "마이크로 입력하기" }).click();
+    await allowDeviceConsentIfShown(page);
+    await page.getByRole("button", { name: "대화 시작" }).click();
+    await expect(page.getByTestId("intake-talk-primary")).toHaveText("정지");
+
+    await emitTalkSttResults(page, [
+      { isFinal: true, transcript: "강동구 성내동" },
+      { isFinal: false, transcript: "강동구 성내동 111-1" },
+    ]);
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "111-1"
+    );
+
+    await emitTalkStep(page, "삭제");
+    await emitTalkStep(page, "강동구 성내동");
+    await emitTalkStep(page, "111-1");
     await expect(page.getByTestId("intake-guide-row-location")).toContainText(
       "111-1"
     );
