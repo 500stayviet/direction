@@ -2,7 +2,7 @@ import {
   formatDepositRent,
   formatKoreanAmPmTime,
   formatMoney,
-  formatMoveInRange,
+  getPropertyMoveInLabel,
   isInsuranceJoined,
 } from "@/lib/format";
 import { skipsResidentialExtras, needsRoomBathCounts } from "@/lib/constants";
@@ -116,11 +116,7 @@ export function buildPropertyShareText(
           : "";
       lines.push(`관리비: ${maint}${includes}`);
 
-      const moveIn = formatMoveInRange(
-        property.moveInFrom,
-        property.moveInTo,
-        property.moveInDate
-      );
+      const moveIn = getPropertyMoveInLabel(property);
       lines.push(`입주 가능: ${moveIn || "-"}`);
     } else if (property.roomType === "건물") {
       lines.push(`관리비: ${formatMoney(property.maintenanceFee)}`);

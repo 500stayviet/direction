@@ -51,6 +51,8 @@ export default function PropertyDetailPage() {
   const { items: customers, setItems: setCustomers } = useCustomersList();
   const { items: listed } = usePropertiesList();
   const [editing, setEditing] = useState(false);
+  const [restoreMode, setRestoreMode] = useState(false);
+  const restoreStarted = useRef(false);
   const [dupOpen, setDupOpen] = useState(false);
   const [validationActive, setValidationActive] = useState(false);
   const [focusField, setFocusField] = useState<PropertyFieldKey | undefined>();
@@ -88,6 +90,32 @@ export default function PropertyDetailPage() {
       cancelled = true;
     };
   }, [params.id, router]);
+
+  useEffect(() => {
+    if (!property || restoreStarted.current) return;
+    if (searchParams.get("restore") !== "1") return;
+    restoreStarted.current = true;
+    const myId = peekCurrentUser()?.id ?? agent?.id;
+    if (
+      isForeignTeamItem(property.createdBy, myId) &&
+      !confirmForeignTeamEdit("매물")
+    ) {
+      router.replace(`/properties/${property.id}`);
+      return;
+    }
+    if (!property.moveInVacant) {
+      setProperty({
+        ...property,
+        moveInFrom: "",
+        moveInTo: "",
+        moveInSingle: false,
+        moveInDate: "",
+      });
+    }
+    setRestoreMode(true);
+    setValidationActive(true);
+    setEditing(true);
+  }, [property, searchParams, router, agent?.id]);
 
   const matches = useMemo(
     () =>
@@ -128,12 +156,17 @@ export default function PropertyDetailPage() {
     const next: ListedProperty = {
       ...property,
       address: property.address.trim(),
+      contractCompleted: restoreMode ? false : property.contractCompleted,
       updatedAt: new Date().toISOString(),
     };
     await upsertListedProperty(next);
     setProperty(next);
+    setRestoreMode(false);
     setEditing(false);
     setSavedOpen(true);
+    if (searchParams.get("restore") === "1") {
+      router.replace(`/properties/${property.id}`);
+    }
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -178,14 +211,21 @@ export default function PropertyDetailPage() {
 
   const startEditing = () => {
     if (isForeign && !confirmForeignTeamEdit("매물")) return;
+    setRestoreMode(false);
     setEditing(true);
   };
 
   const cancelEditing = () => {
+    restoreStarted.current = true;
+    setRestoreMode(false);
     void getListedPropertyById(params.id).then((found) => {
       if (found) setProperty(found);
     });
     setEditing(false);
+    setValidationActive(false);
+    if (searchParams.get("restore") === "1") {
+      router.replace(`/properties/${params.id}`);
+    }
   };
 
   const toggleTeamShare = async () => {

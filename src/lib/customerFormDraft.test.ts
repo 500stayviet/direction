@@ -125,4 +125,51 @@ describe("customerFormDraft", () => {
     assert.equal(withTeam.workspaceShared, true);
     assert.equal(noTeam.workspaceShared, false);
   });
+
+  it("복구 초안은 입주일을 비우고, 매매 비입주는 그대로 둔다", () => {
+    const dated = createCustomerFormDraft(
+      {
+        id: "c1",
+        name: "홍",
+        phone: "010-1111-2222",
+        dealType: "월세",
+        deposit: 1000,
+        budget: "",
+        moveInFrom: "2026-08-18",
+        moveInTo: "2026-08-18",
+        moveInSingle: true,
+        moveInDate: "2026년 8월 18일",
+        parkingType: "무",
+        petAllowed: "무",
+        createdAt: "",
+        updatedAt: "",
+      },
+      { restore: true }
+    );
+    assert.equal(dated.moveInFrom, "");
+    assert.equal(dated.moveInTo, "");
+    assert.equal(dated.moveInSingle, false);
+
+    const sale = createCustomerFormDraft(
+      {
+        id: "c2",
+        name: "김",
+        phone: "010-1111-2222",
+        dealType: "매매",
+        nonOccupancy: true,
+        deposit: 50000,
+        budget: "",
+        moveInFrom: "",
+        moveInTo: "",
+        moveInDate: "비입주",
+        parkingType: "무",
+        petAllowed: "무",
+        createdAt: "",
+        updatedAt: "",
+      },
+      { restore: true }
+    );
+    assert.equal(sale.nonOccupancy, true);
+    assert.equal(sale.moveInFrom, "");
+  });
 });

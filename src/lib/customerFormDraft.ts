@@ -96,7 +96,10 @@ export function isCustomerLandOrBuilding(roomType: RoomType | ""): boolean {
   return roomType === "토지" || roomType === "건물";
 }
 
-export function createCustomerFormDraft(initial?: Customer): CustomerFormDraft {
+export function createCustomerFormDraft(
+  initial?: Customer,
+  opts?: { restore?: boolean }
+): CustomerFormDraft {
   const roomType =
     normalizeRoomType(initial?.roomType) ?? initial?.roomType ?? "";
   const defaults = needsRoomBathCounts(roomType)
@@ -105,6 +108,9 @@ export function createCustomerFormDraft(initial?: Customer): CustomerFormDraft {
   const loc = initialPreferred(initial);
   const deposit = initial?.deposit ?? 0;
   const monthlyRent = initial?.monthlyRent ?? 0;
+  const saleNonOccupancy =
+    (initial?.dealType ?? "") === "매매" && Boolean(initial?.nonOccupancy);
+  const clearMoveIn = Boolean(opts?.restore) && !saleNonOccupancy;
 
   return {
     name: initial?.name ?? "",
@@ -135,9 +141,11 @@ export function createCustomerFormDraft(initial?: Customer): CustomerFormDraft {
       initial?.monthlyRentTo
     ),
     nonOccupancy: initial?.nonOccupancy ?? false,
-    moveInFrom: initial?.moveInFrom ?? initial?.moveInDate ?? "",
-    moveInTo: initial?.moveInTo ?? "",
-    moveInSingle: initialMoveInSingle(initial),
+    moveInFrom: clearMoveIn
+      ? ""
+      : initial?.moveInFrom ?? initial?.moveInDate ?? "",
+    moveInTo: clearMoveIn ? "" : initial?.moveInTo ?? "",
+    moveInSingle: clearMoveIn ? false : initialMoveInSingle(initial),
     loanNeeded: initial ? resolveCustomerLoanNeeded(initial) : "",
     parkingType: initialYesNo(initial?.parkingType, Boolean(initial)),
     insuranceNeeded: initialYesNo(initial?.insuranceNeeded, Boolean(initial)),

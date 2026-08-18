@@ -84,7 +84,6 @@ export default function CustomerListPage() {
   const pendingCustomer = pending
     ? customers.find((c) => c.id === pending.id)
     : undefined;
-  const pendingDone = Boolean(pendingCustomer?.contractCompleted);
 
   const closePending = () => {
     if (busy) return;
@@ -149,7 +148,7 @@ export default function CustomerListPage() {
       } else {
         const next = await upsertCustomer({
           ...pendingCustomer,
-          contractCompleted: !pendingDone,
+          contractCompleted: true,
           updatedAt: new Date().toISOString(),
         });
         setCustomers(next);
@@ -225,11 +224,16 @@ export default function CustomerListPage() {
                   renderCard={(card) => (
                     <SwipeRevealRow
                       hintNudge={nudgeFirstCard && index === 0}
-                      leftActionLabel="계약완료"
+                      leftActionLabel={done ? "복구/수정" : "계약완료"}
                       onTap={() => openCustomer(c)}
-                      onSwipeLeft={() =>
-                        setPending({ id: c.id, type: "complete" })
-                      }
+                      onSwipeLeft={() => {
+                        if (done) {
+                          markShareSeen("customers", c.id);
+                          router.push(`/customers/${c.id}?restore=1`);
+                          return;
+                        }
+                        setPending({ id: c.id, type: "complete" });
+                      }}
                       onSwipeRight={() =>
                         setPending({ id: c.id, type: "delete" })
                       }
@@ -259,20 +263,16 @@ export default function CustomerListPage() {
         title={
           pending?.type === "delete"
             ? "고객을 삭제할까요?"
-            : pendingDone
-              ? "계약완료를 취소할까요?"
-              : "고객을 계약완료할까요?"
+            : "고객을 계약완료할까요?"
         }
         description={
           pendingCustomer
             ? pending?.type === "delete"
               ? `${pendingCustomer.name} 고객과 관련 방문 일정이 함께 삭제됩니다.`
-              : pendingDone
-                ? `${pendingCustomer.name} 고객을 진행 중 상태로 되돌립니다.`
-                : `${pendingCustomer.name} 고객을 계약완료 처리합니다. 목록 하단으로 이동합니다.`
+              : `${pendingCustomer.name} 고객을 계약완료 처리합니다. 목록 하단으로 이동합니다.`
             : pending?.type === "delete"
               ? "관련 방문 일정도 함께 삭제됩니다."
-              : "해당 고객의 계약완료 상태를 변경합니다."
+              : "해당 고객을 계약완료 처리합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

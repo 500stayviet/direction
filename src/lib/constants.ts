@@ -350,6 +350,7 @@ export function createEmptyProperty(): Property {
     moveInFrom: "",
     moveInTo: "",
     moveInSingle: false,
+    moveInVacant: false,
     moveInDate: "",
     notes: "",
     partnerAgencyShared: false,

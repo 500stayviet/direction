@@ -8,7 +8,7 @@ import {
   EndedBadge,
 } from "@/components/ListEdgeChips";
 import { displayRoomType } from "@/lib/constants";
-import { formatDepositRent, formatMoveInRange } from "@/lib/format";
+import { formatDepositRent, getPropertyMoveInLabel } from "@/lib/format";
 import { formatSavedDate } from "@/lib/date";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
@@ -84,7 +84,7 @@ export function PropertyListCard({
   const dealLabel = p.dealType?.trim() || "";
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
   const moneyText = moneyLabel && moneyLabel !== "-" ? moneyLabel : "";
-  const moveInText = formatMoveInRange(p.moveInFrom, p.moveInTo, p.moveInDate);
+  const moveInText = getPropertyMoveInLabel(p);
   const deadlineLabel = done ? null : getPropertyDeadlineLabel(p);
   const agencyText =
     showAgencyBadge && p.hasPartnerAgency

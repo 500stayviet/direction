@@ -276,6 +276,7 @@ export function PropertyEditor({
       patch.moveInFrom = "";
       patch.moveInTo = "";
       patch.moveInSingle = false;
+      patch.moveInVacant = false;
       patch.moveInDate = "";
       patch.maintenanceIncludes = [];
     }
@@ -291,6 +292,11 @@ export function PropertyEditor({
       patch.roomNo = "";
       patch.parkingType = "무";
       patch.parkingFee = undefined;
+      patch.moveInFrom = "";
+      patch.moveInTo = "";
+      patch.moveInSingle = false;
+      patch.moveInVacant = false;
+      patch.moveInDate = "";
     } else if (
       roomType !== "건물" &&
       (isBuildingType(property.roomType) || isLandType(property.roomType))
@@ -778,7 +784,9 @@ export function PropertyEditor({
           <div
             className={emptyRequiredClass({
               invalid: isInvalid("moveIn"),
-              filled: Boolean(moveInFrom) && !isInvalid("moveIn"),
+              filled:
+                (Boolean(moveInFrom) || Boolean(property.moveInVacant)) &&
+                !isInvalid("moveIn"),
             })}
           >
             <div className="flex items-center justify-between gap-2">
@@ -791,29 +799,67 @@ export function PropertyEditor({
                 임대희망일
                 <span className={requiredStarClass}>*</span>
               </p>
-              <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                <CircleCheck
-                  checked={moveInSingle}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    const to = on ? moveInFrom : "";
-                    update({
-                      moveInSingle: on,
-                      moveInFrom,
-                      moveInTo: to,
-                      moveInDate: formatMoveInRange(moveInFrom, to || undefined),
-                    });
-                  }}
-                />
-                <span className="text-[14px] font-semibold text-gray-700">
-                  단일
-                </span>
-              </label>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <CircleCheck
+                    checked={Boolean(property.moveInVacant)}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      if (on) {
+                        update({
+                          moveInVacant: true,
+                          moveInFrom: "",
+                          moveInTo: "",
+                          moveInSingle: false,
+                          moveInDate: "공실",
+                        });
+                        return;
+                      }
+                      update({
+                        moveInVacant: false,
+                        moveInFrom: "",
+                        moveInTo: "",
+                        moveInSingle: false,
+                        moveInDate: "",
+                      });
+                    }}
+                  />
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    공실
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <CircleCheck
+                    checked={moveInSingle && !property.moveInVacant}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      const to = on ? moveInFrom : "";
+                      update({
+                        moveInVacant: false,
+                        moveInSingle: on,
+                        moveInFrom,
+                        moveInTo: to,
+                        moveInDate: formatMoveInRange(
+                          moveInFrom,
+                          to || undefined
+                        ),
+                      });
+                    }}
+                  />
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    단일
+                  </span>
+                </label>
+              </div>
             </div>
             {isInvalid("moveIn") ? (
               <p className={`text-xs ${invalidHintClass}`}>미입력</p>
             ) : null}
-            {moveInSingle ? (
+            {property.moveInVacant ? (
+              <p className="rounded-xl bg-gray-50 px-3 py-3 text-[15px] font-bold text-gray-800">
+                공실
+              </p>
+            ) : moveInSingle ? (
               <DatePicker
                 label=""
                 required
@@ -821,6 +867,7 @@ export function PropertyEditor({
                 value={moveInFrom}
                 onChange={(next) =>
                   update({
+                    moveInVacant: false,
                     moveInSingle: true,
                     moveInFrom: next,
                     moveInTo: next,
@@ -840,6 +887,7 @@ export function PropertyEditor({
                   const single = Boolean(from && (!to || from === to));
                   const end = single ? from : to;
                   update({
+                    moveInVacant: false,
                     moveInSingle: single,
                     moveInFrom: from,
                     moveInTo: end,

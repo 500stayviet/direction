@@ -65,7 +65,7 @@ const STRUCTURAL_FIELD_RES = [
   /\d{2,4}\s*호/g,
   /관(?:리비)?\s*\d+(?:\.\d+)?/g,
   /주(?:차)?\s*\d+\s*대/g,
-  /(?:실입주|바로입주|즉시입주)(?:\s*가능)?/g,
+  /(?:실입주|바로입주|즉시입주)(?:\s*가능)?|공실\s*중|비어\s*있음|비어있음|빈방|공가|공실/g,
   /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
 ];
 
@@ -277,7 +277,7 @@ export function intakeAiLeftover(
 }
 
 const DATE_HINT =
-  /\d{2,4}\s*[.\-/]\s*\d{1,2}|\d+\s*월\s*\d+\s*일|즉시|바로\s*입주|실입주/;
+  /\d{2,4}\s*[.\-/]\s*\d{1,2}|\d+\s*월\s*\d+\s*일|즉시|바로\s*입주|실입주|공실|빈방|공가|비어/;
 const JIBUN_HINT = /\d{1,5}\s*-\s*\d{1,5}/;
 const ROOM_HINT = /\d+\s*(?:동|층|호)/;
 const FIELD_RESIDUE_HINT =

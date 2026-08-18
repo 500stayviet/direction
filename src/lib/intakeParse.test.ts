@@ -24,6 +24,23 @@ describe("parseIntakeText", () => {
     assert.doesNotMatch(parsed.notes, /있고|있음|바로입주/);
   });
 
+  it("공실·빈방·공가·비어 있음을 즉시입주로 읽는다", () => {
+    for (const phrase of ["공실", "빈방", "공가", "비어 있음", "공실 중"]) {
+      const parsed = parseIntakeText(`원룸 월세 암사동 ${phrase}`, "property");
+      assert.equal(parsed.moveInImmediate, true, phrase);
+    }
+  });
+
+  it("매물에 바로입주·공실을 적용하면 오늘 날짜가 아니라 공실이다", () => {
+    const parsed = parseIntakeText("원룸 월세 암사동 바로입주", "property");
+    assert.equal(parsed.moveInImmediate, true);
+    const next = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(next.moveInVacant, true);
+    assert.equal(next.moveInFrom, "");
+    assert.equal(next.moveInTo, "");
+    assert.equal(next.moveInDate, "공실");
+  });
+
   it("의도 키워드·라벨 메모만 남기고 파싱 잔여물은 메모에 넣지 않는다", () => {
     const note = parseIntakeText(
       "원룸 전세 2억 암사동 남향 저층 싫어요 희망층 3층 이상",

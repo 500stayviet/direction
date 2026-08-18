@@ -50,4 +50,14 @@ describe("intakeGuideHitsFromText", () => {
     assert.match(hits.restAddress ?? "", /101동 102호/);
     assert.match(hits.tenantPhone ?? "", /010-1111-1111/);
   });
+
+  it("매물 공실 표현은 가이드에 공실로 넣는다", () => {
+    const hits = intakeGuideHitsFromText("원룸 월세 암사동 공실", "property");
+    assert.equal(hits.dates, "공실");
+    const customerHits = intakeGuideHitsFromText(
+      "원룸 월세 암사동 바로입주",
+      "customer"
+    );
+    assert.equal(customerHits.dates, "바로입주");
+  });
 });

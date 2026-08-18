@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -43,6 +43,8 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { items: properties, setItems: setProperties } = usePropertiesList();
   const [editing, setEditing] = useState(false);
+  const [restoreMode, setRestoreMode] = useState(false);
+  const restoreStarted = useRef(false);
   const [deleting, setDeleting] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [savedOpen, setSavedOpen] = useState(false);
@@ -71,6 +73,22 @@ export default function CustomerDetailPage() {
       cancelled = true;
     };
   }, [params.id, router]);
+
+  useEffect(() => {
+    if (!customer || restoreStarted.current) return;
+    if (searchParams.get("restore") !== "1") return;
+    restoreStarted.current = true;
+    const myId = peekCurrentUser()?.id;
+    if (
+      isForeignTeamItem(customer.createdBy, myId) &&
+      !confirmForeignTeamEdit("고객")
+    ) {
+      router.replace(`/customers/${customer.id}`);
+      return;
+    }
+    setRestoreMode(true);
+    setEditing(true);
+  }, [customer, searchParams, router]);
 
   const matches = useMemo(
     () =>
@@ -127,7 +145,16 @@ export default function CustomerDetailPage() {
 
   const startEditing = () => {
     if (isForeign && !confirmForeignTeamEdit("고객")) return;
+    setRestoreMode(false);
     setEditing(true);
+  };
+
+  const stopEditing = () => {
+    setRestoreMode(false);
+    setEditing(false);
+    if (searchParams.get("restore") === "1") {
+      router.replace(`/customers/${customer.id}`);
+    }
   };
 
   const toggleTeamShare = async () => {
@@ -172,7 +199,7 @@ export default function CustomerDetailPage() {
             <DetailHeaderButton
               tone={editing ? "cancel" : "edit"}
               onClick={() => {
-                if (editing) setEditing(false);
+                if (editing) stopEditing();
                 else startEditing();
               }}
             >
@@ -194,13 +221,18 @@ export default function CustomerDetailPage() {
       {editing ? (
         <CustomerForm
           initial={customer}
+          restoreMode={restoreMode}
           submitLabel="변경사항 저장"
           onSubmit={(next) => {
             void upsertCustomer(next)
               .then(() => {
                 setCustomer(next);
+                setRestoreMode(false);
                 setEditing(false);
                 setSavedOpen(true);
+                if (searchParams.get("restore") === "1") {
+                  router.replace(`/customers/${customer.id}`);
+                }
               })
               .catch((err: unknown) => {
                 alert(

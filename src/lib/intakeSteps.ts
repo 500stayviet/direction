@@ -14,6 +14,7 @@ import {
   type IntakeParseResult,
   type IntakeYesNoField,
   formatTalkFlagValue,
+  MOVE_IN_IMMEDIATE_RE,
 } from "@/lib/intakeParse";
 import {
   findAllDongsInText,
@@ -582,8 +583,10 @@ function moneyConsumedEnd(text: string): number {
   return end;
 }
 
-const TALK_DATE_SPAN =
-  /(?:바로\s*입주|즉시\s*입주|\d+\s*월\s*\d+\s*일(?:\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\s*[-~～〜∼]?|\d+\s*월\s*\d+|\d{2}\s*[./／.,．]\s*\d{1,2}\s*[./／.,．]\s*\d{1,2}|\d{1,2}\s*[./／.,．-]\s*\d{1,2})/g;
+const TALK_DATE_SPAN = new RegExp(
+  `(?:${MOVE_IN_IMMEDIATE_RE.source}|\\d+\\s*월\\s*\\d+\\s*일(?:\\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\\s*[-~～〜∼]?|\\d+\\s*월\\s*\\d+|\\d{2}\\s*[./／.,．]\\s*\\d{1,2}\\s*[./／.,．]\\s*\\d{1,2}|\\d{1,2}\\s*[./／.,．-]\\s*\\d{1,2})`,
+  "g"
+);
 
 function datesConsumedEnd(text: string): number {
   let end = 0;
@@ -594,10 +597,10 @@ function datesConsumedEnd(text: string): number {
 }
 
 const NEXT_AFTER_LOCATION =
-  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+)|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지|\d\s*룸)/;
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|공실|빈방|공가|비어|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+)|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지|\d\s*룸)/;
 
 const NEXT_AFTER_MONEY =
-  /^(?:바로\s*입주|즉시\s*입주|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+  /^(?:바로\s*입주|즉시\s*입주|공실|빈방|공가|비어|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
 
 const NEXT_AFTER_DATES =
   /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;

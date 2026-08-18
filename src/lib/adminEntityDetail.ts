@@ -2,12 +2,12 @@ import { needsRoomBathCounts, normalizeUnitCounts } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
-  formatMoveInRange,
   formatVisitDateTime,
   getCustomerBudgetLabel,
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
+  getPropertyMoveInLabel,
   isInsuranceJoined,
   yesNoLabel,
 } from "@/lib/format";
@@ -165,7 +165,7 @@ function buildPropertyFields(
     push(
       fields,
       "입주 가능",
-      formatMoveInRange(p.moveInFrom, p.moveInTo, p.moveInDate)
+      getPropertyMoveInLabel(p)
     );
   }
 

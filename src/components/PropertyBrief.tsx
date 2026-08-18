@@ -11,7 +11,7 @@ import {
 import {
   formatDepositRent,
   formatMoney,
-  formatMoveInRange,
+  getPropertyMoveInLabel,
   formatPhone,
   isInsuranceJoined,
 } from "@/lib/format";
@@ -95,11 +95,7 @@ export function PropertyBrief({
     property.roomType !== "건물" &&
     !skipsResidentialExtras(property.roomType);
   const loanOn = property.loanAvailable === "유";
-  const moveInLabel = formatMoveInRange(
-    property.moveInFrom,
-    property.moveInTo,
-    property.moveInDate
-  );
+  const moveInLabel = getPropertyMoveInLabel(property);
   const partnerLabel =
     property.partnerAgency?.name?.trim() || "협력부동산";
 

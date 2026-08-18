@@ -1721,6 +1721,12 @@ const NAME_STOP = new Set([
   "위치",
   "유무",
   "즉시",
+  "바로입주",
+  "즉시입주",
+  "실입주",
+  "공실",
+  "빈방",
+  "공가",
   "매물유형",
   "남향",
   "북향",
@@ -2538,16 +2544,16 @@ function asFutureMoveIn(
   return clampMoveInToToday(from, to || from, today);
 }
 
+/** 즉시입주·공실 계열. 긴 표현을 앞에 둔다 */
+export const MOVE_IN_IMMEDIATE_RE =
+  /즉시\s*입주|바로\s*입주|즉시입주|바로입주|실\s*입주(?:\s*가능)?|실입주(?:\s*가능)?|공실\s*중|비어\s*있음|비어있음|빈방|공가|공실|즉시/;
+
 function parseMoveInDates(
   text: string,
   today: Date
 ): { from?: string; to?: string; immediate?: boolean } {
   const corrected = applyDateCorrectionSlice(text);
-  if (
-    /즉시\s*입주|바로\s*입주|즉시입주|바로입주|실\s*입주(?:\s*가능)?|실입주(?:\s*가능)?|즉시/.test(
-      corrected
-    )
-  ) {
+  if (MOVE_IN_IMMEDIATE_RE.test(corrected)) {
     return { immediate: true };
   }
   const linked = parseLinkedDateRange(corrected, today);
@@ -2946,12 +2952,21 @@ export function applyIntakeToProperty(
   }
   if (parsed.roomNo) next.roomNo = parsed.roomNo;
   if (parsed.buildingName) next.buildingName = parsed.buildingName;
-  const move = intakeMoveInPeriod(parsed);
-  if (move) {
-    next.moveInFrom = move.from;
-    next.moveInTo = move.to;
-    next.moveInSingle = move.single;
-    next.moveInDate = formatMoveInRange(move.from, move.to);
+  if (parsed.moveInImmediate && !parsed.moveInFrom) {
+    next.moveInVacant = true;
+    next.moveInFrom = "";
+    next.moveInTo = "";
+    next.moveInSingle = false;
+    next.moveInDate = "공실";
+  } else {
+    const move = intakeMoveInPeriod(parsed);
+    if (move) {
+      next.moveInVacant = false;
+      next.moveInFrom = move.from;
+      next.moveInTo = move.to;
+      next.moveInSingle = move.single;
+      next.moveInDate = formatMoveInRange(move.from, move.to);
+    }
   }
   if (parsed.loan) next.loanAvailable = parsed.loan as ParkingType;
   if (parsed.insurance) next.insuranceType = parsed.insurance;

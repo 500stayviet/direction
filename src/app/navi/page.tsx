@@ -108,7 +108,6 @@ export default function NaviEntryPage() {
   const pendingSchedule = pending
     ? schedules.find((s) => s.id === pending.id)
     : undefined;
-  const pendingDone = Boolean(pendingSchedule?.visitCompleted);
   const pendingName = pendingSchedule
     ? scheduleTitle(pendingSchedule, customers)
     : "";
@@ -175,7 +174,7 @@ export default function NaviEntryPage() {
       } else {
         const next = await upsertSchedule({
           ...pendingSchedule,
-          visitCompleted: !pendingDone,
+          visitCompleted: true,
           updatedAt: new Date().toISOString(),
         });
         setSchedules(next);
@@ -257,13 +256,19 @@ export default function NaviEntryPage() {
                   renderCard={(card) => (
                     <SwipeRevealRow
                       hintNudge={nudgeFirstCard && index === 0}
+                      leftActionLabel={done ? "복구/수정" : "종료"}
                       onTap={() => {
                         markShareSeen("navi", s.id);
                         router.push(href);
                       }}
-                      onSwipeLeft={() =>
-                        setPending({ id: s.id, type: "complete" })
-                      }
+                      onSwipeLeft={() => {
+                        if (done) {
+                          markShareSeen("navi", s.id);
+                          router.push(`${href}${href.includes("?") ? "&" : "?"}restore=1`);
+                          return;
+                        }
+                        setPending({ id: s.id, type: "complete" });
+                      }}
                       onSwipeRight={() =>
                         setPending({ id: s.id, type: "delete" })
                       }
@@ -292,20 +297,16 @@ export default function NaviEntryPage() {
         title={
           pending?.type === "delete"
             ? "일정을 삭제할까요?"
-            : pendingDone
-              ? "종료를 취소할까요?"
-              : "일정을 종료할까요?"
+            : "일정을 종료할까요?"
         }
         description={
           pendingSchedule
             ? pending?.type === "delete"
               ? `${pendingName} 방문 일정을 삭제합니다.`
-              : pendingDone
-                ? `${pendingName} 일정을 진행 중 상태로 되돌립니다.`
-                : `${pendingName} 일정을 종료 처리합니다. 목록 하단으로 이동합니다.`
+              : `${pendingName} 일정을 종료 처리합니다. 목록 하단으로 이동합니다.`
             : pending?.type === "delete"
               ? "이 방문 일정을 삭제합니다."
-              : "일정의 종료 상태를 변경합니다."
+              : "이 일정을 종료 처리합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

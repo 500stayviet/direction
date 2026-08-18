@@ -328,6 +328,20 @@ export function formatMoveInRange(
   return fallback || "-";
 }
 
+export function getPropertyMoveInLabel(property: {
+  moveInVacant?: boolean;
+  moveInFrom?: string;
+  moveInTo?: string;
+  moveInDate?: string;
+}): string {
+  if (property.moveInVacant) return "공실";
+  return formatMoveInRange(
+    property.moveInFrom,
+    property.moveInTo,
+    property.moveInDate
+  );
+}
+
 /** 대화 가이드용 — 8/25~9/15 */
 export function formatGuideMoveInRange(from?: string, to?: string): string {
   const compact = (iso: string) => {

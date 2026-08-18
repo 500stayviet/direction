@@ -82,7 +82,6 @@ export default function PropertyListPage() {
   const pendingProperty = pending
     ? properties.find((p) => p.id === pending.id)
     : undefined;
-  const pendingDone = Boolean(pendingProperty?.contractCompleted);
 
   const closePending = () => {
     if (busy) return;
@@ -149,7 +148,7 @@ export default function PropertyListPage() {
       } else {
         const next = await upsertListedProperty({
           ...pendingProperty,
-          contractCompleted: !pendingDone,
+          contractCompleted: true,
           updatedAt: new Date().toISOString(),
         });
         setProperties(next);
@@ -219,11 +218,16 @@ export default function PropertyListPage() {
                   renderCard={(card) => (
                     <SwipeRevealRow
                       hintNudge={nudgeFirstCard && index === 0}
-                      leftActionLabel="계약완료"
+                      leftActionLabel={done ? "복구/수정" : "계약완료"}
                       onTap={() => openProperty(p)}
-                      onSwipeLeft={() =>
-                        setPending({ id: p.id, type: "complete" })
-                      }
+                      onSwipeLeft={() => {
+                        if (done) {
+                          markShareSeen("properties", p.id);
+                          router.push(`/properties/${p.id}?restore=1`);
+                          return;
+                        }
+                        setPending({ id: p.id, type: "complete" });
+                      }}
                       onSwipeRight={() =>
                         setPending({ id: p.id, type: "delete" })
                       }
@@ -253,20 +257,16 @@ export default function PropertyListPage() {
         title={
           pending?.type === "delete"
             ? "매물을 삭제할까요?"
-            : pendingDone
-              ? "계약완료를 취소할까요?"
-              : "매물을 계약완료할까요?"
+            : "매물을 계약완료할까요?"
         }
         description={
           pendingProperty
             ? pending?.type === "delete"
               ? `${pendingProperty.address.trim() || "이 매물"}을(를) 삭제합니다.`
-              : pendingDone
-                ? `${pendingProperty.address.trim() || "이 매물"}을(를) 진행 중 상태로 되돌립니다.`
-                : `${pendingProperty.address.trim() || "이 매물"}을(를) 계약완료 처리합니다. 목록 하단으로 이동합니다.`
+              : `${pendingProperty.address.trim() || "이 매물"}을(를) 계약완료 처리합니다. 목록 하단으로 이동합니다.`
             : pending?.type === "delete"
               ? "선택한 매물을 삭제합니다."
-              : "해당 매물의 계약완료 상태를 변경합니다."
+              : "해당 매물을 계약완료 처리합니다."
         }
       >
         <div className="grid grid-cols-2 gap-2">

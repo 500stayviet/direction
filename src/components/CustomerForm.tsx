@@ -43,21 +43,25 @@ const NO_MISSING: CustomerFieldKey[] = [];
 
 interface CustomerFormProps {
   initial?: Customer;
+  restoreMode?: boolean;
   onSubmit: (customer: Customer) => void;
   submitLabel?: string;
 }
 
 export function CustomerForm({
   initial,
+  restoreMode = false,
   onSubmit,
   submitLabel = "저장하기",
 }: CustomerFormProps) {
   const { items: customers } = useCustomersList();
   const hasTeam = useHasTeam();
-  const [draft, setDraft] = useState(() => createCustomerFormDraft(initial));
+  const [draft, setDraft] = useState(() =>
+    createCustomerFormDraft(initial, { restore: restoreMode })
+  );
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const [validationActive, setValidationActive] = useState(false);
+  const [validationActive, setValidationActive] = useState(restoreMode);
   const [focusField, setFocusField] = useState<CustomerFieldKey | null>(null);
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState("");
@@ -352,7 +356,7 @@ export function CustomerForm({
         snap.preferredDongs.length > 0 ? snap.preferredDongs : undefined,
       workspaceShared: snap.workspaceShared === true,
       siteShared: initial?.siteShared === true,
-      contractCompleted: initial?.contractCompleted,
+      contractCompleted: restoreMode ? false : initial?.contractCompleted,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     });

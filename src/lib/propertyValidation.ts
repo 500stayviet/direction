@@ -119,18 +119,20 @@ export function getMissingRequiredFields(
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
   if (!isLand && !isBuilding) {
-    const from =
-      property.moveInFrom?.trim() ||
-      (property.moveInDate && /^\d{4}-\d{2}-\d{2}$/.test(property.moveInDate)
-        ? property.moveInDate
-        : "");
-    const to = property.moveInTo?.trim() || "";
-    const single =
-      property.moveInSingle ?? Boolean(from && to && from === to);
-    if (!from || (!single && !to)) {
-      missing.push("moveIn");
-    } else if (!single && to < from) {
-      missing.push("moveIn");
+    if (!property.moveInVacant) {
+      const from =
+        property.moveInFrom?.trim() ||
+        (property.moveInDate && /^\d{4}-\d{2}-\d{2}$/.test(property.moveInDate)
+          ? property.moveInDate
+          : "");
+      const to = property.moveInTo?.trim() || "";
+      const single =
+        property.moveInSingle ?? Boolean(from && to && from === to);
+      if (!from || (!single && !to)) {
+        missing.push("moveIn");
+      } else if (!single && to < from) {
+        missing.push("moveIn");
+      }
     }
   }
   if (!isLand && !isBuilding) {

@@ -1,4 +1,4 @@
-import { parseISODate, todayISO } from "@/lib/date";
+import { isVisitLapsed, todayISO } from "@/lib/date";
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}/;
@@ -34,7 +34,7 @@ export function isMoveInDueReached(
 ): boolean {
   const due = getMoveInDueDay(from, to, single);
   if (!due) return false;
-  return today >= due;
+  return today > due;
 }
 
 export function shouldAutoCompleteCustomer(c: Customer): boolean {
@@ -45,6 +45,7 @@ export function shouldAutoCompleteCustomer(c: Customer): boolean {
 
 export function shouldAutoCompleteProperty(p: ListedProperty): boolean {
   if (p.contractCompleted) return false;
+  if (p.moveInVacant) return false;
   return isMoveInDueReached(p.moveInFrom, p.moveInTo, p.moveInSingle);
 }
 
@@ -66,29 +67,9 @@ export function applyPropertyDueComplete(p: ListedProperty): ListedProperty {
   return shouldAutoCompleteProperty(p) ? stampComplete(p) : p;
 }
 
-const TIME_RE = /^(\d{1,2}):(\d{2})/;
-
-/** 방문 약속 시각 + 1일. 시간 없으면 그날 00:00 기준. */
-export function getVisitExpireAt(
-  visitDate?: string,
-  visitTime?: string
-): Date | null {
-  const day = parseISODate((visitDate ?? "").trim().slice(0, 10));
-  if (!day) return null;
-  const match = TIME_RE.exec((visitTime ?? "").trim());
-  const hours = match ? Math.min(23, Number(match[1])) : 0;
-  const minutes = match ? Math.min(59, Number(match[2])) : 0;
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-  day.setHours(hours, minutes, 0, 0);
-  day.setDate(day.getDate() + 1);
-  return day;
-}
-
 export function shouldAutoCompleteSchedule(s: Schedule): boolean {
   if (s.visitCompleted) return false;
-  const expireAt = getVisitExpireAt(s.visitDate, s.visitTime);
-  if (!expireAt) return false;
-  return Date.now() >= expireAt.getTime();
+  return isVisitLapsed(s.visitDate, s.visitTime);
 }
 
 export function applyScheduleDueComplete(s: Schedule): Schedule {

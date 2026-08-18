@@ -211,6 +211,8 @@ export interface Property extends SharedMeta {
   moveInTo?: string;
   /** true면 입주 가능일이 하루(단일) */
   moveInSingle?: boolean;
+  /** 공실. true면 날짜 없이 공실로 두고 자동 계약완료하지 않음 */
+  moveInVacant?: boolean;
   /** 표시용 요약 */
   moveInDate: string;
   insuranceType?: string;

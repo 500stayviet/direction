@@ -122,7 +122,7 @@ export function intakeGuideHits(
   if (money) hits.money = money;
 
   if (parsed.moveInImmediate) {
-    hits.dates = "바로입주";
+    hits.dates = kind === "property" ? "공실" : "바로입주";
   } else {
     const move = intakeMoveInPeriod(parsed);
     if (move) hits.dates = formatGuideMoveInRange(move.from, move.to);

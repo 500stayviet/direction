@@ -116,6 +116,8 @@ function ScheduleDetailInner() {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [editing, setEditing] = useState(false);
+  const [restoreMode, setRestoreMode] = useState(false);
+  const restoreStarted = useRef(false);
   const [customerMode, setCustomerMode] = useState<CustomerMode>("selected");
   const [guestName, setGuestName] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
@@ -237,6 +239,26 @@ function ScheduleDetailInner() {
       if (singleNavDoneTimer.current) clearTimeout(singleNavDoneTimer.current);
     };
   }, [params.id, router]);
+
+  useEffect(() => {
+    if (!schedule || restoreStarted.current) return;
+    if (searchParams.get("restore") !== "1") return;
+    restoreStarted.current = true;
+    const myId = peekCurrentUser()?.id ?? agent?.id;
+    if (
+      isForeignTeamItem(schedule.createdBy, myId) &&
+      !confirmForeignTeamEdit("네비")
+    ) {
+      router.replace(
+        fromNavi ? `/schedules/${schedule.id}?from=navi` : `/schedules/${schedule.id}`
+      );
+      return;
+    }
+    setVisitDate("");
+    setVisitTime("");
+    setRestoreMode(true);
+    setEditing(true);
+  }, [schedule, searchParams, router, agent?.id, fromNavi]);
 
   const customerTypeLabel = customer
     ? displayRoomType(customer.roomType, customer.buildingKind)
@@ -427,6 +449,7 @@ function ScheduleDetailInner() {
       guestName: customerMode === "guest" ? guestName.trim() : undefined,
       visitDate,
       visitTime,
+      visitCompleted: restoreMode ? false : schedule.visitCompleted,
       properties,
       routeSummary: buildRouteSummary(properties),
       updatedAt: new Date().toISOString(),
@@ -436,8 +459,14 @@ function ScheduleDetailInner() {
       await touchRecentCustomer(customer.id);
     }
     setSchedule(next);
+    setRestoreMode(false);
     setEditing(false);
     setSavedOpen(true);
+    if (searchParams.get("restore") === "1") {
+      router.replace(
+        fromNavi ? `/schedules/${schedule.id}?from=navi` : `/schedules/${schedule.id}`
+      );
+    }
   };
 
   const handleViewSwap = async (fromIndex: number, toIndex: number) => {
@@ -464,11 +493,18 @@ function ScheduleDetailInner() {
 
   const cancelEditing = () => {
     if (!schedule) return;
+    restoreStarted.current = true;
+    setRestoreMode(false);
     setVisitDate(schedule.visitDate ?? "");
     setVisitTime(schedule.visitTime ?? "");
     setProperties(schedule.properties);
     restoreCustomerFromSchedule(schedule);
     setEditing(false);
+    if (searchParams.get("restore") === "1") {
+      router.replace(
+        fromNavi ? `/schedules/${schedule.id}?from=navi` : `/schedules/${schedule.id}`
+      );
+    }
   };
 
   return (
@@ -714,7 +750,10 @@ function ScheduleDetailInner() {
                 <DatePicker
                   label="방문 일자"
                   required
-                  invalid={validationFocus?.target === "visitDate"}
+                  invalid={
+                    validationFocus?.target === "visitDate" ||
+                    (restoreMode && !visitDate)
+                  }
                   value={visitDate}
                   onChange={setVisitDate}
                 />
@@ -723,7 +762,10 @@ function ScheduleDetailInner() {
                 <TimePicker
                   label="만나는 시간"
                   required
-                  invalid={validationFocus?.target === "visitTime"}
+                  invalid={
+                    validationFocus?.target === "visitTime" ||
+                    (restoreMode && !visitTime)
+                  }
                   value={visitTime}
                   onChange={(time) => {
                     setVisitTime(time);
