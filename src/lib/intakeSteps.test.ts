@@ -42,6 +42,36 @@ describe("intakeSteps", () => {
     assert.equal(built.notes, "");
   });
 
+  it("유형·거래 칸은 주소·금액·날짜를 칸 값에 넣지 않는다", () => {
+    const room = parseIntakeStep(
+      "원룸 성내동 1억 8월 1일",
+      "roomType",
+      "property"
+    );
+    assert.equal(room.ok, true);
+    assert.equal(room.partial.roomType, "원룸");
+    assert.equal(room.partial.dong, undefined);
+    assert.equal(room.partial.deposit, undefined);
+    assert.equal(room.partial.moveInFrom, undefined);
+
+    const deal = parseIntakeStep(
+      "전세 성내동 2억 9월 1일",
+      "dealType",
+      "property"
+    );
+    assert.equal(deal.ok, true);
+    assert.equal(deal.partial.dealType, "전세");
+    assert.equal(deal.partial.dong, undefined);
+    assert.equal(deal.partial.deposit, undefined);
+    assert.equal(deal.partial.moveInFrom, undefined);
+
+    const loc = parseIntakeStep("성내동 원룸 1억", "location", "property");
+    assert.equal(loc.ok, true);
+    assert.equal(loc.partial.dong, "성내동");
+    assert.equal(loc.partial.roomType, undefined);
+    assert.equal(loc.partial.deposit, undefined);
+  });
+
   it("단계 취소 키워드를 분리한다", () => {
     assert.equal(splitIntakeStepCancel("삭제").cancel, true);
     assert.equal(splitIntakeStepCancel("아니 투룸").remainder, "투룸");

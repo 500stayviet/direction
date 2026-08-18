@@ -4,6 +4,8 @@ import {
   normalizeIntakeInput,
   parseAllYesNoFields,
   parseIntakeText,
+  parseTalkDealTypeField,
+  parseTalkRoomTypeField,
   consumeYesNoField,
   dateRangeLinkTail,
   hasDateRangeWord,
@@ -1082,7 +1084,37 @@ export function parseIntakeStep(
     };
   }
 
-  // prior 동을 붙인 뒤 칸 모드로만 정규화. 주소지에는 날짜 확장이 없다.
+  if (step === "roomType") {
+    const room = parseTalkRoomTypeField(text);
+    if (!room.roomType) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      roomType: room.roomType,
+      roomCount: room.roomCount,
+      bathroomCount: room.bathroomCount,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(partial, kind, step),
+    };
+  }
+
+  if (step === "dealType") {
+    const dealType = parseTalkDealTypeField(text);
+    if (!dealType) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      dealType,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: dealType,
+    };
+  }
+
+  // 주소·금액·날짜·전화: 칸 모드로 정규화한 뒤 해당 칸 필드만 커밋
   const scoped = stepParseInput(raw, step, kind, prior);
   const parsed = parseIntakeText(scoped, kind, today, mode);
 
@@ -1094,34 +1126,6 @@ export function parseIntakeStep(
       ok: true,
       partial,
       display: stepDisplay(partial, kind, step),
-    };
-  }
-
-  if (step === "roomType") {
-    if (!parsed.roomType) return { ok: false, partial: {}, display: "" };
-    const partial: Partial<IntakeParseResult> = {
-      roomType: parsed.roomType,
-      roomCount: parsed.roomCount,
-      bathroomCount: parsed.bathroomCount,
-      options: [],
-    };
-    return {
-      ok: true,
-      partial,
-      display: stepDisplay(partial, kind, step),
-    };
-  }
-
-  if (step === "dealType") {
-    if (!parsed.dealType) return { ok: false, partial: {}, display: "" };
-    const partial: Partial<IntakeParseResult> = {
-      dealType: parsed.dealType,
-      options: [],
-    };
-    return {
-      ok: true,
-      partial,
-      display: parsed.dealType,
     };
   }
 

@@ -218,6 +218,15 @@ function parseRoomSpec(text: string): {
   return { roomType, bathroomCount };
 }
 
+/** 마이크 매물유형 칸: 유형·방·화만 본다. 주소·금액·날짜는 읽지 않음 */
+export function parseTalkRoomTypeField(text: string): {
+  roomType?: RoomType;
+  roomCount?: number;
+  bathroomCount?: number;
+} {
+  return parseRoomSpec(text);
+}
+
 const PET_WORDS =
   /(?:강아지|고양이|반려(?:견|묘)?|애완(?:동물)?|펫)(?:\s*키우[요움]?)?|개\s*키우[요움]?/;
 const LOAN_KIND = /디딤돌|버팀목|중금|보금자리|특례|전세대출|주택담보|주담대/;
@@ -298,6 +307,11 @@ function dealTypeHits(text: string): { key: DealType; index: number }[] {
     lastEnd = hit.index + hit.key.length;
   }
   return unique;
+}
+
+/** 마이크 거래종류 칸: 매매·전세·월세만. 주소·금액·날짜는 읽지 않음 */
+export function parseTalkDealTypeField(text: string): DealType | undefined {
+  return dealTypeHits(text)[0]?.key;
 }
 
 /** 매매 1억·매매가 2억처럼 거래종류 토큰 뒤에 바로 가격이 오는지 */
