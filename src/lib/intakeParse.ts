@@ -1432,6 +1432,20 @@ function parseJibunFromAfter(after: string): string | undefined {
   if (spokenPair?.[1] && !spokenPair[1].startsWith("0")) {
     return `${spokenPair[1]}-${spokenPair[2]}`;
   }
+  // STT가 111을 1 1 1로 끊으면 1-1이 되지 않게 한 자리만 이어 붙인다
+  const gluedSingles = after.match(/^\s*((?:\d\s+){1,4}\d)(?!\d)/);
+  if (gluedSingles?.[1]) {
+    const glued = gluedSingles[1].replace(/\s+/g, "");
+    if (
+      glued.length >= 3 &&
+      glued.length <= 5 &&
+      !glued.startsWith("0") &&
+      gluedSingles[1].trim().split(/\s+/).every((part) => part.length === 1) &&
+      gluedSingles[1].trim().split(/\s+/).length >= 3
+    ) {
+      return glued;
+    }
+  }
   // 음성 띄어쓰기: 111 5 → 111-5 (호·동·금액 단위는 제외)
   const spacedPair = after.match(
     /^\s*(\d{1,5})\s+(\d{1,4})(?!\d)(?!\s*(?:호|동|층|억|만|원(?!룸)|년|월|일|룸))/
@@ -1783,6 +1797,36 @@ function sinoKoreanPlaceValue(raw: string): string | undefined {
   return String(n);
 }
 
+const NATIVE_JIBUN_WORDS: [string, string][] = [
+  ["열아홉", "십구"],
+  ["열여덟", "십팔"],
+  ["열일곱", "십칠"],
+  ["열여섯", "십육"],
+  ["열다섯", "십오"],
+  ["열넷", "십사"],
+  ["열셋", "십삼"],
+  ["열둘", "십이"],
+  ["열하나", "십일"],
+  ["아홉", "구"],
+  ["여덟", "팔"],
+  ["일곱", "칠"],
+  ["여섯", "육"],
+  ["다섯", "오"],
+  ["넷", "사"],
+  ["셋", "삼"],
+  ["둘", "이"],
+  ["하나", "일"],
+  ["열", "십"],
+];
+
+function applyNativeJibunWords(text: string): string {
+  let out = text;
+  for (const [from, to] of NATIVE_JIBUN_WORDS) {
+    out = out.split(from).join(to);
+  }
+  return out;
+}
+
 /** 대화에서 「151다시5」「일오일 다시 오」「백오십일」처럼 나온 지번 숫자 */
 function expandSpokenJibunDigits(text: string): string {
   const digit = "(?:공|영|일|이|삼|사|오|육|륙|칠|팔|구)";
@@ -1817,6 +1861,19 @@ function expandSpokenJibunDigits(text: string): string {
   let out = text.replace(new RegExp(spacedDigits, "g"), (run) =>
     run.replace(/\s+/g, "")
   );
+  if (/[가-힣]{1,8}동/.test(out)) {
+    out = out.replace(
+      /^(.*[가-힣]{1,8}동)(\s*)(.*)$/,
+      (_, head: string, sp: string, rest: string) =>
+        `${head}${sp}${applyNativeJibunWords(rest)}`
+    );
+  } else if (
+    /^(?:하나|둘|셋|넷|다섯|여섯|일곱|여덟|아홉|열|일|이|삼|사|오|육|칠|팔|구|공|영|십|백|천|다시|에|의|에서|\s|-)+$/.test(
+      out
+    )
+  ) {
+    out = applyNativeJibunWords(out);
+  }
   // 백 오십 일 → 백오십일. 강동구 백오십일·성내동 천호동 사이 공백은 유지
   const glueNumeral =
     /([공영일이삼사오육륙칠팔십백천])\s+(?=[공영일이삼사오육륙칠팔구십백천])/;
@@ -1854,6 +1911,31 @@ function expandSpokenJibunDigits(text: string): string {
       (chunk, main: string, sub: string) => {
         const b = toDigits(sub);
         return b ? `${main}-${b}` : chunk;
+      }
+    )
+    // STT가 일일일을 1월 11일·일월 십일로 바꾸는 경우. 십일의 일은 날짜 접미가 아님.
+    .replace(
+      /(동)\s*1\s*월\s*(\d{1,2})(?:\s*일)?(?!\d)/g,
+      (_, dong: string, b: string) => `${dong} 1${b}`
+    )
+    .replace(
+      new RegExp(
+        `(동)\\s*1\\s*월\\s*((?:${digit}|십)+)(?![가-힣])`,
+        "g"
+      ),
+      (chunk, dong: string, b: string) => {
+        const right = toDigits(b) || spokenRun(b);
+        return right ? `${dong} 1${right}` : chunk;
+      }
+    )
+    .replace(
+      new RegExp(
+        `(동)\\s*(일)\\s*월\\s*((?:${digit}|십)+)(?![가-힣])`,
+        "g"
+      ),
+      (chunk, dong: string, _a: string, b: string) => {
+        const right = toDigits(b) || spokenRun(b);
+        return right ? `${dong} 1${right}` : chunk;
       }
     )
     // 동 뒤 백오십일·일오일. 천호동처럼 뒤에 한글이 이어지면 그대로 둔다.
@@ -2007,14 +2089,24 @@ function hangulDayNumber(raw: string): number | null {
 /**
  * 음성인식 「삼월 일일 사월 십오일」「삼 월 일 일」→ 「3월 1일 4월 15일」
  */
+function offsetAfterAddressDong(text: string, offset: number): boolean {
+  const before = text.slice(0, offset);
+  // 구·동을 \uE000n\uE001로 가린 뒤에도 동 뒤 일월·십일을 날짜로 바꾸지 않는다
+  return /(?:[가-힣]동|\uE000\d+\uE001)\s*$/.test(before);
+}
+
 function expandSpokenDates(text: string): string {
   let s = text.replace(
     /십이월|십일월|시월|십월|일월|이월|삼월|사월|오월|유월|육월|칠월|팔월|구월/g,
-    (w) => SPOKEN_MONTH_WORD[w] ?? w
+    (w, offset: number) =>
+      offsetAfterAddressDong(text, offset) ? w : (SPOKEN_MONTH_WORD[w] ?? w)
   );
   s = s.replace(
     /(?<![가-힣\d])(십이|십일|시|십|일|이|삼|사|오|육|륙|칠|팔|구)\s*월/g,
-    (_, w: string) => `${SPOKEN_MONTH_DIGIT[w] ?? w}월`
+    (full: string, w: string, offset: number) =>
+      offsetAfterAddressDong(s, offset)
+        ? full
+        : `${SPOKEN_MONTH_DIGIT[w] ?? w}월`
   );
   s = s.replace(
     /(\d{1,2}\s*월\s*)((?:이\s*십|삼\s*십|십)?\s*(?:한|일|이|삼|사|오|육|륙|칠|팔|구)?)(\s*일)(?!\d)/g,
@@ -2516,13 +2608,59 @@ function parseMoveInDates(
   return {};
 }
 
-export type IntakeNormalizeMode = "text" | "spoken";
+/**
+ * text: 메시지·사진 기본
+ * spoken: 메시지·사진에서 음성 읽기까지 전부 (전화·날짜·금액·지번)
+ * talk-*: 마이크 칸별. 주소지에 날짜 확장을 넣지 않는다.
+ */
+export type IntakeNormalizeMode =
+  | "text"
+  | "spoken"
+  | "talk-location"
+  | "talk-money"
+  | "talk-dates"
+  | "talk-phone"
+  | "talk-plain";
 
-/** 구·동은 가리고, 이억·구천·삼월 등 음성 읽기만 숫자로 바꾼다. 메시지·사진·마이크 공통. */
+function spokenExpandFlags(mode: IntakeNormalizeMode): {
+  phones: boolean;
+  dates: boolean;
+  money: boolean;
+  jibun: boolean;
+} {
+  // text·spoken: 메시지·사진. 한글 금액·날짜·전화는 그대로 펼친다.
+  if (mode === "text" || mode === "spoken") {
+    return {
+      phones: true,
+      dates: true,
+      money: true,
+      jibun: mode === "spoken",
+    };
+  }
+  if (mode === "talk-location") {
+    return { phones: false, dates: false, money: false, jibun: true };
+  }
+  if (mode === "talk-money") {
+    return { phones: false, dates: false, money: true, jibun: false };
+  }
+  if (mode === "talk-dates") {
+    return { phones: false, dates: true, money: false, jibun: false };
+  }
+  if (mode === "talk-phone") {
+    return { phones: true, dates: false, money: false, jibun: false };
+  }
+  return { phones: false, dates: false, money: false, jibun: false };
+}
+
+/**
+ * text·spoken: 메시지·사진 (전화·날짜·금액. spoken만 지번 한글)
+ * talk-*: 마이크 칸별. 주소지에는 날짜·금액을 넣지 않는다.
+ */
 export function normalizeIntakeInput(
   raw: string,
   mode: IntakeNormalizeMode = "text"
 ): string {
+  const flags = spokenExpandFlags(mode);
   const base = normalizeFieldShorthands(
     raw
       .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
@@ -2533,16 +2671,18 @@ export function normalizeIntakeInput(
       .replace(/\s+/g, " ")
       .trim()
   );
-  const withJibunSpace =
-    mode === "spoken" ? separateDongFromJibunDigits(base) : base;
+  const withJibunSpace = flags.jibun
+    ? separateDongFromJibunDigits(base)
+    : base;
   const protectedPlaces = protectSeoulGuDongPlaces(withJibunSpace);
-  const expanded = expandSpokenMoney(
-    expandSpokenDates(expandSpokenPhones(protectedPlaces.text))
-  );
+  let expanded = protectedPlaces.text;
+  if (flags.phones) expanded = expandSpokenPhones(expanded);
+  if (flags.dates) expanded = expandSpokenDates(expanded);
+  if (flags.money) expanded = expandSpokenMoney(expanded);
   const restored = protectedPlaces.restore(expanded);
   // 구·동을 되살린 뒤에 지번 한글 숫자를 바꾼다. 가린 채 바꾸면 백오십일이 그대로 남음.
   return collapseThousandCommas(
-    mode === "spoken" ? expandSpokenJibunDigits(restored) : restored
+    flags.jibun ? expandSpokenJibunDigits(restored) : restored
   );
 }
 

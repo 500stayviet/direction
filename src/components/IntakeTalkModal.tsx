@@ -192,6 +192,7 @@ export function IntakeTalkModal({
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
+  const processLiveAddressRef = useRef<(composed: string) => void>(() => {});
   const scheduleFieldHoldRef = useRef<() => void>(() => {});
   const finishTalkingRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
@@ -522,9 +523,48 @@ export function IntakeTalkModal({
     []
   );
 
+  const processLiveAddress = useCallback(
+    (composed: string) => {
+      const startIndex = activeIndexRef.current;
+      const key = guide[startIndex]?.key;
+      if (key !== "location" && key !== "restAddress") return;
+      const trimmed = composed.trim();
+      if (!trimmed) return;
+      const chain = parseIntakeStepChain(
+        trimmed,
+        startIndex,
+        kind,
+        stepPartialsFromRecords(stepsRef.current)
+      );
+      const loc = chain.commits.find((row) => row.key === "location");
+      if (!loc) return;
+      const prev = stepsRef.current.location;
+      if (
+        loc.display === prev?.display &&
+        loc.partial.jibun === prev?.partial.jibun &&
+        loc.partial.dong === prev?.partial.dong
+      ) {
+        return;
+      }
+      heardCommittedRef.current = true;
+      const nextSteps = { ...stepsRef.current };
+      nextSteps.location = {
+        partial: loc.partial,
+        display: loc.display,
+        skipped: false,
+      };
+      applySteps(nextSteps, startIndex, startIndex);
+    },
+    [applySteps, guide, kind]
+  );
+
   useEffect(() => {
     processUtteranceRef.current = processUtterance;
   }, [processUtterance]);
+
+  useEffect(() => {
+    processLiveAddressRef.current = processLiveAddress;
+  }, [processLiveAddress]);
 
   const setListeningBoth = (next: boolean) => {
     listeningRef.current = next;
@@ -594,9 +634,18 @@ export function IntakeTalkModal({
         bumpIdleTimer();
         scheduleFieldHoldAdvance();
       }
+      processNewFinalResults(ev.results);
+      const key = guide[activeIndexRef.current]?.key;
+      if (
+        spoken.live &&
+        (key === "location" || key === "restAddress")
+      ) {
+        processLiveAddressRef.current(
+          absorbCommitted(stepSpeechRef.current, spoken.live)
+        );
+      }
       sessionFinalRef.current = spoken.sessionFinal;
       setStepLive(spoken.live);
-      processNewFinalResults(ev.results);
     };
     rec.onend = () => {
       if (pendingListenRef.current) {
@@ -625,6 +674,7 @@ export function IntakeTalkModal({
     processNewFinalResults,
     resetStepSpeech,
     scheduleFieldHoldAdvance,
+    guide,
   ]);
 
   useEffect(() => {

@@ -107,6 +107,11 @@ test("매물 대화 입력: 한글 지번을 넣고 본번·부번이면 나머�
     ).toHaveAttribute("aria-current", "step");
 
     await emitTalkStep(page, "삭제");
+    await emitTalkStep(page, "성내동 일월 십일");
+    await expect(page.getByTestId("intake-guide-row-location")).toContainText(
+      "111"
+    );
+    await emitTalkStep(page, "삭제");
     await emitTalkStep(page, "성내동 일일일다시일");
     await expect(page.getByTestId("intake-guide-row-location")).toContainText(
       "111-1"

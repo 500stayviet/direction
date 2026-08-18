@@ -18,9 +18,19 @@ import {
   datesStepNeedsHold,
   locationStepNeedsHold,
   locationStepReadyToAdvance,
+  talkNormalizeModeForStep,
 } from "./intakeSteps.ts";
 
 describe("intakeSteps", () => {
+  it("마이크 칸별 정규화 모드를 고른다", () => {
+    assert.equal(talkNormalizeModeForStep("location"), "talk-location");
+    assert.equal(talkNormalizeModeForStep("restAddress"), "talk-location");
+    assert.equal(talkNormalizeModeForStep("money"), "talk-money");
+    assert.equal(talkNormalizeModeForStep("dates"), "talk-dates");
+    assert.equal(talkNormalizeModeForStep("phone"), "talk-phone");
+    assert.equal(talkNormalizeModeForStep("roomType"), "talk-plain");
+  });
+
   it("단계별로 매물유형만 넣고 뒤 유형은 메모로 보내지 않는다", () => {
     const step = parseIntakeStep("원룸 아파트", "roomType", "property");
     assert.equal(step.ok, true);
@@ -777,6 +787,53 @@ describe("intakeSteps", () => {
     assert.equal(digitsOnly.commits[0]?.partial.jibun, "151");
     assert.equal(digitsOnly.nextIndex, locationIndex);
 
+    const nativeFollow = parseIntakeStepChain(
+      "하나하나하나",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(nativeFollow.commits[0]?.partial.jibun, "111");
+
+    const restIndexForJibun = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "restAddress"
+    );
+    const lateJibunKept = parseIntakeStepChain(
+      "151",
+      restIndexForJibun,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(lateJibunKept.commits[0]?.key, "location");
+    assert.equal(lateJibunKept.commits[0]?.partial.jibun, "151");
+    assert.equal(lateJibunKept.nextIndex, restIndexForJibun);
+
+    const lateHangulMonth = parseIntakeStepChain(
+      "일월 십일",
+      restIndexForJibun,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(lateHangulMonth.commits[0]?.key, "location");
+    assert.equal(lateHangulMonth.commits[0]?.partial.jibun, "111");
+
+    const lateSttMonth = parseIntakeStepChain(
+      "1월 11일",
+      restIndexForJibun,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(lateSttMonth.commits[0]?.key, "location");
+    assert.equal(lateSttMonth.commits[0]?.partial.jibun, "111");
+
+    const locationHangulMonth = parseIntakeStepChain(
+      "일월 십일",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(locationHangulMonth.commits[0]?.partial.jibun, "111");
+
     assert.equal(
       locationStepNeedsHold(dongOnly.commits[0]!.partial, "property"),
       true
@@ -790,16 +847,14 @@ describe("intakeSteps", () => {
       false
     );
 
-    const restIndexForJibun = INTAKE_GUIDE_STEPS.property.findIndex(
-      (line) => line.key === "restAddress"
-    );
     const lateJibun = parseIntakeStepChain(
       "151다시5",
       restIndexForJibun,
       "property",
       { location: dongOnly.commits[0]!.partial }
     );
-    assert.equal(lateJibun.commits.length, 0);
+    assert.equal(lateJibun.commits[0]?.key, "location");
+    assert.equal(lateJibun.commits[0]?.partial.jibun, "151-5");
     assert.equal(lateJibun.nextIndex, restIndexForJibun);
 
     const withMoney = parseIntakeStepChain(

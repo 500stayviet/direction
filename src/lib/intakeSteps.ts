@@ -8,6 +8,7 @@ import {
   dateRangeLinkTail,
   hasDateRangeWord,
   type IntakeKind,
+  type IntakeNormalizeMode,
   type IntakeParseResult,
   type IntakeYesNoField,
   formatTalkFlagValue,
@@ -19,6 +20,27 @@ import {
 } from "@/lib/seoulRegions";
 
 export type IntakeStepKey = IntakeGuideKey;
+
+/** 마이크 칸별 정규화. 메시지·사진용 spoken(전부)과 분리한다. */
+export function talkNormalizeModeForStep(
+  step: IntakeStepKey
+): IntakeNormalizeMode {
+  if (step === "location" || step === "restAddress") return "talk-location";
+  if (step === "money") return "talk-money";
+  if (step === "dates") return "talk-dates";
+  if (
+    step === "phone" ||
+    step === "tenantPhone" ||
+    step === "landlordPhone"
+  ) {
+    return "talk-phone";
+  }
+  return "talk-plain";
+}
+
+function normalizeTalkStep(raw: string, step: IntakeStepKey): string {
+  return normalizeIntakeInput(raw, talkNormalizeModeForStep(step));
+}
 
 export type IntakeStepLine = {
   key: IntakeStepKey;
@@ -665,7 +687,7 @@ export function locationStepReadyToAdvance(
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): boolean {
-  const normalized = normalizeIntakeInput(text, "spoken");
+  const normalized = normalizeTalkStep(text, "location");
   if (kind === "property") {
     if (!partial.dong) return false;
     const remainder = extractTalkStepRemainder(
@@ -703,7 +725,7 @@ export function restAddressStepReadyToAdvance(
   partial: Partial<IntakeParseResult>
 ): boolean {
   if (!partial.buildingName && !partial.roomNo) return false;
-  const normalized = normalizeIntakeInput(text, "spoken");
+  const normalized = normalizeTalkStep(text, "restAddress");
   const remainder = extractTalkStepRemainder(
     normalized,
     "restAddress",
@@ -722,7 +744,7 @@ export function moneyStepReadyToAdvance(
   dealType?: IntakeParseResult["dealType"]
 ): boolean {
   if (!moneyFieldsComplete(partial, dealType)) return false;
-  const normalized = normalizeIntakeInput(text, "spoken");
+  const normalized = normalizeTalkStep(text, "money");
   const end = moneyConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
   if (!rest) return false;
@@ -736,7 +758,7 @@ export function datesStepReadyToAdvance(
 ): boolean {
   if (!partial.moveInFrom && !partial.moveInImmediate) return false;
 
-  const normalized = normalizeIntakeInput(text, "spoken");
+  const normalized = normalizeTalkStep(text, "dates");
   const end = datesConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
   if (partial.moveInImmediate) {
@@ -776,7 +798,7 @@ export function extractTalkStepRemainder(
   partial: Partial<IntakeParseResult>,
   kind: IntakeKind
 ): string {
-  const text = normalizeIntakeInput(raw, "spoken");
+  const text = normalizeTalkStep(raw, step);
   if (!text) return "";
 
   if (step === "name" && partial.name) {
@@ -862,7 +884,8 @@ export function parseIntakeStepChain(
   const guide = INTAKE_GUIDE_STEPS[kind];
   const steps = { ...existingSteps };
   const commits: IntakeStepChainResult["commits"] = [];
-  let text = normalizeIntakeInput(raw, "spoken");
+  // 칸별 parseIntakeStep이 talk-* 모드로 정규화한다. 여기서는 원문만 넘긴다.
+  let text = raw.replace(/\s+/g, " ").trim();
   let index = startIndex;
 
   while (index < guide.length && text) {
@@ -898,10 +921,39 @@ export function parseIntakeStepChain(
     if (!parsed.ok) {
       if (
         key === "restAddress" &&
-        NEXT_AFTER_LOCATION.test(normalizeIntakeInput(text, "spoken").trim())
+        NEXT_AFTER_LOCATION.test(normalizeTalkStep(text, "restAddress").trim())
       ) {
         index += 1;
         continue;
+      }
+      if (
+        key === "restAddress" &&
+        kind === "property" &&
+        steps.location?.dong &&
+        !steps.location.jibun
+      ) {
+        const locParsed = parseIntakeStep(
+          text,
+          "location",
+          kind,
+          steps.location,
+          today
+        );
+        if (locParsed.ok && locParsed.partial.jibun) {
+          commits.push({
+            key: "location",
+            partial: locParsed.partial,
+            display: locParsed.display,
+          });
+          steps.location = locParsed.partial;
+          text = extractTalkStepRemainder(
+            text,
+            "location",
+            locParsed.partial,
+            kind
+          );
+          continue;
+        }
       }
       break;
     }
@@ -954,7 +1006,8 @@ export function parseIntakeStep(
   prior?: Partial<IntakeParseResult>,
   today: Date = new Date()
 ): IntakeStepParseOutcome {
-  const text = normalizeIntakeInput(raw, "spoken");
+  const mode = talkNormalizeModeForStep(step);
+  const text = normalizeTalkStep(raw, step);
   if (!text) return { ok: false, partial: {}, display: "" };
 
   if (step === "notes") {
@@ -1016,7 +1069,7 @@ export function parseIntakeStep(
   }
 
   if (step === "share") {
-    const shared = parseIntakeText(text, kind, today, "spoken").workspaceShared;
+    const shared = parseIntakeText(text, kind, today, mode).workspaceShared;
     if (!shared) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = {
       workspaceShared: shared,
@@ -1029,8 +1082,9 @@ export function parseIntakeStep(
     };
   }
 
-  const scoped = stepParseInput(text, step, kind, prior);
-  const parsed = parseIntakeText(scoped, kind, today, "spoken");
+  // prior 동을 붙인 뒤 칸 모드로만 정규화. 주소지에는 날짜 확장이 없다.
+  const scoped = stepParseInput(raw, step, kind, prior);
+  const parsed = parseIntakeText(scoped, kind, today, mode);
 
   if (step === "phone") {
     const phone = parsed.phone;
