@@ -50,6 +50,7 @@ import {
   talkPrimaryKind,
   talkPrimaryLabel,
   talkStepUsesFieldHold,
+  looksLikeTalkJibunUtterance,
 } from "@/lib/talkSession";
 
 type StepRecord = {
@@ -197,6 +198,7 @@ export function IntakeTalkModal({
   const finishTalkingRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
   const lastDealTypeRef = useRef<DealType | "">("");
+  const stepLiveRef = useRef("");
 
   useScreenWakeLock(open && listening);
 
@@ -303,6 +305,16 @@ export function IntakeTalkModal({
       if (key === "dates" && !datesStepNeedsHold(held.partial)) return;
       if (key === "location" && !locationStepNeedsHold(held.partial, kind)) return;
       if (key === "restAddress" && !restAddressStepNeedsHold(held.partial)) return;
+      if (
+        key === "location" &&
+        kind === "property" &&
+        held.partial.dong &&
+        !held.partial.jibun?.includes("-") &&
+        looksLikeTalkJibunUtterance(stepLiveRef.current)
+      ) {
+        scheduleFieldHoldRef.current();
+        return;
+      }
       if (activeIndexRef.current >= guide.length - 1) return;
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;
@@ -330,7 +342,7 @@ export function IntakeTalkModal({
         return;
       }
       if (nextIndex === fromIndex) {
-        resetStepSpeech();
+        if (fromKey !== "location") resetStepSpeech();
         if (talkStepUsesFieldHold(fromKey)) {
           scheduleFieldHoldAdvance();
         }
@@ -553,7 +565,12 @@ export function IntakeTalkModal({
         display: loc.display,
         skipped: false,
       };
-      applySteps(nextSteps, startIndex, startIndex);
+      const hasSub = Boolean(loc.partial.jibun?.split("-")[1]?.trim());
+      applySteps(
+        nextSteps,
+        hasSub ? chain.nextIndex : startIndex,
+        startIndex
+      );
     },
     [applySteps, guide, kind]
   );
@@ -645,6 +662,7 @@ export function IntakeTalkModal({
         );
       }
       sessionFinalRef.current = spoken.sessionFinal;
+      stepLiveRef.current = spoken.live;
       setStepLive(spoken.live);
     };
     rec.onend = () => {

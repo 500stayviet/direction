@@ -79,6 +79,7 @@ describe("intakeSteps", () => {
     assert.equal(splitIntakeStepCancel("다시 일").cancel, true);
     assert.equal(splitIntakeStepCancel("다시 일").remainder, "일");
     assert.equal(talkDasiIsHyphen("property", "location"), true);
+    assert.equal(talkDasiIsHyphen("property", "restAddress"), true);
     assert.equal(talkDasiIsHyphen("customer", "location"), false);
     const locDasi = { dasiIsHyphen: true };
     assert.equal(splitIntakeStepCancel("다시", locDasi).cancel, false);

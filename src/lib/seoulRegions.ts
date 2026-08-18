@@ -567,12 +567,16 @@ export function parseJibunDetail(detail: string): { main: string; sub: string } 
   return { main: text, sub: "" };
 }
 
+/** 저장·마이크 표시용 시 이름. 나중에 다른 시·도를 붙일 자리 */
+export const DEFAULT_ADDRESS_CITY = "서울특별시";
+
 export function composeSeoulAddress(
   gu: string,
   dong: string,
-  detail: string
+  detail: string,
+  city: string = DEFAULT_ADDRESS_CITY
 ): string {
-  const parts = ["서울", gu, dong, detail.trim()].filter(Boolean);
+  const parts = [city, gu, dong, detail.trim()].filter(Boolean);
   return parts.join(" ");
 }
 

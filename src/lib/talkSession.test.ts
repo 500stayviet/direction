@@ -18,6 +18,7 @@ import {
   talkPrimaryKind,
   talkPrimaryLabel,
   talkStepUsesFieldHold,
+  looksLikeTalkJibunUtterance,
 } from "./talkSession.ts";
 
 describe("talkSession", () => {
@@ -101,6 +102,11 @@ describe("talkSession", () => {
     assert.equal(talkStepUsesFieldHold("landlordPhone"), true);
     assert.equal(talkStepUsesFieldHold("notes"), true);
     assert.equal(talkStepUsesFieldHold("roomType"), false);
+    assert.equal(looksLikeTalkJibunUtterance("151"), true);
+    assert.equal(looksLikeTalkJibunUtterance("일오일"), true);
+    assert.equal(looksLikeTalkJibunUtterance("강동구 천호동 151"), true);
+    assert.equal(looksLikeTalkJibunUtterance("강동구 천호동"), false);
+    assert.equal(looksLikeTalkJibunUtterance("원룸"), false);
     assert.equal(TALK_ENDED_TITLE, "입력완료!");
     assert.equal(
       TALK_ENDED_MESSAGE,

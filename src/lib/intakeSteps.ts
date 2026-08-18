@@ -138,7 +138,9 @@ export function talkDasiIsHyphen(
   kind: IntakeKind,
   key: IntakeStepKey
 ): boolean {
-  return kind === "property" && key === "location";
+  return (
+    kind === "property" && (key === "location" || key === "restAddress")
+  );
 }
 
 export function splitIntakeStepCancel(

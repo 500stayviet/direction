@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  composeSeoulAddress,
   findAllDongsInText,
   findDongInText,
   formatCardAddress,
@@ -68,6 +69,19 @@ describe("parseSeoulAddress", () => {
       dong: "암사동",
       detail: "12-3",
     });
+  });
+});
+
+describe("composeSeoulAddress", () => {
+  it("시 이름은 서울특별시로 붙이고 나중에 다른 시·도를 넣을 수 있다", () => {
+    assert.equal(
+      composeSeoulAddress("강동구", "천호동", "151"),
+      "서울특별시 강동구 천호동 151"
+    );
+    assert.equal(
+      composeSeoulAddress("수성구", "범어동", "1", "대구광역시"),
+      "대구광역시 수성구 범어동 1"
+    );
   });
 });
 

@@ -24,6 +24,19 @@ export function talkLocationHoldMs(
   return TALK_FIELD_HOLD_MS;
 }
 
+/** 구·동 뒤 이어서 말하는 지번(숫자·한글 수)처럼 보이면 홀드를 미룬다 */
+export function looksLikeTalkJibunUtterance(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  const afterDong = t.match(/동\s+(.+)$/);
+  const tail = (afterDong?.[1] ?? t).replace(/\s+/g, "");
+  if (!tail) return false;
+  if (/\d/.test(tail)) return true;
+  return /^(?:[일이삼사오육륙칠팔구공영십백천하나둘셋넷다섯여섯일곱여덟아홉열월다시에의에서-])+$/.test(
+    tail
+  );
+}
+
 export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (
     key === "location" ||
