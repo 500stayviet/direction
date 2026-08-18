@@ -156,7 +156,7 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
     await expect(
       page.getByText("구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지 않습니다.")
     ).toBeVisible();
-    const roomNo = page.getByPlaceholder("힐스테이트 101동 101호");
+    const roomNo = page.getByPlaceholder("예) 힐스테이트 ooo동 ooo호");
     await expect(roomNo).toBeVisible();
     await roomNo.fill("1203");
     await roomNo.blur();

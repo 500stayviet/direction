@@ -608,51 +608,32 @@ export function PropertyEditor({
       )}
 
       <div className="space-y-1.5">
-          <div
-            ref={setFieldRef("contacts")}
-            className={[
-              emptyRequiredClass({
-                invalid: isInvalid("contacts"),
-                filled:
-                  Boolean(
-                    (property.tenantPhone ?? "").trim() ||
-                      (property.landlordPhone ?? "").trim()
-                  ) && !isInvalid("contacts"),
-              }),
-            ].join(" ")}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <p
-                className={[
-                  "flex min-w-0 flex-1 items-baseline gap-1 text-[13px] font-semibold",
-                  isInvalid("contacts") ? invalidLabelClass : "text-gray-600",
-                ].join(" ")}
-              >
-                <span className="shrink-0">
-                  연락처
-                  <span className={requiredStarClass}>*</span>
-                </span>
+          <div ref={setFieldRef("contacts")} className="space-y-1.5">
+            <div className="flex items-baseline gap-1.5">
+              <p className="shrink-0 text-[13px] font-semibold text-gray-600">
+                연락처
+                <span className={requiredStarClass}>*</span>
               </p>
-              <p className="shrink-0 text-right text-[11px] font-medium leading-snug text-sky-400">
-                원터치 전화에 사용됩니다.
+              <p className="text-[11px] font-semibold leading-snug text-red-400">
+                임차인 또는 임대인 택1 필수 입니다.
               </p>
             </div>
-            {isInvalid("contacts") ? (
-              <p className={`text-xs ${invalidHintClass}`}>미입력</p>
-            ) : null}
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               <PhoneInput
-                label="임차인 번호"
+                label="임차인 전화번호"
                 value={formatPhoneInput(property.tenantPhone ?? "")}
                 onChange={(tenantPhone) => update({ tenantPhone })}
                 placeholder="예) 010-1234-5678"
+                invalid={isInvalid("contacts")}
+                labelHint="원터치 전화에 사용됩니다."
                 hint=""
               />
               <PhoneInput
-                label="임대인 번호"
+                label="임대인 전화번호"
                 value={formatPhoneInput(property.landlordPhone ?? "")}
                 onChange={(landlordPhone) => update({ landlordPhone })}
                 placeholder="예) 010-9876-5432"
+                invalid={isInvalid("contacts")}
                 hint=""
               />
             </div>
@@ -866,14 +847,13 @@ export function PropertyEditor({
           <>
           <Input
             label="나머지 주소"
-            unitHint="예) 건물명 동 호실"
             value={property.roomNo}
             onChange={(e) => update({ roomNo: e.target.value })}
             onBlur={(e) => {
               const next = formatRoomNoHo(e.target.value);
               if (next !== property.roomNo) update({ roomNo: next });
             }}
-            placeholder="힐스테이트 101동 101호"
+            placeholder="예) 힐스테이트 ooo동 ooo호"
           />
           <div
             ref={setFieldRef("moveIn")}

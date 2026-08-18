@@ -14,6 +14,8 @@ import {
   TALK_STOP_HINT,
   TALK_RECOGNITION_FAIL,
   TALK_MIC_FAIL,
+  TALK_SILENCE_STOP_MESSAGE,
+  TALK_SILENCE_STOP_MS,
   isTalkMicError,
   talkPrimaryKind,
   talkPrimaryLabel,
@@ -99,6 +101,11 @@ describe("talkSession", () => {
     );
     assert.match(TALK_STOP_HINT, /녹화버튼/);
     assert.match(TALK_STOP_HINT, /대화를 이어가세요/);
+    assert.equal(
+      TALK_SILENCE_STOP_MESSAGE,
+      "대화가 없어 마이크 정지 되었습니다."
+    );
+    assert.equal(TALK_SILENCE_STOP_MS, 1_500);
     assert.match(TALK_RECOGNITION_FAIL, /대화를 인식하지 못했습니다/);
     assert.equal(TALK_MIC_FAIL, "마이크를 연결할 수 없습니다.");
     assert.equal(isTalkMicError("not-allowed"), true);

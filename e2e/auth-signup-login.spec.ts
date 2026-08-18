@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { loginViaUi, prepareAppPage, signupViaUi, uniqueUser } from "./helpers";
+import {
+  fillLoginForm,
+  loginViaUi,
+  prepareAppPage,
+  signupViaUi,
+  uniqueUser,
+} from "./helpers";
 
 test("회원가입 → 로그인 → 홈", async ({ page }) => {
   const user = uniqueUser("auth");
@@ -7,6 +13,41 @@ test("회원가입 → 로그인 → 홈", async ({ page }) => {
   await loginViaUi(page, user);
   await expect(page.getByText(`${user.name}님,`)).toBeVisible();
   await expect(page.getByText(/공인중개사사무소/)).toBeVisible();
+});
+
+test("로그인 후 기능 소개 모달 · 닫기/다시 보지 않기", async ({ page }) => {
+  const user = uniqueUser("intro");
+  await signupViaUi(page, user);
+  await prepareAppPage(page);
+  await page.goto("/login");
+  await expect(page.getByPlaceholder("아이디를 입력하세요")).toBeVisible({
+    timeout: 30_000,
+  });
+  await fillLoginForm(page, user);
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await expect(page).toHaveURL(/\/(\?|$)/);
+
+  const introHeading = page.getByRole("heading", {
+    name: "이런 기능을 쓸 수 있어요",
+  });
+  await expect(introHeading).toBeVisible({ timeout: 10_000 });
+
+  await page.locator("button").filter({ hasText: /^닫기$/ }).click();
+  await expect(introHeading).toBeHidden({ timeout: 5_000 });
+
+  await page.goto("/customers");
+  await page.goto("/");
+  await expect(introHeading).toBeVisible({ timeout: 10_000 });
+
+  await page
+    .locator("button")
+    .filter({ hasText: /^다시 보지 않기$/ })
+    .click();
+  await expect(introHeading).toBeHidden({ timeout: 5_000 });
+
+  await page.goto("/customers");
+  await page.goto("/");
+  await expect(introHeading).toBeHidden({ timeout: 3_000 });
 });
 
 test("회원가입 약관 미동의 시 안내 모달", async ({ page }) => {

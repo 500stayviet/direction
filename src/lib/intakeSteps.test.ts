@@ -15,6 +15,7 @@ import {
   inferDealTypeFromMoney,
   resolveTalkDealType,
   datesStepNeedsHold,
+  locationStepNeedsHold,
   locationStepReadyToAdvance,
 } from "./intakeSteps.ts";
 
@@ -619,7 +620,7 @@ describe("intakeSteps", () => {
       (l) => l.key === "restAddress"
     );
     assert.equal(restLine?.name, "나머지 주소");
-    assert.equal(restLine?.example, "건물명 동 호실");
+    assert.equal(restLine?.example, "힐스테이트 ooo동 ooo호");
 
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"
@@ -676,6 +677,49 @@ describe("intakeSteps", () => {
       { location: dongOnly.commits[0]!.partial }
     );
     assert.equal(spokenDasi.commits[0]?.partial.jibun, "111-1");
+
+    const spokenSino = parseIntakeStepChain(
+      "백오십일 다시 오",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(spokenSino.commits[0]?.partial.jibun, "151-5");
+    const spokenSpacedDigits = parseIntakeStepChain(
+      "일 오 일 다시 오",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(spokenSpacedDigits.commits[0]?.partial.jibun, "151-5");
+    const arabicSpaced = parseIntakeStepChain(
+      "111 5",
+      locationIndex,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(arabicSpaced.commits[0]?.partial.jibun, "111-5");
+
+    assert.equal(
+      locationStepNeedsHold(dongOnly.commits[0]!.partial, "property"),
+      false
+    );
+    assert.equal(
+      locationStepNeedsHold(withJibun.commits[0]!.partial, "property"),
+      true
+    );
+
+    const restIndexForJibun = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "restAddress"
+    );
+    const lateJibun = parseIntakeStepChain(
+      "151다시5",
+      restIndexForJibun,
+      "property",
+      { location: dongOnly.commits[0]!.partial }
+    );
+    assert.equal(lateJibun.commits.length, 0);
+    assert.equal(lateJibun.nextIndex, restIndexForJibun);
 
     const withMoney = parseIntakeStepChain(
       "강동구 성내동 111-1 원룸 매매 1억",

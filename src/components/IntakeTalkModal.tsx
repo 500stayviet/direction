@@ -38,6 +38,8 @@ import {
   TALK_FIELD_HOLD_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
+  TALK_SILENCE_STOP_MESSAGE,
+  TALK_SILENCE_STOP_MS,
   TALK_STOP_HINT,
   TALK_RECOGNITION_FAIL,
   TALK_MIC_FAIL,
@@ -164,6 +166,7 @@ export function IntakeTalkModal({
   const [listening, setListening] = useState(false);
   const [talkStarted, setTalkStarted] = useState(false);
   const [showTalkEnded, setShowTalkEnded] = useState(false);
+  const [showSilenceStop, setShowSilenceStop] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [error, setError] = useState("");
   const [speechSupported, setSpeechSupported] = useState(true);
@@ -226,6 +229,15 @@ export function IntakeTalkModal({
   const showTalkEndedDone = useCallback(() => {
     setShowTalkEnded(true);
   }, []);
+
+  useEffect(() => {
+    if (!showSilenceStop) return;
+    const id = window.setTimeout(
+      () => setShowSilenceStop(false),
+      TALK_SILENCE_STOP_MS
+    );
+    return () => window.clearTimeout(id);
+  }, [showSilenceStop]);
 
   const clearFieldHoldTimer = useCallback(() => {
     if (fieldHoldTimerRef.current == null) return;
@@ -536,9 +548,10 @@ export function IntakeTalkModal({
     if (!listeningRef.current) return;
     idleTimerRef.current = setTimeout(() => {
       if (!listeningRef.current) return;
-      stopCurrentTake();
+      haltListening();
+      setShowSilenceStop(true);
     }, TALK_IDLE_MS);
-  }, [clearIdleTimer, stopCurrentTake]);
+  }, [clearIdleTimer, haltListening]);
 
   const buildRecognition = useCallback((): SpeechRec | null => {
     const rec = getSpeechRecognition();
@@ -597,6 +610,7 @@ export function IntakeTalkModal({
       clearIdleTimer();
       clearFieldHoldTimer();
       setShowTalkEnded(false);
+      setShowSilenceStop(false);
       setListening(false);
       resetWizard();
       setError("");
@@ -676,6 +690,7 @@ export function IntakeTalkModal({
     if (key) clearStep(key);
     setError("");
     setShowTalkEnded(false);
+    setShowSilenceStop(false);
     setTalkStarted(true);
     resetStepSpeech();
     clearStepSpeechBuffer();
@@ -863,8 +878,8 @@ export function IntakeTalkModal({
           <>
             순서대로 대화로 입력 또는 항목을 선택하여 입력하세요.
             <span className="mt-0.5 block text-[12px] font-medium leading-snug text-orange-400">
-              수정 팁: 항목을 선택하면 입력된 내용은 삭제되며 대화로 다시 입력하시면
-              됩니다.
+              수정 팁: 항목을 선택하면 선택된 항목에 입력된 내용은 삭제되며
+              대화로 다시 입력하시면 됩니다.
             </span>
           </>
         }
@@ -1093,6 +1108,21 @@ export function IntakeTalkModal({
             >
               확인
             </Button>
+          </div>
+        </div>
+      ) : null}
+      {open && showSilenceStop && !showTalkEnded ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          role="status"
+          aria-live="polite"
+          data-testid="intake-talk-silence-stop"
+        >
+          <div className="absolute inset-0 bg-black/40" aria-hidden />
+          <div className="relative w-full max-w-[300px] rounded-2xl bg-white px-6 py-7 text-center shadow-xl">
+            <p className="text-[17px] font-bold leading-snug tracking-tight text-gray-900">
+              {TALK_SILENCE_STOP_MESSAGE}
+            </p>
           </div>
         </div>
       ) : null}

@@ -32,6 +32,11 @@ export const TALK_ENDED_MESSAGE =
 
 export const TALK_STOP_HINT = "녹화버튼을 눌러 대화를 이어가세요.";
 
+/** 녹화 중 말이 없어 마이크가 멈췄을 때 */
+export const TALK_SILENCE_STOP_MESSAGE =
+  "대화가 없어 마이크 정지 되었습니다.";
+export const TALK_SILENCE_STOP_MS = 1_500;
+
 /** 말은 들렸지만 내용 인식 실패 */
 export const TALK_RECOGNITION_FAIL =
   "대화를 인식하지 못했습니다. 다시 눌러 주세요.";

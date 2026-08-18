@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type MouseEvent } f
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { FeatureIntroModal } from "@/components/FeatureIntroModal";
 import { RequireAuthModal } from "@/components/RequireAuthModal";
 import { useAccountSuspended } from "@/components/AccountSuspendedGate";
 import { BrandIcon } from "@/components/BrandIcon";
@@ -28,6 +29,10 @@ import {
   useSchedulesList,
 } from "@/hooks/useEntityList";
 import type { User } from "@/lib/types";
+import {
+  hideFeatureIntroForever,
+  shouldShowFeatureIntro,
+} from "@/lib/featureIntro";
 import { AdBanner } from "@/components/ads/AdBanner";
 import { SiteFooter } from "@/components/SiteFooter";
 
@@ -90,6 +95,7 @@ export default function HomePage() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [deadlineModalOpen, setDeadlineModalOpen] = useState(false);
   const [freeNoticeOpen, setFreeNoticeOpen] = useState(false);
+  const [featureIntroOpen, setFeatureIntroOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,9 +121,19 @@ export default function HomePage() {
     };
   }, []);
 
-  // 고객 캐시가 채워지면 계약 마감 모달
+  // 로그인·홈 진입 시 기능 소개. 닫기는 이 화면만, 다른 페이지 후 홈 재진입 시 다시 표시
+  useEffect(() => {
+    if (!user) {
+      setFeatureIntroOpen(false);
+      return;
+    }
+    setFeatureIntroOpen(shouldShowFeatureIntro(user.id));
+  }, [user?.id]);
+
+  // 고객 캐시가 채워지면 계약 마감 모달 (소개 모달이 열려 있으면 우선)
   useEffect(() => {
     if (!user) return;
+    if (featureIntroOpen) return;
     const due = customers.filter((c) => isContractDeadlineActive(c));
     if (due.length === 0) return;
     const key = deadlineModalKey(user.id);
@@ -130,7 +146,7 @@ export default function HomePage() {
     setDeadlineModalOpen(true);
     const timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
     return () => window.clearTimeout(timer);
-  }, [user, customers]);
+  }, [user, customers, featureIntroOpen]);
 
   const closeFreeNotice = () => setFreeNoticeOpen(false);
 
@@ -164,6 +180,15 @@ export default function HomePage() {
   };
 
   const closeDeadlineModal = () => setDeadlineModalOpen(false);
+
+  const closeFeatureIntro = () => {
+    setFeatureIntroOpen(false);
+  };
+
+  const hideFeatureIntro = () => {
+    if (user) hideFeatureIntroForever(user.id);
+    setFeatureIntroOpen(false);
+  };
 
   return (
     <main className="flex min-h-[calc(100dvh-6.5rem)] flex-col pt-6">
@@ -314,6 +339,12 @@ export default function HomePage() {
       <RequireAuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
+      />
+
+      <FeatureIntroModal
+        open={Boolean(user) && featureIntroOpen}
+        onClose={closeFeatureIntro}
+        onHideForever={hideFeatureIntro}
       />
 
       <Modal

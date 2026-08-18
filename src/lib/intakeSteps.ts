@@ -60,7 +60,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "restAddress",
       name: "나머지 주소",
-      example: "건물명 동 호실",
+      example: "힐스테이트 ooo동 ooo호",
     },
     { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
     { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
@@ -84,12 +84,12 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     },
     {
       key: "tenantPhone",
-      name: "임차인 번호",
+      name: "임차인 전화번호",
       example: "010-1234-5678",
     },
     {
       key: "landlordPhone",
-      name: "임대인 번호",
+      name: "임대인 전화번호",
       example: "010-9876-5432",
     },
     { key: "notes", name: "메모", example: "관리비 · 남향 저층" },
@@ -618,7 +618,8 @@ function mergeTalkDates(
   return { moveInFrom: newFrom, moveInTo: newTo };
 }
 
-/** 선호지역·주소지·나머지주소: 동·지번 등 채운 뒤 잠시 머문다 */
+/** 선호지역·주소지·나머지주소: 동·지번 등 채운 뒤 잠시 머문다.
+ *  매물 주소지는 지번까지 있어야 2초 뒤 넘어간다. 동만 있으면 지번을 기다린다. */
 export function locationStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined,
   kind: IntakeKind
@@ -627,7 +628,7 @@ export function locationStepNeedsHold(
   if (kind === "customer") {
     return customerLocationDongCount(partial) >= 1;
   }
-  return Boolean(partial.dong);
+  return Boolean(partial.dong && partial.jibun);
 }
 
 export function restAddressStepNeedsHold(

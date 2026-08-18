@@ -360,6 +360,27 @@ describe("parseIntakeText", () => {
       "spoken"
     );
     assert.equal(spokenDigits.jibun, "151-5");
+    const sinoJibun = parseIntakeText(
+      "성내동 백오십일 다시 오 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(sinoJibun.jibun, "151-5");
+    const spacedSpoken = parseIntakeText(
+      "성내동 일 오 일 다시 오 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(spacedSpoken.jibun, "151-5");
+    const spacedArabic = parseIntakeText(
+      "성내동 151 5 원룸 전세",
+      "property",
+      new Date(),
+      "spoken"
+    );
+    assert.equal(spacedArabic.jibun, "151-5");
     const applied = applyIntakeToProperty(createEmptyProperty(), dongHo);
     assert.equal(applied.roomNo, "101동 102호");
     assert.equal(applied.buildingName, "힐스테이트");

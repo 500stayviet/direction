@@ -1423,18 +1423,30 @@ function parseJibunFromAfter(after: string): string | undefined {
   if (pair?.[1] && !pair[1].startsWith("0")) {
     return `${pair[1]}-${pair[2]}`;
   }
-  // 음성: 111에1 · 111 에 1 · 111다시1 · 111 다시 1
+  // 음성: 111에1 · 111 에 1 · 111다시1 · 111 하이픈 5
   const spokenPair = after.match(
-    /^\s*(\d{1,5})\s*(?:에|의|다시)\s*(\d{1,5})(?!\d)/
+    /^\s*(\d{1,5})\s*(?:에|의|다시|하이픈|빼기)\s*(\d{1,5})(?!\d)/
   );
   if (spokenPair?.[1] && !spokenPair[1].startsWith("0")) {
     return `${spokenPair[1]}-${spokenPair[2]}`;
   }
-  const bunji = after.match(/^\s*(\d{1,5})\s*번지/);
+  // 음성 띄어쓰기: 111 5 → 111-5 (호·동·금액 단위는 제외)
+  const spacedPair = after.match(
+    /^\s*(\d{1,5})\s+(\d{1,4})(?!\d)(?!\s*(?:호|동|층|억|만|원(?!룸)|년|월|일|룸))/
+  );
+  if (
+    spacedPair?.[1] &&
+    spacedPair[2] &&
+    !spacedPair[1].startsWith("0") &&
+    !spacedPair[2].startsWith("0")
+  ) {
+    return `${spacedPair[1]}-${spacedPair[2]}`;
+  }
+  const bunji = after.match(/^\s*(\d{1,5})\s*번(?:지)?(?!\s*호)/);
   if (bunji?.[1] && !bunji[1].startsWith("0")) return bunji[1];
   const main = after.match(
     new RegExp(
-      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|에|의|다시|[${PAIR_SEP_CLS}]))`
+      `^\\s*(\\d{1,5})(?!\\d)(?!\\s*(?:년|월|일|억|만|원(?!룸)|천|층|호|동|룸|번|에|의|다시|하이픈|빼기|[${PAIR_SEP_CLS}]))`
     )
   );
   if (!main?.[1] || main[1].startsWith("0")) return undefined;
@@ -1720,7 +1732,42 @@ function nearestPhoneAfter(
   return hits.find((h) => h.index >= from && h.index - from <= within);
 }
 
-/** 대화에서 「151다시5」「일오일 다시 오」처럼 나온 지번 숫자 */
+function sinoKoreanPlaceValue(raw: string): string | undefined {
+  const s = raw.replace(/\s/g, "");
+  if (!s || !/[십백천]/.test(s)) return undefined;
+  const digits: Record<string, number> = {
+    공: 0,
+    영: 0,
+    일: 1,
+    이: 2,
+    삼: 3,
+    사: 4,
+    오: 5,
+    육: 6,
+    륙: 6,
+    칠: 7,
+    팔: 8,
+    구: 9,
+  };
+  const units: Record<string, number> = { 십: 10, 백: 100, 천: 1000 };
+  let total = 0;
+  let current = 0;
+  for (const ch of s) {
+    if (digits[ch] != null) {
+      current = digits[ch]!;
+      continue;
+    }
+    const unit = units[ch];
+    if (!unit) return undefined;
+    total += (current || 1) * unit;
+    current = 0;
+  }
+  const n = total + current;
+  if (n < 1 || n > 99999) return undefined;
+  return String(n);
+}
+
+/** 대화에서 「151다시5」「일오일 다시 오」「백오십일」처럼 나온 지번 숫자 */
 function expandSpokenJibunDigits(text: string): string {
   const digit = "(?:공|영|일|이|삼|사|오|육|륙|칠|팔|구)";
   const map: Record<string, string> = {
@@ -1741,10 +1788,37 @@ function expandSpokenJibunDigits(text: string): string {
     [...run.replace(/\s/g, "")]
       .map((ch) => map[ch] ?? ch)
       .join("");
+  const unitChunk =
+    "(?:[공영일이삼사오육륙칠팔구]*[십백천])+[공영일이삼사오육륙칠팔구]*";
+  const spacedDigits = `${digit}(?:\\s+${digit}){1,4}`;
+  const sep = "(?:다시|에|의|하이픈|빼기|-)";
+  const toDigits = (chunk: string) =>
+    sinoKoreanPlaceValue(chunk) ??
+    (/^(?:공|영|일|이|삼|사|오|육|륙|칠|팔|구)+$/.test(chunk.replace(/\s/g, ""))
+      ? spokenRun(chunk)
+      : "");
+
   return text
+    .replace(new RegExp(spacedDigits, "g"), (run) => run.replace(/\s+/g, ""))
+    .replace(
+      new RegExp(`(${unitChunk})\\s*${sep}\\s*(${unitChunk}|(?:${digit})+)`, "g"),
+      (chunk, main: string, sub: string) => {
+        const a = toDigits(main);
+        const b = toDigits(sub);
+        if (!a || !b) return chunk;
+        return `${a}-${b}`;
+      }
+    )
+    .replace(
+      new RegExp(`(동)\\s*(${unitChunk})(?![가-힣])`, "g"),
+      (chunk, dong: string, num: string) => {
+        const n = sinoKoreanPlaceValue(num);
+        return n ? `${dong} ${n}` : chunk;
+      }
+    )
     .replace(
       new RegExp(
-        `((?:${digit})+)(?:\\s*(?:다시|에|의|하이픈|빼기|-)\\s*((?:${digit})+))(?!\\d)`,
+        `((?:${digit})+)(?:\\s*${sep}\\s*((?:${digit})+))(?!\\d)`,
         "g"
       ),
       (chunk, main: string, sub: string) => {
@@ -1754,6 +1828,7 @@ function expandSpokenJibunDigits(text: string): string {
         return `${a}-${b}`;
       }
     )
+    .replace(/(\d{1,5})\s*(?:하이픈|빼기)\s*(\d{1,5})(?!\d)/g, "$1-$2")
     .replace(new RegExp(`(?<![\\d])((?:${digit}){2,5})(?!\\d)`, "g"), (run) =>
       spokenRun(run)
     );
