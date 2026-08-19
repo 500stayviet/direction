@@ -169,6 +169,7 @@ export function MatchingPropertiesSection({
               property={preview}
               showTitle={false}
               showArriveTime={false}
+              matchPreview
             />
           </div>
         ) : null}

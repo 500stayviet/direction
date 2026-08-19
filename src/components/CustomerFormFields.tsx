@@ -73,7 +73,7 @@ export const CustomerFormIdentityFields = memo(function CustomerFormIdentityFiel
           placeholder="예) 홍길동"
         />
       </div>
-      <div ref={setFieldRef("phone")}>
+      <div ref={setFieldRef("phone")} className="space-y-1.5">
         <PhoneInput
           key={phoneNonce}
           label="고객 전화번호"
@@ -82,10 +82,13 @@ export const CustomerFormIdentityFields = memo(function CustomerFormIdentityFiel
           value={phone}
           onChange={onPhoneChange}
           placeholder="예) 010-1234-5678"
-          labelHint="원터치 전화걸기에 사용됩니다."
           labelRight={duplicateHint ? "동일 고객이 존재합니다" : undefined}
           hint=""
         />
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
+          전화번호는 정확하지 않으면 원터치 전화 기능이 정상지원 되지
+          않습니다.
+        </p>
       </div>
     </>
   );

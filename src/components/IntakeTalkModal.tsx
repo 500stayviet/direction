@@ -1164,8 +1164,7 @@ export function IntakeTalkModal({
           const notesGrowing =
             isNotes && Boolean(valueText) && valueText !== `예) ${stepExample}`;
           const exampleOnNextLine =
-            (isFlags || line.key === "elevator") &&
-            Boolean(valueText?.startsWith("예)"));
+            isFlags && Boolean(valueText?.startsWith("예)"));
           return (
             <li
               key={line.key}

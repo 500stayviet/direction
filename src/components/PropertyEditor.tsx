@@ -401,6 +401,46 @@ export function PropertyEditor({
     </>
   ) : null;
 
+  const schedulePasswordFields =
+    showArriveTime && !isLand ? (
+      <div className="grid grid-cols-2 gap-2">
+        {floorPwOpen ? (
+          <Input
+            label="현관 비밀번호"
+            value={property.floorPassword ?? ""}
+            onChange={(e) => update({ floorPassword: e.target.value })}
+            placeholder="예) 1234*"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFloorPwOpen(true)}
+            className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+          >
+            현관 비밀번호 입력
+          </button>
+        )}
+        {roomPwOpen ? (
+          <Input
+            label="호실 비밀번호"
+            value={property.roomPassword ?? property.password ?? ""}
+            onChange={(e) =>
+              update({ roomPassword: e.target.value, password: undefined })
+            }
+            placeholder="예) 5678*"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setRoomPwOpen(true)}
+            className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+          >
+            호실 비밀번호 입력
+          </button>
+        )}
+      </div>
+    ) : null;
+
   if (lockedListedId) {
     return (
       <>
@@ -605,45 +645,6 @@ export function PropertyEditor({
           placeholder="00:00"
         />
       )}
-
-      {showArriveTime && !isLand ? (
-        <div className="grid grid-cols-2 gap-2">
-          {floorPwOpen ? (
-            <Input
-              label="현관 비밀번호"
-              value={property.floorPassword ?? ""}
-              onChange={(e) => update({ floorPassword: e.target.value })}
-              placeholder="예) 1234*"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setFloorPwOpen(true)}
-              className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-            >
-              현관 비밀번호 입력
-            </button>
-          )}
-          {roomPwOpen ? (
-            <Input
-              label="호실 비밀번호"
-              value={property.roomPassword ?? property.password ?? ""}
-              onChange={(e) =>
-                update({ roomPassword: e.target.value, password: undefined })
-              }
-              placeholder="예) 5678*"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setRoomPwOpen(true)}
-              className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-            >
-              호실 비밀번호 입력
-            </button>
-          )}
-        </div>
-      ) : null}
 
       <div className="space-y-1.5">
           <div ref={setFieldRef("contacts")} className="space-y-1.5">
@@ -953,6 +954,7 @@ export function PropertyEditor({
           구·동·지번이 정확하지 않으면 원터치네비 기능이 정상지원 되지
           않습니다.
         </p>
+        {showArriveTime && isBuilding ? schedulePasswordFields : null}
         {!isLand && !isBuilding && (
           <>
           <Input
@@ -972,6 +974,7 @@ export function PropertyEditor({
             }}
             placeholder="예) 힐스테이트 ooo동 ooo호"
           />
+          {schedulePasswordFields}
           <div
             ref={setFieldRef("moveIn")}
             className="border-t border-gray-200 pt-3"

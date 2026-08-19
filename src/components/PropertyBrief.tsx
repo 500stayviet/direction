@@ -58,6 +58,8 @@ interface PropertyBriefProps {
   embedded?: boolean;
   /** 비어 있는 선택 칸은 숨김 */
   omitEmpty?: boolean;
+  /** 조건 매칭 모달 — 네비·전화 아이콘 없이 주소·번호 전체 표시 */
+  matchPreview?: boolean;
 }
 
 const chipBase =
@@ -66,6 +68,10 @@ const chipBase =
 const chipOn = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
 const chipOff = `${chipBase} bg-[#F2F4F6] text-gray-500`;
 const chipOption = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
+
+/** 원터치 네비·전화 안내 — 글자만 감싸는 옅은 노란 칩 */
+const touchActionHintClass =
+  "ml-auto inline-block shrink-0 rounded px-0.5 py-px text-[12px] font-semibold leading-snug text-amber-600";
 
 function StatusChip({
   label,
@@ -92,6 +98,7 @@ export function PropertyBrief({
   showArriveTime = true,
   embedded = false,
   omitEmpty = false,
+  matchPreview = false,
 }: PropertyBriefProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const canReorder = Boolean(onSwapWith);
@@ -202,22 +209,48 @@ export function PropertyBrief({
             <span className="shrink-0 text-[14px] font-extrabold leading-none text-[#3182F6]">
               원터치 네비게이션
             </span>
-            <span className="min-w-0 flex-1 text-right text-[11px] font-medium leading-snug text-[#1B64DA]/70">
-              주소를 눌러 네비게이션으로 이동하세요
+            <span className={touchActionHintClass}>
+              주소를 누르면 네비게이션으로 이동합니다
             </span>
           </span>
-          <span className="mt-2 flex w-full items-end gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white shadow-sm">
-              <NaviGlyph className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1 text-right">
-              <span className="inline-block text-[18px] font-extrabold leading-snug tracking-tight text-[#1B64DA] underline decoration-[#3182F6]/45 underline-offset-[3px]">
+          <span
+            className={
+              matchPreview
+                ? "mt-2 block w-full"
+                : "mt-2 flex w-full items-end gap-3"
+            }
+          >
+            {!matchPreview ? (
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white shadow-sm">
+                <NaviGlyph className="h-6 w-6" />
+              </span>
+            ) : null}
+            <span
+              className={
+                matchPreview
+                  ? "block w-full min-w-0 text-right"
+                  : "min-w-0 flex-1 text-right"
+              }
+            >
+              <span
+                className={[
+                  "text-[18px] font-extrabold leading-snug tracking-tight text-[#1B64DA] underline decoration-[#3182F6]/45 underline-offset-[3px]",
+                  matchPreview
+                    ? "block w-full break-words text-right"
+                    : "inline-block",
+                ].join(" ")}
+              >
                 {toNaviAddress(property.address) ||
                   property.address ||
                   "주소 없음"}
               </span>
               {formatPropertyPlaceLine(property) ? (
-                <span className="mt-0.5 block text-[12px] font-bold leading-snug text-gray-700">
+                <span
+                  className={[
+                    "mt-0.5 block text-[12px] font-bold leading-snug text-gray-700",
+                    matchPreview ? "break-words" : "",
+                  ].join(" ")}
+                >
                   {formatPropertyPlaceLine(property)}
                 </span>
               ) : null}
@@ -234,23 +267,41 @@ export function PropertyBrief({
               <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
                 원터치 전화
               </p>
-              <p className="min-w-0 flex-1 text-right text-[11px] font-medium leading-snug text-[#027A4A]/70">
+              <span className={touchActionHintClass}>
                 전화번호를 누르면 전화로 이동합니다
-              </p>
-            </div>
-            <div className="mt-2 flex items-end gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
-                <PhoneHandsetIcon className="h-5 w-5" />
               </span>
+            </div>
+            <div
+              className={
+                matchPreview
+                  ? "mt-2 w-full"
+                  : "mt-2 flex items-end gap-3"
+              }
+            >
+              {!matchPreview ? (
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
+                  <PhoneHandsetIcon className="h-5 w-5" />
+                </span>
+              ) : null}
               <div className="min-w-0 flex-1 divide-y divide-[#03B26C]/15">
                 {property.hasPartnerAgency ? (
                   property.partnerAgency?.phone ? (
                     <PhoneLink
                       phone={property.partnerAgency.phone}
                       showIcon={false}
-                      className="!flex w-full items-center gap-2 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0"
+                      className={[
+                        "!flex w-full gap-2 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
+                        matchPreview
+                          ? "flex-wrap items-baseline"
+                          : "items-center",
+                      ].join(" ")}
                     >
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-extrabold text-gray-900">
+                      <span
+                        className={[
+                          "min-w-0 flex-1 text-[13px] font-extrabold text-gray-900",
+                          matchPreview ? "break-words" : "truncate",
+                        ].join(" ")}
+                      >
                         {partnerLabel}
                       </span>
                       {property.partnerAgency?.dong?.trim() ? (
@@ -258,13 +309,30 @@ export function PropertyBrief({
                           {property.partnerAgency.dong.trim()}
                         </span>
                       ) : null}
-                      <span className="shrink-0 text-[19px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+                      <span
+                        className={[
+                          "text-[19px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]",
+                          matchPreview
+                            ? "min-w-0 break-all text-left"
+                            : "shrink-0",
+                        ].join(" ")}
+                      >
                         {formatPhone(property.partnerAgency.phone)}
                       </span>
                     </PhoneLink>
                   ) : (
-                    <div className="flex items-center gap-2 py-1.5 first:pt-0 last:pb-0">
-                      <p className="min-w-0 flex-1 truncate text-[13px] font-extrabold text-gray-900">
+                    <div
+                      className={[
+                        "flex gap-2 py-1.5 first:pt-0 last:pb-0",
+                        matchPreview ? "flex-wrap items-baseline" : "items-center",
+                      ].join(" ")}
+                    >
+                      <p
+                        className={[
+                          "min-w-0 flex-1 text-[13px] font-extrabold text-gray-900",
+                          matchPreview ? "break-words" : "truncate",
+                        ].join(" ")}
+                      >
                         {partnerLabel}
                       </p>
                       {property.partnerAgency?.dong?.trim() ? (
@@ -283,12 +351,22 @@ export function PropertyBrief({
                       <PhoneLink
                         phone={property.tenantPhone}
                         showIcon={false}
-                        className="!flex w-full items-baseline justify-between gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0"
+                        className={[
+                          "!flex w-full gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
+                          matchPreview
+                            ? "flex-wrap items-baseline"
+                            : "items-baseline justify-between",
+                        ].join(" ")}
                       >
                         <span className="shrink-0 text-[14px] font-bold text-gray-600">
                           임차인
                         </span>
-                        <span className="text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+                        <span
+                          className={[
+                            "text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]",
+                            matchPreview ? "min-w-0 break-all text-left" : "",
+                          ].join(" ")}
+                        >
                           {formatPhone(property.tenantPhone)}
                         </span>
                       </PhoneLink>
@@ -297,12 +375,22 @@ export function PropertyBrief({
                       <PhoneLink
                         phone={property.landlordPhone}
                         showIcon={false}
-                        className="!flex w-full items-baseline justify-between gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0"
+                        className={[
+                          "!flex w-full gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
+                          matchPreview
+                            ? "flex-wrap items-baseline"
+                            : "items-baseline justify-between",
+                        ].join(" ")}
                       >
                         <span className="shrink-0 text-[14px] font-bold text-gray-600">
                           임대인
                         </span>
-                        <span className="text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+                        <span
+                          className={[
+                            "text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]",
+                            matchPreview ? "min-w-0 break-all text-left" : "",
+                          ].join(" ")}
+                        >
                           {formatPhone(property.landlordPhone)}
                         </span>
                       </PhoneLink>
