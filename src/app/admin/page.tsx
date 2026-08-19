@@ -750,7 +750,6 @@ export default function AdminPage() {
       await loadAccounts(next.token);
       if (next.role === "super") {
         await loadErrorBadge(next.token);
-        await loadParserBadge(next.token);
       }
     } catch {
       setError("서버에 연결할 수 없습니다.");
