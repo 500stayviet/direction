@@ -480,3 +480,21 @@ export function yesNoFromAvail(value: string): "유" | "무" | "" {
   if (value === "불가" || value === "무") return "무";
   return "";
 }
+
+/** 건물 주차 — 예) 지상 5대, 지하 10대 */
+export function formatBuildingParking(
+  above?: number | null,
+  basement?: number | null,
+  total?: number | null
+): string {
+  const a = above ?? 0;
+  const b = basement ?? 0;
+  if (a > 0 || b > 0) {
+    const parts: string[] = [];
+    if (a > 0) parts.push(`지상 ${a}대`);
+    if (b > 0) parts.push(`지하 ${b}대`);
+    return parts.join(", ");
+  }
+  if (total != null && total > 0) return `지상 ${total}대`;
+  return "";
+}

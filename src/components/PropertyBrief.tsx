@@ -17,6 +17,7 @@ import {
   formatPhone,
   isInsuranceJoined,
   needsJeonseInsurance,
+  formatBuildingParking,
 } from "@/lib/format";
 import { formatLandAreaLine } from "@/lib/landArea";
 import { formatDisplayTime } from "@/components/TimePicker";
@@ -366,8 +367,17 @@ export function PropertyBrief({
                     ? `지하 -${property.floorsBasement}`
                     : null,
                   property.floorsAbove ? `지상 ${property.floorsAbove}` : null,
-                  property.parkingSpaces != null
-                    ? `주차 ${property.parkingSpaces}대`
+                  property.parkingSpaces != null ||
+                  property.parkingSpacesAbove ||
+                  property.parkingSpacesBasement
+                    ? formatBuildingParking(
+                        property.parkingSpacesAbove,
+                        property.parkingSpacesBasement,
+                        property.parkingSpaces
+                      ) ||
+                      (property.parkingSpaces != null
+                        ? `지상 ${property.parkingSpaces}대`
+                        : null)
                     : null,
                 ]
                   .filter(Boolean)
@@ -488,17 +498,14 @@ export function PropertyBrief({
           />
           ) : null}
           {property.roomType !== "토지" &&
+          property.roomType !== "건물" &&
           (!omitEmpty ||
             property.parkingType === "유" ||
-            property.parkingType === "무" ||
-            (property.roomType === "건물" &&
-              property.parkingSpaces != null)) ? (
+            property.parkingType === "무") ? (
           <StatusChip
             label="주차"
             value={
-              property.roomType === "건물" && property.parkingSpaces != null
-                ? `${property.parkingSpaces}대`
-                : property.parkingType === "유"
+              property.parkingType === "유"
                 ? [
                     "가능",
                     property.parkingFeeType === "포함" ? "포함" : "별도",
@@ -510,11 +517,7 @@ export function PropertyBrief({
                     .join(" · ")
                 : "불가"
             }
-            active={
-              property.roomType === "건물"
-                ? (property.parkingSpaces ?? 0) > 0
-                : property.parkingType === "유"
-            }
+            active={property.parkingType === "유"}
           />
           ) : null}
           {property.roomType !== "토지" &&

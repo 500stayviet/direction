@@ -6,6 +6,7 @@ import {
   unitKeysForBuildingKind,
   normalizeBuildingKind,
   needsMaintenanceFee,
+  listingFieldsForRoomTypeChange,
 } from "./constants.ts";
 
 describe("건물 종류 방·상가수", () => {
@@ -78,5 +79,20 @@ describe("관리비", () => {
     assert.equal(needsMaintenanceFee("전세", "토지"), false);
     assert.equal(needsMaintenanceFee("매매", "건물"), false);
     assert.equal(needsMaintenanceFee(undefined, "원룸"), false);
+  });
+});
+
+describe("매물유형 변경", () => {
+  it("토지에서 건물로 바꾸면 대지면적·지목이 따라가지 않는다", () => {
+    const patch = listingFieldsForRoomTypeChange("토지", "건물");
+    assert.equal(patch.landArea, undefined);
+    assert.equal(patch.landCategory, "");
+    assert.equal(patch.landUse, "");
+  });
+
+  it("건물에서 토지로 바꾸면 토지면적·건축면적이 따라가지 않는다", () => {
+    const patch = listingFieldsForRoomTypeChange("건물", "토지");
+    assert.equal(patch.landArea, undefined);
+    assert.equal(patch.buildingArea, undefined);
   });
 });

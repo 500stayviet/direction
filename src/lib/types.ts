@@ -247,8 +247,12 @@ export interface Property extends SharedMeta {
   floorsAbove?: number;
   /** 건축면적 평 */
   buildingArea?: number;
-  /** 주차 대수 */
+  /** 주차 대수 (지상+지하 합) */
   parkingSpaces?: number;
+  /** 지상 주차 대수 */
+  parkingSpacesAbove?: number;
+  /** 지하 주차 대수 */
+  parkingSpacesBasement?: number;
   /** 원룸·투룸·3룸+·상가·사무실 호수 */
   unitCounts?: BuildingUnitCounts;
   /** 주거 유형별 화장실 수(호실당) */

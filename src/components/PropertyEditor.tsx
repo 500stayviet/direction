@@ -19,6 +19,7 @@ import {
   skipsResidentialExtras,
   needsMaintenanceFee,
   isUnitRoomType,
+  listingFieldsForRoomTypeChange,
   normalizeBuildingKind,
 } from "@/lib/constants";
 import { Input, TextArea } from "@/components/ui/Input";
@@ -332,7 +333,10 @@ export function PropertyEditor({
       : landUseZones;
 
   const handleRoomTypeChange = (roomType: RoomType) => {
-    const patch: Partial<Property> = { roomType };
+    const patch: Partial<Property> = {
+      roomType,
+      ...listingFieldsForRoomTypeChange(property.roomType, roomType),
+    };
     if (roomType === "건물") {
       patch.unitCounts = property.unitCounts ?? { ...EMPTY_UNIT_COUNTS };
       patch.dealType = "매매";
@@ -659,7 +663,6 @@ export function PropertyEditor({
                 onChange={(tenantPhone) => update({ tenantPhone })}
                 placeholder="예) 010-1234-5678"
                 invalid={isInvalid("contacts")}
-                hint="원터치 전화에 사용됩니다."
               />
               <PhoneInput
                 label="임대인 전화번호"
@@ -667,9 +670,12 @@ export function PropertyEditor({
                 onChange={(landlordPhone) => update({ landlordPhone })}
                 placeholder="예) 010-9876-5432"
                 invalid={isInvalid("contacts")}
-                hint=""
               />
             </div>
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold leading-snug text-amber-800">
+              전화번호는 정확하지 않으면 원터치 전화 기능이 정상지원 되지
+              않습니다.
+            </p>
           </div>
       </div>
 
@@ -781,6 +787,7 @@ export function PropertyEditor({
               />
             ) : null}
             <LandAreaDualFields
+              label="대지면적"
               pyeong={property.landArea}
               onChange={(landArea) => update({ landArea })}
             />

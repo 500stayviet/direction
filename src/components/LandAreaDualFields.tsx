@@ -11,11 +11,17 @@ import {
 } from "@/lib/landArea";
 
 export function LandAreaDualFields({
+  label,
   pyeong,
   onChange,
+  pyeongPlaceholder = "예) 45.00 평",
+  m2Placeholder = "예) 148.76 ㎡",
 }: {
+  label: string;
   pyeong?: number;
   onChange: (pyeong?: number) => void;
+  pyeongPlaceholder?: string;
+  m2Placeholder?: string;
 }) {
   const [editing, setEditing] = useState<"pyeong" | "m2" | null>(null);
   const [draft, setDraft] = useState("");
@@ -35,14 +41,13 @@ export function LandAreaDualFields({
 
   return (
     <div className="space-y-1">
-      <p className="text-[13px] font-semibold text-gray-600">대지면적</p>
+      <p className="text-[13px] font-semibold text-gray-600">{label}</p>
       <div className="grid grid-cols-2 gap-2">
         <Input
           label=""
-          aria-label="대지면적 평"
+          aria-label={`${label} 평`}
           inputMode="decimal"
-          suffix={editingPyeong || pyeong == null ? "평" : undefined}
-          placeholder="예) 45"
+          placeholder={pyeongPlaceholder}
           value={
             editingPyeong
               ? draft
@@ -64,10 +69,9 @@ export function LandAreaDualFields({
         />
         <Input
           label=""
-          aria-label="대지면적 ㎡"
+          aria-label={`${label} ㎡`}
           inputMode="decimal"
-          suffix={editingM2 || m2 == null ? "㎡" : undefined}
-          placeholder="예) 148.76"
+          placeholder={m2Placeholder}
           value={
             editingM2 ? draft : formatAreaWithUnit(m2, "㎡")
           }

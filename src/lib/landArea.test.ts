@@ -15,17 +15,17 @@ describe("토지 면적 평·㎡", () => {
     assert.equal(m2ToPyeong(400 / 121).toFixed(6), (1).toFixed(6));
   });
 
-  it("정수는 그대로, 소수는 둘째 자리까지 보여 준다", () => {
-    assert.equal(formatAreaDisplay(45), "45");
+  it("숫자는 소수점 둘째 자리로 보여 준다", () => {
+    assert.equal(formatAreaDisplay(45), "45.00");
     assert.equal(formatAreaDisplay(45.12), "45.12");
     assert.equal(formatAreaDisplay(45.1), "45.10");
     assert.equal(formatAreaDisplay(undefined), "");
   });
 
-  it("값이 있으면 단위를 뒤에 붙인다", () => {
-    assert.equal(formatAreaWithUnit(45, "평"), "45평");
-    assert.equal(formatAreaWithUnit(45.12, "평"), "45.12평");
-    assert.equal(formatAreaWithUnit(148.76, "㎡"), "148.76㎡");
+  it("값이 있으면 숫자와 단위 사이에 칸을 둔다", () => {
+    assert.equal(formatAreaWithUnit(45.1, "평"), "45.10 평");
+    assert.equal(formatAreaWithUnit(45.12, "평"), "45.12 평");
+    assert.equal(formatAreaWithUnit(148.76, "㎡"), "148.76 ㎡");
   });
 
   it("한 줄 표시는 평과 ㎡를 같이 붙인다", () => {
@@ -39,5 +39,6 @@ describe("토지 면적 평·㎡", () => {
     assert.equal(parseAreaInput(""), undefined);
     assert.equal(parseAreaInput("45"), 45);
     assert.equal(parseAreaInput("45평"), 45);
+    assert.equal(parseAreaInput("45.10 평"), 45.1);
   });
 });

@@ -5,6 +5,7 @@ import {
   getPropertyMoveInLabel,
   isInsuranceJoined,
   needsJeonseInsurance,
+  formatBuildingParking,
 } from "@/lib/format";
 import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine, displayRoomType, needsMaintenanceFee } from "@/lib/constants";
 import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
@@ -84,9 +85,11 @@ export function buildPropertyShareText(
         property.floorsAbove != null ? `지상 ${property.floorsAbove}` : null,
       ].filter(Boolean);
       if (floorBits.length) lines.push(`층수: ${floorBits.join(" · ")}`);
-      if (property.landArea != null) lines.push(`토지면적: ${property.landArea}평`);
+      if (property.landArea != null) {
+        lines.push(`토지면적: ${formatLandAreaLine(property.landArea)}`);
+      }
       if (property.buildingArea != null) {
-        lines.push(`건축면적: ${property.buildingArea}평`);
+        lines.push(`건축면적: ${formatLandAreaLine(property.buildingArea)}`);
       }
       if (property.unitCounts) {
         const units = formatUnitCountsLine(
@@ -95,8 +98,13 @@ export function buildPropertyShareText(
         );
         if (units) lines.push(`방·상가수: ${units}`);
       }
-      if (property.parkingSpaces != null) {
-        lines.push(`주차가능: ${property.parkingSpaces}대`);
+      const parkingLine = formatBuildingParking(
+        property.parkingSpacesAbove,
+        property.parkingSpacesBasement,
+        property.parkingSpaces
+      );
+      if (parkingLine) {
+        lines.push(`주차가능: ${parkingLine}`);
       }
     }
 

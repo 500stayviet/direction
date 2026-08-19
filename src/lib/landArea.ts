@@ -9,12 +9,10 @@ export function m2ToPyeong(m2: number): number {
   return m2 / M2_PER_PYEONG;
 }
 
-/** 정수면 45, 소수면 45.12 */
+/** 화면은 소수점 둘째 자리. 45.10 */
 export function formatAreaDisplay(value: number | undefined | null): string {
   if (value == null || !Number.isFinite(value)) return "";
-  const rounded = Math.round(value * 100) / 100;
-  if (Number.isInteger(rounded)) return String(rounded);
-  return rounded.toFixed(2);
+  return (Math.round(value * 100) / 100).toFixed(2);
 }
 
 export function formatAreaWithUnit(
@@ -22,7 +20,7 @@ export function formatAreaWithUnit(
   unit: "평" | "㎡"
 ): string {
   const text = formatAreaDisplay(value);
-  return text ? `${text}${unit}` : "";
+  return text ? `${text} ${unit}` : "";
 }
 
 export function parseAreaInput(raw: string): number | undefined {

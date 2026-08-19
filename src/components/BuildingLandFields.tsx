@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { filledInputClass, inputFocusClass } from "@/lib/uiInvalid";
+import { LandAreaDualFields } from "@/components/LandAreaDualFields";
+import { formatBuildingParking } from "@/lib/format";
 import {
   normalizeUnitCounts,
   unitKeysForBuildingKind,
@@ -13,10 +15,105 @@ import type {
 } from "@/lib/types";
 
 function parseCount(raw: string): number {
-  if (raw === "") return 0;
-  const n = Number(raw);
+  const text = raw.replace(/개/g, "").replace(/\s/g, "").trim();
+  if (text === "") return 0;
+  const n = Number(text);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.floor(n);
+}
+
+function UnitCountInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const filled = value > 0 && !editing;
+
+  return (
+    <Input
+      label={label}
+      inputMode="numeric"
+      pattern="[0-9]*"
+      placeholder="예) 2 개"
+      value={filled ? `${value} 개` : editing || value ? String(value || "") : ""}
+      onFocus={() => setEditing(true)}
+      onBlur={() => setEditing(false)}
+      onChange={(e) => onChange(parseCount(e.target.value))}
+    />
+  );
+}
+
+function parseLabeledCount(raw: string, label: string): number | undefined {
+  const match = raw.match(new RegExp(`${label}\\s*(\\d+)\\s*대?`));
+  if (!match) return undefined;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function parseBuildingParking(raw: string): {
+  parkingSpacesAbove?: number;
+  parkingSpacesBasement?: number;
+  parkingSpaces?: number;
+  parkingType: "유" | "무";
+} {
+  let above = parseLabeledCount(raw, "지상");
+  const basement = parseLabeledCount(raw, "지하");
+  if (above == null && basement == null) {
+    const n = parseCount(raw.replace(/대/g, ""));
+    if (n > 0) above = n;
+  }
+  const total = (above ?? 0) + (basement ?? 0);
+  return {
+    parkingSpacesAbove: above,
+    parkingSpacesBasement: basement,
+    parkingSpaces: total > 0 ? total : undefined,
+    parkingType: total > 0 ? "유" : "무",
+  };
+}
+
+function ParkingSpacesInput({
+  above,
+  basement,
+  total,
+  onChange,
+}: {
+  above?: number;
+  basement?: number;
+  total?: number;
+  onChange: (patch: Partial<Property>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const resolvedAbove =
+    above != null ? above : basement != null ? undefined : total;
+  const filledText = formatBuildingParking(resolvedAbove, basement, total);
+
+  return (
+    <Input
+      label="주차가능대수"
+      placeholder="예) 지상 5대, 지하 10대"
+      value={editing ? draft : filledText}
+      onFocus={() => {
+        setEditing(true);
+        setDraft(filledText);
+      }}
+      onBlur={() => {
+        onChange(parseBuildingParking(draft));
+        setEditing(false);
+        setDraft("");
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setDraft(raw);
+        onChange(parseBuildingParking(raw));
+      }}
+    />
+  );
 }
 
 interface BuildingLandFieldsProps {
@@ -81,97 +178,48 @@ export function BuildingLandFields({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Input
-          label="토지면적 (평)"
-          type="number"
-          inputMode="decimal"
-          value={property.landArea ?? ""}
-          onChange={(e) =>
-            onChange({
-              landArea:
-                e.target.value === "" ? undefined : Number(e.target.value) || 0,
-            })
-          }
-          placeholder="예) 60"
-        />
-        <Input
-          label="건축면적 (평)"
-          type="number"
-          inputMode="decimal"
-          value={property.buildingArea ?? ""}
-          onChange={(e) =>
-            onChange({
-              buildingArea:
-                e.target.value === "" ? undefined : Number(e.target.value) || 0,
-            })
-          }
-          placeholder="예) 40"
-        />
-      </div>
+      <LandAreaDualFields
+        label="토지면적"
+        pyeong={property.landArea}
+        onChange={(landArea) => onChange({ landArea })}
+        pyeongPlaceholder="예) 60.00 평"
+        m2Placeholder="예) 198.35 ㎡"
+      />
+      <LandAreaDualFields
+        label="건축면적"
+        pyeong={property.buildingArea}
+        onChange={(buildingArea) => onChange({ buildingArea })}
+        pyeongPlaceholder="예) 40.00 평"
+        m2Placeholder="예) 132.23 ㎡"
+      />
 
       <div className="mt-3 space-y-1">
         <p className="text-[13px] font-semibold text-gray-600">
           방 · 상가수
         </p>
-        {unitKeys.length <= 2 ? (
-          <div className="grid grid-cols-2 gap-2">
-            {unitKeys.map((key) => (
-              <Input
-                key={key}
-                label={key}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={unitCounts[key] || ""}
-                onChange={(e) => setUnitCount(key, parseCount(e.target.value))}
-                placeholder="예) 2"
-                className="text-center"
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-4 gap-1">
-            {unitKeys.map((key) => (
-              <label key={key} className="block min-w-0 space-y-0.5">
-                <span className="block truncate text-center text-[11px] font-semibold text-gray-500">
-                  {key}
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={unitCounts[key] || ""}
-                  onChange={(e) =>
-                    setUnitCount(key, parseCount(e.target.value))
-                  }
-                  placeholder="예) 2"
-                  className={[
-                    "h-[36px] min-h-[36px] w-full rounded-xl border border-gray-200 bg-gray-50 px-1 text-center text-[16px] font-bold tabular-nums text-gray-900 outline-none transition placeholder:text-[13px] placeholder:font-medium placeholder:text-gray-400 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
-                    unitCounts[key] ? `${filledInputClass} input-field-filled` : "",
-                    inputFocusClass,
-                  ].join(" ")}
-                />
-              </label>
-            ))}
-          </div>
-        )}
+        <div
+          className={
+            unitKeys.length <= 2
+              ? "grid grid-cols-2 gap-2"
+              : "grid grid-cols-4 gap-1"
+          }
+        >
+          {unitKeys.map((key) => (
+            <UnitCountInput
+              key={key}
+              label={key}
+              value={unitCounts[key] || 0}
+              onChange={(n) => setUnitCount(key, n)}
+            />
+          ))}
+        </div>
       </div>
 
-      <Input
-        label="주차가능대수"
-        type="number"
-        inputMode="numeric"
-        value={property.parkingSpaces ?? ""}
-        onChange={(e) => {
-          const n =
-            e.target.value === "" ? undefined : Number(e.target.value) || 0;
-          onChange({
-            parkingSpaces: n,
-            parkingType: n && n > 0 ? "유" : "무",
-          });
-        }}
-        placeholder="예) 2"
+      <ParkingSpacesInput
+        above={property.parkingSpacesAbove}
+        basement={property.parkingSpacesBasement}
+        total={property.parkingSpaces}
+        onChange={onChange}
       />
     </div>
   );

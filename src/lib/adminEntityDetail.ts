@@ -11,6 +11,7 @@ import {
   isInsuranceJoined,
   yesNoLabel,
   needsJeonseInsurance,
+  formatBuildingParking,
 } from "@/lib/format";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import { formatLandAreaLine } from "@/lib/landArea";
@@ -122,19 +123,24 @@ function buildPropertyFields(
     if (p.landCategory?.trim()) push(fields, "지목", p.landCategory.trim());
     if (p.landUse?.trim()) push(fields, "용도지역", p.landUse.trim());
   } else if (p.roomType === "건물") {
+    const parking = formatBuildingParking(
+      p.parkingSpacesAbove,
+      p.parkingSpacesBasement,
+      p.parkingSpaces
+    );
     push(
       fields,
       "층수 · 주차",
       [
         p.floorsBasement ? `지하 -${p.floorsBasement}` : "",
         p.floorsAbove ? `지상 ${p.floorsAbove}` : "",
-        p.parkingSpaces != null ? `주차 ${p.parkingSpaces}대` : "",
+        parking ? parking : "",
       ]
         .filter(Boolean)
         .join(" · ")
     );
-    if (p.landArea != null) push(fields, "토지면적", `${p.landArea}평`);
-    if (p.buildingArea != null) push(fields, "건축면적", `${p.buildingArea}평`);
+    if (p.landArea != null) push(fields, "토지면적", formatLandAreaLine(p.landArea));
+    if (p.buildingArea != null) push(fields, "건축면적", formatLandAreaLine(p.buildingArea));
     if (p.unitCounts) {
       push(
         fields,

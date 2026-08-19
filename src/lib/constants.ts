@@ -217,6 +217,30 @@ export function isBuildingType(roomType?: string | null): boolean {
   return roomType === "건물";
 }
 
+/** 토지·건물은 다른 매물. 유형을 바꾸면 그쪽 전용 값은 따라가지 않는다 */
+export function listingFieldsForRoomTypeChange(
+  previous: RoomType | string | undefined | null,
+  next: RoomType
+): Partial<Property> {
+  const patch: Partial<Property> = {};
+  if (isLandType(previous) && !isLandType(next)) {
+    patch.landArea = undefined;
+    patch.landCategory = "";
+    patch.landUse = "";
+  }
+  if (isBuildingType(previous) && !isBuildingType(next)) {
+    patch.landArea = undefined;
+    patch.buildingArea = undefined;
+    patch.floorsBasement = undefined;
+    patch.floorsAbove = undefined;
+    patch.parkingSpaces = undefined;
+    patch.parkingSpacesAbove = undefined;
+    patch.parkingSpacesBasement = undefined;
+    patch.unitCounts = undefined;
+  }
+  return patch;
+}
+
 /** 전세·월세는 토지·건물 유형이 없다 */
 export function roomTypesForDeal(
   dealType?: DealType | "" | null
@@ -357,6 +381,8 @@ export function createEmptyProperty(): Property {
     floorsAbove: undefined,
     buildingArea: undefined,
     parkingSpaces: undefined,
+    parkingSpacesAbove: undefined,
+    parkingSpacesBasement: undefined,
     unitCounts: { ...EMPTY_UNIT_COUNTS },
     moveInFrom: "",
     moveInTo: "",
