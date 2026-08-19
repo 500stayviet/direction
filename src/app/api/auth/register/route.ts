@@ -8,6 +8,11 @@ import {
   isPromoSignupEnabled,
   resolveSignupEventCode,
 } from "@/lib/promoCodes";
+import {
+  isUsernameInWithdrawnCooldown,
+  releaseWithdrawnUsernameForReregister,
+  withdrawnUsernameBlockedMessage,
+} from "@/lib/withdrawnAccount";
 
 async function __POST_handler(request: Request) {
   try {
@@ -77,11 +82,10 @@ async function __POST_handler(request: Request) {
 
     const email = usernameToEmail(username);
 
-    // 삭제된 아이디·활성 아이디 모두 재가입 차단
     const [{ data: deletedRow }, { data: activeProfile }] = await Promise.all([
       admin
         .from("deleted_accounts")
-        .select("username")
+        .select("username, former_user_id, deleted_at")
         .eq("username", username)
         .maybeSingle(),
       admin
@@ -90,13 +94,27 @@ async function __POST_handler(request: Request) {
         .eq("username", username)
         .maybeSingle(),
     ]);
+
     if (deletedRow) {
-      return NextResponse.json(
-        { ok: false, message: "해당 아이디를 사용할 수 없습니다." },
-        { status: 409 }
-      );
-    }
-    if (activeProfile) {
+      if (isUsernameInWithdrawnCooldown(deletedRow.deleted_at)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: withdrawnUsernameBlockedMessage(deletedRow.deleted_at),
+          },
+          { status: 409 }
+        );
+      }
+      try {
+        await releaseWithdrawnUsernameForReregister(admin, deletedRow);
+      } catch (e) {
+        const message =
+          e instanceof Error
+            ? e.message
+            : "탈퇴 아이디 해제에 실패했습니다.";
+        return NextResponse.json({ ok: false, message }, { status: 409 });
+      }
+    } else if (activeProfile) {
       return NextResponse.json(
         { ok: false, message: "이미 사용 중인 아이디입니다." },
         { status: 409 }

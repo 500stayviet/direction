@@ -4,6 +4,7 @@ import {
   requireSuper,
 } from "@/lib/adminAuth";
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import { writeAdminAudit } from "@/lib/adminAudit";
 
 /** 슈퍼: API 에러 로그 (Cursor 복붙용 report_text 포함) */
 async function getHandler(request: Request) {
@@ -132,3 +133,77 @@ async function getHandler(request: Request) {
 }
 
 export const GET = withApiErrorLog(getHandler);
+
+/** 슈퍼: API 에러 로그 전체 또는 필터(4xx/5xx) 삭제 */
+async function deleteHandler(request: Request) {
+  const auth = await requireAdminSession(request);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { ok: false, message: auth.message },
+      { status: auth.status }
+    );
+  }
+  const superOk = requireSuper(auth.session);
+  if (!superOk.ok) {
+    return NextResponse.json(
+      { ok: false, message: superOk.message },
+      { status: superOk.status }
+    );
+  }
+
+  const url = new URL(request.url);
+  const statusFilter = (url.searchParams.get("status") ?? "").trim();
+
+  try {
+    let countQuery = auth.admin
+      .from("app_error_logs")
+      .select("id", { count: "exact", head: true });
+    let deleteQuery = auth.admin.from("app_error_logs").delete();
+
+    if (statusFilter === "4xx") {
+      countQuery = countQuery.gte("status", 400).lt("status", 500);
+      deleteQuery = deleteQuery.gte("status", 400).lt("status", 500);
+    } else if (statusFilter === "5xx") {
+      countQuery = countQuery.gte("status", 500).lt("status", 600);
+      deleteQuery = deleteQuery.gte("status", 500).lt("status", 600);
+    }
+
+    const { count, error: countErr } = await countQuery;
+    if (countErr) {
+      return NextResponse.json(
+        { ok: false, message: countErr.message },
+        { status: 500 }
+      );
+    }
+
+    const { error: delErr } = await deleteQuery.neq("id", "");
+    if (delErr) {
+      return NextResponse.json(
+        { ok: false, message: delErr.message },
+        { status: 500 }
+      );
+    }
+
+    await writeAdminAudit(auth.admin, auth.session, {
+      action: "admin_error_logs_clear",
+      entityType: "app_error_logs",
+      detail: { count: count ?? 0, status: statusFilter || "all" },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      count: count ?? 0,
+      status: statusFilter || "all",
+    });
+  } catch (e) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: e instanceof Error ? e.message : "에러 로그 정리 실패",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export const DELETE = withApiErrorLog(deleteHandler);

@@ -37,7 +37,7 @@ test("회원탈퇴 후 재로그인·재가입 불가", async ({ page }) => {
   await page.goto("/signup");
   await page.getByPlaceholder("영문·숫자 4자 이상").fill(user.username);
   await page.getByRole("button", { name: "중복확인" }).click();
-  await expect(page.getByText(/사용할 수 없|이미 사용|삭제/)).toBeVisible({
+  await expect(page.getByText(/사용할 수 없|이미 사용|삭제|탈퇴/)).toBeVisible({
     timeout: 15_000,
   });
 });

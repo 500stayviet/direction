@@ -30,6 +30,8 @@ interface FieldProps {
   labelHint?: string;
   /** 입력칸 안쪽 끝 단위. 예: 만원 */
   suffix?: string;
+  /** suffix를 숫자에 붙여 표시 (예: 10만원). 기본 false면 값 있을 때 앞에 공백 */
+  suffixCompact?: boolean;
   /** 라벨 바로 옆 작은 표시. 예: (약) */
   labelNote?: string;
   /** identity: 이름·전화 — 채워지면 짙은 초록, 가운데 */
@@ -140,6 +142,7 @@ export function Input({
   labelHint,
   prefix,
   suffix,
+  suffixCompact = false,
   labelNote,
   filledVariant = "field",
   className = "",
@@ -220,7 +223,11 @@ export function Input({
                   : "text-[13px] text-gray-400",
             ].join(" ")}
           >
-            {hasValue ? ` ${suffix}` : suffix}
+            {hasValue
+              ? suffixCompact
+                ? suffix
+                : ` ${suffix}`
+              : suffix}
           </span>
         ) : null}
       </span>

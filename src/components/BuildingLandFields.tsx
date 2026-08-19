@@ -182,14 +182,14 @@ export function BuildingLandFields({
         label="토지면적"
         pyeong={property.landArea}
         onChange={(landArea) => onChange({ landArea })}
-        pyeongPlaceholder="예) 60.00 평"
+        pyeongPlaceholder="예) 60.00"
         m2Placeholder="예) 198.35 ㎡"
       />
       <LandAreaDualFields
         label="건축면적"
         pyeong={property.buildingArea}
         onChange={(buildingArea) => onChange({ buildingArea })}
-        pyeongPlaceholder="예) 40.00 평"
+        pyeongPlaceholder="예) 40.00"
         m2Placeholder="예) 132.23 ㎡"
       />
 

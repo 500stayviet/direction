@@ -16,7 +16,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-[calc(100dvh-5.5rem)] items-center justify-center text-sm text-gray-400">
+        <main className="flex min-h-[calc(100dvh-5rem)] items-center justify-center text-sm text-gray-400">
           불러오는 중...
         </main>
       }
@@ -128,7 +128,7 @@ function LoginPageInner() {
   };
 
   return (
-    <main className="relative flex min-h-[calc(100dvh-5.5rem)] flex-col overflow-hidden py-3">
+    <main className="relative flex min-h-[calc(100dvh-5rem)] flex-col overflow-hidden py-3">
       <div
         className="pointer-events-none absolute -left-16 -top-10 h-56 w-56 rounded-full bg-[#3182F6]/10"
         aria-hidden

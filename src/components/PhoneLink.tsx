@@ -15,7 +15,7 @@ export function PhoneLink({
   showIcon = true,
   children,
 }: PhoneLinkProps) {
-  if (!phone) return <span className="text-gray-400">전화번호 없음</span>;
+  if (!phone) return <span className="text-gray-400">전화번호 미입력</span>;
 
   return (
     <a
@@ -59,21 +59,25 @@ export function PhoneChip({
   phone,
   done = false,
   className = "",
+  emptyLabel = "전화번호 미입력",
+  emptyClassName = "",
 }: {
   phone?: string;
   done?: boolean;
   className?: string;
+  emptyLabel?: string;
+  emptyClassName?: string;
 }) {
   const value = phone?.trim() ?? "";
   if (!value) {
     return (
       <span
         className={[
-          "ml-auto shrink-0 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[13px] font-medium text-gray-300",
-          className,
+          "ml-auto shrink-0 text-[13px] font-medium text-gray-400",
+          emptyClassName,
         ].join(" ")}
       >
-        번호 없음
+        {emptyLabel}
       </span>
     );
   }

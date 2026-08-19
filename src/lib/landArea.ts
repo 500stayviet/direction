@@ -15,6 +15,13 @@ export function formatAreaDisplay(value: number | undefined | null): string {
   return (Math.round(value * 100) / 100).toFixed(2);
 }
 
+/** 칩·입력용 — 10.00 → 10, 45.10 유지 */
+export function formatAreaChip(value: number | undefined | null): string {
+  const text = formatAreaDisplay(value);
+  if (!text) return "";
+  return text.replace(/(\.\d*[1-9])0+$/, "$1").replace(/\.0+$/, "");
+}
+
 export function formatAreaWithUnit(
   value: number | undefined | null,
   unit: "평" | "㎡"

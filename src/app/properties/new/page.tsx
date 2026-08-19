@@ -11,6 +11,8 @@ import { BlankFormModal } from "@/components/BlankFormModal";
 import { DuplicatePropertyModal } from "@/components/DuplicatePropertyModal";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { SaveCompleteModal } from "@/components/SaveCompleteModal";
+import { TeamShareConfirmModal } from "@/components/TeamShareConfirmModal";
+import { useHasTeam } from "@/hooks/useHasTeam";
 import { getCurrentUser, peekCurrentUser } from "@/lib/auth";
 import { createEmptyProperty } from "@/lib/constants";
 import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
@@ -34,8 +36,10 @@ export default function NewPropertyPage() {
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState("");
   const [savedOpen, setSavedOpen] = useState(false);
+  const [teamShareOpen, setTeamShareOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [agent, setAgent] = useState<User | null>(() => peekCurrentUser());
+  const hasTeam = useHasTeam();
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -48,10 +52,11 @@ export default function NewPropertyPage() {
     };
   }, []);
 
-  const saveProperty = async () => {
+  const saveProperty = async (workspaceShared: boolean) => {
     const now = new Date().toISOString();
     const saved: ListedProperty = {
       ...property,
+      workspaceShared,
       address: property.address.trim(),
       createdAt: now,
       updatedAt: now,
@@ -62,6 +67,14 @@ export default function NewPropertyPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "매물 저장에 실패했습니다.");
     }
+  };
+
+  const proceedToSave = () => {
+    if (hasTeam) {
+      setTeamShareOpen(true);
+      return;
+    }
+    void saveProperty(false);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -89,7 +102,7 @@ export default function NewPropertyPage() {
       setDupOpen(true);
       return;
     }
-    await saveProperty();
+    proceedToSave();
   };
 
   const goBack = () => {
@@ -125,6 +138,7 @@ export default function NewPropertyPage() {
           onChange={setProperty}
           showTitle={false}
           showArriveTime={false}
+          showTeamShare={false}
           enableIntake
           validationActive={validationActive}
           focusField={focusField}
@@ -148,7 +162,18 @@ export default function NewPropertyPage() {
         onCancel={() => setDupOpen(false)}
         onConfirm={() => {
           setDupOpen(false);
-          void saveProperty();
+          proceedToSave();
+        }}
+      />
+      <TeamShareConfirmModal
+        open={teamShareOpen}
+        onReject={() => {
+          setTeamShareOpen(false);
+          void saveProperty(false);
+        }}
+        onAgree={() => {
+          setTeamShareOpen(false);
+          void saveProperty(true);
         }}
       />
       <RequiredFieldWarnModal

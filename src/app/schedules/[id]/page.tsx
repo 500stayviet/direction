@@ -407,14 +407,15 @@ function ScheduleDetailInner() {
       if (!guestName.trim()) {
         showWarn({
           target: "guestName",
-          message: "성함 칸 입력은 필수입니다.",
+          message: "고객명 또는 명칭 입력은 필수입니다.",
         });
         return;
       }
     } else if (!customer) {
       showWarn({
         target: "customer",
-        message: "고객을 선택하거나 고객없음을 눌러 성함을 입력해 주세요.",
+        message:
+          "고객을 선택하거나 고객없음을 눌러 고객명 또는 명칭을 입력해 주세요.",
       });
       return;
     }
@@ -648,7 +649,7 @@ function ScheduleDetailInner() {
                   <p className="shrink-0 font-bold text-gray-900">고객 불러오기</p>
                   {customerMode !== "selected" ? (
                     <p className="min-w-0 text-[11px] leading-snug text-gray-400">
-                      고객없음을 체크하면 성함만 입력할 수 있어요
+                      고객없음을 체크하면 고객명 또는 명칭만 입력할 수 있어요
                     </p>
                   ) : null}
                 </div>
@@ -683,7 +684,7 @@ function ScheduleDetailInner() {
               {customerMode === "guest" ? (
                 <div ref={guestNameRef}>
                   <Input
-                    label="성함"
+                    label="고객명 또는 명칭"
                     required
                     invalid={validationFocus?.target === "guestName"}
                     value={guestName}
@@ -1038,7 +1039,7 @@ function ScheduleDetailInner() {
                   {schedule.guestName || "이름 없음"}
                 </p>
                 <p className="text-[13px] font-medium text-gray-500">
-                  고객없음 · 성함만 등록
+                  고객없음 · 고객명 또는 명칭만 등록
                 </p>
               </Card>
             )}

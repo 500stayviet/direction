@@ -193,11 +193,13 @@ test("매물등록: 거래종류 다시 누르면 세 개가 다시 보인다", 
     const fee = page.getByLabel("관리비");
     await fee.fill("0");
     await fee.blur();
-    await expect(fee).toHaveValue("0");
+    const feeZeroChip = page.locator("button").filter({ hasText: "0만원" });
+    await expect(feeZeroChip).toBeVisible();
     await expect(page.getByText("관리비 포함 항목")).toHaveCount(0);
+    await feeZeroChip.click();
     await fee.fill("10");
     await fee.blur();
-    await expect(fee).toHaveValue("10");
+    await expect(page.locator("button").filter({ hasText: "10만원" })).toBeVisible();
     await expect(page.getByText("관리비 포함 항목")).toBeVisible();
     await page.getByRole("button", { name: "전세", exact: true }).click();
     await page.getByRole("button", { name: "매매", exact: true }).click();

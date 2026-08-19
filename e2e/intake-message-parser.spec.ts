@@ -53,9 +53,7 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
     await expect(
       page.getByRole("button", { name: "매매", exact: true })
     ).toBeVisible();
-    await expect(page.getByRole("spinbutton", { name: /매매가/ })).toHaveValue(
-      "10000"
-    );
+    await expect(page.locator("button").filter({ hasText: "1억" }).first()).toBeVisible();
     await expect(page.getByTestId("property-address-chip")).toHaveText(
       /성내동/
     );

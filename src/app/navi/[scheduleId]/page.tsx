@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
 import { NaviAppModal } from "@/components/NaviAppModal";
-import { PhoneLink } from "@/components/PhoneLink";
+import { PhoneChip } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { useNaviLaunch } from "@/hooks/useNaviLaunch";
 import {
@@ -123,23 +123,35 @@ export default function FieldLeadPage() {
       {(customer || schedule.guestName) && (
         <Card className="mb-3 py-4">
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-gray-500">현장 고객</p>
-              <p className="font-bold">
+              <p className="truncate font-bold">
                 {customer?.name || schedule.guestName}
               </p>
             </div>
             {customer ? (
-              <PhoneLink phone={customer.phone} />
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                <span className="shrink-0 text-[12px] font-semibold text-gray-500">
+                  고객
+                </span>
+                <PhoneChip
+                  phone={customer.phone}
+                  emptyLabel="전화번호 미입력"
+                  emptyClassName="!text-[10px] !font-semibold"
+                  className="!ml-0 !px-1.5 !py-1 !text-[20px] sm:!text-[18px]"
+                />
+              </div>
             ) : (
-              <span className="text-xs font-semibold text-gray-400">고객없음</span>
+              <span className="shrink-0 text-xs font-semibold text-gray-400">
+                고객없음
+              </span>
             )}
           </div>
         </Card>
       )}
 
       <div className="space-y-3">
-        <PropertyBrief index={step} property={property} />
+        <PropertyBrief index={step} property={property} showArriveTime />
 
         <Button variant="outline" fullWidth onClick={openCurrentNavi}>
           📍 현재 매물 네비 열기

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateUsernameFormat } from "@/lib/supabase/email";
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import {
+  isUsernameInWithdrawnCooldown,
+  withdrawnUsernameBlockedMessage,
+} from "@/lib/withdrawnAccount";
 
 /** 회원가입용 아이디 중복 확인 */
 async function __POST_handler(request: Request) {
@@ -35,7 +39,7 @@ async function __POST_handler(request: Request) {
     const [{ data: deletedRow }, { data: activeProfile }] = await Promise.all([
       admin
         .from("deleted_accounts")
-        .select("username")
+        .select("username, deleted_at")
         .eq("username", username)
         .maybeSingle(),
       admin
@@ -46,11 +50,19 @@ async function __POST_handler(request: Request) {
     ]);
 
     if (deletedRow) {
+      if (isUsernameInWithdrawnCooldown(deletedRow.deleted_at)) {
+        return NextResponse.json({
+          ok: true,
+          available: false,
+          username,
+          message: withdrawnUsernameBlockedMessage(deletedRow.deleted_at),
+        });
+      }
       return NextResponse.json({
         ok: true,
-        available: false,
+        available: true,
         username,
-        message: "해당 아이디를 사용할 수 없습니다.",
+        message: "탈퇴 후 30일이 지나 같은 아이디로 가입할 수 있습니다.",
       });
     }
     if (activeProfile) {

@@ -696,7 +696,7 @@ export default function AccountPage() {
         open={deleteOpen}
         onClose={closeDelete}
         title="정말 탈퇴할까요?"
-        description={`탈퇴하면 앱을 더 이상 이용할 수 없고, 같은 아이디로는 다시 가입할 수 없습니다. 아래 문구를 정확히 입력해 주세요. 「${DELETE_CONFIRM_PHRASE}」`}
+        description={`탈퇴하면 앱을 더 이상 이용할 수 없습니다. 같은 아이디로는 30일 후 새 계정으로 다시 가입할 수 있으며, 이전 데이터는 이어지지 않습니다. 아래 문구를 정확히 입력해 주세요. 「${DELETE_CONFIRM_PHRASE}」`}
       >
         <div className="space-y-3">
           <Input

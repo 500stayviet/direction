@@ -29,9 +29,7 @@ test("2자가 공유 매물 수정·목록 숨김", async ({ browser }) => {
   await pair.memberPage.getByRole("button", { name: "수정" }).click();
   await expect(pair.memberPage.getByText("매물 정보 수정")).toBeVisible();
   const note = `2자수정-${Date.now()}`;
-  await pair.memberPage
-    .getByPlaceholder("예) 남향 저층")
-    .fill(note);
+  await pair.memberPage.getByLabel("메모").fill(note);
   await pair.memberPage.getByRole("button", { name: "변경사항 저장" }).click();
   await expect(
     pair.memberPage.getByText("변경사항이 저장되었습니다")

@@ -100,7 +100,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
               />
             ) : (
               <span className="shrink-0 text-[13px] font-semibold text-gray-400">
-                번호 없음
+                전화번호 미입력
               </span>
             )}
           </div>

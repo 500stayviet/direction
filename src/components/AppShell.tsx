@@ -10,35 +10,28 @@ import { TeamAlertsSync } from "@/components/TeamAlertsSync";
 import { FeatureIntroHost } from "@/components/FeatureIntroHost";
 import { useAppScreenWakeLock } from "@/hooks/useScreenWakeLock";
 
-const AUTH_PATHS = ["/login"];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   // 앱이 보일 때 약 10분만 화면 유지 (이후 슬립 허용)
   useAppScreenWakeLock();
-  const isAuthPage = AUTH_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
   const isAdmin = pathname.startsWith("/admin");
-  // 현장 리드·관리자·로그인에서는 탭바 숨김
+  // 현장 리드·관리자에서는 탭바 숨김 (로그인·가입은 홈 탭으로 나갈 수 있게 표시)
   const hideTab =
     isAdmin ||
-    isAuthPage ||
     (pathname.startsWith("/navi/") && pathname !== "/navi");
   // 하단 고정 CTA가 있는 화면 (스크롤 여유)
   const stickySave =
     pathname === "/signup" ||
-    (!isAuthPage &&
-      (pathname === "/schedules/new" ||
-        pathname === "/customers" ||
-        pathname === "/customers/new" ||
-        pathname === "/properties" ||
-        pathname === "/properties/new" ||
-        pathname === "/navi" ||
-        pathname === "/account/edit" ||
-        /^\/customers\/[^/]+$/.test(pathname) ||
-        /^\/properties\/[^/]+$/.test(pathname) ||
-        /^\/schedules\/[^/]+$/.test(pathname)));
+    pathname === "/schedules/new" ||
+    pathname === "/customers" ||
+    pathname === "/customers/new" ||
+    pathname === "/properties" ||
+    pathname === "/properties/new" ||
+    pathname === "/navi" ||
+    pathname === "/account/edit" ||
+    /^\/customers\/[^/]+$/.test(pathname) ||
+    /^\/properties\/[^/]+$/.test(pathname) ||
+    /^\/schedules\/[^/]+$/.test(pathname);
 
   return (
     <div className="min-h-dvh bg-[#F9FAFB] text-gray-900">

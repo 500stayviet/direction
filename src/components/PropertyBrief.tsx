@@ -44,6 +44,10 @@ function NaviGlyph({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+/** 원터치 전화 — 임차인·임대인 등 역할 뱃지 */
+const phoneRoleBadgeClass =
+  "shrink-0 rounded-md border border-[#03B26C]/25 bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#03B26C]";
+
 interface PropertyBriefProps {
   index: number;
   property: Property;
@@ -69,7 +73,7 @@ const chipOn = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
 const chipOff = `${chipBase} bg-[#F2F4F6] text-gray-500`;
 const chipOption = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
 
-/** 원터치 네비·전화 안내 — 글자만 감싸는 옅은 노란 칩 */
+/** 원터치 네비·전화 안내 — 짧은 한 줄 */
 const touchActionHintClass =
   "ml-auto inline-block shrink-0 rounded px-0.5 py-px text-[12px] font-semibold leading-snug text-amber-600";
 
@@ -118,6 +122,7 @@ export function PropertyBrief({
       : property.dealType;
 
   const showArriveChip = showArriveTime && Boolean(property.arriveTime);
+  const visitTouchUi = showArriveTime && !matchPreview;
   const memoText = showArriveTime
     ? property.notes?.trim() || ""
     : notesWithDoorPasswords(property);
@@ -129,7 +134,7 @@ export function PropertyBrief({
   const showPasswords =
     showArriveTime &&
     property.roomType !== "토지" &&
-    (!omitEmpty || hasFloorPw || hasRoomPw);
+    (hasFloorPw || hasRoomPw);
   const showMemo = !omitEmpty || hasNotes;
   const showMoveIn =
     property.roomType !== "토지" &&
@@ -210,24 +215,24 @@ export function PropertyBrief({
               원터치 네비게이션
             </span>
             <span className={touchActionHintClass}>
-              주소를 누르면 네비게이션으로 이동합니다
+              주소를 누르면 네비게이션으로 이동
             </span>
           </span>
           <span
             className={
-              matchPreview
+              matchPreview || visitTouchUi
                 ? "mt-2 block w-full"
                 : "mt-2 flex w-full items-end gap-3"
             }
           >
-            {!matchPreview ? (
+            {!matchPreview && !visitTouchUi ? (
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white shadow-sm">
                 <NaviGlyph className="h-6 w-6" />
               </span>
             ) : null}
             <span
               className={
-                matchPreview
+                matchPreview || visitTouchUi
                   ? "block w-full min-w-0 text-right"
                   : "min-w-0 flex-1 text-right"
               }
@@ -268,22 +273,29 @@ export function PropertyBrief({
                 원터치 전화
               </p>
               <span className={touchActionHintClass}>
-                전화번호를 누르면 전화로 이동합니다
+                전화번호를 누르면 전화로 이동
               </span>
             </div>
             <div
               className={
-                matchPreview
+                matchPreview || visitTouchUi
                   ? "mt-2 w-full"
                   : "mt-2 flex items-end gap-3"
               }
             >
-              {!matchPreview ? (
+              {!matchPreview && !visitTouchUi ? (
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#03B26C] text-white shadow-sm">
                   <PhoneHandsetIcon className="h-5 w-5" />
                 </span>
               ) : null}
-              <div className="min-w-0 flex-1 divide-y divide-[#03B26C]/15">
+              <div
+                className={[
+                  "min-w-0 flex-1",
+                  property.hasPartnerAgency || !visitTouchUi
+                    ? "divide-y divide-[#03B26C]/15"
+                    : "flex flex-col items-end",
+                ].join(" ")}
+              >
                 {property.hasPartnerAgency ? (
                   property.partnerAgency?.phone ? (
                     <PhoneLink
@@ -341,7 +353,7 @@ export function PropertyBrief({
                         </span>
                       ) : null}
                       <span className="shrink-0 text-[13px] font-medium text-gray-400">
-                        번호 없음
+                        전화번호 미입력
                       </span>
                     </div>
                   )
@@ -352,13 +364,23 @@ export function PropertyBrief({
                         phone={property.tenantPhone}
                         showIcon={false}
                         className={[
-                          "!flex w-full gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
+                          visitTouchUi
+                            ? "!inline-flex items-center gap-1.5 py-1.5 !text-[#03B26C]"
+                            : "!flex w-full py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
                           matchPreview
-                            ? "flex-wrap items-baseline"
-                            : "items-baseline justify-between",
+                            ? "flex-wrap items-baseline gap-2"
+                            : visitTouchUi
+                              ? ""
+                              : "items-baseline justify-between gap-3",
                         ].join(" ")}
                       >
-                        <span className="shrink-0 text-[14px] font-bold text-gray-600">
+                        <span
+                          className={
+                            visitTouchUi
+                              ? phoneRoleBadgeClass
+                              : "shrink-0 text-[14px] font-bold text-gray-600"
+                          }
+                        >
                           임차인
                         </span>
                         <span
@@ -376,13 +398,28 @@ export function PropertyBrief({
                         phone={property.landlordPhone}
                         showIcon={false}
                         className={[
-                          "!flex w-full gap-3 py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
+                          visitTouchUi
+                            ? [
+                                "!inline-flex items-center gap-1.5 py-1.5 !text-[#03B26C]",
+                                property.tenantPhone
+                                  ? "border-t border-[#03B26C]/15"
+                                  : "",
+                              ].join(" ")
+                            : "!flex w-full py-1.5 !text-[#03B26C] first:pt-0 last:pb-0",
                           matchPreview
-                            ? "flex-wrap items-baseline"
-                            : "items-baseline justify-between",
+                            ? "flex-wrap items-baseline gap-2"
+                            : visitTouchUi
+                              ? ""
+                              : "items-baseline justify-between gap-3",
                         ].join(" ")}
                       >
-                        <span className="shrink-0 text-[14px] font-bold text-gray-600">
+                        <span
+                          className={
+                            visitTouchUi
+                              ? phoneRoleBadgeClass
+                              : "shrink-0 text-[14px] font-bold text-gray-600"
+                          }
+                        >
                           임대인
                         </span>
                         <span
@@ -520,7 +557,7 @@ export function PropertyBrief({
                 평형 (약)
               </p>
               <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {property.usableArea}평
+                {formatLandAreaLine(property.usableArea) || "-"}
               </p>
             </div>
           ) : null}
@@ -538,12 +575,15 @@ export function PropertyBrief({
 
         {showPasswords ? (
           <div className="divide-y divide-gray-100 rounded-2xl bg-[#F9FAFB] px-3.5">
+          {hasFloorPw ? (
           <div className="flex items-center justify-between gap-2 py-3">
             <span className="text-[14px] font-bold text-gray-500">
               현관 비밀번호
             </span>
             <PasswordReveal password={property.floorPassword} />
           </div>
+          ) : null}
+          {hasRoomPw ? (
           <div className="flex items-center justify-between gap-2 py-3">
             <span className="text-[14px] font-bold text-gray-500">
               호실 비밀번호
@@ -552,6 +592,7 @@ export function PropertyBrief({
               password={property.roomPassword || property.password}
             />
           </div>
+          ) : null}
         </div>
         ) : null}
 

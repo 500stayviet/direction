@@ -24,6 +24,7 @@ import {
 } from "@/lib/constants";
 import { Input, TextArea } from "@/components/ui/Input";
 import { ManAmountInput } from "@/components/ManAmountInput";
+import { ManWonInput } from "@/components/ManWonInput";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
@@ -167,11 +168,9 @@ export function PropertyEditor({
   const [lockHintOpen, setLockHintOpen] = useState(false);
   const lockedListedId = property.listedFromId?.trim() || "";
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
-  const [floorPwOpen, setFloorPwOpen] = useState(() =>
-    Boolean(property.floorPassword?.trim())
-  );
-  const [roomPwOpen, setRoomPwOpen] = useState(() =>
-    Boolean((property.roomPassword || property.password)?.trim())
+  const hasFloorPw = Boolean(property.floorPassword?.trim());
+  const hasRoomPw = Boolean(
+    (property.roomPassword || property.password)?.trim()
   );
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
@@ -187,14 +186,6 @@ export function PropertyEditor({
     foldedPasswordsRef.current = property.id;
     onChange(foldDoorPasswordsIntoNotes(property));
   }, [onChange, property, showArriveTime]);
-
-  useEffect(() => {
-    if (property.floorPassword?.trim()) setFloorPwOpen(true);
-  }, [property.floorPassword]);
-
-  useEffect(() => {
-    if ((property.roomPassword || property.password)?.trim()) setRoomPwOpen(true);
-  }, [property.password, property.roomPassword]);
 
   const resetPropertyDraft = useCallback(() => {
     const empty = createEmptyProperty();
@@ -402,25 +393,17 @@ export function PropertyEditor({
   ) : null;
 
   const schedulePasswordFields =
-    showArriveTime && !isLand ? (
+    showArriveTime && !isLand && (hasFloorPw || hasRoomPw) ? (
       <div className="grid grid-cols-2 gap-2">
-        {floorPwOpen ? (
+        {hasFloorPw ? (
           <Input
             label="현관 비밀번호"
             value={property.floorPassword ?? ""}
             onChange={(e) => update({ floorPassword: e.target.value })}
             placeholder="예) 1234*"
           />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setFloorPwOpen(true)}
-            className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-          >
-            현관 비밀번호 입력
-          </button>
-        )}
-        {roomPwOpen ? (
+        ) : null}
+        {hasRoomPw ? (
           <Input
             label="호실 비밀번호"
             value={property.roomPassword ?? property.password ?? ""}
@@ -429,15 +412,7 @@ export function PropertyEditor({
             }
             placeholder="예) 5678*"
           />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setRoomPwOpen(true)}
-            className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
-          >
-            호실 비밀번호 입력
-          </button>
-        )}
+        ) : null}
       </div>
     ) : null;
 
@@ -812,25 +787,13 @@ export function PropertyEditor({
       {isUnitRoomType(
         normalizeRoomType(property.roomType) ?? property.roomType
       ) ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            label="평형"
-            labelNote="(약)"
-            type="number"
-            inputMode="decimal"
-            suffix="평"
-            value={property.usableArea ?? ""}
-            onChange={(e) => {
-              const raw = e.target.value;
-              update({
-                usableArea: raw === "" ? undefined : Number(raw) || 0,
-              });
-            }}
-            placeholder="예) 10"
-            step="any"
-            className="text-center"
-          />
-        </div>
+        <LandAreaDualFields
+          label="평형"
+          labelNote="(약)"
+          pyeong={property.usableArea}
+          onChange={(usableArea) => update({ usableArea })}
+          pyeongPlaceholder="예) 10"
+        />
       ) : null}
       </div>
 
@@ -877,41 +840,35 @@ export function PropertyEditor({
           </div>
           {property.dealType === "월세" && !isBuilding && !isLand && (
             <div>
-            <Input
-              label="월세"
-              type="number"
-              value={property.monthlyRent || ""}
-              suffix="만원"
-              onChange={(e) =>
-                update({ monthlyRent: Number(e.target.value) || 0 })
-              }
-              placeholder="예) 50"
-            />
+              <ManWonInput
+                label="월세"
+                required
+                value={property.monthlyRent || undefined}
+                onChange={(monthlyRent) =>
+                  update({ monthlyRent: monthlyRent ?? 0 })
+                }
+                placeholder="예) 50"
+              />
             </div>
           )}
         </div>
         {showMaintenance ? (
           <div className="grid grid-cols-2 gap-2">
-            <Input
+            <ManWonInput
               label="관리비"
-              type="number"
-              inputMode="numeric"
-              value={property.maintenanceFee ?? ""}
-              suffix="만원"
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
+              allowEmpty
+              value={property.maintenanceFee}
+              onChange={(maintenanceFee) => {
+                if (maintenanceFee == null) {
                   update({
                     maintenanceFee: undefined,
                     maintenanceIncludes: [],
                   });
                   return;
                 }
-                const n = Number(raw);
-                if (!Number.isFinite(n) || n < 0) return;
                 update({
-                  maintenanceFee: n,
-                  ...(n > 0 ? {} : { maintenanceIncludes: [] }),
+                  maintenanceFee,
+                  ...(maintenanceFee > 0 ? {} : { maintenanceIncludes: [] }),
                 });
               }}
               placeholder="예) 10"
@@ -1266,29 +1223,72 @@ export function PropertyEditor({
                 }
                 update({
                   parkingType,
-                  parkingFeeType: "별도",
+                  parkingFeeType:
+                    parkingType === "유"
+                      ? property.parkingFee != null && property.parkingFee > 0
+                        ? "별도"
+                        : property.parkingFeeType === "포함"
+                          ? "포함"
+                          : "별도"
+                      : property.parkingFeeType,
                   parkingFee:
-                    parkingType === "유" ? (property.parkingFee ?? 0) : undefined,
+                    parkingType === "유" ? property.parkingFee : undefined,
                 });
               }}
             />
           </div>
           {property.parkingType === "유" && (
-            <Input
-              label="주차비"
-              type="number"
-              inputMode="numeric"
-              value={property.parkingFee || ""}
-              suffix="만원"
-              onChange={(e) => {
-                const raw = e.target.value;
-                update({
-                  parkingFeeType: "별도",
-                  parkingFee: raw === "" ? 0 : Number(raw) || 0,
-                });
-              }}
-              placeholder="예) 10"
-            />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] font-semibold text-gray-600">
+                  주차비
+                </p>
+                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <CircleCheck
+                    checked={property.parkingFeeType === "포함"}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        update({
+                          parkingFeeType: "포함",
+                          parkingFee: undefined,
+                        });
+                        return;
+                      }
+                      update({
+                        parkingFeeType: "별도",
+                        parkingFee: undefined,
+                      });
+                    }}
+                  />
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    없음
+                  </span>
+                </label>
+              </div>
+              {property.parkingFeeType === "포함" ? (
+                <div
+                  className={[
+                    "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-medium",
+                    controlStatusClass({ filled: true }),
+                  ].join(" ")}
+                >
+                  없음
+                </div>
+              ) : (
+                <ManWonInput
+                  label=""
+                  allowEmpty
+                  value={property.parkingFee}
+                  onChange={(parkingFee) =>
+                    update({
+                      parkingFeeType: "별도",
+                      parkingFee,
+                    })
+                  }
+                  placeholder="예) 10"
+                />
+              )}
+            </div>
           )}
           <div ref={setFieldRef("elevator")}>
           <OptionToggle
