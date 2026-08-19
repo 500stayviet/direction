@@ -1,5 +1,5 @@
 import { normalizeRoomType } from "@/lib/constants";
-import { isInsuranceJoined, resolveCustomerLoanNeeded } from "@/lib/format";
+import { isInsuranceJoined, needsJeonseInsurance, needsLoanFlag, resolveCustomerLoanNeeded } from "@/lib/format";
 import type { Customer, ListedProperty, RoomType } from "@/lib/types";
 
 /**
@@ -200,6 +200,7 @@ export function propertyMatchesCustomer(
   }
 
   if (
+    needsLoanFlag(customer.roomType) &&
     !wantsYesFits(
       resolveCustomerLoanNeeded(customer),
       property.loanAvailable
@@ -209,6 +210,7 @@ export function propertyMatchesCustomer(
   }
 
   if (
+    needsJeonseInsurance(customer.dealType, customer.roomType) &&
     !wantsYesFits(
       customer.insuranceNeeded,
       isInsuranceJoined(property.insuranceType) ? "유" : property.insuranceType

@@ -12,6 +12,7 @@ import {
   allGuideStepsComplete,
   buildIntakeFromSteps,
   flagsStepComplete,
+  flagsGuideCopy,
   formatFlagsValueLine,
   guideStepComplete,
   moneyFieldsComplete,
@@ -336,8 +337,14 @@ export function IntakeTalkModal({
       stepsRef.current = nextSteps;
       setSteps(nextSteps);
       const fromKey = guide[fromIndex]?.key;
+      const resolvedDeal = resolveTalkDealType(
+        nextSteps.dealType?.partial,
+        nextSteps.money?.partial
+      );
+      const resolvedRoom = nextSteps.roomType?.partial?.roomType;
       const flagsDone =
-        fromKey === "flags" && flagsStepComplete(nextSteps.flags?.partial);
+        fromKey === "flags" &&
+        flagsStepComplete(nextSteps.flags?.partial, resolvedDeal, resolvedRoom);
       if (fromKey === "flags" && !flagsDone) {
         resetStepSpeech();
         return;
@@ -1110,21 +1117,25 @@ export function IntakeTalkModal({
             steps.dealType?.partial,
             steps.money?.partial
           );
+          const resolvedRoom = steps.roomType?.partial?.roomType;
+          const flagsCopy = flagsGuideCopy(resolvedDeal, resolvedRoom);
           const stepExample =
             line.key === "money"
               ? moneyStepExample(resolvedDeal)
               : line.key === "dealType"
                 ? dealTypeStepExample(resolvedDeal)
-                : line.example;
+                : isFlags
+                  ? flagsCopy.example
+                  : line.example;
           const flagsValues = isFlags
-            ? formatFlagsValueLine(row?.partial ?? {})
+            ? formatFlagsValueLine(row?.partial ?? {}, resolvedDeal, resolvedRoom)
             : "";
           const rowDisplay = isFlags
             ? flagsValues || row?.display || ""
             : row?.display || "";
           const hasEnteredValue = Boolean(rowDisplay);
           const filled = isFlags
-            ? flagsStepComplete(row?.partial)
+            ? flagsStepComplete(row?.partial, resolvedDeal, resolvedRoom)
             : hasEnteredValue ||
               (line.key === "notes" && Boolean(row?.complete));
           const active = index === activeIndex;
@@ -1198,8 +1209,8 @@ export function IntakeTalkModal({
                     filled ? "text-green-800" : active ? "text-blue-900" : "text-gray-800",
                   ].join(" ")}
                 >
-                  {line.name}
-                  {line.nameHint ? (
+                  {isFlags ? flagsCopy.name : line.name}
+                  {(isFlags ? flagsCopy.nameHint : line.nameHint) ? (
                     <span
                       className={[
                         "ml-1 text-[11px] font-medium leading-none",
@@ -1210,7 +1221,7 @@ export function IntakeTalkModal({
                             : "text-gray-500",
                       ].join(" ")}
                     >
-                      {line.nameHint}
+                      {isFlags ? flagsCopy.nameHint : line.nameHint}
                     </span>
                   ) : null}
                   {showColon ? ":" : ""}

@@ -13,6 +13,7 @@ import {
   getCustomerParkingLabel,
   yesNoLabel,
   availLabel,
+  needsJeonseInsurance,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
@@ -174,7 +175,8 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 active={loanLabel !== "무" && loanLabel !== "-"}
               />
             ) : null}
-            {showLoanInsurancePet ? (
+            {showLoanInsurancePet &&
+            needsJeonseInsurance(customer.dealType, customer.roomType) ? (
               <StatusChip
                 label="보증보험"
                 value={availLabel(insuranceLabel)}

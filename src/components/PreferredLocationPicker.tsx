@@ -12,7 +12,6 @@ import {
   groupDongsByGu,
 } from "@/lib/preferredLocation";
 import {
-  emptyRequiredClass,
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
@@ -147,12 +146,7 @@ export function PreferredLocationPicker({
   );
 
   return (
-    <div
-      className={emptyRequiredClass({
-        invalid,
-        filled: hasSelection && !invalid,
-      })}
-    >
+    <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
         <p className={`shrink-0 ${labelClass}`}>
           선호지역
@@ -194,7 +188,7 @@ export function PreferredLocationPicker({
                 </button>
                 <button
                   type="button"
-                  className="shrink-0 text-[11px] font-normal text-red-400"
+                  className="shrink-0 text-[11px] font-normal text-white/80"
                   onClick={() => removeGu(gu)}
                 >
                   삭제

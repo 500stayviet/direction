@@ -5,8 +5,9 @@ import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
 import {
   displayRoomType,
   skipsResidentialExtras,
-  normalizeUnitCounts,
+  formatUnitCountsLine,
   needsRoomBathCounts,
+  isUnitRoomType,
 } from "@/lib/constants";
 import {
   formatDepositRent,
@@ -14,6 +15,7 @@ import {
   getPropertyMoveInLabel,
   formatPhone,
   isInsuranceJoined,
+  needsJeonseInsurance,
 } from "@/lib/format";
 import { formatDisplayTime } from "@/components/TimePicker";
 import { Card } from "@/components/ui/Card";
@@ -23,6 +25,7 @@ import { toNaviAddress } from "@/lib/navi";
 import { PasswordReveal } from "@/components/PasswordReveal";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
+import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import { useState } from "react";
 
 function NaviGlyph({ className = "h-5 w-5" }: { className?: string }) {
@@ -105,12 +108,16 @@ export function PropertyBrief({
       : property.dealType;
 
   const showArriveChip = showArriveTime && Boolean(property.arriveTime);
-  const hasNotes = Boolean(property.notes?.trim());
+  const memoText = showArriveTime
+    ? property.notes?.trim() || ""
+    : notesWithDoorPasswords(property);
+  const hasNotes = Boolean(memoText);
   const hasFloorPw = Boolean(property.floorPassword?.trim());
   const hasRoomPw = Boolean(
     (property.roomPassword || property.password)?.trim()
   );
   const showPasswords =
+    showArriveTime &&
     property.roomType !== "토지" &&
     (!omitEmpty || hasFloorPw || hasRoomPw);
   const showMemo = !omitEmpty || hasNotes;
@@ -374,17 +381,10 @@ export function PropertyBrief({
                 방 · 상가수
               </p>
               <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {(
-                  [
-                    ["원룸", normalizeUnitCounts(property.unitCounts).원룸],
-                    ["투룸", normalizeUnitCounts(property.unitCounts).투룸],
-                    ["3룸+", normalizeUnitCounts(property.unitCounts)["3룸+"]],
-                    ["상가", normalizeUnitCounts(property.unitCounts).상가],
-                  ] as const
-                )
-                  .filter(([, n]) => n > 0)
-                  .map(([label, n]) => `${label} ${n}`)
-                  .join(" · ") || "-"}
+                {formatUnitCountsLine(
+                  property.unitCounts,
+                  property.buildingKind
+                ) || "-"}
               </p>
             </div>
           ) : null}
@@ -397,6 +397,17 @@ export function PropertyBrief({
                 방 {property.roomType === "투룸" ? 2 : property.roomCount ?? "-"}개
                 {" · "}
                 화장실 {property.bathroomCount ?? 1}개
+              </p>
+            </div>
+          ) : null}
+          {isUnitRoomType(property.roomType) &&
+          property.usableArea != null ? (
+            <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
+              <p className="text-[11px] font-bold leading-none text-gray-400">
+                평형 (약)
+              </p>
+              <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {property.usableArea}평
               </p>
             </div>
           ) : null}
@@ -416,7 +427,7 @@ export function PropertyBrief({
           <div className="divide-y divide-gray-100 rounded-2xl bg-[#F9FAFB] px-3.5">
           <div className="flex items-center justify-between gap-2 py-3">
             <span className="text-[14px] font-bold text-gray-500">
-              1층 비밀번호
+              현관 비밀번호
             </span>
             <PasswordReveal password={property.floorPassword} />
           </div>
@@ -439,11 +450,12 @@ export function PropertyBrief({
             property.loanAvailable === "무") ? (
           <StatusChip
             label="대출"
-            value={loanOn ? "가능" : "무"}
+            value={loanOn ? "가능" : "불가"}
             active={loanOn}
           />
           ) : null}
           {showResidentialExtras &&
+          needsJeonseInsurance(property.dealType, property.roomType) &&
           (!omitEmpty ||
             property.insuranceType === "유" ||
             property.insuranceType === "무") ? (
@@ -455,7 +467,7 @@ export function PropertyBrief({
                   property.insuranceType !== "유"
                   ? property.insuranceType
                   : "가능"
-                : "무"
+                : "불가"
             }
             active={insuranceOn}
           />
@@ -481,7 +493,7 @@ export function PropertyBrief({
                   ]
                     .filter(Boolean)
                     .join(" · ")
-                : "무"
+                : "불가"
             }
             active={
               property.roomType === "건물"
@@ -512,7 +524,7 @@ export function PropertyBrief({
         <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
           <p className="text-[12px] font-bold text-gray-400">메모</p>
           <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
-            {property.notes?.trim() || "-"}
+            {memoText || "-"}
           </p>
         </div>
         ) : null}

@@ -10,10 +10,10 @@
     "test:e2e": "playwright test",
     "test:e2e:auth": "playwright test e2e/auth-*.spec.ts",
     "test:e2e:team": "playwright test e2e/team-*.spec.ts e2e/team-member-*.spec.ts",
-    "test:e2e:suspend": "playwright test e2e/suspend-*.spec.ts",
+    "test:e2e:suspend": "playwright test e2e/suspend-api.spec.ts",
     "test:e2e:preferred": "playwright test e2e/customer-preferred-location.spec.ts e2e/register-choice-ui.spec.ts",
     "test:e2e:intake": "playwright test e2e/intake-talk-wizard.spec.ts e2e/intake-message-parser.spec.ts",
-    "test:unit": "node --import tsx --test src/lib/preferredLocation.test.ts src/lib/intakeParse.test.ts src/lib/intakeSteps.test.ts src/lib/intakeOcrNormalize.test.ts src/lib/intakeSampleCollect.test.ts src/lib/intakeSampleExport.test.ts src/lib/seoulRegions.test.ts src/lib/speechTranscript.test.ts src/lib/intakeGuideHits.test.ts src/lib/intakeAi.test.ts src/lib/intakeAiGuard.test.ts src/lib/talkSession.test.ts src/lib/deviceConsent.test.ts src/lib/formatManReadable.test.ts src/lib/date.test.ts src/lib/dealTypeMoney.test.ts src/lib/blankIntakeForm.test.ts src/lib/propertyRoomNo.test.ts src/lib/workspaceName.test.ts src/lib/customerSwipeHint.test.ts src/lib/featureIntro.test.ts src/lib/customerFormDraft.test.ts src/lib/contractAutoComplete.test.ts",
+    "test:unit": "node --import tsx --test src/lib/preferredLocation.test.ts src/lib/intakeParse.test.ts src/lib/intakeSteps.test.ts src/lib/intakeOcrNormalize.test.ts src/lib/intakeSampleCollect.test.ts src/lib/intakeSampleExport.test.ts src/lib/seoulRegions.test.ts src/lib/speechTranscript.test.ts src/lib/intakeGuideHits.test.ts src/lib/intakeAi.test.ts src/lib/intakeAiGuard.test.ts src/lib/talkSession.test.ts src/lib/deviceConsent.test.ts src/lib/formatManReadable.test.ts src/lib/date.test.ts src/lib/dealTypeMoney.test.ts src/lib/blankIntakeForm.test.ts src/lib/propertyRoomNo.test.ts src/lib/workspaceName.test.ts src/lib/customerSwipeHint.test.ts src/lib/featureIntro.test.ts src/lib/customerFormDraft.test.ts src/lib/contractAutoComplete.test.ts src/lib/constants.test.ts src/lib/propertyValidation.test.ts",
     "cleanup:e2e-users": "node --env-file=.env.local scripts/cleanup-e2e-users.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-splash.ps1"

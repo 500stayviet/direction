@@ -1,8 +1,7 @@
 import type {
-  BuildingBathroomCounts,
   BuildingKind,
+  BuildingUnitKey,
   BuildingUnitCounts,
-  BuildingRoomAreas,
   DealType,
   Property,
   ResidentialUnitKey,
@@ -60,12 +59,7 @@ export const EMPTY_UNIT_COUNTS: BuildingUnitCounts = {
   투룸: 0,
   "3룸+": 0,
   상가: 0,
-};
-
-export const EMPTY_BATHROOM_COUNTS: BuildingBathroomCounts = {
-  원룸: 1,
-  투룸: 1,
-  "3룸+": 1,
+  사무실: 0,
 };
 
 export const ROOM_COUNT_OPTIONS = ["1", "2", "3", "4", "5", "6"] as const;
@@ -159,41 +153,42 @@ export function normalizeUnitCounts(
     투룸: Number(raw.투룸 ?? 0) || 0,
     "3룸+": three || 0,
     상가: Number(raw.상가 ?? 0) || 0,
+    사무실: Number(raw.사무실 ?? 0) || 0,
   };
 }
 
-export function normalizeBathroomCounts(
-  raw?: Partial<BuildingBathroomCounts> & {
-    쓰리룸?: number;
-    "쓰리룸+"?: number;
-  } | null
-): BuildingBathroomCounts {
-  if (!raw) return { ...EMPTY_BATHROOM_COUNTS };
-  const three =
-    Number(raw["3룸+"] ?? 0) ||
-    Number(raw["쓰리룸+"] ?? 0) ||
-    Number(raw.쓰리룸 ?? 0) ||
-    1;
+/** 건물 종류에 따른 방·상가(사무실) 수 칸 */
+export function unitKeysForBuildingKind(
+  kind?: string | null
+): BuildingUnitKey[] {
+  if (kind === "근생건물") return ["상가", "사무실"];
+  return [...RESIDENTIAL_UNIT_KEYS, "상가"];
+}
+
+export function pruneUnitCountsForKind(
+  raw: Partial<BuildingUnitCounts> | null | undefined,
+  kind?: string | null
+): BuildingUnitCounts {
+  const all = normalizeUnitCounts(raw);
+  const keep = new Set(unitKeysForBuildingKind(kind));
   return {
-    원룸: Number(raw.원룸 ?? 1) || 1,
-    투룸: Number(raw.투룸 ?? 1) || 1,
-    "3룸+": three,
+    원룸: keep.has("원룸") ? all.원룸 : 0,
+    투룸: keep.has("투룸") ? all.투룸 : 0,
+    "3룸+": keep.has("3룸+") ? all["3룸+"] : 0,
+    상가: keep.has("상가") ? all.상가 : 0,
+    사무실: keep.has("사무실") ? all.사무실 : 0,
   };
 }
 
-export function normalizeRoomAreas(
-  raw?: Partial<BuildingRoomAreas> & {
-    쓰리룸?: number;
-    "쓰리룸+"?: number;
-  } | null
-): BuildingRoomAreas {
-  if (!raw) return {};
-  const three = raw["3룸+"] ?? raw["쓰리룸+"] ?? raw.쓰리룸;
-  return {
-    원룸: raw.원룸,
-    투룸: raw.투룸,
-    ...(three != null ? { "3룸+": three } : {}),
-  };
+export function formatUnitCountsLine(
+  raw: Partial<BuildingUnitCounts> | null | undefined,
+  kind?: string | null
+): string {
+  const counts = normalizeUnitCounts(raw);
+  return unitKeysForBuildingKind(kind)
+    .filter((key) => counts[key] > 0)
+    .map((key) => `${key} ${counts[key]}`)
+    .join(" · ");
 }
 
 /** 예전 저장값 '오피스' → '사무실', 쓰리룸 → 3룸+ */
@@ -216,6 +211,16 @@ export function isLandType(roomType?: string | null): boolean {
 
 export function isBuildingType(roomType?: string | null): boolean {
   return roomType === "건물";
+}
+
+/** 전세·월세는 토지·건물 유형이 없다 */
+export function roomTypesForDeal(
+  dealType?: DealType | "" | null
+): RoomType[] {
+  if (dealType === "전세" || dealType === "월세") {
+    return ROOM_TYPES.filter((type) => !isLandType(type) && !isBuildingType(type));
+  }
+  return [...ROOM_TYPES];
 }
 
 /** 상가·사무실 — 보증보험/옵션/관리비포함 불필요 */
@@ -279,8 +284,6 @@ export const PROPERTY_OPTIONS = [
   "가스레인지",
 ];
 
-export const INSURANCE_TYPES = ["유", "무"] as const;
-
 export const DONG_SUGGESTIONS = [
   "성내동",
   "천호동",
@@ -342,11 +345,6 @@ export function createEmptyProperty(): Property {
     buildingArea: undefined,
     parkingSpaces: undefined,
     unitCounts: { ...EMPTY_UNIT_COUNTS },
-    bathroomCounts: { ...EMPTY_BATHROOM_COUNTS },
-    roomAreas: {},
-    commercialAreas: [],
-    rentInputMode: "합계",
-    typeRents: {},
     moveInFrom: "",
     moveInTo: "",
     moveInSingle: false,

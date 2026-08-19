@@ -6,7 +6,7 @@ import {
   formatRoomNoHo,
   splitPropertyRoomNo,
   splitRestAddress,
-} from "./propertyRoomNo.ts";
+} from "./propertyRoomNo";
 
 describe("propertyRoomNo", () => {
   it("동호수와 호수만 나누고 다시 붙인다", () => {

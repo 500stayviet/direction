@@ -4,9 +4,11 @@ import {
   formatMoney,
   getPropertyMoveInLabel,
   isInsuranceJoined,
+  needsJeonseInsurance,
 } from "@/lib/format";
-import { skipsResidentialExtras, needsRoomBathCounts } from "@/lib/constants";
+import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine } from "@/lib/constants";
 import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
+import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import type { Property, User } from "@/lib/types";
 
 /**
@@ -57,6 +59,9 @@ export function buildPropertyShareText(
         `방·화장실: 방 ${rooms ?? "-"}개 · 화장실 ${property.bathroomCount ?? 1}개`
       );
     }
+    if (property.usableArea != null) {
+      lines.push(`평형 (약): ${property.usableArea}평`);
+    }
 
     if (property.roomType === "토지") {
       if (property.landArea != null) {
@@ -80,17 +85,11 @@ export function buildPropertyShareText(
         lines.push(`건축면적: ${property.buildingArea}평`);
       }
       if (property.unitCounts) {
-        const units = (
-          [
-            ["원룸", property.unitCounts.원룸],
-            ["투룸", property.unitCounts.투룸],
-            ["3룸+", property.unitCounts["3룸+"]],
-            ["상가", property.unitCounts.상가],
-          ] as const
-        )
-          .filter(([, n]) => n > 0)
-          .map(([label, n]) => `${label} ${n}`);
-        if (units.length) lines.push(`방·상가수: ${units.join(" · ")}`);
+        const units = formatUnitCountsLine(
+          property.unitCounts,
+          property.buildingKind
+        );
+        if (units) lines.push(`방·상가수: ${units}`);
       }
       if (property.parkingSpaces != null) {
         lines.push(`주차가능: ${property.parkingSpaces}대`);
@@ -127,17 +126,19 @@ export function buildPropertyShareText(
       !skipsResidentialExtras(property.roomType);
 
     if (showResidential) {
-      lines.push(`대출: ${property.loanAvailable === "유" ? "유" : "무"}`);
-      const insuranceOn = isInsuranceJoined(property.insuranceType);
-      lines.push(
-        `보증보험: ${
-          insuranceOn
-            ? property.insuranceType && property.insuranceType !== "유"
-              ? property.insuranceType
-              : "유"
-            : "무"
-        }`
-      );
+      lines.push(`대출: ${property.loanAvailable === "유" ? "가능" : "불가"}`);
+      if (needsJeonseInsurance(property.dealType, property.roomType)) {
+        const insuranceOn = isInsuranceJoined(property.insuranceType);
+        lines.push(
+          `보증보험: ${
+            insuranceOn
+              ? property.insuranceType && property.insuranceType !== "유"
+                ? property.insuranceType
+                : "가능"
+              : "불가"
+          }`
+        );
+      }
     }
 
     if (property.roomType !== "토지" && property.roomType !== "건물") {
@@ -164,8 +165,9 @@ export function buildPropertyShareText(
       }
     }
 
-    if (!excludeNotes && property.notes?.trim()) {
-      lines.push(`메모: ${property.notes.trim()}`);
+    const memo = notesWithDoorPasswords(property);
+    if (!excludeNotes && memo) {
+      lines.push(`메모: ${memo}`);
     }
 
     lines.push("");

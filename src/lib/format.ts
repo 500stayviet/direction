@@ -1,3 +1,5 @@
+import { skipsResidentialExtras } from "./constants";
+
 /** 전각 숫자 → ASCII */
 function toAsciiDigits(phone: string): string {
   return phone.replace(/[０-９]/g, (ch) =>
@@ -439,7 +441,39 @@ export function yesNoLabel(value?: string | boolean | null): string {
   return "무";
 }
 
-/** 상세·일정 표시: 유 → 가능. 그 외는 그대로 */
+/** 상세·일정 표시: 유 → 가능, 무 → 불가. 그 외는 그대로 */
 export function availLabel(value: string): string {
-  return value === "유" ? "가능" : value;
+  if (value === "유") return "가능";
+  if (value === "무") return "불가";
+  return value;
+}
+
+/** 상가·사무실·토지·건물은 대출 칸을 쓰지 않는다 */
+export function needsLoanFlag(roomType?: string | null): boolean {
+  if (!roomType) return true;
+  return !skipsResidentialExtras(roomType) && roomType !== "토지" && roomType !== "건물";
+}
+
+/** 전세만, 그리고 상가·사무실이 아닐 때만 전세보증보험 칸을 쓴다 */
+export function needsJeonseInsurance(
+  dealType?: string | null,
+  roomType?: string | null
+): boolean {
+  return dealType === "전세" && needsLoanFlag(roomType);
+}
+
+export const AVAIL_TOGGLE = ["가능", "불가"] as const;
+
+export function availFromYesNo(
+  value?: string | null
+): "가능" | "불가" | undefined {
+  if (value === "유") return "가능";
+  if (value === "무") return "불가";
+  return undefined;
+}
+
+export function yesNoFromAvail(value: string): "유" | "무" | "" {
+  if (value === "가능" || value === "유") return "유";
+  if (value === "불가" || value === "무") return "무";
+  return "";
 }

@@ -59,6 +59,7 @@ import {
   getCustomerParkingLabel,
   yesNoLabel,
   availLabel,
+  needsJeonseInsurance,
   matchesBudgetSearch,
   matchesPhoneSearch,
 } from "@/lib/format";
@@ -988,12 +989,17 @@ function ScheduleDetailInner() {
                               label="대출"
                               value={availLabel(getCustomerLoanLabel(customer))}
                             />
+                            {needsJeonseInsurance(
+                              customer.dealType,
+                              customer.roomType
+                            ) ? (
                             <CustomerMeta
                               label="보증보험"
                               value={availLabel(
                                 yesNoLabel(customer.insuranceNeeded)
                               )}
                             />
+                            ) : null}
                           </>
                         ) : null}
                         {customer.roomType !== "토지" &&

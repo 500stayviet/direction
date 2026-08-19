@@ -1529,4 +1529,90 @@ describe("parseIntakeText", () => {
     const clearDate = parseIntakeText("원룸 전세 26.04.22", "customer", today);
     assert.equal(clearDate.moveInFrom, "2026-04-22");
   });
+
+  it("월세 매물은 파싱된 보증보험을 칸에 넣지 않는다", () => {
+    const parsed = parseIntakeText(
+      "원룸 월세 1000/50 암사동 대출 유 전세보증보험 유 주차 유",
+      "property"
+    );
+    assert.equal(parsed.insurance, "유");
+    const next = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(next.dealType, "월세");
+    assert.equal(next.insuranceType, undefined);
+
+    const jeonse = applyIntakeToProperty(
+      createEmptyProperty(),
+      parseIntakeText("원룸 전세 2억 암사동 전세보증보험 무", "property")
+    );
+    assert.equal(jeonse.dealType, "전세");
+    assert.equal(jeonse.insuranceType, "무");
+  });
+
+  it("상가 전세는 대출·보증을 칸에 넣지 않는다", () => {
+    const next = applyIntakeToProperty(
+      createEmptyProperty(),
+      parseIntakeText(
+        "상가 전세 2억 암사동 대출 유 전세보증보험 유 주차 유",
+        "property"
+      )
+    );
+    assert.equal(next.roomType, "상가");
+    assert.equal(next.dealType, "전세");
+    assert.equal(next.loanAvailable, undefined);
+    assert.equal(next.insuranceType, undefined);
+    assert.equal(next.parkingType, "유");
+  });
+
+  it("별·샵·종·현관이 붙은 숫자는 전화가 아니라 메모 비번이다", () => {
+    const parsed = parseIntakeText(
+      [
+        "2시반 성내동 199-21 이스트타운",
+        "203호 7053352100*",
+        "벨 눌러보고 비번으로 봐",
+        "보300/월88(관포) 인터넷없음",
+        "입주 아무때나.",
+        "010 4477 9561 (손님)",
+      ].join("\n"),
+      "property"
+    );
+    assert.equal(parsed.tenantPhone, "010-4477-9561");
+    assert.notEqual(parsed.tenantPhone, "070-5335-2100");
+    assert.equal(parsed.landlordPhone, undefined);
+    assert.match(parsed.notes, /7053352100\*/);
+    assert.match(parsed.notes, /비번/);
+    const applied = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(applied.tenantPhone, "010-4477-9561");
+    assert.equal(applied.floorPassword, "");
+    assert.equal(applied.roomPassword, "");
+    assert.match(applied.notes ?? "", /7053352100\*/);
+
+    const star = parseIntakeText("원룸 성내동 1234별 010-1111-2222", "property");
+    assert.equal(star.tenantPhone, "010-1111-2222");
+    assert.match(star.notes, /1234별/);
+
+    const hash = parseIntakeText("원룸 성내동 4321샵 010-1111-2222", "property");
+    assert.equal(hash.tenantPhone, "010-1111-2222");
+    assert.match(hash.notes, /4321샵/);
+
+    const well = parseIntakeText(
+      "원룸 성내동 8888우물정 010-1111-2222",
+      "property"
+    );
+    assert.equal(well.tenantPhone, "010-1111-2222");
+    assert.match(well.notes, /8888우물정/);
+
+    const bell = parseIntakeText(
+      "원룸 성내동 현관+종+1234+종 010-1111-2222",
+      "property"
+    );
+    assert.equal(bell.tenantPhone, "010-1111-2222");
+    assert.match(bell.notes, /현관\+종\+1234\+종/);
+
+    const office = parseIntakeText(
+      "원룸 성내동 키+관리실+비밀번호+별 010-1111-2222",
+      "property"
+    );
+    assert.equal(office.tenantPhone, "010-1111-2222");
+    assert.match(office.notes, /키\+관리실\+비밀번호\+별/);
+  });
 });

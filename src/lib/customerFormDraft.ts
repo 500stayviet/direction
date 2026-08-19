@@ -8,7 +8,12 @@ import {
   applyDealTypeToMoney,
   isDealMoneyCleared,
 } from "@/lib/dealTypeMoney";
-import { formatPhoneInput, onlyDigits, resolveCustomerLoanNeeded } from "@/lib/format";
+import {
+  formatPhoneInput,
+  needsJeonseInsurance,
+  onlyDigits,
+  resolveCustomerLoanNeeded,
+} from "@/lib/format";
 import {
   completedPreferredGus,
   defaultPreferredLocation,
@@ -185,6 +190,9 @@ export function applyCustomerDealType(
     ...draft,
     dealType: next,
     nonOccupancy: next !== "매매" ? false : draft.nonOccupancy,
+    insuranceNeeded: needsJeonseInsurance(next, draft.roomType)
+      ? draft.insuranceNeeded
+      : "",
     deposit: money.deposit,
     depositTo: money.depositTo,
     monthlyRent: money.monthlyRent,
@@ -207,6 +215,7 @@ export function applyCustomerRoomType(
     next === "건물"
   ) {
     nextDraft.loanNeeded = "무";
+    nextDraft.insuranceNeeded = "";
   }
   if (next === "토지" || next === "건물") {
     nextDraft = applyCustomerDealType(nextDraft, "매매");

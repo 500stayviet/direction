@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { BrandIcon } from "@/components/BrandIcon";
 import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
+import { markSignupWelcomePending } from "@/lib/signupWelcome";
 import { isAutoLoginEnabled, setAutoLoginEnabled } from "@/lib/loginPrefs";
 import { requiredStarClass } from "@/lib/uiInvalid";
 
@@ -40,6 +41,7 @@ function LoginPageInner() {
     const registered = searchParams.get("registered") === "1";
     const preset = searchParams.get("username")?.trim() ?? "";
     if (registered) {
+      markSignupWelcomePending();
       setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
     }
     if (preset) setUsername(preset);
@@ -136,6 +138,11 @@ function LoginPageInner() {
         aria-hidden
       />
 
+      {success ? (
+        <p className="relative z-10 mb-3 shrink-0 rounded-[20px] bg-blue-50 px-3.5 py-2.5 text-center text-[13px] font-semibold text-[#3182F6]">
+          {success}
+        </p>
+      ) : null}
       <InstallAppGuide className="relative z-10 mb-3 shrink-0" />
 
       <div className="relative flex flex-1 flex-col justify-center">
@@ -206,11 +213,6 @@ function LoginPageInner() {
             </button>
           </div>
 
-          {success && (
-            <p className="rounded-xl bg-blue-50 px-3 py-2.5 text-[13px] font-semibold text-[#3182F6]">
-              {success}
-            </p>
-          )}
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2.5 text-[13px] font-semibold text-red-600">
               {error}

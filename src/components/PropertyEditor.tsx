@@ -4,18 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Property, RoomType } from "@/lib/types";
 import {
-  INSURANCE_TYPES,
   MAINTENANCE_OPTIONS,
   PROPERTY_OPTIONS,
+  BUILDING_KINDS,
   EMPTY_UNIT_COUNTS,
-  ROOM_TYPES,
   createEmptyProperty,
   isBuildingType,
   isLandType,
   defaultRoomBathCounts,
   needsRoomBathCounts,
   normalizeRoomType,
+  pruneUnitCountsForKind,
+  roomTypesForDeal,
   skipsResidentialExtras,
+  isUnitRoomType,
 } from "@/lib/constants";
 import { Input, TextArea } from "@/components/ui/Input";
 import { ManAmountInput } from "@/components/ManAmountInput";
@@ -25,8 +27,21 @@ import { Modal } from "@/components/ui/Modal";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { DealTypeToggle } from "@/components/DealTypeToggle";
 import { applyDealTypeToMoney } from "@/lib/dealTypeMoney";
+import {
+  AVAIL_TOGGLE,
+  availFromYesNo,
+  formatMoveInRange,
+  formatPhoneInput,
+  needsJeonseInsurance,
+  onlyDigits,
+  yesNoFromAvail,
+} from "@/lib/format";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
 import { propertyNotesPlaceholder } from "@/lib/memoPlaceholders";
+import {
+  foldDoorPasswordsIntoNotes,
+  propertyHasDoorPasswords,
+} from "@/lib/propertyPasswords";
 import { ModalChoice } from "@/components/ModalChoice";
 import { OptionToggle } from "@/components/OptionToggle";
 import { DatePicker } from "@/components/DatePicker";
@@ -39,7 +54,6 @@ import {
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
-import { formatMoveInRange, formatPhoneInput, onlyDigits } from "@/lib/format";
 import { composeRestAddress, splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   applyListedToProperty,
@@ -55,7 +69,7 @@ import { RoomBathCountFields, RoomBathCountGrids } from "@/components/RoomBathCo
 import { isPlaceholderAddress } from "@/lib/seoulRegions";
 import { useHasTeam } from "@/hooks/useHasTeam";
 import { useIntakeApply } from "@/hooks/useIntakeApply";
-import { invalidLabelClass, requiredStarClass, emptyRequiredClass, invalidHintClass } from "@/lib/uiInvalid";
+import { invalidLabelClass, requiredStarClass, invalidHintClass, controlStatusClass } from "@/lib/uiInvalid";
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 
 function ChipToggle({
@@ -141,11 +155,34 @@ export function PropertyEditor({
   const [lockHintOpen, setLockHintOpen] = useState(false);
   const lockedListedId = property.listedFromId?.trim() || "";
   const [roomTypeOpen, setRoomTypeOpen] = useState(false);
+  const [floorPwOpen, setFloorPwOpen] = useState(() =>
+    Boolean(property.floorPassword?.trim())
+  );
+  const [roomPwOpen, setRoomPwOpen] = useState(() =>
+    Boolean((property.roomPassword || property.password)?.trim())
+  );
   const propertyRef = useRef(property);
   const hasTeam = useHasTeam(showTeamShare);
   useEffect(() => {
     propertyRef.current = property;
   }, [property]);
+
+  const foldedPasswordsRef = useRef("");
+  useEffect(() => {
+    if (showArriveTime) return;
+    if (!propertyHasDoorPasswords(property)) return;
+    if (foldedPasswordsRef.current === property.id) return;
+    foldedPasswordsRef.current = property.id;
+    onChange(foldDoorPasswordsIntoNotes(property));
+  }, [onChange, property, showArriveTime]);
+
+  useEffect(() => {
+    if (property.floorPassword?.trim()) setFloorPwOpen(true);
+  }, [property.floorPassword]);
+
+  useEffect(() => {
+    if ((property.roomPassword || property.password)?.trim()) setRoomPwOpen(true);
+  }, [property.password, property.roomPassword]);
 
   const resetPropertyDraft = useCallback(() => {
     const empty = createEmptyProperty();
@@ -215,6 +252,9 @@ export function PropertyEditor({
       );
       next.deposit = money.deposit;
       next.monthlyRent = money.monthlyRent;
+      if (!needsJeonseInsurance(next.dealType, next.roomType)) {
+        next.insuranceType = undefined;
+      }
     } else if (next.dealType === "전세" || next.dealType === "매매") {
       next.monthlyRent = 0;
     }
@@ -270,7 +310,6 @@ export function PropertyEditor({
     const patch: Partial<Property> = { roomType };
     if (roomType === "건물") {
       patch.unitCounts = property.unitCounts ?? { ...EMPTY_UNIT_COUNTS };
-      patch.rentInputMode = "합계";
       patch.dealType = "매매";
       patch.monthlyRent = 0;
       patch.roomNo = "";
@@ -280,6 +319,8 @@ export function PropertyEditor({
       patch.moveInVacant = false;
       patch.moveInDate = "";
       patch.maintenanceIncludes = [];
+    } else {
+      patch.buildingKind = undefined;
     }
     if (skipsResidentialExtras(roomType)) {
       patch.maintenanceIncludes = [];
@@ -311,6 +352,9 @@ export function PropertyEditor({
     } else {
       patch.roomCount = undefined;
       patch.bathroomCount = undefined;
+    }
+    if (!isUnitRoomType(roomType)) {
+      patch.usableArea = undefined;
     }
     update(patch);
   };
@@ -531,6 +575,45 @@ export function PropertyEditor({
         />
       )}
 
+      {showArriveTime && !isLand ? (
+        <div className="grid grid-cols-2 gap-2">
+          {floorPwOpen ? (
+            <Input
+              label="현관 비밀번호"
+              value={property.floorPassword ?? ""}
+              onChange={(e) => update({ floorPassword: e.target.value })}
+              placeholder="예) 1234*"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setFloorPwOpen(true)}
+              className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+            >
+              현관 비밀번호 입력
+            </button>
+          )}
+          {roomPwOpen ? (
+            <Input
+              label="호실 비밀번호"
+              value={property.roomPassword ?? property.password ?? ""}
+              onChange={(e) =>
+                update({ roomPassword: e.target.value, password: undefined })
+              }
+              placeholder="예) 5678*"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRoomPwOpen(true)}
+              className="flex min-h-[36px] w-full items-center justify-center rounded-xl bg-gray-100 px-3 text-[13px] font-bold text-gray-700 active:scale-95 transition-all duration-150"
+            >
+              호실 비밀번호 입력
+            </button>
+          )}
+        </div>
+      ) : null}
+
       <div className="space-y-1.5">
           <div ref={setFieldRef("contacts")} className="space-y-1.5">
             <div className="flex items-baseline gap-1.5">
@@ -566,10 +649,7 @@ export function PropertyEditor({
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
         <div
           ref={setFieldRef("roomType")}
-          className={emptyRequiredClass({
-            invalid: isInvalid("roomType"),
-            filled: Boolean(property.roomType) && !isInvalid("roomType"),
-          })}
+          className="space-y-1"
         >
         <div className="flex items-baseline justify-between gap-2">
           <p
@@ -602,7 +682,9 @@ export function PropertyEditor({
           value={
             normalizeRoomType(property.roomType) ?? property.roomType
           }
-          options={ROOM_TYPES}
+          options={roomTypesForDeal(
+            isBuilding || isLand ? "매매" : property.dealType ?? ""
+          )}
           onChange={handleRoomTypeChange}
           columns={4}
           keepOpen={(type) => needsRoomBathCounts(type)}
@@ -622,6 +704,27 @@ export function PropertyEditor({
             />
           }
         />
+        {isBuilding ? (
+          <div ref={setFieldRef("buildingKind")} className="pt-1.5">
+            <ModalChoice
+              label="건물 종류"
+              required
+              invalid={isInvalid("buildingKind")}
+              value={property.buildingKind}
+              options={BUILDING_KINDS}
+              onChange={(next) =>
+                update({
+                  buildingKind: next,
+                  unitCounts: pruneUnitCountsForKind(
+                    property.unitCounts,
+                    next
+                  ),
+                })
+              }
+              columns={1}
+            />
+          </div>
+        ) : null}
         </div>
       <div ref={setFieldRef("roomCount")}>
         <RoomBathCountFields
@@ -637,6 +740,29 @@ export function PropertyEditor({
           }
         />
       </div>
+      {isUnitRoomType(
+        normalizeRoomType(property.roomType) ?? property.roomType
+      ) ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            label="평형"
+            labelNote="(약)"
+            type="number"
+            inputMode="decimal"
+            suffix="평"
+            value={property.usableArea ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              update({
+                usableArea: raw === "" ? undefined : Number(raw) || 0,
+              });
+            }}
+            placeholder="예) 10"
+            step="any"
+            className="text-center"
+          />
+        </div>
+      ) : null}
       </div>
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
@@ -790,12 +916,7 @@ export function PropertyEditor({
             className="border-t border-gray-200 pt-3"
           >
           <div
-            className={emptyRequiredClass({
-              invalid: isInvalid("moveIn"),
-              filled:
-                (Boolean(moveInFrom) || Boolean(property.moveInVacant)) &&
-                !isInvalid("moveIn"),
-            })}
+            className="space-y-1"
           >
             <div className="flex items-center justify-between gap-2">
               <p
@@ -864,9 +985,14 @@ export function PropertyEditor({
               <p className={`text-xs ${invalidHintClass}`}>미입력</p>
             ) : null}
             {property.moveInVacant ? (
-              <p className="rounded-xl bg-gray-50 px-3 py-3 text-[15px] font-bold text-gray-800">
+              <div
+                className={[
+                  "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+                  controlStatusClass({ filled: true }),
+                ].join(" ")}
+              >
                 공실
-              </p>
+              </div>
             ) : moveInSingle ? (
               <DatePicker
                 label=""
@@ -911,10 +1037,7 @@ export function PropertyEditor({
       </div>
 
       {isBuilding && (
-        <div
-          ref={setFieldRef("buildingKind")}
-          className="mt-2 space-y-1.5 border-t border-gray-200 pt-3"
-        >
+        <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
           <BuildingLandFields
             property={property}
             onChange={update}
@@ -999,37 +1122,26 @@ export function PropertyEditor({
                 required
                 invalid={isInvalid("loan")}
                 columns={2}
-                value={
-                  property.loanAvailable === "유"
-                    ? "유"
-                    : property.loanAvailable === "무"
-                      ? "무"
-                      : undefined
-                }
-                options={["유", "무"] as const}
-                onChange={(loanAvailable) =>
-                  update({ loanAvailable: loanAvailable || undefined })
+                value={availFromYesNo(property.loanAvailable)}
+                options={AVAIL_TOGGLE}
+                onChange={(next) =>
+                  update({ loanAvailable: yesNoFromAvail(next) || undefined })
                 }
               />
             </div>
           )}
-          {!hideResidentialExtras && (
+          {!hideResidentialExtras &&
+            needsJeonseInsurance(property.dealType, property.roomType) && (
             <div ref={setFieldRef("insurance")}>
               <OptionToggle
                 label="전세보증보험 가입 가능 여부"
                 required
                 invalid={isInvalid("insurance")}
                 columns={2}
-                value={
-                  property.insuranceType === "유"
-                    ? "유"
-                    : property.insuranceType === "무"
-                      ? "무"
-                      : undefined
-                }
-                options={INSURANCE_TYPES}
-                onChange={(insuranceType) =>
-                  update({ insuranceType: insuranceType || undefined })
+                value={availFromYesNo(property.insuranceType)}
+                options={AVAIL_TOGGLE}
+                onChange={(next) =>
+                  update({ insuranceType: yesNoFromAvail(next) || undefined })
                 }
               />
             </div>
@@ -1040,15 +1152,10 @@ export function PropertyEditor({
               required
               invalid={isInvalid("parking")}
               columns={2}
-              value={
-                property.parkingType === "유"
-                  ? "유"
-                  : property.parkingType === "무"
-                    ? "무"
-                    : undefined
-              }
-              options={["유", "무"] as const}
-              onChange={(parkingType) => {
+              value={availFromYesNo(property.parkingType)}
+              options={AVAIL_TOGGLE}
+              onChange={(next) => {
+                const parkingType = yesNoFromAvail(next);
                 if (!parkingType) {
                   update({ parkingType: undefined, parkingFee: undefined });
                   return;

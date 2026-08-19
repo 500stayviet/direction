@@ -9,6 +9,7 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { hardRedirectLogin, registerUser } from "@/lib/auth";
+import { markSignupWelcomePending } from "@/lib/signupWelcome";
 import { normalizeUsername } from "@/lib/supabase/email";
 import {
   getMissingSignupFields,
@@ -199,6 +200,7 @@ export default function SignupPage() {
         }
         return;
       }
+      markSignupWelcomePending();
       hardRedirectLogin({
         registered: true,
         username: result.user.username,

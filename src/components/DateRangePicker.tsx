@@ -13,7 +13,7 @@ import {
   parseISODate,
   todayISO,
 } from "@/lib/date";
-import { controlStatusClass, requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { controlStatusClass, requiredStarClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 
 interface DateRangePickerProps {
   label?: string;
@@ -137,7 +137,7 @@ export function DateRangePicker({
   const wrapInvalid = Boolean(invalid && label);
 
   return (
-    <div className={wrapInvalid ? emptyRequiredClass({ invalid: true }) : "space-y-1"}>
+    <div className="space-y-1">
       {label ? (
         <p
           className={[

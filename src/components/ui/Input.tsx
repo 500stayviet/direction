@@ -6,6 +6,8 @@ import {
   invalidLabelClass,
   requiredStarClass,
   filledInputClass,
+  filledIdentityInputClass,
+  inputFocusClass,
 } from "@/lib/uiInvalid";
 import { reselectHintClass } from "@/lib/choiceHint";
 
@@ -28,6 +30,10 @@ interface FieldProps {
   labelHint?: string;
   /** 입력칸 안쪽 끝 단위. 예: 만원 */
   suffix?: string;
+  /** 라벨 바로 옆 작은 표시. 예: (약) */
+  labelNote?: string;
+  /** identity: 이름·전화 — 채워지면 짙은 초록, 가운데 */
+  filledVariant?: "field" | "identity";
 }
 
 export function Field({
@@ -40,6 +46,7 @@ export function Field({
   labelRight,
   unitHint,
   labelHint,
+  labelNote,
   children,
 }: FieldProps & {
   children: React.ReactNode;
@@ -57,7 +64,7 @@ export function Field({
 
   return (
     <label className="block space-y-1">
-      {label || besideLabelInvalid || farRight || unitHint || labelHint ? (
+      {label || besideLabelInvalid || farRight || unitHint || labelHint || labelNote ? (
         <span className="flex items-baseline justify-between gap-2">
           {label || besideLabelInvalid ? (
             <span className="flex min-w-0 items-baseline gap-1.5">
@@ -69,6 +76,11 @@ export function Field({
                   ].join(" ")}
                 >
                   {label}
+                  {labelNote ? (
+                    <span className="ml-1 text-[12px] font-medium text-gray-400">
+                      {labelNote}
+                    </span>
+                  ) : null}
                   {required && (
                     <span className={requiredStarClass}>
                       *
@@ -126,44 +138,75 @@ export function Input({
   labelRight,
   unitHint,
   labelHint,
+  prefix,
   suffix,
+  labelNote,
+  filledVariant = "field",
   className = "",
   ...props
 }: FieldProps &
   InputHTMLAttributes<HTMLInputElement> & {
     labelRight?: React.ReactNode;
+    /** 입력칸 안쪽 앞 표시. 예: 지하 층수 - */
+    prefix?: string;
   }) {
   const hasValue = String(props.value ?? "").trim().length > 0;
+  const filledClass =
+    filledVariant === "identity"
+      ? filledIdentityInputClass
+      : filledInputClass;
   const statusClass = invalid
     ? invalidInputClass
     : hasValue
-      ? filledInputClass
+      ? filledClass
       : "";
+  const identityAlign =
+    filledVariant === "identity" ? "text-center" : "";
+  const hideSpin = Boolean(prefix || suffix);
 
   const inputEl = (
     <input
       className={[
         inputClass,
-        suffix
-          ? "pr-11 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        prefix ? "pl-7" : "",
+        suffix ? "pr-11" : "",
+        hideSpin
+          ? "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           : "",
+        identityAlign,
         statusClass,
+        invalid ? "" : inputFocusClass,
         className,
       ].join(" ")}
       {...props}
     />
   );
 
-  const control = suffix ? (
-    <span className="relative block">
-      {inputEl}
-      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-medium text-gray-400">
-        {suffix}
+  const control =
+    prefix || suffix ? (
+      <span className="relative block">
+        {prefix ? (
+          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[16px] font-bold tabular-nums text-gray-700">
+            {prefix}
+          </span>
+        ) : null}
+        {inputEl}
+        {suffix ? (
+          <span
+            className={[
+              "pointer-events-none absolute inset-y-0 right-3 flex items-center font-medium",
+              hasValue
+                ? "text-[16px] font-bold text-gray-900"
+                : "text-[13px] text-gray-400",
+            ].join(" ")}
+          >
+            {hasValue ? ` ${suffix}` : suffix}
+          </span>
+        ) : null}
       </span>
-    </span>
-  ) : (
-    inputEl
-  );
+    ) : (
+      inputEl
+    );
 
   return (
     <Field
@@ -176,6 +219,7 @@ export function Input({
       labelRight={labelRight}
       unitHint={unitHint}
       labelHint={labelHint}
+      labelNote={labelNote}
     >
       {control}
     </Field>
@@ -227,6 +271,7 @@ export const TextArea = forwardRef<
           controlSurfaceClass,
           "min-h-[96px] resize-none overflow-y-auto py-1.5 leading-snug",
           invalid ? invalidInputClass : hasValue ? filledInputClass : "",
+          invalid ? "" : inputFocusClass,
           className,
         ].join(" ")}
       />
@@ -252,6 +297,7 @@ export function Select({
         className={[
           inputClass,
           invalid ? invalidInputClass : hasValue ? filledInputClass : "",
+          invalid ? "" : inputFocusClass,
           className,
         ].join(" ")}
         {...props}

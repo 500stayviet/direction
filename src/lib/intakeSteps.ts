@@ -13,9 +13,10 @@ import {
   type IntakeNormalizeMode,
   type IntakeParseResult,
   type IntakeYesNoField,
-  formatTalkFlagValue,
   MOVE_IN_IMMEDIATE_RE,
 } from "@/lib/intakeParse";
+import { availFromYesNo, needsJeonseInsurance } from "@/lib/format";
+import { skipsResidentialExtras } from "@/lib/constants";
 import { splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   findAllDongsInText,
@@ -70,8 +71,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "flags",
       name: "대출 · 보증보험 · 주차",
-      nameHint: "(유/무)",
-      example: "대출유 · 보증유 · 주차유",
+      nameHint: "(가능/불가)",
+      example: "대출가능 보증보험 가능 주차불가",
     },
     {
       key: "elevator",
@@ -287,33 +288,61 @@ const FLAG_FIELDS: IntakeYesNoField[] = [
 
 const ELEVATOR_FIELD: IntakeYesNoField = "elevator";
 
-export function nextFlagField(
-  partial: Partial<IntakeParseResult>
-): IntakeYesNoField | null {
-  for (const field of FLAG_FIELDS) {
-    if (!partial[field]) return field;
+function flagFieldsForContext(
+  dealType?: IntakeParseResult["dealType"],
+  roomType?: IntakeParseResult["roomType"]
+): IntakeYesNoField[] {
+  if (skipsResidentialExtras(roomType)) return ["parking"];
+  if (dealType && !needsJeonseInsurance(dealType, roomType)) {
+    return ["loan", "parking"];
   }
-  return null;
+  return FLAG_FIELDS;
+}
+
+export function flagsGuideCopy(
+  dealType?: IntakeParseResult["dealType"],
+  roomType?: IntakeParseResult["roomType"]
+): { name: string; nameHint: string; example: string } {
+  if (skipsResidentialExtras(roomType)) {
+    return {
+      name: "주차",
+      nameHint: "(가능/불가)",
+      example: "주차가능",
+    };
+  }
+  if (needsJeonseInsurance(dealType, roomType) || !dealType) {
+    return {
+      name: "대출 · 보증보험 · 주차",
+      nameHint: "(가능/불가)",
+      example: "대출가능 보증보험 가능 주차불가",
+    };
+  }
+  return {
+    name: "대출 · 주차",
+    nameHint: "(가능/불가)",
+    example: "대출가능 주차불가",
+  };
+}
+
+function formatAvailTalkFlag(value: NonNullable<IntakeParseResult["loan"]>): string {
+  return availFromYesNo(value) ?? "";
 }
 
 export function flagsStepComplete(
-  partial: Partial<IntakeParseResult> | undefined
+  partial: Partial<IntakeParseResult> | undefined,
+  dealType?: IntakeParseResult["dealType"],
+  roomType?: IntakeParseResult["roomType"]
 ): boolean {
   if (!partial) return false;
-  return FLAG_FIELDS.every((field) => partial[field]);
+  const deal = dealType ?? partial.dealType;
+  const room = roomType ?? partial.roomType;
+  return flagFieldsForContext(deal, room).every((field) => partial[field]);
 }
 
 export function elevatorStepComplete(
   partial: Partial<IntakeParseResult> | undefined
 ): boolean {
   return Boolean(partial?.elevator);
-}
-
-export function flagsHasAny(
-  partial: Partial<IntakeParseResult> | undefined
-): boolean {
-  if (!partial) return false;
-  return FLAG_FIELDS.some((field) => partial[field]);
 }
 
 export type IntakeGuideStepRow = {
@@ -380,7 +409,14 @@ export function guideStepComplete(
   row: IntakeGuideStepRow | undefined,
   allSteps?: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): boolean {
-  if (key === "flags") return flagsStepComplete(row?.partial);
+  if (key === "flags") {
+    const deal = resolveTalkDealType(
+      allSteps?.dealType?.partial,
+      allSteps?.money?.partial
+    );
+    const room = allSteps?.roomType?.partial?.roomType;
+    return flagsStepComplete(row?.partial, deal, room);
+  }
   if (key === "elevator") return elevatorStepComplete(row?.partial);
   /** 선택 칸: 비어도 다음으로 넘어가지만, 대화 UI 초록은 display가 있을 때만 */
   if (key === "restAddress") return !row || Boolean(row?.display);
@@ -417,15 +453,22 @@ export function firstIncompleteGuideIndex(
 }
 
 export function formatFlagsValueLine(
-  partial: Partial<IntakeParseResult>
+  partial: Partial<IntakeParseResult>,
+  dealType?: IntakeParseResult["dealType"],
+  roomType?: IntakeParseResult["roomType"]
 ): string {
+  const deal = dealType ?? partial.dealType;
+  const room = roomType ?? partial.roomType;
+  const keep = new Set(flagFieldsForContext(deal, room));
   const parts: string[] = [];
-  if (partial.loan) parts.push(`대출${formatTalkFlagValue(partial.loan)}`);
-  if (partial.insurance) {
-    parts.push(`보증${formatTalkFlagValue(partial.insurance)}`);
+  if (keep.has("loan") && partial.loan) {
+    parts.push(`대출${formatAvailTalkFlag(partial.loan)}`);
   }
-  if (partial.parking) {
-    parts.push(`주차${formatTalkFlagValue(partial.parking)}`);
+  if (keep.has("insurance") && partial.insurance) {
+    parts.push(`보증${formatAvailTalkFlag(partial.insurance)}`);
+  }
+  if (keep.has("parking") && partial.parking) {
+    parts.push(`주차${formatAvailTalkFlag(partial.parking)}`);
   }
   return parts.join(" · ");
 }
@@ -438,12 +481,17 @@ function formatElevatorValueLine(
 
 function mergeFlagsFromText(
   existing: Partial<IntakeParseResult>,
-  text: string
+  text: string,
+  dealType?: IntakeParseResult["dealType"],
+  roomType?: IntakeParseResult["roomType"]
 ): Partial<IntakeParseResult> | null {
   const parsed = parseAllYesNoFields(text);
+  const keep = flagFieldsForContext(dealType, roomType);
   const partial: Partial<IntakeParseResult> = { ...existing, options: [] };
+  if (!keep.includes("insurance")) delete partial.insurance;
+  if (!keep.includes("loan")) delete partial.loan;
   let foundAny = false;
-  for (const field of FLAG_FIELDS) {
+  for (const field of keep) {
     if (partial[field] || !parsed[field]) continue;
     partial[field] = parsed[field];
     foundAny = true;
@@ -882,8 +930,9 @@ export function extractTalkStepRemainder(
   }
   if (step === "flags") {
     let remainder = text;
+    const parsed = parseAllYesNoFields(text);
     for (const field of FLAG_FIELDS) {
-      if (!partial[field]) continue;
+      if (!partial[field] && !parsed[field]) continue;
       const hit = consumeYesNoField(remainder, field);
       if (hit) remainder = hit.remainder;
     }
@@ -1032,7 +1081,14 @@ export function parseIntakeStepChain(
       break;
     }
     text = extractTalkStepRemainder(text, key, parsed.partial, kind);
-    if (key === "flags" && !flagsStepComplete(parsed.partial)) {
+    if (
+      key === "flags" &&
+      !flagsStepComplete(
+        parsed.partial,
+        resolveTalkDealType(steps.dealType, steps.money),
+        steps.roomType?.roomType
+      )
+    ) {
       continue;
     }
     index += 1;
@@ -1075,21 +1131,23 @@ export function parseIntakeStep(
   }
 
   if (step === "flags") {
+    const deal = prior?.dealType;
+    const room = prior?.roomType;
     const existing: Partial<IntakeParseResult> = {
       loan: prior?.loan,
       insurance: prior?.insurance,
       parking: prior?.parking,
       options: [],
     };
-    if (flagsStepComplete(existing)) {
+    if (flagsStepComplete(existing, deal, room)) {
       return { ok: false, partial: {}, display: "" };
     }
-    const merged = mergeFlagsFromText(existing, text);
+    const merged = mergeFlagsFromText(existing, text, deal, room);
     if (!merged) return { ok: false, partial: {}, display: "" };
     return {
       ok: true,
       partial: merged,
-      display: formatFlagsValueLine(merged),
+      display: formatFlagsValueLine(merged, deal, room),
     };
   }
 

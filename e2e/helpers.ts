@@ -64,8 +64,11 @@ export function uniqueUser(prefix = "e2e"): TestUser {
 export async function fillSignupForm(page: Page, user: TestUser) {
   await page.getByPlaceholder("예: 천호동").fill(user.shopName);
   await page.getByPlaceholder("홍길동").fill(user.name);
-  await page.getByPlaceholder("영문·숫자 4자 이상").fill(user.username);
-  await page.getByRole("button", { name: "중복확인" }).click();
+  const usernameInput = page.getByPlaceholder("영문·숫자 4자 이상");
+  await usernameInput.fill(user.username);
+  const checkBtn = page.getByRole("button", { name: "중복확인" });
+  await expect(checkBtn).toBeEnabled({ timeout: 10_000 });
+  await checkBtn.click();
   await expect(page.getByText("사용 가능한 아이디")).toBeVisible();
   await page.getByPlaceholder("6자 이상").fill(user.password);
   await page.getByPlaceholder("비밀번호 다시 입력").fill(user.password);
@@ -122,6 +125,23 @@ export async function loginViaUi(
   await dismissHomeModalsIfShown(page);
 }
 
+/** 가입 직후 홈 완료 안내 */
+export async function dismissSignupWelcomeIfShown(
+  page: Page,
+  timeoutMs = 4000
+) {
+  const heading = page.getByRole("heading", {
+    name: "회원가입이 완료되었습니다",
+  });
+  try {
+    await heading.waitFor({ state: "visible", timeout: timeoutMs });
+    await page.getByRole("button", { name: "확인", exact: true }).click();
+    await heading.waitFor({ state: "hidden", timeout: 4000 });
+  } catch {
+    /* already seen */
+  }
+}
+
 /** 로그인 후 홈 기능 소개 모달이 있으면 닫기 */
 export async function dismissFeatureIntroIfShown(
   page: Page,
@@ -157,8 +177,9 @@ export async function dismissDeadlineModalIfShown(
   }
 }
 
-/** 홈 위 기능소개·데드라인 모달이 로그아웃 등을 가리지 않게 닫기 */
+/** 홈 위 가입완료·기능소개·데드라인 모달이 로그아웃 등을 가리지 않게 닫기 */
 export async function dismissHomeModalsIfShown(page: Page) {
+  await dismissSignupWelcomeIfShown(page, 4000);
   await dismissFeatureIntroIfShown(page, 4000);
   await dismissDeadlineModalIfShown(page, 2500);
 }

@@ -8,7 +8,6 @@ import {
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
-  emptyRequiredClass,
   controlStatusClass,
 } from "@/lib/uiInvalid";
 
@@ -65,12 +64,7 @@ export function ModalChoice<T extends string>({
   const showExtra = Boolean(draft && keepOpen?.(draft as T));
 
   return (
-    <div
-      className={emptyRequiredClass({
-        invalid: hideLabel ? false : invalid,
-        filled: Boolean(selected) && !invalid && !hideLabel,
-      })}
-    >
+    <div className="space-y-1">
       {hideLabel ? null : (
       <div className="flex items-baseline justify-between gap-2">
         <p

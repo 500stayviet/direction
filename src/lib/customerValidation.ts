@@ -1,4 +1,4 @@
-import { onlyDigits } from "@/lib/format";
+import { needsJeonseInsurance, onlyDigits } from "@/lib/format";
 import { needsRoomBathCounts } from "@/lib/constants";
 import type { BuildingKind, DealType, RoomType } from "@/lib/types";
 
@@ -146,7 +146,11 @@ export function getMissingCustomerFields(
     if (input.loanNeeded !== "유" && input.loanNeeded !== "무") {
       missing.push("loan");
     }
-    if (input.insuranceNeeded !== "유" && input.insuranceNeeded !== "무") {
+    if (
+      needsJeonseInsurance(input.dealType, input.roomType) &&
+      input.insuranceNeeded !== "유" &&
+      input.insuranceNeeded !== "무"
+    ) {
       missing.push("insurance");
     }
   }

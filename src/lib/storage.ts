@@ -20,6 +20,7 @@ import {
   isDemoEntityId,
   isDemoSeedExpired,
 } from "./demoSeedPayload";
+import { foldDoorPasswordsIntoNotes } from "./propertyPasswords";
 import {
   applyCustomerDueComplete,
   applyPropertyDueComplete,
@@ -722,9 +723,10 @@ export async function upsertListedProperty(
     ? null
     : workspaceId || existing?.workspace_id || null;
   const shared = Boolean(property.workspaceShared === true);
-  const sanitized: ListedProperty = property.hasPartnerAgency
-    ? { ...property, tenantPhone: "", landlordPhone: "" }
-    : property;
+  const folded = foldDoorPasswordsIntoNotes(property);
+  const sanitized: ListedProperty = folded.hasPartnerAgency
+    ? { ...folded, tenantPhone: "", landlordPhone: "" }
+    : folded;
   const payload = withCreatorMeta(
     {
       ...sanitized,

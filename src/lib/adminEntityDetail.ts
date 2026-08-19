@@ -1,4 +1,4 @@
-import { needsRoomBathCounts, normalizeUnitCounts } from "@/lib/constants";
+import { needsRoomBathCounts, formatUnitCountsLine, skipsResidentialExtras } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
@@ -10,7 +10,9 @@ import {
   getPropertyMoveInLabel,
   isInsuranceJoined,
   yesNoLabel,
+  needsJeonseInsurance,
 } from "@/lib/format";
+import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import type { Customer, Property, Schedule } from "@/lib/types";
 
 export type AdminDetailField = {
@@ -71,7 +73,8 @@ function maskRoom(roomNo: string): string {
 function buildPropertyFields(
   p: Property,
   secrets: Record<string, string>,
-  secretPrefix = ""
+  secretPrefix = "",
+  options?: { includeDoorPasswords?: boolean }
 ): AdminDetailField[] {
   const fields: AdminDetailField[] = [];
   const sk = (key: string) => (secretPrefix ? `${secretPrefix}.${key}` : key);
@@ -96,6 +99,9 @@ function buildPropertyFields(
       "방 · 화장실",
       `방 ${p.roomType === "투룸" ? 2 : p.roomCount ?? "-"}개 · 화장실 ${p.bathroomCount ?? 1}개`
     );
+  }
+  if (p.usableArea != null) {
+    push(fields, "평형 (약)", `${p.usableArea}평`);
   }
 
   const dealForMoney =
@@ -136,21 +142,10 @@ function buildPropertyFields(
     if (p.landArea != null) push(fields, "토지면적", `${p.landArea}평`);
     if (p.buildingArea != null) push(fields, "건축면적", `${p.buildingArea}평`);
     if (p.unitCounts) {
-      const u = normalizeUnitCounts(p.unitCounts);
       push(
         fields,
         "방 · 상가수",
-        (
-          [
-            ["원룸", u.원룸],
-            ["투룸", u.투룸],
-            ["3룸+", u["3룸+"]],
-            ["상가", u.상가],
-          ] as const
-        )
-          .filter(([, n]) => n > 0)
-          .map(([label, n]) => `${label} ${n}`)
-          .join(" · ") || "-"
+        formatUnitCountsLine(p.unitCounts, p.buildingKind) || "-"
       );
     }
   } else if (typeof p.maintenanceFee === "number") {
@@ -199,11 +194,11 @@ function buildPropertyFields(
     }
   }
 
-  if (p.roomType !== "토지") {
+  if (options?.includeDoorPasswords && p.roomType !== "토지") {
     const floorPw = str(p.floorPassword);
     if (floorPw) {
       secrets[sk("floorPassword")] = floorPw;
-      push(fields, "1층 비밀번호", MASK_SECRET, sk("floorPassword"));
+      push(fields, "현관 비밀번호", MASK_SECRET, sk("floorPassword"));
     }
     const roomPw = str(p.roomPassword || p.password);
     if (roomPw) {
@@ -213,12 +208,16 @@ function buildPropertyFields(
   }
 
   if (p.roomType !== "토지" && p.roomType !== "건물") {
-    push(fields, "대출", yesNoLabel(p.loanAvailable));
-    push(
-      fields,
-      "보증보험",
-      isInsuranceJoined(p.insuranceType) ? "유" : "무"
-    );
+    if (!skipsResidentialExtras(p.roomType)) {
+      push(fields, "대출", yesNoLabel(p.loanAvailable));
+      if (needsJeonseInsurance(p.dealType, p.roomType)) {
+        push(
+          fields,
+          "보증보험",
+          isInsuranceJoined(p.insuranceType) ? "유" : "무"
+        );
+      }
+    }
     const parking =
       p.parkingType === "유"
         ? [
@@ -236,7 +235,13 @@ function buildPropertyFields(
     }
   }
 
-  push(fields, "메모", str(p.notes) || undefined);
+  push(
+    fields,
+    "메모",
+    options?.includeDoorPasswords
+      ? str(p.notes) || undefined
+      : notesWithDoorPasswords(p) || undefined
+  );
   push(fields, "팀공유", p.workspaceShared ? "유" : "무");
 
   return fields;
@@ -301,7 +306,9 @@ export function buildAdminCustomerDetail(args: {
 
   if (showLoanInsurancePet) {
     push(fields, "대출", getCustomerLoanLabel(c));
-    push(fields, "보증보험", yesNoLabel(c.insuranceNeeded));
+    if (needsJeonseInsurance(c.dealType, c.roomType)) {
+      push(fields, "보증보험", yesNoLabel(c.insuranceNeeded));
+    }
   }
   if (showParking) push(fields, "주차", getCustomerParkingLabel(c));
   if (showElevator) push(fields, "엘리베이터", yesNoLabel(c.elevatorNeeded));
@@ -391,7 +398,9 @@ export function buildAdminScheduleDetail(args: {
   const props = Array.isArray(s.properties) ? s.properties : [];
   const slots = props.map((prop, i) => ({
     title: `${i + 1}번 매물`,
-    fields: buildPropertyFields(prop, secrets, `slot${i}`),
+    fields: buildPropertyFields(prop, secrets, `slot${i}`, {
+      includeDoorPasswords: true,
+    }),
   }));
 
   const routes = (Array.isArray(s.routeSummary) ? s.routeSummary : []).map(

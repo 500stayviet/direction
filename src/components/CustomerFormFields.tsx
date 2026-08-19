@@ -4,11 +4,17 @@ import { memo } from "react";
 import type { DealType, RoomType } from "@/lib/types";
 import {
   BUILDING_KINDS,
-  ROOM_TYPES,
   needsRoomBathCounts,
+  roomTypesForDeal,
 } from "@/lib/constants";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 import type { CustomerFieldKey } from "@/lib/customerValidation";
+import {
+  AVAIL_TOGGLE,
+  availFromYesNo,
+  needsJeonseInsurance,
+  yesNoFromAvail,
+} from "@/lib/format";
 import {
   isCustomerLandOrBuilding,
   type CustomerFormDraft,
@@ -28,7 +34,7 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
 import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
-import { requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { requiredStarClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
 
 type FieldRef = (key: CustomerFieldKey) => (node: HTMLDivElement | null) => void;
 
@@ -60,6 +66,7 @@ export const CustomerFormIdentityFields = memo(function CustomerFormIdentityFiel
           label="고객명 또는 명칭"
           required
           invalid={nameInvalid}
+          filledVariant="identity"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="예) 홍길동"
@@ -143,7 +150,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           required
           invalid={isInvalid("roomType")}
           value={roomType || undefined}
-          options={ROOM_TYPES}
+          options={roomTypesForDeal(effectiveDealType)}
           onChange={onRoomType}
           columns={4}
           keepOpen={(type) => needsRoomBathCounts(type)}
@@ -208,13 +215,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           }
         >
           <div
-            className={emptyRequiredClass({
-              invalid: isInvalid("deposit") || isInvalid("depositTo"),
-              filled:
-                deposit > 0 &&
-                !isInvalid("deposit") &&
-                !isInvalid("depositTo"),
-            })}
+            className="space-y-1"
           >
             <div className="flex items-center justify-between gap-2">
               <p
@@ -299,14 +300,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
 
           {effectiveDealType === "월세" ? (
             <div
-              className={emptyRequiredClass({
-                invalid:
-                  isInvalid("monthlyRent") || isInvalid("monthlyRentTo"),
-                filled:
-                  monthlyRent > 0 &&
-                  !isInvalid("monthlyRent") &&
-                  !isInvalid("monthlyRentTo"),
-              })}
+              className="space-y-1"
             >
               <div className="flex items-center justify-between gap-2">
                 <p
@@ -469,10 +463,7 @@ export const CustomerFormLocationMoveInFields = memo(
         {showMoveIn ? (
           <div
             ref={setFieldRef("moveIn")}
-            className={emptyRequiredClass({
-              invalid: moveInInvalid,
-              filled: Boolean(moveInFrom) && !moveInInvalid,
-            })}
+            className="space-y-1"
           >
             <div className="flex items-center justify-between gap-2">
               <p
@@ -544,6 +535,7 @@ export const CustomerFormLocationMoveInFields = memo(
 
 export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
   roomType,
+  dealType,
   loanNeeded,
   insuranceNeeded,
   parkingType,
@@ -556,6 +548,7 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
   onPatch,
 }: {
   roomType: RoomType | "";
+  dealType: DealType | "";
   loanNeeded: YesNoBlank;
   insuranceNeeded: YesNoBlank;
   parkingType: YesNoBlank;
@@ -571,35 +564,39 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
     roomType === "상가" ||
     roomType === "사무실" ||
     isCustomerLandOrBuilding(roomType);
+  const showInsurance =
+    !hideLoanInsurance && needsJeonseInsurance(dealType, roomType);
 
   return (
     <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
       <p className="text-sm font-bold text-gray-800">기타</p>
       {!hideLoanInsurance && (
-        <>
-          <div ref={setFieldRef("loan")}>
-            <OptionToggle
-              label="대출"
-              required
-              invalid={isInvalid("loan")}
-              columns={2}
-              value={loanNeeded || undefined}
-              options={["유", "무"] as const}
-              onChange={(next) => onPatch({ loanNeeded: next })}
-            />
-          </div>
-          <div ref={setFieldRef("insurance")}>
-            <OptionToggle
-              label="전세보증보험 가입 가능 여부"
-              required
-              invalid={isInvalid("insurance")}
-              columns={2}
-              value={insuranceNeeded || undefined}
-              options={["유", "무"] as const}
-              onChange={(next) => onPatch({ insuranceNeeded: next })}
-            />
-          </div>
-        </>
+        <div ref={setFieldRef("loan")}>
+          <OptionToggle
+            label="대출"
+            required
+            invalid={isInvalid("loan")}
+            columns={2}
+            value={availFromYesNo(loanNeeded)}
+            options={AVAIL_TOGGLE}
+            onChange={(next) => onPatch({ loanNeeded: yesNoFromAvail(next) })}
+          />
+        </div>
+      )}
+      {showInsurance && (
+        <div ref={setFieldRef("insurance")}>
+          <OptionToggle
+            label="전세보증보험 가입 가능 여부"
+            required
+            invalid={isInvalid("insurance")}
+            columns={2}
+            value={availFromYesNo(insuranceNeeded)}
+            options={AVAIL_TOGGLE}
+            onChange={(next) =>
+              onPatch({ insuranceNeeded: yesNoFromAvail(next) })
+            }
+          />
+        </div>
       )}
       {!(roomType === "토지" || roomType === "건물") && (
         <div ref={setFieldRef("parking")}>
@@ -608,9 +605,9 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
             required
             invalid={isInvalid("parking")}
             columns={2}
-            value={parkingType || undefined}
-            options={["유", "무"] as const}
-            onChange={(next) => onPatch({ parkingType: next })}
+            value={availFromYesNo(parkingType)}
+            options={AVAIL_TOGGLE}
+            onChange={(next) => onPatch({ parkingType: yesNoFromAvail(next) })}
           />
         </div>
       )}

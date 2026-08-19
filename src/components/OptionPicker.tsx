@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { requiredStarClass, emptyRequiredClass, invalidHintClass, invalidLabelClass, controlStatusClass } from "@/lib/uiInvalid";
+import { requiredStarClass, invalidHintClass, invalidLabelClass, controlStatusClass } from "@/lib/uiInvalid";
 
 interface OptionPickerProps {
   label: string;
@@ -39,11 +39,7 @@ export function OptionPicker({
   };
 
   return (
-    <div
-      className={
-        invalid ? emptyRequiredClass({ invalid: true }) : "space-y-1"
-      }
-    >
+    <div className="space-y-1">
       <p
         className={[
           "text-[13px] font-semibold",

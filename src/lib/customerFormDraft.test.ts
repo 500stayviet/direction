@@ -9,6 +9,7 @@ import {
 } from "./customerFormDraft.ts";
 import { applyIntakeToCustomer, parseIntakeText } from "./intakeParse.ts";
 import { preprocessCustomerBlankForm } from "./blankIntakeForm.ts";
+import { roomTypesForDeal } from "./constants.ts";
 
 describe("customerFormDraft", () => {
   it("빈 draft는 신규 등록과 같다", () => {
@@ -83,7 +84,7 @@ describe("customerFormDraft", () => {
     assert.equal(next.depositSingle, true);
     assert.equal(next.monthlyRentSingle, true);
     assert.equal(next.loanNeeded, "유");
-    assert.equal(next.insuranceNeeded, "무");
+    assert.equal(next.insuranceNeeded, "");
     assert.equal(next.parkingType, "유");
     assert.equal(next.elevatorNeeded, "유");
     assert.equal(next.notes, "저층");
@@ -171,5 +172,65 @@ describe("customerFormDraft", () => {
     );
     assert.equal(sale.nonOccupancy, true);
     assert.equal(sale.moveInFrom, "");
+  });
+
+  it("전세가 아니면 보증보험을 비운다", () => {
+    const jeonse = applyCustomerDealType(
+      { ...createCustomerFormDraft(), insuranceNeeded: "유" },
+      "전세"
+    );
+    assert.equal(jeonse.insuranceNeeded, "유");
+    const wolse = applyCustomerDealType(jeonse, "월세");
+    assert.equal(wolse.insuranceNeeded, "");
+  });
+
+  it("메시지 적용은 전세일 때만 보증보험을 넣는다", () => {
+    const jeonse = applyIntakeToCustomer(createCustomerFormDraft(), {
+      dealType: "전세",
+      insurance: "유",
+      options: [],
+      notes: "",
+    });
+    assert.equal(jeonse.insuranceNeeded, "유");
+    const wolse = applyIntakeToCustomer(createCustomerFormDraft(), {
+      dealType: "월세",
+      insurance: "유",
+      monthlyRent: 50,
+      options: [],
+      notes: "",
+    });
+    assert.equal(wolse.insuranceNeeded, "");
+  });
+
+  it("상가·사무실은 전세여도 대출·보증을 넣지 않는다", () => {
+    const shop = applyIntakeToCustomer(createCustomerFormDraft(), {
+      roomType: "상가",
+      dealType: "전세",
+      loan: "유",
+      insurance: "유",
+      parking: "유",
+      options: [],
+      notes: "",
+    });
+    assert.equal(shop.roomType, "상가");
+    assert.equal(shop.dealType, "전세");
+    assert.equal(shop.loanNeeded, "무");
+    assert.equal(shop.insuranceNeeded, "");
+    assert.equal(shop.parkingType, "유");
+
+    const office = applyCustomerDealType(
+      applyCustomerRoomType(createCustomerFormDraft(), "사무실"),
+      "전세"
+    );
+    assert.equal(office.loanNeeded, "무");
+    assert.equal(office.insuranceNeeded, "");
+  });
+
+  it("전세·월세 매물유형에는 토지·건물이 없다", () => {
+    assert.equal(roomTypesForDeal("전세").includes("토지"), false);
+    assert.equal(roomTypesForDeal("전세").includes("건물"), false);
+    assert.equal(roomTypesForDeal("월세").includes("토지"), false);
+    assert.equal(roomTypesForDeal("매매").includes("토지"), true);
+    assert.equal(roomTypesForDeal("").includes("건물"), true);
   });
 });

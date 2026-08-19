@@ -46,10 +46,10 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
 
     await expect(
       page.getByRole("button", { name: "원룸", exact: true })
-    ).toHaveClass(/border-green-400/);
-    await expect(page.getByTestId("option-거래종류")).toHaveClass(
-      /border-green-400/
-    );
+    ).toHaveClass(/bg-\[#3182F6\]/);
+    await expect(
+      page.getByTestId("option-거래종류").getByRole("button", { name: "매매", exact: true })
+    ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
       page.getByRole("button", { name: "매매", exact: true })
     ).toBeVisible();
@@ -61,15 +61,13 @@ test("매물 메시지 입력: 가격·날짜·유/무를 칸에 넣고 메모 �
     );
 
     await expect(
-      page.getByTestId("option-대출").getByRole("button", { name: "무", exact: true })
+      page.getByTestId("option-대출").getByRole("button", { name: "불가", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
-      page
-        .getByTestId("option-전세보증보험가입가능여부")
-        .getByRole("button", { name: "무", exact: true })
-    ).toHaveClass(/bg-\[#3182F6\]/);
+      page.getByTestId("option-전세보증보험가입가능여부")
+    ).toHaveCount(0);
     await expect(
-      page.getByTestId("option-주차").getByRole("button", { name: "무", exact: true })
+      page.getByTestId("option-주차").getByRole("button", { name: "불가", exact: true })
     ).toHaveClass(/bg-\[#3182F6\]/);
     await expect(
       page.getByTestId("option-엘리베이터").getByRole("button", { name: "무", exact: true })
@@ -101,33 +99,6 @@ test("매물 메시지 입력: 라벨·의도 키워드만 메모에 넣고 주�
     await page.getByRole("button", { name: "반영하기" }).click();
 
     await expect(page.getByLabel("메모")).toHaveValue(/남향 저층/, {
-      timeout: 15_000,
-    });
-  } finally {
-    await purgeE2eUser(userId);
-  }
-});
-
-test("매물 메시지 입력: 의도 키워드만 메모에 넣는다", async ({ page }) => {
-  requireE2eBackendEnv(test);
-  const user = uniqueUser("msgintent");
-  let userId: string | undefined;
-  try {
-    await prepareAppPage(page);
-    await signupViaUi(page, user);
-    await loginViaUi(page, user);
-
-    const auth = await getAppAuth(page);
-    userId = auth?.user?.id;
-
-    await page.goto("/properties/new");
-    await page.getByRole("button", { name: "메시지로 입력하기" }).click();
-    await page
-      .getByLabel("메시지", { exact: true })
-      .fill("원룸 전세 2억 암사동 남향");
-    await page.getByRole("button", { name: "반영하기" }).click();
-
-    await expect(page.getByLabel("메모")).toHaveValue("남향", {
       timeout: 15_000,
     });
   } finally {

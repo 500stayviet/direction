@@ -1,4 +1,4 @@
-import { onlyDigits } from "@/lib/format";
+import { needsJeonseInsurance, onlyDigits } from "@/lib/format";
 import { parseJibunDetail, parseSeoulAddress } from "@/lib/seoulRegions";
 import { isBuildingType, isLandType, needsRoomBathCounts, skipsResidentialExtras } from "@/lib/constants";
 import type { Property } from "@/lib/types";
@@ -73,12 +73,12 @@ export const PROPERTY_FIELD_ORDER: PropertyFieldKey[] = [
   "partnerPhone",
   "contacts",
   "roomType",
+  "buildingKind",
   "roomCount",
   "dealType",
   "deposit",
   "moveIn",
   "address",
-  "buildingKind",
   "loan",
   "insurance",
   "parking",
@@ -106,6 +106,9 @@ export function getMissingRequiredFields(
   }
 
   if (!property.roomType) missing.push("roomType");
+  if (isBuildingType(property.roomType) && !property.buildingKind) {
+    missing.push("buildingKind");
+  }
   if (needsRoomBathCounts(property.roomType)) {
     const rooms =
       property.roomType === "투룸" ? 2 : property.roomCount;
@@ -141,6 +144,7 @@ export function getMissingRequiredFields(
         missing.push("loan");
       }
       if (
+        needsJeonseInsurance(property.dealType, property.roomType) &&
         property.insuranceType !== "유" &&
         property.insuranceType !== "무"
       ) {

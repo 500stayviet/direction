@@ -14,7 +14,7 @@ export type BuildingKind = "단독주택(다중주택)" | "상가주택" | "근�
 /** 건물 임대료 입력 방식 */
 export type RentInputMode = "합계" | "상세";
 export type ResidentialUnitKey = "원룸" | "투룸" | "3룸+";
-export type BuildingUnitKey = ResidentialUnitKey | "상가";
+export type BuildingUnitKey = ResidentialUnitKey | "상가" | "사무실";
 export type ParkingType = "유" | "무";
 export type ParkingFeeType = "포함" | "별도";
 /** 고객 주차 유일 때 차종 */
@@ -28,6 +28,7 @@ export interface BuildingUnitCounts {
   투룸: number;
   "3룸+": number;
   상가: number;
+  사무실: number;
 }
 
 /** 주거 유형별 화장실 개수(호실당) */
@@ -242,7 +243,7 @@ export interface Property extends SharedMeta {
   buildingArea?: number;
   /** 주차 대수 */
   parkingSpaces?: number;
-  /** 원룸·투룸·3룸+·상가 호수 */
+  /** 원룸·투룸·3룸+·상가·사무실 호수 */
   unitCounts?: BuildingUnitCounts;
   /** 주거 유형별 화장실 수(호실당) */
   bathroomCounts?: BuildingBathroomCounts;

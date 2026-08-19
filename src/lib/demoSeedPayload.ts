@@ -5,7 +5,7 @@ import { formatDepositRent, formatMoveInRange } from "@/lib/format";
 import type { Customer, ListedProperty, Property, Schedule } from "@/lib/types";
 
 /** 가입·로그인 시 체험용 시드 버전 (바꾸면 데모 행 갱신) */
-export const DEMO_SEED_VERSION = "demo_v22";
+export const DEMO_SEED_VERSION = "demo_v23";
 
 /** 체험 카드 생성자 표시 — 가입자가 아니라 관리자 */
 export const DEMO_CREATOR_NAME = "관리자";
@@ -217,8 +217,6 @@ export function buildDemoSeedData(
   const propertyFields = {
     address: DEMO_GANGDONG_OFFICE_ADDRESS,
     roomNo: "본관 101호",
-    floorPassword: "1234*",
-    roomPassword: "5678*",
     arriveTime: "10:00",
     tenantPhone: "",
     landlordPhone: "",
@@ -257,6 +255,7 @@ export function buildDemoSeedData(
     makeListed({
       id: "demo_prop_1",
       ...propertyFields,
+      notes: `${propertyFields.notes}\n현관 1234* · 호실 5678*`,
       createdAt: iso(1000 * 60 * 50),
     }),
   ];
@@ -265,6 +264,8 @@ export function buildDemoSeedData(
     makeProperty({
       id: "demo_sch_prop_1a",
       ...propertyFields,
+      floorPassword: "1234*",
+      roomPassword: "5678*",
       arriveTime: "10:00",
     }),
   ];

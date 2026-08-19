@@ -411,6 +411,7 @@ export function CustomerForm({
           />
           <CustomerFormExtraFields
             roomType={draft.roomType}
+            dealType={draft.dealType}
             loanNeeded={draft.loanNeeded}
             insuranceNeeded={draft.insuranceNeeded}
             parkingType={draft.parkingType}

@@ -8,7 +8,6 @@ import {
   roomCountOptionsForType,
 } from "@/lib/constants";
 import {
-  emptyRequiredClass,
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
@@ -155,12 +154,7 @@ function CountButton({
 }) {
   const empty = !valueLabel;
   return (
-    <div
-      className={[
-        "min-w-0",
-        invalid ? emptyRequiredClass({ invalid: true }) : "space-y-1",
-      ].join(" ")}
-    >
+    <div className="min-w-0 space-y-1">
       <p
         className={[
           "text-[13px] font-semibold",

@@ -15,7 +15,6 @@ import {
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 import {
   requiredStarClass,
-  emptyRequiredClass,
   invalidHintClass,
   invalidLabelClass,
   controlStatusClass,
@@ -121,12 +120,7 @@ export function SeoulAddressField({
   };
 
   return (
-    <div
-      className={emptyRequiredClass({
-        invalid: addressInvalid,
-        filled: hasSelection && !addressInvalid,
-      })}
-    >
+    <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
         <p
           className={[
@@ -195,7 +189,7 @@ export function SeoulAddressField({
           <Input
             label="본번"
             required={required}
-            invalid={false}
+            invalid={Boolean(invalid && !jibunMain.trim())}
             inputMode="numeric"
             value={jibunMain}
             onChange={(e) => {

@@ -34,6 +34,7 @@ export function PhoneInput({
       label={label}
       required={required}
       invalid={invalid}
+      filledVariant="identity"
       labelRight={labelRight}
       labelHint={labelHint}
       unitHint={unitHint}

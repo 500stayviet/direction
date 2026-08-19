@@ -2,10 +2,10 @@
 
 import { reselectHint, reselectHintClass } from "@/lib/choiceHint";
 import {
+  invalidControlClass,
   invalidHintClass,
   invalidLabelClass,
   requiredStarClass,
-  emptyRequiredClass,
 } from "@/lib/uiInvalid";
 
 interface OptionToggleProps<T extends string> {
@@ -50,13 +50,7 @@ export function OptionToggle<T extends string>({
             : "grid grid-cols-3 gap-1.5";
 
   return (
-    <div
-      className={emptyRequiredClass({
-        invalid,
-        filled: Boolean(selected) && !invalid,
-      })}
-      data-testid={`option-${label.replace(/\s+/g, "")}`}
-    >
+    <div className="space-y-1" data-testid={`option-${label.replace(/\s+/g, "")}`}>
       <div className="flex items-baseline justify-between gap-2">
         <p
           className={[
@@ -102,7 +96,9 @@ export function OptionToggle<T extends string>({
                 collapsed || shown.length === 1 ? "w-full" : "",
                 active
                   ? "bg-[#3182F6] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-600",
+                  : invalid
+                    ? invalidControlClass
+                    : "bg-gray-100 text-gray-600",
               ].join(" ")}
             >
               {option}

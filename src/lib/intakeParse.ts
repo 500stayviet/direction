@@ -7,7 +7,13 @@ import {
   clampMoveInToToday,
   todayISO,
 } from "@/lib/date";
-import { formatMoveInRange, formatPhoneInput, toKrPhoneDigits } from "@/lib/format";
+import {
+  formatMoveInRange,
+  formatPhoneInput,
+  needsJeonseInsurance,
+  needsLoanFlag,
+  toKrPhoneDigits,
+} from "@/lib/format";
 import { encodePreferredDong } from "@/lib/preferredLocation";
 import {
   composeSeoulAddress,
@@ -435,6 +441,9 @@ const INTENT_MEMO_PATTERNS: RegExp[] = [
   /(?:엘리베이터|엘레베이터)(?!\s*(?:유|무|있음|없음|가능|불가|OK|ok))(?:\s*주차)?/,
   /(?:빌라|다세대|다가구|단독|연립|테라스|옥탑|복층|분리형|오픈형|투베이|쓰리베이)/,
   /전임차인/,
+  /벨\s*눌러/,
+  /(?:공동현관|현관)?\s*(?:비밀번호|비번|암호)(?:으로)?/,
+  /도어락/,
 ];
 
 function extractIntentMemoNotes(text: string): string[] {
@@ -1619,6 +1628,68 @@ function parseBuildingName(text: string): string | undefined {
   return undefined;
 }
 
+/** 현관비번 끝표시. * # 별 샵 우물정 */
+const DOOR_PW_MARK = "(?:[*＊#＃]|우물정자|우물정|우물|별|샾|샵)";
+/** 종·현관·관리실처럼 누르는 순서 */
+const DOOR_PW_STEP =
+  "(?:공동현관|관리사무소|관리실|비밀번호|현관|호출|비번|암호|도어락|관리|키|종|벨)";
+const DOOR_PW_TOKEN = `(?:${DOOR_PW_STEP}|${DOOR_PW_MARK}|\\d{3,16})`;
+
+function hasDoorPasswordCue(phrase: string): boolean {
+  return (
+    new RegExp(DOOR_PW_MARK).test(phrase) || new RegExp(DOOR_PW_STEP).test(phrase)
+  );
+}
+
+function collectRegexSpans(
+  text: string,
+  pattern: RegExp
+): { start: number; end: number; phrase: string }[] {
+  const out: { start: number; end: number; phrase: string }[] = [];
+  const re = new RegExp(
+    pattern.source,
+    pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`
+  );
+  for (const m of text.matchAll(re)) {
+    if (m.index == null || !m[0]) continue;
+    const phrase = m[0].replace(/\s+/g, " ").trim();
+    if (!phrase || !hasDoorPasswordCue(phrase)) continue;
+    out.push({ start: m.index, end: m.index + m[0].length, phrase });
+  }
+  return out;
+}
+
+/** 현관+종+1234+종, 7053352100*, 키+관리실+비밀번호+별 */
+function findDoorPasswordSpans(
+  text: string
+): { start: number; end: number; phrase: string }[] {
+  const found = [
+    ...collectRegexSpans(
+      text,
+      new RegExp(`${DOOR_PW_TOKEN}(?:\\s*[+＋]\\s*${DOOR_PW_TOKEN})+`, "g")
+    ),
+    ...collectRegexSpans(
+      text,
+      new RegExp(`(?<!\\d)\\d{4,16}\\s*${DOOR_PW_MARK}`, "g")
+    ),
+    ...collectRegexSpans(
+      text,
+      new RegExp(`${DOOR_PW_MARK}\\s*\\d{4,16}(?!\\d)`, "g")
+    ),
+  ];
+  found.sort((a, b) => a.start - b.start || b.end - a.end);
+  const spans: { start: number; end: number; phrase: string }[] = [];
+  for (const hit of found) {
+    if (spans.some((s) => hit.start < s.end && hit.end > s.start)) continue;
+    spans.push(hit);
+  }
+  return spans;
+}
+
+function doorPasswordPhrases(text: string): string[] {
+  return findDoorPasswordSpans(text).map((s) => s.phrase);
+}
+
 function isKrPhoneDigitRun(digits: string): boolean {
   return /^0[1-9]\d{7,9}$/.test(toKrPhoneDigits(digits));
 }
@@ -1636,7 +1707,15 @@ function isLikelyPhone(
   // 날짜(3월·1일·2024년)는 제외. 월세(거래)는 허용.
   if (/^[일년]/.test(after)) return false;
   if (/^월(?!세)/.test(after)) return false;
-  const before = text.slice(Math.max(0, index - 4), index);
+  if (/^(?:[*＊#＃]|우물정자|우물정|우물|별|샾|샵)/.test(after)) return false;
+  const before = text.slice(Math.max(0, index - 8), index);
+  if (
+    /(?:현관|비번|비밀번호|종|호출|키|관리실|도어락|[*＊#＃]|별|샾|샵|우물정)\s*$/.test(
+      before
+    )
+  ) {
+    return false;
+  }
   if (/\d\s*월\s*$/.test(before) || /년\s*$/.test(before)) return false;
   if (/[\/／.,．，~～〜∼]/.test(raw)) return false;
   if (isKrPhoneDigitRun(digits)) return true;
@@ -1662,7 +1741,11 @@ function parsePhoneHits(text: string): PhoneHit[] {
     }
     const hangulBreak = /[가-힣a-zA-Z]/.test(ch) && ch !== "에" && ch !== "의";
     const moneyBreak = /[\/／.,．，~～〜∼]/.test(ch);
-    if ((hangulBreak || moneyBreak) && groups[groups.length - 1].length) {
+    const doorMarkBreak = /[*＊#＃]/.test(ch);
+    if (
+      (hangulBreak || moneyBreak || doorMarkBreak) &&
+      groups[groups.length - 1].length
+    ) {
       groups.push([]);
     }
   }
@@ -2808,7 +2891,10 @@ export function parseIntakeText(
     }
   }
 
-  const leftoverText = maskUsedSpans(fieldText, money.usedSpans);
+  const leftoverText = maskUsedSpans(
+    maskUsedSpans(fieldText, findDoorPasswordSpans(fieldText)),
+    money.usedSpans
+  );
   const contacts = parseContacts(leftoverText, kind);
   result.name = contacts.name;
   if (contacts.nameLabeled) result.nameLabeled = true;
@@ -2862,6 +2948,9 @@ export function parseIntakeText(
   result.options = options;
 
   result.notes = buildIntakeMemoNotes(body, labeledMemo);
+  for (const phrase of doorPasswordPhrases(fieldText)) {
+    result.notes = appendMemoPart(result.notes, phrase);
+  }
   const buildingName = parseBuildingName(fieldText);
   if (buildingName) {
     result.buildingName = buildingName;
@@ -2964,6 +3053,12 @@ export function applyIntakeToProperty(
     next.monthlyRent = parsed.monthlyRent;
     if (!parsed.dealType) next.dealType = "월세";
   }
+  if (!needsJeonseInsurance(next.dealType, next.roomType)) {
+    next.insuranceType = undefined;
+  }
+  if (!needsLoanFlag(next.roomType)) {
+    next.loanAvailable = undefined;
+  }
   if (parsed.maintenanceFee != null) {
     next.maintenanceFee = parsed.maintenanceFee;
   }
@@ -2996,8 +3091,12 @@ export function applyIntakeToProperty(
       next.moveInDate = formatMoveInRange(move.from, move.to);
     }
   }
-  if (parsed.loan) next.loanAvailable = parsed.loan as ParkingType;
-  if (parsed.insurance) next.insuranceType = parsed.insurance;
+  if (parsed.loan && needsLoanFlag(next.roomType)) {
+    next.loanAvailable = parsed.loan as ParkingType;
+  }
+  if (parsed.insurance && needsJeonseInsurance(next.dealType, next.roomType)) {
+    next.insuranceType = parsed.insurance;
+  }
   if (parsed.parking) next.parkingType = parsed.parking as ParkingType;
   if (parsed.elevator) next.elevator = parsed.elevator === "유";
   if (next.hasPartnerAgency) {
@@ -3085,8 +3184,15 @@ export function applyIntakeToCustomer(
     next.moveInTo = move.to;
     next.moveInSingle = move.single;
   }
-  if (parsed.loan) next.loanNeeded = parsed.loan;
-  if (parsed.insurance) next.insuranceNeeded = parsed.insurance;
+  if (!needsJeonseInsurance(next.dealType, next.roomType)) {
+    next.insuranceNeeded = "";
+  }
+  if (parsed.loan && needsLoanFlag(next.roomType)) {
+    next.loanNeeded = parsed.loan;
+  }
+  if (parsed.insurance && needsJeonseInsurance(next.dealType, next.roomType)) {
+    next.insuranceNeeded = parsed.insurance;
+  }
   if (parsed.parking) next.parkingType = parsed.parking;
   if (parsed.elevator) next.elevatorNeeded = parsed.elevator;
   if (parsed.workspaceShared && opts?.hasTeam) {
