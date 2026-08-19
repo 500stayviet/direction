@@ -1387,6 +1387,121 @@ export default function AdminPage() {
 
         {tab === "deleted" ? (
           <>
+            {isSuper ? (
+              <Card className="space-y-2.5 !p-3">
+                <div>
+                  <p className="text-[14px] font-bold">데이터 관리</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
+                    개인 계정 고객·매물·네비, 탈퇴(deleted_accounts) 기록은
+                    삭제하지 않습니다. e2e 테스트 계정·마커 데이터만 정리합니다.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-lg bg-gray-900 px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        if (
+                          !confirm(
+                            "개인 계정(비 e2e)에 체험 demo 고객·매물·네비를 다시 넣을까요?\n기존 개인 데이터는 유지됩니다."
+                          )
+                        ) {
+                          return;
+                        }
+                        setBusy(true);
+                        setError("");
+                        try {
+                          const res = await fetch(
+                            "/api/admin/restore-demo-seed",
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                ...authHeaders(session.token),
+                              },
+                              body: JSON.stringify({}),
+                            }
+                          );
+                          const body = (await res.json()) as {
+                            ok?: boolean;
+                            message?: string;
+                            restoredCount?: number;
+                            fail?: number;
+                            restored?: string[];
+                          };
+                          if (!res.ok || !body.ok) {
+                            setError(body.message ?? "demo 복구 실패");
+                            return;
+                          }
+                          alert(
+                            `체험 demo 복구 완료\n성공 ${body.restoredCount ?? 0} · 실패 ${body.fail ?? 0}\n${(body.restored ?? []).join(", ")}`
+                          );
+                        } catch {
+                          setError("demo 복구에 실패했습니다.");
+                        } finally {
+                          setBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    체험 demo 복구
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-600 disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        if (
+                          !confirm(
+                            "e2e 테스트 데이터만 정리할까요?\n\n유지: 개인 계정 고객·매물·네비, 탈퇴 기록\n삭제: e2e 계정 데이터, 파서 샘플, audit 등"
+                          )
+                        ) {
+                          return;
+                        }
+                        setBusy(true);
+                        setError("");
+                        try {
+                          const res = await fetch(
+                            "/api/admin/cleanup-e2e-data",
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                ...authHeaders(session.token),
+                              },
+                              body: JSON.stringify({}),
+                            }
+                          );
+                          const body = (await res.json()) as {
+                            ok?: boolean;
+                            message?: string;
+                            e2eUserCount?: number;
+                            personalUserCount?: number;
+                          };
+                          if (!res.ok || !body.ok) {
+                            setError(body.message ?? "e2e 정리 실패");
+                            return;
+                          }
+                          alert(
+                            `e2e 테스트 정리 완료\ne2e 계정 ${body.e2eUserCount ?? 0} · 개인 계정 ${body.personalUserCount ?? 0} 유지`
+                          );
+                          await loadSummary(session.token);
+                        } catch {
+                          setError("e2e 정리에 실패했습니다.");
+                        } finally {
+                          setBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    e2e 테스트 정리
+                  </button>
+                </div>
+              </Card>
+            ) : null}
             <div className="flex gap-2">
               <Button
                 type="button"

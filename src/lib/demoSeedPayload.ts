@@ -65,6 +65,15 @@ export function isDemoSeedExpired(
   return Date.now() >= expire.getTime();
 }
 
+/** 체험 demo 카드 숨김 — 관리자 복구(demoRestoredAt) 시 그 시점부터 다시 7일 */
+export function isDemoHiddenForUser(
+  user?: { createdAt?: string | null; demoRestoredAt?: string | null } | null
+): boolean {
+  if (!user) return false;
+  const anchor = user.demoRestoredAt ?? user.createdAt;
+  return isDemoSeedExpired(anchor);
+}
+
 const DEMO_MOVE_IN_SPAN_DAYS = 7;
 
 function startOfLocalDay(date: Date): Date {

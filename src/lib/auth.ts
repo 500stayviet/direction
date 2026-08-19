@@ -464,6 +464,7 @@ function userFromAuthSession(authUser: {
     phone: String(meta.phone ?? ""),
     passwordHint: String(meta.password_hint ?? ""),
     createdAt: authUser.created_at ?? new Date().toISOString(),
+    demoRestoredAt: String(meta.demo_restored_at ?? "").trim() || undefined,
     suspended: meta.account_suspended === true || undefined,
     suspendedReason:
       meta.account_suspended === true
@@ -527,6 +528,12 @@ export async function getCurrentUser(): Promise<User | null> {
             .trim()
             .replace(/\s+/g, " ");
           cachedUser = rowToUser(data);
+          const restored = String(
+            session.user.user_metadata?.demo_restored_at ?? ""
+          ).trim();
+          if (restored) {
+            cachedUser = { ...cachedUser, demoRestoredAt: restored };
+          }
           persistShopNameBackfill(
             data.id,
             rawShop,

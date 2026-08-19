@@ -10,7 +10,7 @@ import {
   DEMO_SEED_VERSION,
   buildDemoSeedData,
   demoSeedBaseDate,
-  isDemoSeedExpired,
+  isDemoHiddenForUser,
   type DemoSeedActor,
 } from "@/lib/demoSeedPayload";
 
@@ -134,7 +134,17 @@ async function __POST_handler(request: Request) {
     };
 
     const signupAt = userData.user.created_at ?? body.createdAt ?? null;
-    if (isDemoSeedExpired(signupAt)) {
+    const meta = (userData.user.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const demoRestoredAt = String(meta.demo_restored_at ?? "").trim() || null;
+    if (
+      isDemoHiddenForUser({
+        createdAt: signupAt,
+        demoRestoredAt,
+      })
+    ) {
       await expireDemoRows(admin, userId);
       return NextResponse.json({
         ok: true,
@@ -207,10 +217,6 @@ async function __POST_handler(request: Request) {
       });
     }
 
-    const meta = (userData.user.user_metadata ?? {}) as Record<
-      string,
-      unknown
-    >;
     const displayName =
       String(profile?.display_name ?? "").trim() ||
       String(meta.display_name ?? "").trim() ||

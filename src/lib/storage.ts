@@ -18,7 +18,7 @@ import {
 import {
   DEMO_CREATOR_NAME,
   isDemoEntityId,
-  isDemoSeedExpired,
+  isDemoHiddenForUser,
 } from "./demoSeedPayload";
 import { foldDoorPasswordsIntoNotes } from "./propertyPasswords";
 import {
@@ -390,7 +390,7 @@ async function listActivePayloads<T>(
       }
     }
 
-    const demoExpired = isDemoSeedExpired(peekCurrentUser()?.createdAt);
+    const demoExpired = isDemoHiddenForUser(peekCurrentUser());
     const rows = [...byId.values()].filter((row) => {
       if (!isDemoEntityId(row.id)) return true;
       if (demoExpired) return false;
@@ -934,7 +934,7 @@ export async function applyRealtimeEntityChange(input: {
     if (
       !userId ||
       row.user_id !== userId ||
-      isDemoSeedExpired(peekCurrentUser()?.createdAt)
+      isDemoHiddenForUser(peekCurrentUser())
     ) {
       removeRealtimeId(table, id);
       return;

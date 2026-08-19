@@ -4,7 +4,7 @@ import {
   DEMO_CORE_IDS,
   DEMO_CREATOR_LABEL_VERSION,
   DEMO_SEED_VERSION,
-  isDemoSeedExpired,
+  isDemoHiddenForUser,
 } from "@/lib/demoSeedPayload";
 import {
   clearEntityCache,
@@ -102,7 +102,7 @@ export async function seedDemoDataIfNeeded(): Promise<void> {
 
   try {
     if (sessionStorage.getItem(seedSkipKey(userId))) {
-      if (isDemoSeedExpired(appAuth.user.createdAt)) {
+      if (isDemoHiddenForUser(appAuth.user)) {
         purgeExpiredDemoFromCache();
       }
       injectDemoAlertsOnce(userId);

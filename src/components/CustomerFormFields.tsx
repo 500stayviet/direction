@@ -35,7 +35,7 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
 import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
-import { requiredStarClass, invalidHintClass, invalidLabelClass } from "@/lib/uiInvalid";
+import { requiredStarClass, invalidHintClass, invalidLabelClass, controlStatusClass } from "@/lib/uiInvalid";
 
 type FieldRef = (key: CustomerFieldKey) => (node: HTMLDivElement | null) => void;
 
@@ -118,7 +118,6 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
     | "monthlyRent"
     | "monthlyRentTo"
     | "monthlyRentSingle"
-    | "nonOccupancy"
     | "landCategory"
   >;
   effectiveDealType: DealType | "";
@@ -142,7 +141,6 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
     monthlyRent,
     monthlyRentTo,
     monthlyRentSingle,
-    nonOccupancy,
     landCategory,
   } = draft;
 
@@ -351,53 +349,37 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
               ) : null}
               {monthlyRentSingle ? (
                 <div ref={setFieldRef("monthlyRent")}>
-                  <Input
+                  <ManAmountInput
                     label=""
                     required
-                    type="number"
-                    inputMode="numeric"
-                    value={monthlyRent || ""}
                     invalid={isInvalid("monthlyRent")}
-                    onChange={(e) => {
-                      const next = Number(e.target.value) || 0;
+                    value={monthlyRent}
+                    onChange={(next) => {
                       onPatch({ monthlyRent: next, monthlyRentTo: next });
                     }}
                     placeholder="예) 50"
-                    suffix="만원"
                   />
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <div ref={setFieldRef("monthlyRent")}>
-                    <Input
+                    <ManAmountInput
                       label="부터"
                       required
-                      type="number"
-                      inputMode="numeric"
-                      value={monthlyRent || ""}
                       invalid={isInvalid("monthlyRent")}
-                      onChange={(e) =>
-                        onPatch({ monthlyRent: Number(e.target.value) || 0 })
-                      }
+                      value={monthlyRent}
+                      onChange={(next) => onPatch({ monthlyRent: next })}
                       placeholder="예) 40"
-                      suffix="만원"
                     />
                   </div>
                   <div ref={setFieldRef("monthlyRentTo")}>
-                    <Input
+                    <ManAmountInput
                       label="까지"
                       required
-                      type="number"
-                      inputMode="numeric"
-                      value={monthlyRentTo || ""}
                       invalid={isInvalid("monthlyRentTo")}
-                      onChange={(e) =>
-                        onPatch({
-                          monthlyRentTo: Number(e.target.value) || 0,
-                        })
-                      }
+                      value={monthlyRentTo}
+                      onChange={(next) => onPatch({ monthlyRentTo: next })}
                       placeholder="예) 60"
-                      suffix="만원"
                     />
                   </div>
                 </div>
@@ -405,23 +387,6 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
             </div>
           ) : null}
         </div>
-
-        {effectiveDealType === "매매" && roomType !== "토지" ? (
-          <label className="flex min-h-[38px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
-            <CircleCheck
-              checked={nonOccupancy}
-              onChange={(e) => onPatch({ nonOccupancy: e.target.checked })}
-            />
-            <span className="flex-1">
-              <span className="block text-[15px] font-bold text-gray-900">
-                비입주
-              </span>
-              <span className="block text-xs text-gray-500">
-                입주 없이 매수만 하는 경우
-              </span>
-            </span>
-          </label>
-        ) : null}
       </div>
     </>
   );
@@ -434,6 +399,8 @@ export const CustomerFormLocationMoveInFields = memo(
     moveInFrom,
     moveInTo,
     moveInSingle,
+    nonOccupancy,
+    effectiveDealType,
     showMoveIn,
     locationInvalid,
     moveInInvalid,
@@ -446,6 +413,8 @@ export const CustomerFormLocationMoveInFields = memo(
     moveInFrom: string;
     moveInTo: string;
     moveInSingle: boolean;
+    nonOccupancy: boolean;
+    effectiveDealType: DealType | "";
     showMoveIn: boolean;
     locationInvalid: boolean;
     moveInInvalid: boolean;
@@ -456,6 +425,9 @@ export const CustomerFormLocationMoveInFields = memo(
     }) => void;
     onPatch: (patch: Partial<CustomerFormDraft>) => void;
   }) {
+    const showNonOccupancyToggle =
+      effectiveDealType === "매매" && showMoveIn;
+
     return (
       <>
         <div ref={setFieldRef("preferredLocation")}>
@@ -482,30 +454,70 @@ export const CustomerFormLocationMoveInFields = memo(
                 입주희망일
                 <span className={requiredStarClass}>*</span>
               </p>
-              <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
-                <CircleCheck
-                  checked={moveInSingle}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    onPatch({
-                      moveInSingle: on,
-                      ...(on && moveInFrom
-                        ? { moveInTo: moveInFrom }
-                        : !on
-                          ? { moveInTo: "" }
-                          : {}),
-                    });
-                  }}
-                />
-                <span className="text-[14px] font-semibold text-gray-700">
-                  단일
-                </span>
-              </label>
+              <div className="flex shrink-0 items-center gap-3">
+                {showNonOccupancyToggle ? (
+                  <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                    <CircleCheck
+                      checked={nonOccupancy}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        onPatch({
+                          nonOccupancy: on,
+                          ...(on
+                            ? {
+                                moveInFrom: "",
+                                moveInTo: "",
+                                moveInSingle: false,
+                              }
+                            : {}),
+                        });
+                      }}
+                    />
+                    <span className="text-[14px] font-semibold text-gray-700">
+                      비입주
+                    </span>
+                  </label>
+                ) : null}
+                <label
+                  className={[
+                    "flex items-center gap-2 active:scale-95 transition-all duration-150",
+                    nonOccupancy ? "pointer-events-none opacity-40" : "",
+                  ].join(" ")}
+                >
+                  <CircleCheck
+                    checked={moveInSingle}
+                    disabled={nonOccupancy}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      onPatch({
+                        moveInSingle: on,
+                        ...(on && moveInFrom
+                          ? { moveInTo: moveInFrom }
+                          : !on
+                            ? { moveInTo: "" }
+                            : {}),
+                      });
+                    }}
+                  />
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    단일
+                  </span>
+                </label>
+              </div>
             </div>
             {moveInInvalid ? (
               <p className={`text-xs ${invalidHintClass}`}>미입력</p>
             ) : null}
-            {moveInSingle ? (
+            {nonOccupancy ? (
+              <div
+                className={[
+                  "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px] font-medium text-gray-700",
+                  controlStatusClass({ filled: true }),
+                ].join(" ")}
+              >
+                비입주
+              </div>
+            ) : moveInSingle ? (
               <DatePicker
                 label=""
                 required
@@ -514,7 +526,7 @@ export const CustomerFormLocationMoveInFields = memo(
                 onChange={(next) => {
                   onPatch({ moveInFrom: next, moveInTo: next });
                 }}
-                placeholder="입주 날짜 선택"
+                placeholder="단일 날짜 선택"
               />
             ) : (
               <DateRangePicker

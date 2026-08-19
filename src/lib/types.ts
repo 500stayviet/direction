@@ -67,6 +67,8 @@ export interface User {
   phone: string;
   passwordHint: string;
   createdAt: string;
+  /** 관리자 demo 복구 시각 — 있으면 이 날짜 기준 7일간 체험 demo 표시 */
+  demoRestoredAt?: string;
   /** 관리자 계정 정지 — 로그인 가능, 홈 외 이용 불가 */
   suspended?: boolean;
   /** 정지 사유 (사용자에게 표시) */

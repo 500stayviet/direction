@@ -193,7 +193,6 @@ export function CustomerForm({
       monthlyRent: draft.monthlyRent,
       monthlyRentTo: draft.monthlyRentTo,
       monthlyRentSingle: draft.monthlyRentSingle,
-      nonOccupancy: draft.nonOccupancy,
       landCategory: draft.landCategory,
     }),
     [
@@ -207,7 +206,6 @@ export function CustomerForm({
       draft.monthlyRent,
       draft.monthlyRentTo,
       draft.monthlyRentSingle,
-      draft.nonOccupancy,
       draft.landCategory,
     ]
   );
@@ -410,10 +408,9 @@ export function CustomerForm({
             moveInFrom={draft.moveInFrom}
             moveInTo={draft.moveInTo}
             moveInSingle={draft.moveInSingle}
-            showMoveIn={
-              draft.roomType !== "토지" &&
-              !(effectiveDealType === "매매" && draft.nonOccupancy)
-            }
+            nonOccupancy={draft.nonOccupancy}
+            effectiveDealType={effectiveDealType}
+            showMoveIn={draft.roomType !== "토지"}
             locationInvalid={isInvalid("preferredLocation")}
             moveInInvalid={isInvalid("moveIn")}
             setFieldRef={setFieldRef}
