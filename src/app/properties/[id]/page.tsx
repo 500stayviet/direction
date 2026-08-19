@@ -104,7 +104,7 @@ export default function PropertyDetailPage() {
       router.replace(`/properties/${property.id}`);
       return;
     }
-    if (!property.moveInVacant) {
+    if (!property.moveInVacant && !property.moveInNegotiable) {
       setProperty({
         ...property,
         moveInFrom: "",

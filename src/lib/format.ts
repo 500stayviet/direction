@@ -332,11 +332,15 @@ export function formatMoveInRange(
 
 export function getPropertyMoveInLabel(property: {
   moveInVacant?: boolean;
+  moveInNegotiable?: boolean;
   moveInFrom?: string;
   moveInTo?: string;
   moveInDate?: string;
 }): string {
-  if (property.moveInVacant) return "공실";
+  if (property.moveInVacant || property.moveInDate === "공실") return "공실";
+  if (property.moveInNegotiable || property.moveInDate === "협의가능") {
+    return "협의가능";
+  }
   return formatMoveInRange(
     property.moveInFrom,
     property.moveInTo,

@@ -86,11 +86,12 @@ export function getContractDeadlineLabel(customer: Customer): string | null {
 export function getPropertyDeadlineLabel(property: {
   contractCompleted?: boolean;
   moveInVacant?: boolean;
+  moveInNegotiable?: boolean;
   moveInFrom?: string;
   moveInDate?: string;
 }): string | null {
   if (property.contractCompleted) return null;
-  if (property.moveInVacant) return null;
+  if (property.moveInVacant || property.moveInNegotiable) return null;
   if (
     !isMoveInDeadlineActive(
       moveInStartISO(property.moveInFrom, property.moveInDate)

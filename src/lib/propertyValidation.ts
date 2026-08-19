@@ -122,7 +122,7 @@ export function getMissingRequiredFields(
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
   if (!isLand && !isBuilding) {
-    if (!property.moveInVacant) {
+    if (!property.moveInVacant && !property.moveInNegotiable) {
       const from =
         property.moveInFrom?.trim() ||
         (property.moveInDate && /^\d{4}-\d{2}-\d{2}$/.test(property.moveInDate)

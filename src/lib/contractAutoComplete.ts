@@ -45,7 +45,7 @@ export function shouldAutoCompleteCustomer(c: Customer): boolean {
 
 export function shouldAutoCompleteProperty(p: ListedProperty): boolean {
   if (p.contractCompleted) return false;
-  if (p.moveInVacant) return false;
+  if (p.moveInVacant || p.moveInNegotiable) return false;
   return isMoveInDueReached(p.moveInFrom, p.moveInTo, p.moveInSingle);
 }
 

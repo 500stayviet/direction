@@ -214,6 +214,8 @@ export interface Property extends SharedMeta {
   moveInSingle?: boolean;
   /** 공실. true면 날짜 없이 공실로 두고 자동 계약완료하지 않음 */
   moveInVacant?: boolean;
+  /** 협의가능. true면 날짜 없이 협의가능으로 둠 */
+  moveInNegotiable?: boolean;
   /** 표시용 요약 */
   moveInDate: string;
   insuranceType?: string;

@@ -14,6 +14,7 @@ import {
   type IntakeParseResult,
   type IntakeYesNoField,
   MOVE_IN_IMMEDIATE_RE,
+  MOVE_IN_NEGOTIABLE_RE,
 } from "@/lib/intakeParse";
 import { availFromYesNo, needsJeonseInsurance } from "@/lib/format";
 import { skipsResidentialExtras } from "@/lib/constants";
@@ -633,7 +634,7 @@ function moneyConsumedEnd(text: string): number {
 }
 
 const TALK_DATE_SPAN = new RegExp(
-  `(?:${MOVE_IN_IMMEDIATE_RE.source}|\\d+\\s*월\\s*\\d+\\s*일(?:\\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\\s*[-~～〜∼]?|\\d+\\s*월\\s*\\d+|\\d{2}\\s*[./／.,．]\\s*\\d{1,2}\\s*[./／.,．]\\s*\\d{1,2}|\\d{1,2}\\s*[./／.,．-]\\s*\\d{1,2})`,
+  `(?:${MOVE_IN_NEGOTIABLE_RE.source}|${MOVE_IN_IMMEDIATE_RE.source}|\\d+\\s*월\\s*\\d+\\s*일(?:\\s*(?:부터(?:는)?|까지(?:는)?|에서|와|과|하고|내지))?\\s*[-~～〜∼]?|\\d+\\s*월\\s*\\d+|\\d{2}\\s*[./／.,．]\\s*\\d{1,2}\\s*[./／.,．]\\s*\\d{1,2}|\\d{1,2}\\s*[./／.,．-]\\s*\\d{1,2})`,
   "g"
 );
 
@@ -711,6 +712,9 @@ function mergeTalkDates(
   prior: Partial<IntakeParseResult> | undefined,
   parsed: Partial<IntakeParseResult>
 ): Partial<IntakeParseResult> {
+  if (parsed.moveInNegotiable && !parsed.moveInFrom) {
+    return { moveInNegotiable: true };
+  }
   if (parsed.moveInImmediate && !parsed.moveInFrom) {
     return { moveInImmediate: true };
   }
@@ -846,12 +850,14 @@ export function datesStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>
 ): boolean {
-  if (!partial.moveInFrom && !partial.moveInImmediate) return false;
+  if (!partial.moveInFrom && !partial.moveInImmediate && !partial.moveInNegotiable) {
+    return false;
+  }
 
   const normalized = normalizeTalkStep(text, "dates");
   const end = datesConsumedEnd(normalized);
   const rest = (end > 0 ? normalized.slice(end) : "").trim();
-  if (partial.moveInImmediate) {
+  if (partial.moveInNegotiable || partial.moveInImmediate) {
     return Boolean(rest) && NEXT_AFTER_DATES.test(rest);
   }
   if (dateRangeLinkTail(normalized)) return false;
@@ -865,7 +871,9 @@ export function datesStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined
 ): boolean {
   if (!partial) return false;
-  return Boolean(partial.moveInFrom || partial.moveInImmediate);
+  return Boolean(
+    partial.moveInFrom || partial.moveInImmediate || partial.moveInNegotiable
+  );
 }
 
 export function contactPhoneStepReadyToAdvance(
@@ -923,7 +931,7 @@ export function extractTalkStepRemainder(
   }
   if (
     step === "dates" &&
-    (partial.moveInFrom || partial.moveInImmediate)
+    (partial.moveInFrom || partial.moveInImmediate || partial.moveInNegotiable)
   ) {
     const end = datesConsumedEnd(text);
     return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
@@ -1329,7 +1337,7 @@ export function parseIntakeStep(
   }
 
   if (step === "dates") {
-    if (!parsed.moveInFrom && !parsed.moveInImmediate) {
+    if (!parsed.moveInFrom && !parsed.moveInImmediate && !parsed.moveInNegotiable) {
       return { ok: false, partial: {}, display: "" };
     }
     const merged = mergeTalkDates(prior, parsed);
@@ -1337,6 +1345,7 @@ export function parseIntakeStep(
       moveInFrom: merged.moveInFrom,
       moveInTo: merged.moveInTo,
       moveInImmediate: merged.moveInImmediate,
+      moveInNegotiable: merged.moveInNegotiable,
       options: [],
     };
     return {
@@ -1443,6 +1452,7 @@ function mergePartial(
     target.moveInTo = partial.moveInTo ?? partial.moveInFrom;
   }
   if (partial.moveInImmediate) target.moveInImmediate = true;
+  if (partial.moveInNegotiable) target.moveInNegotiable = true;
   if (partial.loan) target.loan = partial.loan;
   if (partial.insurance) target.insurance = partial.insurance;
   if (partial.parking) target.parking = partial.parking;

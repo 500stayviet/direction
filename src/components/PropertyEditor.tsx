@@ -317,6 +317,7 @@ export function PropertyEditor({
       patch.moveInTo = "";
       patch.moveInSingle = false;
       patch.moveInVacant = false;
+      patch.moveInNegotiable = false;
       patch.moveInDate = "";
       patch.maintenanceIncludes = [];
     } else {
@@ -338,6 +339,7 @@ export function PropertyEditor({
       patch.moveInTo = "";
       patch.moveInSingle = false;
       patch.moveInVacant = false;
+      patch.moveInNegotiable = false;
       patch.moveInDate = "";
     } else if (
       roomType !== "건물" &&
@@ -928,7 +930,36 @@ export function PropertyEditor({
                 임대희망일
                 <span className={requiredStarClass}>*</span>
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
+                  <CircleCheck
+                    checked={Boolean(property.moveInNegotiable)}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      if (on) {
+                        update({
+                          moveInNegotiable: true,
+                          moveInVacant: false,
+                          moveInFrom: "",
+                          moveInTo: "",
+                          moveInSingle: false,
+                          moveInDate: "협의가능",
+                        });
+                        return;
+                      }
+                      update({
+                        moveInNegotiable: false,
+                        moveInFrom: "",
+                        moveInTo: "",
+                        moveInSingle: false,
+                        moveInDate: "",
+                      });
+                    }}
+                  />
+                  <span className="text-[14px] font-semibold text-gray-700">
+                    협의가능
+                  </span>
+                </label>
                 <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
                   <CircleCheck
                     checked={Boolean(property.moveInVacant)}
@@ -937,6 +968,7 @@ export function PropertyEditor({
                       if (on) {
                         update({
                           moveInVacant: true,
+                          moveInNegotiable: false,
                           moveInFrom: "",
                           moveInTo: "",
                           moveInSingle: false,
@@ -959,12 +991,17 @@ export function PropertyEditor({
                 </label>
                 <label className="flex items-center gap-2 active:scale-95 transition-all duration-150">
                   <CircleCheck
-                    checked={moveInSingle && !property.moveInVacant}
+                    checked={
+                      moveInSingle &&
+                      !property.moveInVacant &&
+                      !property.moveInNegotiable
+                    }
                     onChange={(e) => {
                       const on = e.target.checked;
                       const to = on ? moveInFrom : "";
                       update({
                         moveInVacant: false,
+                        moveInNegotiable: false,
                         moveInSingle: on,
                         moveInFrom,
                         moveInTo: to,
@@ -984,7 +1021,16 @@ export function PropertyEditor({
             {isInvalid("moveIn") ? (
               <p className={`text-xs ${invalidHintClass}`}>미입력</p>
             ) : null}
-            {property.moveInVacant ? (
+            {property.moveInNegotiable ? (
+              <div
+                className={[
+                  "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+                  controlStatusClass({ filled: true }),
+                ].join(" ")}
+              >
+                협의가능
+              </div>
+            ) : property.moveInVacant ? (
               <div
                 className={[
                   "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
@@ -1002,6 +1048,7 @@ export function PropertyEditor({
                 onChange={(next) =>
                   update({
                     moveInVacant: false,
+                    moveInNegotiable: false,
                     moveInSingle: true,
                     moveInFrom: next,
                     moveInTo: next,
@@ -1022,6 +1069,7 @@ export function PropertyEditor({
                   const end = single ? from : to;
                   update({
                     moveInVacant: false,
+                    moveInNegotiable: false,
                     moveInSingle: single,
                     moveInFrom: from,
                     moveInTo: end,

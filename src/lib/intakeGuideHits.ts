@@ -121,7 +121,9 @@ export function intakeGuideHits(
   const money = formatMoneyGuide(parsed, kind);
   if (money) hits.money = money;
 
-  if (parsed.moveInImmediate) {
+  if (parsed.moveInNegotiable) {
+    hits.dates = "협의가능";
+  } else if (parsed.moveInImmediate) {
     hits.dates = kind === "property" ? "공실" : "바로입주";
   } else {
     const move = intakeMoveInPeriod(parsed);

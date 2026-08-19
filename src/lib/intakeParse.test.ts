@@ -41,6 +41,25 @@ describe("parseIntakeText", () => {
     assert.equal(next.moveInDate, "공실");
   });
 
+  it("매물에 협의가능을 적용하면 날짜가 아니라 협의가능이다", () => {
+    const parsed = parseIntakeText("원룸 전세 2억 암사동 협의가능", "property");
+    assert.equal(parsed.moveInNegotiable, true);
+    const next = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(next.moveInNegotiable, true);
+    assert.equal(next.moveInVacant, false);
+    assert.equal(next.moveInFrom, "");
+    assert.equal(next.moveInDate, "협의가능");
+  });
+
+  it("이사 협의 N개월은 협의가능 날짜가 아니라 메모다", () => {
+    const parsed = parseIntakeText(
+      "원룸 전세 2억 암사동 (이사 협의 2~3개월)",
+      "property"
+    );
+    assert.equal(parsed.moveInNegotiable, undefined);
+    assert.match(parsed.notes, /이사 협의/);
+  });
+
   it("의도 키워드·라벨 메모만 남기고 파싱 잔여물은 메모에 넣지 않는다", () => {
     const note = parseIntakeText(
       "원룸 전세 2억 암사동 남향 저층 싫어요 희망층 3층 이상",

@@ -60,6 +60,7 @@ export type IntakeParseResult = {
   buildingName?: string;
   roomNo?: string;
   moveInImmediate?: boolean;
+  moveInNegotiable?: boolean;
   moveInFrom?: string;
   moveInTo?: string;
   loan?: YesNo;
@@ -2655,6 +2656,10 @@ function asFutureMoveIn(
   return clampMoveInToToday(from, to || from, today);
 }
 
+/** 입주·임대 협의 가능 (이사 협의 N개월 등 기간 표현은 제외) */
+export const MOVE_IN_NEGOTIABLE_RE =
+  /(?:입주|임대|이사)\s*협의\s*가능|협의\s*가능(?:\s*입주)?|협의\s*입주/;
+
 /** 즉시입주·공실 계열. 긴 표현을 앞에 둔다 */
 export const MOVE_IN_IMMEDIATE_RE =
   /즉시\s*입주|바로\s*입주|즉시입주|바로입주|실\s*입주(?:\s*가능)?|실입주(?:\s*가능)?|공실\s*중|비어\s*있음|비어있음|빈방|공가|공실|즉시/;
@@ -2662,8 +2667,14 @@ export const MOVE_IN_IMMEDIATE_RE =
 function parseMoveInDates(
   text: string,
   today: Date
-): { from?: string; to?: string; immediate?: boolean } {
+): { from?: string; to?: string; immediate?: boolean; negotiable?: boolean } {
   const corrected = applyDateCorrectionSlice(text);
+  if (
+    MOVE_IN_NEGOTIABLE_RE.test(corrected) &&
+    !/\d+\s*개월/.test(corrected)
+  ) {
+    return { negotiable: true };
+  }
   if (MOVE_IN_IMMEDIATE_RE.test(corrected)) {
     return { immediate: true };
   }
@@ -2926,6 +2937,8 @@ export function parseIntakeText(
   if (moveIn.from) {
     result.moveInFrom = moveIn.from;
     result.moveInTo = moveIn.to ?? moveIn.from;
+  } else if (moveIn.negotiable) {
+    result.moveInNegotiable = true;
   } else if (moveIn.immediate) {
     result.moveInImmediate = true;
   }
@@ -3075,8 +3088,16 @@ export function applyIntakeToProperty(
   }
   if (parsed.roomNo) next.roomNo = parsed.roomNo;
   if (parsed.buildingName) next.buildingName = parsed.buildingName;
-  if (parsed.moveInImmediate && !parsed.moveInFrom) {
+  if (parsed.moveInNegotiable && !parsed.moveInFrom) {
+    next.moveInNegotiable = true;
+    next.moveInVacant = false;
+    next.moveInFrom = "";
+    next.moveInTo = "";
+    next.moveInSingle = false;
+    next.moveInDate = "협의가능";
+  } else if (parsed.moveInImmediate && !parsed.moveInFrom) {
     next.moveInVacant = true;
+    next.moveInNegotiable = false;
     next.moveInFrom = "";
     next.moveInTo = "";
     next.moveInSingle = false;
@@ -3085,6 +3106,7 @@ export function applyIntakeToProperty(
     const move = intakeMoveInPeriod(parsed);
     if (move) {
       next.moveInVacant = false;
+      next.moveInNegotiable = false;
       next.moveInFrom = move.from;
       next.moveInTo = move.to;
       next.moveInSingle = move.single;
