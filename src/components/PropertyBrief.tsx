@@ -403,7 +403,7 @@ export function PropertyBrief({
           {property.roomType === "건물" && property.unitCounts ? (
             <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
-                방 · 상가수
+                건물내 방 · 상가수
               </p>
               <p className="mt-1 text-[14px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {formatUnitCountsLine(

@@ -96,7 +96,7 @@ export function buildPropertyShareText(
           property.unitCounts,
           property.buildingKind
         );
-        if (units) lines.push(`방·상가수: ${units}`);
+        if (units) lines.push(`건물내 방·상가수: ${units}`);
       }
       const parkingLine = formatBuildingParking(
         property.parkingSpacesAbove,

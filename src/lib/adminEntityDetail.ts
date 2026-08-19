@@ -144,7 +144,7 @@ function buildPropertyFields(
     if (p.unitCounts) {
       push(
         fields,
-        "방 · 상가수",
+        "건물내 방 · 상가수",
         formatUnitCountsLine(p.unitCounts, p.buildingKind) || "-"
       );
     }

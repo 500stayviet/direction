@@ -195,7 +195,7 @@ export function BuildingLandFields({
 
       <div className="mt-3 space-y-1">
         <p className="text-[13px] font-semibold text-gray-600">
-          방 · 상가수
+          건물내 방 · 상가수
         </p>
         <div
           className={
