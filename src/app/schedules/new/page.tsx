@@ -79,7 +79,6 @@ function ScheduleCreateInner() {
   const [visitTime, setVisitTime] = useState("");
   const [properties, setProperties] = useState<Property[]>([
     createEmptyProperty(),
-    createEmptyProperty(),
   ]);
   const [validationFocus, setValidationFocus] = useState<ScheduleFocus | null>(
     null
