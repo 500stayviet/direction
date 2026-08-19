@@ -5,6 +5,7 @@ import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
 import {
   displayRoomType,
   skipsResidentialExtras,
+  needsMaintenanceFee,
   formatUnitCountsLine,
   needsRoomBathCounts,
   isUnitRoomType,
@@ -17,6 +18,7 @@ import {
   isInsuranceJoined,
   needsJeonseInsurance,
 } from "@/lib/format";
+import { formatLandAreaLine } from "@/lib/landArea";
 import { formatDisplayTime } from "@/components/TimePicker";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink, PhoneHandsetIcon } from "@/components/PhoneLink";
@@ -125,6 +127,10 @@ export function PropertyBrief({
     property.roomType !== "토지" &&
     property.roomType !== "건물" &&
     (!omitEmpty || (Boolean(moveInLabel) && moveInLabel !== "-"));
+  const showMaintenance = needsMaintenanceFee(
+    dealLabel,
+    property.roomType
+  );
 
   const typeLabel = displayRoomType(property.roomType, property.buildingKind);
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
@@ -309,7 +315,16 @@ export function PropertyBrief({
 
         {/* 금액 · 관리비 · 입주 */}
         <div className="grid grid-cols-2 gap-1.5">
-          <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
+          <div
+            className={[
+              "flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5",
+              property.roomType === "토지" ||
+              property.roomType === "건물" ||
+              showMaintenance
+                ? ""
+                : "col-span-2",
+            ].join(" ")}
+          >
             <p className="text-[11px] font-bold leading-none text-gray-400">
               금액
             </p>
@@ -328,11 +343,11 @@ export function PropertyBrief({
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 대지면적
                 {property.landCategory?.trim() ? " · 지목" : ""}
-                {property.landUse?.trim() ? " · 용도" : ""}
+                {property.landUse?.trim() ? " · 용도지역" : ""}
               </p>
               <p className="mt-1 text-[15px] font-extrabold leading-snug tracking-tight text-gray-900">
                 {[
-                  property.landArea != null ? `${property.landArea}평` : null,
+                  formatLandAreaLine(property.landArea) || null,
                   property.landCategory?.trim() || null,
                   property.landUse?.trim() || null,
                 ]
@@ -359,7 +374,7 @@ export function PropertyBrief({
                   .join(" · ") || "-"}
               </p>
             </div>
-          ) : (
+          ) : showMaintenance ? (
             <div className="flex min-h-[46px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">
                 관리비
@@ -374,7 +389,7 @@ export function PropertyBrief({
                 ) : null}
               </p>
             </div>
-          )}
+          ) : null}
           {property.roomType === "건물" && property.unitCounts ? (
             <div className="col-span-2 flex min-h-[40px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-2.5 py-1.5">
               <p className="text-[11px] font-bold leading-none text-gray-400">

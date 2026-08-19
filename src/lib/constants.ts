@@ -234,6 +234,15 @@ export function skipsResidentialExtras(roomType?: string | null): boolean {
   );
 }
 
+/** 관리비는 전세·월세 매물만. 매매·토지·건물은 없음 */
+export function needsMaintenanceFee(
+  dealType?: string | null,
+  roomType?: string | null
+): boolean {
+  if (isLandType(roomType) || isBuildingType(roomType)) return false;
+  return dealType === "전세" || dealType === "월세";
+}
+
 /** 단일 호실·상가 유형 (실사용면적 1칸) */
 export function isUnitRoomType(roomType?: string | null): boolean {
   return Boolean(roomType) && !isLandType(roomType) && !isBuildingType(roomType);

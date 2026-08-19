@@ -53,6 +53,49 @@ select {
   font-size: 16px !important;
 }
 
+/* 이름·전화: 값 있고 포커스 아님 — 짙은 초록 + 흰 글씨 (Tailwind bg 충돌 방지) */
+input.input-identity-filled:not(:focus) {
+  background-color: #03b26c !important;
+  border-color: #03b26c !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+}
+
+input.input-identity-filled:not(:focus):-webkit-autofill,
+input.input-identity-filled:not(:focus):-webkit-autofill:hover {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  box-shadow: 0 0 0 1000px #03b26c inset;
+}
+
+/* 일반 입력칸: 값 있고 포커스 아님 — 선택 버튼과 같은 진한 파란 */
+input.input-field-filled:not(:focus),
+select.input-field-filled:not(:focus) {
+  background-color: #3182f6 !important;
+  border-color: #3182f6 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  text-align: center;
+  caret-color: #fff;
+}
+
+textarea.input-field-filled:not(:focus) {
+  background-color: #3182f6 !important;
+  border-color: #3182f6 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  text-align: left;
+}
+
+input.input-field-filled:not(:focus):-webkit-autofill,
+input.input-field-filled:not(:focus):-webkit-autofill:hover {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  box-shadow: 0 0 0 1000px #3182f6 inset;
+}
+
 button,
 a {
   /* font: inherit 금지 — Tailwind text-* 크기를 덮어써 휠/피커 글자가 작아짐 */

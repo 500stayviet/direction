@@ -1,4 +1,4 @@
-import { needsRoomBathCounts, formatUnitCountsLine, skipsResidentialExtras } from "@/lib/constants";
+import { needsRoomBathCounts, formatUnitCountsLine, skipsResidentialExtras, needsMaintenanceFee } from "@/lib/constants";
 import {
   formatDepositRent,
   formatMoney,
@@ -13,6 +13,7 @@ import {
   needsJeonseInsurance,
 } from "@/lib/format";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
+import { formatLandAreaLine } from "@/lib/landArea";
 import type { Customer, Property, Schedule } from "@/lib/types";
 
 export type AdminDetailField = {
@@ -117,16 +118,9 @@ function buildPropertyFields(
   }
 
   if (p.roomType === "토지") {
-    push(
-      fields,
-      "대지면적",
-      [
-        p.landArea != null ? `${p.landArea}평` : "",
-        p.landUse?.trim() || "",
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    );
+    if (p.landArea != null) push(fields, "대지면적", formatLandAreaLine(p.landArea));
+    if (p.landCategory?.trim()) push(fields, "지목", p.landCategory.trim());
+    if (p.landUse?.trim()) push(fields, "용도지역", p.landUse.trim());
   } else if (p.roomType === "건물") {
     push(
       fields,
@@ -148,7 +142,7 @@ function buildPropertyFields(
         formatUnitCountsLine(p.unitCounts, p.buildingKind) || "-"
       );
     }
-  } else if (typeof p.maintenanceFee === "number") {
+  } else if (needsMaintenanceFee(p.dealType, p.roomType) && typeof p.maintenanceFee === "number") {
     const includes =
       Array.isArray(p.maintenanceIncludes) && p.maintenanceIncludes.length > 0
         ? ` (${p.maintenanceIncludes.join(", ")})`

@@ -1,4 +1,4 @@
-import { DEAL_TYPES, PROPERTY_OPTIONS, defaultRoomBathCounts, needsRoomBathCounts } from "@/lib/constants";
+import { DEAL_TYPES, PROPERTY_OPTIONS, defaultRoomBathCounts, needsRoomBathCounts, needsMaintenanceFee } from "@/lib/constants";
 import {
   isoFollowingMonthDay,
   isoFromMonthDay,
@@ -3072,8 +3072,14 @@ export function applyIntakeToProperty(
   if (!needsLoanFlag(next.roomType)) {
     next.loanAvailable = undefined;
   }
-  if (parsed.maintenanceFee != null) {
+  if (
+    parsed.maintenanceFee != null &&
+    needsMaintenanceFee(next.dealType, next.roomType)
+  ) {
     next.maintenanceFee = parsed.maintenanceFee;
+  } else if (!needsMaintenanceFee(next.dealType, next.roomType)) {
+    next.maintenanceFee = undefined;
+    next.maintenanceIncludes = [];
   }
   if (parsed.gu || parsed.dong || parsed.jibun) {
     const gu =

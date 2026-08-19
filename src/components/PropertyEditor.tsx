@@ -17,6 +17,7 @@ import {
   pruneUnitCountsForKind,
   roomTypesForDeal,
   skipsResidentialExtras,
+  needsMaintenanceFee,
   isUnitRoomType,
   normalizeBuildingKind,
 } from "@/lib/constants";
@@ -37,8 +38,12 @@ import {
   onlyDigits,
   yesNoFromAvail,
 } from "@/lib/format";
-import { LandCategoryPicker } from "@/components/LandCategoryPicker";
 import { propertyNotesPlaceholder } from "@/lib/memoPlaceholders";
+import {
+  landUseZonesForCategory,
+  needsLandUseZone,
+  pruneLandUseForCategory,
+} from "@/lib/landCategories";
 import {
   foldDoorPasswordsIntoNotes,
   propertyHasDoorPasswords,
@@ -52,6 +57,11 @@ import { PhoneInput } from "@/components/PhoneInput";
 import {
   BuildingLandFields,
 } from "@/components/BuildingLandFields";
+import {
+  LandCategoryPicker,
+  LandSelectPicker,
+} from "@/components/LandCategoryPicker";
+import { LandAreaDualFields } from "@/components/LandAreaDualFields";
 import { SeoulAddressField } from "@/components/SeoulAddressField";
 import { CircleCheck } from "@/components/ui/CircleCheck";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
@@ -256,6 +266,10 @@ export function PropertyEditor({
       if (!needsJeonseInsurance(next.dealType, next.roomType)) {
         next.insuranceType = undefined;
       }
+      if (!needsMaintenanceFee(next.dealType, next.roomType)) {
+        next.maintenanceFee = undefined;
+        next.maintenanceIncludes = [];
+      }
     } else if (next.dealType === "전세" || next.dealType === "매매") {
       next.monthlyRent = 0;
     }
@@ -306,6 +320,16 @@ export function PropertyEditor({
   const isLand = isLandType(property.roomType);
   const isBuilding = isBuildingType(property.roomType);
   const hideResidentialExtras = skipsResidentialExtras(property.roomType);
+  const showMaintenance = needsMaintenanceFee(
+    isBuilding || isLand ? "매매" : property.dealType,
+    property.roomType
+  );
+  const landUseZones = landUseZonesForCategory(property.landCategory);
+  const landUseValue = property.landUse ?? "";
+  const landUseOptions =
+    landUseValue && !landUseZones.includes(landUseValue)
+      ? [landUseValue, ...landUseZones]
+      : landUseZones;
 
   const handleRoomTypeChange = (roomType: RoomType) => {
     const patch: Partial<Property> = { roomType };
@@ -628,7 +652,7 @@ export function PropertyEditor({
                 임차인 또는 임대인 택1 필수 입니다.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <PhoneInput
                 label="임차인 전화번호"
                 value={formatPhoneInput(property.tenantPhone ?? "")}
@@ -731,6 +755,37 @@ export function PropertyEditor({
             />
           </div>
         ) : null}
+        {isLand ? (
+          <div className="space-y-1.5 pt-1.5">
+            <LandCategoryPicker
+              value={property.landCategory ?? ""}
+              onChange={(landCategory) =>
+                update({
+                  landCategory,
+                  landUse: pruneLandUseForCategory(
+                    landCategory,
+                    property.landUse
+                  ),
+                })
+              }
+            />
+            {needsLandUseZone(property.landCategory) ? (
+              <LandSelectPicker
+                label="용도지역"
+                selectLabel="용도지역선택"
+                title="용도지역 선택"
+                description="지목에 맞는 용도지역을 선택하세요"
+                value={landUseValue}
+                options={landUseOptions}
+                onChange={(landUse) => update({ landUse })}
+              />
+            ) : null}
+            <LandAreaDualFields
+              pyeong={property.landArea}
+              onChange={(landArea) => update({ landArea })}
+            />
+          </div>
+        ) : null}
         </div>
       <div ref={setFieldRef("roomCount")}>
         <RoomBathCountFields
@@ -791,12 +846,6 @@ export function PropertyEditor({
           />
         </div>
         </div>
-        {isLand ? (
-          <LandCategoryPicker
-            value={property.landCategory ?? ""}
-            onChange={(landCategory) => update({ landCategory })}
-          />
-        ) : null}
         <div
           className={
             property.dealType === "월세" && !isBuilding && !isLand
@@ -833,7 +882,7 @@ export function PropertyEditor({
             </div>
           )}
         </div>
-        {!isLand && (
+        {showMaintenance ? (
           <div className="grid grid-cols-2 gap-2">
             <Input
               label="관리비"
@@ -860,9 +909,8 @@ export function PropertyEditor({
               placeholder="예) 10"
             />
           </div>
-        )}
-        {!isLand &&
-          !isBuilding &&
+        ) : null}
+        {showMaintenance &&
           !hideResidentialExtras &&
           (property.maintenanceFee ?? 0) > 0 && (
           <div>
@@ -1129,21 +1177,15 @@ export function PropertyEditor({
 
       {isLand && (
         <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">
-          <BuildingLandFields
-            property={property}
-            onChange={update}
-          />
-          <div className="mt-3 space-y-1.5">
-            <div>
-              <TextArea
-                label="메모"
-                value={property.notes ?? ""}
-                onChange={(e) => update({ notes: e.target.value })}
-                placeholder={propertyNotesPlaceholder(property.roomType)}
-              />
-            </div>
-            {teamShareFields}
+          <div>
+            <TextArea
+              label="메모"
+              value={property.notes ?? ""}
+              onChange={(e) => update({ notes: e.target.value })}
+              placeholder={propertyNotesPlaceholder(property.roomType)}
+            />
           </div>
+          {teamShareFields}
         </div>
       )}
 

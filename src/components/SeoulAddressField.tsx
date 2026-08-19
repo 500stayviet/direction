@@ -183,9 +183,7 @@ export function SeoulAddressField({
         </button>
       )}
 
-      <div className="space-y-1">
-        <p className="text-[13px] font-semibold text-gray-600">지번</p>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-1.5">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-1.5">
           <Input
             label="본번"
             required={required}
@@ -213,7 +211,6 @@ export function SeoulAddressField({
             }}
             placeholder="45"
           />
-        </div>
       </div>
 
       <Modal

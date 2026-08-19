@@ -17,7 +17,7 @@ import {
   MOVE_IN_NEGOTIABLE_RE,
 } from "@/lib/intakeParse";
 import { availFromYesNo, needsJeonseInsurance } from "@/lib/format";
-import { skipsResidentialExtras } from "@/lib/constants";
+import { skipsResidentialExtras, needsMaintenanceFee } from "@/lib/constants";
 import { splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   findAllDongsInText,
@@ -1428,7 +1428,10 @@ function mergePartial(
   if (partial.depositTo) target.depositTo = partial.depositTo;
   if (partial.monthlyRent) target.monthlyRent = partial.monthlyRent;
   if (partial.monthlyRentTo) target.monthlyRentTo = partial.monthlyRentTo;
-  if (partial.maintenanceFee != null) {
+  if (
+    partial.maintenanceFee != null &&
+    needsMaintenanceFee(target.dealType, target.roomType)
+  ) {
     target.maintenanceFee = partial.maintenanceFee;
   }
   if (partial.places?.length) {

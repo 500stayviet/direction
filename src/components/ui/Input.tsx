@@ -161,8 +161,14 @@ export function Input({
       ? filledClass
       : "";
   const identityAlign =
-    filledVariant === "identity" ? "text-center" : "";
+    filledVariant === "identity" && hasValue ? "text-center" : "";
+  const filledAlign =
+    filledVariant !== "identity" && hasValue && !invalid ? "text-center" : "";
   const hideSpin = Boolean(prefix || suffix);
+  const fieldFilledClass =
+    filledVariant !== "identity" && hasValue && !invalid
+      ? "input-field-filled"
+      : "";
 
   const inputEl = (
     <input
@@ -174,7 +180,12 @@ export function Input({
           ? "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           : "",
         identityAlign,
+        filledAlign,
         statusClass,
+        filledVariant === "identity" && hasValue && !invalid
+          ? "input-identity-filled"
+          : "",
+        fieldFilledClass,
         invalid ? "" : inputFocusClass,
         className,
       ].join(" ")}
@@ -184,9 +195,16 @@ export function Input({
 
   const control =
     prefix || suffix ? (
-      <span className="relative block">
+      <span className="group relative block">
         {prefix ? (
-          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[16px] font-bold tabular-nums text-gray-700">
+          <span
+            className={[
+              "pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[16px] font-bold tabular-nums",
+              hasValue && !invalid
+                ? "text-white group-focus-within:text-gray-700"
+                : "text-gray-700",
+            ].join(" ")}
+          >
             {prefix}
           </span>
         ) : null}
@@ -195,9 +213,11 @@ export function Input({
           <span
             className={[
               "pointer-events-none absolute inset-y-0 right-3 flex items-center font-medium",
-              hasValue
-                ? "text-[16px] font-bold text-gray-900"
-                : "text-[13px] text-gray-400",
+              hasValue && !invalid
+                ? "text-[16px] font-bold text-white group-focus-within:text-gray-900"
+                : hasValue
+                  ? "text-[16px] font-bold text-gray-900"
+                  : "text-[13px] text-gray-400",
             ].join(" ")}
           >
             {hasValue ? ` ${suffix}` : suffix}
@@ -271,6 +291,7 @@ export const TextArea = forwardRef<
           controlSurfaceClass,
           "min-h-[96px] resize-none overflow-y-auto py-1.5 leading-snug",
           invalid ? invalidInputClass : hasValue ? filledInputClass : "",
+          hasValue && !invalid ? "input-field-filled text-left" : "",
           invalid ? "" : inputFocusClass,
           className,
         ].join(" ")}
@@ -297,6 +318,7 @@ export function Select({
         className={[
           inputClass,
           invalid ? invalidInputClass : hasValue ? filledInputClass : "",
+          hasValue && !invalid ? "input-field-filled" : "",
           invalid ? "" : inputFocusClass,
           className,
         ].join(" ")}

@@ -40,32 +40,7 @@ export function BuildingLandFields({
   };
 
   if (roomType === "토지") {
-    return (
-      <div className="space-y-1.5">
-        <p className="text-sm font-bold text-gray-800">토지 정보</p>
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            label="대지면적 (평)"
-            type="number"
-            inputMode="decimal"
-            value={property.landArea ?? ""}
-            onChange={(e) =>
-              onChange({
-                landArea:
-                  e.target.value === "" ? undefined : Number(e.target.value) || 0,
-              })
-            }
-            placeholder="예) 45"
-          />
-          <Input
-            label="용도"
-            value={property.landUse ?? ""}
-            onChange={(e) => onChange({ landUse: e.target.value })}
-            placeholder="예) 제2종일반주거"
-          />
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (roomType !== "건물") return null;
@@ -173,7 +148,7 @@ export function BuildingLandFields({
                   placeholder="예) 2"
                   className={[
                     "h-[36px] min-h-[36px] w-full rounded-xl border border-gray-200 bg-gray-50 px-1 text-center text-[16px] font-bold tabular-nums text-gray-900 outline-none transition placeholder:text-[13px] placeholder:font-medium placeholder:text-gray-400 focus:border-[#3182F6] focus:bg-white focus:ring-2 focus:ring-[#3182F6]/20",
-                    unitCounts[key] ? filledInputClass : "",
+                    unitCounts[key] ? `${filledInputClass} input-field-filled` : "",
                     inputFocusClass,
                   ].join(" ")}
                 />

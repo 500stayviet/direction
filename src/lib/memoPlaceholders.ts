@@ -8,7 +8,7 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
     case "사무실":
       return "예) 평형, 희망층, 시설, 희망 주차 대수 등";
     case "토지":
-      return "예) 매수목적, 현황, 희망조건";
+      return "예) 매수목적, 경작, 현황, 희망조건";
     case "건물":
       return "예) 희망 수익률, 건물 총층, 엘리베이터";
     case "원룸":
@@ -28,7 +28,7 @@ export function propertyNotesPlaceholder(roomType?: RoomType | string): string {
     case "사무실":
       return "예) 현관·호실 비밀번호, 층, 시설, 주차 대수";
     case "토지":
-      return "예) 도로접면, 건폐율, 용적률";
+      return "예) 매수목적, 경작, 도로접면, 건폐율, 용적률";
     case "건물":
       return "예) 현관 비밀번호, 위반건축물 여부, 건축연도";
     case "원룸":

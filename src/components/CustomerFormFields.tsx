@@ -188,6 +188,13 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
         </div>
       ) : null}
 
+      {roomType === "토지" ? (
+        <LandCategoryPicker
+          value={landCategory}
+          onChange={(next) => onPatch({ landCategory: next })}
+        />
+      ) : null}
+
       <div ref={setFieldRef("roomCount")}>
         <RoomBathCountFields
           roomType={roomType}
@@ -413,13 +420,6 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           </label>
         ) : null}
       </div>
-
-      {roomType === "토지" ? (
-        <LandCategoryPicker
-          value={landCategory}
-          onChange={(next) => onPatch({ landCategory: next })}
-        />
-      ) : null}
     </>
   );
 });

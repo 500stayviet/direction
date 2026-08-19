@@ -6,11 +6,21 @@ import { Button } from "@/components/ui/Button";
 import { LAND_CATEGORIES } from "@/lib/landCategories";
 import { controlStatusClass } from "@/lib/uiInvalid";
 
-export function LandCategoryPicker({
+export function LandSelectPicker({
+  label,
+  selectLabel,
+  title,
+  description,
   value,
+  options,
   onChange,
 }: {
+  label: string;
+  selectLabel: string;
+  title: string;
+  description?: string;
   value: string;
+  options: readonly string[];
   onChange: (next: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -18,29 +28,19 @@ export function LandCategoryPicker({
 
   return (
     <div className="space-y-1">
-      <p className="text-[13px] font-semibold text-gray-600">지목</p>
+      <p className="text-[13px] font-semibold text-gray-600">{label}</p>
       {hasValue ? (
-        <div
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
           className={[
-            "flex min-h-[36px] w-full items-center gap-2 rounded-xl px-4 text-[15px]",
+            "flex min-h-[36px] w-full items-center justify-center rounded-xl px-4 text-[15px]",
+            "active:scale-95 transition-all duration-150",
             controlStatusClass({ filled: true }),
           ].join(" ")}
         >
-          <button
-            type="button"
-            className="min-w-0 flex-1 truncate text-left font-bold"
-            onClick={() => setOpen(true)}
-          >
-            {value}
-          </button>
-          <button
-            type="button"
-            className="shrink-0 text-[11px] font-normal text-white/80"
-            onClick={() => onChange("")}
-          >
-            삭제
-          </button>
-        </div>
+          {value}
+        </button>
       ) : (
         <button
           type="button"
@@ -51,15 +51,15 @@ export function LandCategoryPicker({
             "active:scale-95 transition-all duration-150",
           ].join(" ")}
         >
-          지목선택
+          {selectLabel}
         </button>
       )}
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="지목 선택"
-        description="지적 기준 지목을 선택하세요"
+        title={title}
+        description={description}
         dense
         footer={
           <Button fullWidth variant="secondary" onClick={() => setOpen(false)}>
@@ -68,29 +68,49 @@ export function LandCategoryPicker({
         }
       >
         <div className="grid max-h-[55vh] grid-cols-3 gap-1.5 overflow-y-auto pb-1">
-          {LAND_CATEGORIES.map((cat) => {
-            const active = value === cat;
+          {options.map((opt) => {
+            const active = value === opt;
             return (
               <button
-                key={cat}
+                key={opt}
                 type="button"
                 onClick={() => {
-                  onChange(cat);
+                  onChange(opt);
                   setOpen(false);
                 }}
                 className={[
-                  "min-h-[44px] rounded-xl text-[13px] font-bold transition-all active:scale-95",
+                  "min-h-[44px] rounded-xl px-1 text-[13px] font-bold transition-all active:scale-95",
                   active
                     ? "bg-[#3182F6] text-white"
                     : "bg-gray-100 text-gray-700",
                 ].join(" ")}
               >
-                {cat}
+                {opt}
               </button>
             );
           })}
         </div>
       </Modal>
     </div>
+  );
+}
+
+export function LandCategoryPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <LandSelectPicker
+      label="지목"
+      selectLabel="지목선택"
+      title="지목 선택"
+      description="지적 기준 지목을 선택하세요"
+      value={value}
+      options={LAND_CATEGORIES}
+      onChange={onChange}
+    />
   );
 }

@@ -6,9 +6,10 @@ import {
   isInsuranceJoined,
   needsJeonseInsurance,
 } from "@/lib/format";
-import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine, displayRoomType } from "@/lib/constants";
+import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine, displayRoomType, needsMaintenanceFee } from "@/lib/constants";
 import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
+import { formatLandAreaLine } from "@/lib/landArea";
 import type { Property, User } from "@/lib/types";
 
 /**
@@ -65,10 +66,13 @@ export function buildPropertyShareText(
 
     if (property.roomType === "토지") {
       if (property.landArea != null) {
-        lines.push(`대지면적: ${property.landArea}평`);
+        lines.push(`대지면적: ${formatLandAreaLine(property.landArea)}`);
+      }
+      if (property.landCategory?.trim()) {
+        lines.push(`지목: ${property.landCategory.trim()}`);
       }
       if (property.landUse?.trim()) {
-        lines.push(`용도: ${property.landUse.trim()}`);
+        lines.push(`용도지역: ${property.landUse.trim()}`);
       }
     }
 
@@ -106,7 +110,7 @@ export function buildPropertyShareText(
       )}`
     );
 
-    if (property.roomType !== "토지" && property.roomType !== "건물") {
+    if (needsMaintenanceFee(property.dealType, property.roomType)) {
       const maint = formatMoney(property.maintenanceFee);
       const includes =
         !skipsResidentialExtras(property.roomType) &&
@@ -114,11 +118,11 @@ export function buildPropertyShareText(
           ? ` (${property.maintenanceIncludes.join(", ")})`
           : "";
       lines.push(`관리비: ${maint}${includes}`);
+    }
 
+    if (property.roomType !== "토지" && property.roomType !== "건물") {
       const moveIn = getPropertyMoveInLabel(property);
       lines.push(`입주 가능: ${moveIn || "-"}`);
-    } else if (property.roomType === "건물") {
-      lines.push(`관리비: ${formatMoney(property.maintenanceFee)}`);
     }
     const showResidential =
       property.roomType !== "토지" &&

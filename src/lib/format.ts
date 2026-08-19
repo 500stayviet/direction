@@ -193,9 +193,9 @@ export function formatMoneyWon(amount: number): string {
 /**
  * 만원 입력 → 파란 칸 표시 (매매가·보증금)
  * - 10000 → 1억
- * - 15000 → 1억 5천
- * - 15500 → 1억 5500만원
- * - 5000 → 5천
+ * - 14500 → 1억 4500만원
+ * - 15000 → 1억 5000만원
+ * - 5000 → 5000만원
  * - 200 → 200만원
  */
 export function formatManReadable(amount: number): string {
@@ -210,7 +210,6 @@ export function formatManReadable(amount: number): string {
 
 function formatManRemainder(man: number): string {
   if (man <= 0) return "";
-  if (man % 1000 === 0) return `${man / 1000}천`;
   return `${man}만원`;
 }
 

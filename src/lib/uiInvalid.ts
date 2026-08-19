@@ -10,13 +10,13 @@ export const requiredStarClass = "ml-0.5 text-red-500";
 export const inputFocusClass =
   "outline-none focus:outline-none focus-visible:outline-none focus:!border-[#3182F6] focus:!bg-white focus:!text-gray-900 focus:!caret-gray-900 focus:!ring-2 focus:!ring-[#3182F6]/20";
 
-/** 값이 있는 일반 입력칸 — 파란 칸 */
+/** 값이 있는 일반 입력칸 — 선택 버튼과 같은 진한 파란, 가운데 */
 export const filledInputClass =
-  "border-[#3182F6] bg-[#E8F3FF] text-gray-900";
+  "!border-[#3182F6] !bg-[#3182F6] text-center font-bold !text-white caret-white";
 
 /** 이름·전화 — 입력되면 파란 칸과 같이 짙은 초록, 가운데 */
 export const filledIdentityInputClass =
-  "border-[#03B26C] bg-[#03B26C] text-center font-bold !text-white caret-white";
+  "!border-[#03B26C] !bg-[#03B26C] text-center font-bold !text-white caret-white";
 
 /** 값이 있는 버튼형 칸 (날짜·선택 결과) — 선택된 것처럼 */
 export const filledControlClass =

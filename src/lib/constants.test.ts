@@ -5,6 +5,7 @@ import {
   pruneUnitCountsForKind,
   unitKeysForBuildingKind,
   normalizeBuildingKind,
+  needsMaintenanceFee,
 } from "./constants.ts";
 
 describe("건물 종류 방·상가수", () => {
@@ -66,5 +67,16 @@ describe("건물 종류 방·상가수", () => {
       ),
       "상가 1 · 사무실 3"
     );
+  });
+});
+
+describe("관리비", () => {
+  it("전세·월세만 관리비가 있다", () => {
+    assert.equal(needsMaintenanceFee("전세", "원룸"), true);
+    assert.equal(needsMaintenanceFee("월세", "아파트"), true);
+    assert.equal(needsMaintenanceFee("매매", "원룸"), false);
+    assert.equal(needsMaintenanceFee("전세", "토지"), false);
+    assert.equal(needsMaintenanceFee("매매", "건물"), false);
+    assert.equal(needsMaintenanceFee(undefined, "원룸"), false);
   });
 });
