@@ -39,6 +39,7 @@ export function isMoveInDueReached(
 
 export function shouldAutoCompleteCustomer(c: Customer): boolean {
   if (c.contractCompleted) return false;
+  if (c.roomType === "토지") return false;
   if (c.dealType === "매매" && c.nonOccupancy) return false;
   return isMoveInDueReached(c.moveInFrom, c.moveInTo, c.moveInSingle);
 }

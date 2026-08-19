@@ -5,6 +5,7 @@ import type { DealType, RoomType } from "@/lib/types";
 import {
   BUILDING_KINDS,
   needsRoomBathCounts,
+  normalizeBuildingKind,
   roomTypesForDeal,
 } from "@/lib/constants";
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
@@ -176,7 +177,10 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
             label="건물 종류"
             required
             invalid={isInvalid("buildingKind")}
-            value={buildingKind || undefined}
+            value={
+              normalizeBuildingKind(buildingKind) ??
+              (buildingKind || undefined)
+            }
             options={BUILDING_KINDS}
             onChange={(next) => onPatch({ buildingKind: next })}
             columns={1}
@@ -392,7 +396,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           ) : null}
         </div>
 
-        {effectiveDealType === "매매" ? (
+        {effectiveDealType === "매매" && roomType !== "토지" ? (
           <label className="flex min-h-[38px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3.5 active:scale-[0.99] transition-all duration-150">
             <CircleCheck
               checked={nonOccupancy}

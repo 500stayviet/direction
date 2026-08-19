@@ -6,7 +6,7 @@ import {
   isInsuranceJoined,
   needsJeonseInsurance,
 } from "@/lib/format";
-import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine } from "@/lib/constants";
+import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine, displayRoomType } from "@/lib/constants";
 import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import type { Property, User } from "@/lib/types";
@@ -43,7 +43,7 @@ export function buildPropertyShareText(
 
     const typeParts = [
       property.roomType === "건물" && property.buildingKind
-        ? `건물 · ${property.buildingKind}`
+        ? displayRoomType(property.roomType, property.buildingKind)
         : property.roomType,
       property.roomType === "건물" || property.roomType === "토지"
         ? "매매"

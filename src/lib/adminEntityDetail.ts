@@ -293,7 +293,9 @@ export function buildAdminCustomerDetail(args: {
   if (c.roomType === "토지" && c.landCategory?.trim()) {
     push(fields, "지목", c.landCategory.trim());
   }
-  push(fields, "입주희망", getCustomerMoveInLabel(c));
+  if (c.roomType !== "토지") {
+    push(fields, "입주희망", getCustomerMoveInLabel(c));
+  }
 
   const showLoanInsurancePet = !(
     c.roomType === "상가" ||

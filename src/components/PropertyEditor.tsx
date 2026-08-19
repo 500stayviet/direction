@@ -18,6 +18,7 @@ import {
   roomTypesForDeal,
   skipsResidentialExtras,
   isUnitRoomType,
+  normalizeBuildingKind,
 } from "@/lib/constants";
 import { Input, TextArea } from "@/components/ui/Input";
 import { ManAmountInput } from "@/components/ManAmountInput";
@@ -712,7 +713,10 @@ export function PropertyEditor({
               label="건물 종류"
               required
               invalid={isInvalid("buildingKind")}
-              value={property.buildingKind}
+              value={
+                normalizeBuildingKind(property.buildingKind) ??
+                property.buildingKind
+              }
               options={BUILDING_KINDS}
               onChange={(next) =>
                 update({

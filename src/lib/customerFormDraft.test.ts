@@ -31,6 +31,7 @@ describe("customerFormDraft", () => {
     assert.equal(draft.dealType, "매매");
     assert.equal(draft.parkingType, "무");
     assert.equal(draft.loanNeeded, "무");
+    assert.equal(draft.moveInFrom, "");
     assert.equal(isCustomerLandOrBuilding(draft.roomType), true);
   });
 

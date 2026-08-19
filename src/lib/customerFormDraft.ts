@@ -223,6 +223,12 @@ export function applyCustomerRoomType(
   } else if (draft.roomType === "토지" || draft.roomType === "건물") {
     nextDraft = applyCustomerDealType(nextDraft, "");
   }
+  if (next === "토지") {
+    nextDraft.moveInFrom = "";
+    nextDraft.moveInTo = "";
+    nextDraft.moveInSingle = false;
+    nextDraft.nonOccupancy = false;
+  }
   if (next !== "건물") {
     nextDraft.buildingKind = "";
   }

@@ -974,10 +974,12 @@ function ScheduleDetailInner() {
                             value={customer.landCategory.trim()}
                           />
                         ) : null}
+                        {customer.roomType !== "토지" ? (
                         <CustomerMeta
                           label="입주희망"
                           value={getCustomerMoveInLabel(customer)}
                         />
+                        ) : null}
                         {!(
                           customer.roomType === "상가" ||
                           customer.roomType === "사무실" ||

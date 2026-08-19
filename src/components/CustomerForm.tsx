@@ -218,8 +218,14 @@ export function CustomerForm({
     const savedDealType: DealType | "" = isCustomerLandOrBuilding(snap.roomType)
       ? "매매"
       : snap.dealType;
-    const isNonOccupancy = savedDealType === "매매" && snap.nonOccupancy;
-    const toDate = snap.moveInSingle ? snap.moveInFrom : snap.moveInTo;
+    const isLand = snap.roomType === "토지";
+    const isNonOccupancy =
+      !isLand && savedDealType === "매매" && snap.nonOccupancy;
+    const toDate = isLand
+      ? ""
+      : snap.moveInSingle
+        ? snap.moveInFrom
+        : snap.moveInTo;
     const missing = getMissingCustomerFields({
       ...customerInput,
       name: snap.name,
@@ -308,12 +314,14 @@ export function CustomerForm({
           ? savedRentTo
           : undefined
       ),
-      moveInFrom: isNonOccupancy ? "" : snap.moveInFrom,
-      moveInTo: isNonOccupancy ? "" : toDate,
-      moveInSingle: isNonOccupancy ? undefined : snap.moveInSingle,
-      moveInDate: isNonOccupancy
-        ? "비입주"
-        : formatMoveInRange(snap.moveInFrom, toDate),
+      moveInFrom: isLand || isNonOccupancy ? "" : snap.moveInFrom,
+      moveInTo: isLand || isNonOccupancy ? "" : toDate,
+      moveInSingle: isLand || isNonOccupancy ? undefined : snap.moveInSingle,
+      moveInDate: isLand
+        ? ""
+        : isNonOccupancy
+          ? "비입주"
+          : formatMoveInRange(snap.moveInFrom, toDate),
       nonOccupancy: isNonOccupancy,
       loanNeeded:
         snap.roomType === "상가" ||
@@ -402,7 +410,10 @@ export function CustomerForm({
             moveInFrom={draft.moveInFrom}
             moveInTo={draft.moveInTo}
             moveInSingle={draft.moveInSingle}
-            showMoveIn={!(effectiveDealType === "매매" && draft.nonOccupancy)}
+            showMoveIn={
+              draft.roomType !== "토지" &&
+              !(effectiveDealType === "매매" && draft.nonOccupancy)
+            }
             locationInvalid={isInvalid("preferredLocation")}
             moveInInvalid={isInvalid("moveIn")}
             setFieldRef={setFieldRef}

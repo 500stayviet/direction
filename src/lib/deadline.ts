@@ -28,6 +28,7 @@ export function getContractDeadlineISO(moveInISO: string): string | null {
 /** 알람 기준이 되는 희망 입주일 (시작일) */
 export function getCustomerMoveInTarget(customer: Customer): string | null {
   if (customer.contractCompleted) return null;
+  if (customer.roomType === "토지") return null;
   if (customer.dealType === "매매" && customer.nonOccupancy) return null;
   if (customer.moveInFrom) return customer.moveInFrom;
   if (customer.moveInDate && /^\d{4}-\d{2}-\d{2}$/.test(customer.moveInDate)) {

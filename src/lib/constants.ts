@@ -28,19 +28,22 @@ export const ROOM_TYPES: RoomType[] = [
 
 export const BUILDING_KINDS: BuildingKind[] = [
   "단독주택(다중주택)",
-  "상가주택",
+  "상가주택(다가구)",
+  "다세대주택",
   "근생건물",
 ];
 
-/** 예전 저장값 '다가구' → '단독주택(다중주택)' */
+/** 예전 저장값 맞춤 */
 export function normalizeBuildingKind(
   kind?: string | null
 ): BuildingKind | undefined {
   if (!kind) return undefined;
   if (kind === "다가구") return "단독주택(다중주택)";
+  if (kind === "상가주택") return "상가주택(다가구)";
   if (
     kind === "단독주택(다중주택)" ||
-    kind === "상가주택" ||
+    kind === "상가주택(다가구)" ||
+    kind === "다세대주택" ||
     kind === "근생건물"
   ) {
     return kind;
@@ -162,6 +165,7 @@ export function unitKeysForBuildingKind(
   kind?: string | null
 ): BuildingUnitKey[] {
   if (kind === "근생건물") return ["상가", "사무실"];
+  if (kind === "다세대주택") return [...RESIDENTIAL_UNIT_KEYS];
   return [...RESIDENTIAL_UNIT_KEYS, "상가"];
 }
 

@@ -10,7 +10,11 @@ export type RoomType =
   | "토지"
   | "건물";
 /** 건물 선택 시 세부 유형 */
-export type BuildingKind = "단독주택(다중주택)" | "상가주택" | "근생건물";
+export type BuildingKind =
+  | "단독주택(다중주택)"
+  | "상가주택(다가구)"
+  | "다세대주택"
+  | "근생건물";
 /** 건물 임대료 입력 방식 */
 export type RentInputMode = "합계" | "상세";
 export type ResidentialUnitKey = "원룸" | "투룸" | "3룸+";

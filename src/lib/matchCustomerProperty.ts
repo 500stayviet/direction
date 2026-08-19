@@ -1,4 +1,4 @@
-import { normalizeRoomType } from "@/lib/constants";
+import { normalizeRoomType, normalizeBuildingKind } from "@/lib/constants";
 import { isInsuranceJoined, needsJeonseInsurance, needsLoanFlag, resolveCustomerLoanNeeded } from "@/lib/format";
 import type { Customer, ListedProperty, RoomType } from "@/lib/types";
 
@@ -59,7 +59,7 @@ function moveInPeriodsOverlap(
   customer: Customer,
   property: ListedProperty
 ): boolean {
-  if (customer.nonOccupancy) return true;
+  if (customer.nonOccupancy || customer.roomType === "토지") return true;
   const c = moveInDayRange(
     customer.moveInFrom,
     customer.moveInTo,
@@ -119,7 +119,9 @@ function roomTypesCompatible(
   if (!cType || !pType) return true;
 
   if (cType === "건물" && customer.buildingKind && property.buildingKind) {
-    if (customer.buildingKind !== property.buildingKind) return false;
+    const cKind = normalizeBuildingKind(customer.buildingKind);
+    const pKind = normalizeBuildingKind(property.buildingKind);
+    if (cKind && pKind && cKind !== pKind) return false;
   }
 
   if (cType === pType) {

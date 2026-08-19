@@ -124,16 +124,16 @@ export function getMissingCustomerFields(
       }
     }
   }
+  const isLand = input.roomType === "토지";
+  const isBuilding = input.roomType === "건물";
   const isNonOccupancy = input.dealType === "매매" && input.nonOccupancy;
-  if (!isNonOccupancy) {
+  if (!isLand && !isNonOccupancy) {
     if (!input.moveInFrom || (!input.moveInSingle && !input.moveInTo)) {
       missing.push("moveIn");
     } else if (!input.moveInSingle && input.moveInTo < input.moveInFrom) {
       missing.push("moveIn");
     }
   }
-  const isLand = input.roomType === "토지";
-  const isBuilding = input.roomType === "건물";
   if (!isLand && !isBuilding && !input.dealType) {
     missing.push("dealType");
   }

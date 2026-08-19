@@ -96,7 +96,8 @@ export function CustomerListCard({
     viewerId ?? peekCurrentUser()?.id
   );
   const preferredLabel = formatPreferredLocationLabel(c);
-  const moveInLabel = getCustomerMoveInLabel(c);
+  const moveInLabel =
+    c.roomType === "토지" ? "" : getCustomerMoveInLabel(c);
   const typeLabel = displayRoomType(c.roomType, c.buildingKind);
   const dealLabel = c.dealType?.trim() || "";
   const moneyLabel = getCustomerBudgetLabel(c).trim();

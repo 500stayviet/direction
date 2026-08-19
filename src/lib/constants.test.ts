@@ -4,9 +4,15 @@ import {
   formatUnitCountsLine,
   pruneUnitCountsForKind,
   unitKeysForBuildingKind,
+  normalizeBuildingKind,
 } from "./constants.ts";
 
 describe("건물 종류 방·상가수", () => {
+  it("예전 상가주택·다가구 저장값을 새 이름으로 맞춘다", () => {
+    assert.equal(normalizeBuildingKind("상가주택"), "상가주택(다가구)");
+    assert.equal(normalizeBuildingKind("다가구"), "단독주택(다중주택)");
+    assert.equal(normalizeBuildingKind("다세대주택"), "다세대주택");
+  });
   it("다중주택·상가주택은 원룸·투룸·3룸+·상가", () => {
     assert.deepEqual(unitKeysForBuildingKind("단독주택(다중주택)"), [
       "원룸",
@@ -14,11 +20,19 @@ describe("건물 종류 방·상가수", () => {
       "3룸+",
       "상가",
     ]);
-    assert.deepEqual(unitKeysForBuildingKind("상가주택"), [
+    assert.deepEqual(unitKeysForBuildingKind("상가주택(다가구)"), [
       "원룸",
       "투룸",
       "3룸+",
       "상가",
+    ]);
+  });
+
+  it("다세대주택은 원룸·투룸·3룸+", () => {
+    assert.deepEqual(unitKeysForBuildingKind("다세대주택"), [
+      "원룸",
+      "투룸",
+      "3룸+",
     ]);
   });
 

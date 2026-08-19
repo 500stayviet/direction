@@ -154,6 +154,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 </p>
               </div>
             ) : null}
+            {customer.roomType !== "토지" ? (
             <div
               className="col-span-2 flex min-h-[44px] flex-col justify-center rounded-xl bg-[#F9FAFB] px-3 py-2"
               data-testid="customer-brief-movein"
@@ -165,6 +166,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
                 {getCustomerMoveInLabel(customer) || "-"}
               </p>
             </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
