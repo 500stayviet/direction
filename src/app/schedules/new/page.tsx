@@ -298,6 +298,12 @@ function ScheduleCreateInner() {
     };
     try {
       await upsertSchedule(schedule);
+      // 네비(현장동선) 입력 → 미팅 확정 파서 샘플 수집
+      void fetch("/api/navi-meeting-samples/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule }),
+      }).catch(() => undefined);
       if (selected) await touchRecentCustomer(selected.id);
       router.push(`/schedules/${schedule.id}`);
     } catch (err) {

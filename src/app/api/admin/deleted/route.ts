@@ -29,8 +29,8 @@ async function __GET_handler(request: Request) {
   const q = rawQ.toLowerCase();
   const safeQ = rawQ.replace(/[%_,]/g, "").trim();
   const table = TABLES[type] ?? TABLES.customers;
-  // 기본·검색 모두 최근 3건 (나머지는 검색)
-  const pageLimit = 3;
+  // 기본은 최근 50건까지 내려줘야 UI의 “더보기(5개씩)”가 동작함
+  const pageLimit = 50;
   const fetchLimit = q ? 200 : pageLimit;
 
   try {

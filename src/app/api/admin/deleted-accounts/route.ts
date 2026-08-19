@@ -26,7 +26,7 @@ async function __GET_handler(request: Request) {
       "username, former_user_id, shop_name, display_name, phone, deleted_at, data_snapshot, profile_created_at"
     )
     .order("deleted_at", { ascending: false })
-    .limit(3);
+    .limit(50);
 
   if (safeQ) {
     query = query.or(

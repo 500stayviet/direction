@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatSeoulDateTime, todayISO, toISODate } from "@/lib/date";
+import { downloadTextFile } from "@/lib/intakeSampleExport";
 import {
-  buildIntakeSampleExportBundle,
-  downloadTextFile,
-  type IntakeSampleRow,
-  type IntakeSampleStats,
-} from "@/lib/intakeSampleExport";
+  buildNaviMeetingSampleExportBundle,
+  type NaviMeetingSampleRow,
+  type NaviMeetingSampleStats,
+} from "@/lib/naviMeetingSampleExport";
 
 function daysAgoISO(days: number): string {
   const d = new Date();
@@ -17,77 +17,61 @@ function daysAgoISO(days: number): string {
   return toISODate(d);
 }
 
-export function IntakeParserAdminPanel({
+export function NaviMeetingParserAdminPanel({
   token,
-  onNewCount,
 }: {
   token: string;
-  onNewCount?: (count: number) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState<IntakeSampleStats | null>(null);
-  const [samples, setSamples] = useState<IntakeSampleRow[]>([]);
+  const [stats, setStats] = useState<NaviMeetingSampleStats | null>(null);
+  const [samples, setSamples] = useState<NaviMeetingSampleRow[]>([]);
   const [visibleCount, setVisibleCount] = useState(10);
   const [statusFilter, setStatusFilter] = useState<
     "all" | "new" | "exported" | "reviewed"
   >("all");
+
   const [exportFrom, setExportFrom] = useState(daysAgoISO(7));
   const [exportTo, setExportTo] = useState(todayISO());
   const [exportStatus, setExportStatus] = useState<
     "all" | "new" | "exported" | "reviewed"
   >("new");
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [cursorPrompt, setCursorPrompt] = useState("");
-  const [aiStatus, setAiStatus] = useState<{
-    keyConfigured: boolean;
-    keyEnv: string;
-    keyLocalFile: string;
-    keyDeploy: string;
-    limits: { userPerMinute: number; userPerHour: number; userPerDay: number };
-  } | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
     try {
       const q =
-        statusFilter === "all" ? "" : `?status=${encodeURIComponent(statusFilter)}`;
-      const res = await fetch(`/api/admin/intake-samples${q}`, {
+        statusFilter === "all"
+          ? ""
+          : `?status=${encodeURIComponent(statusFilter)}`;
+      const res = await fetch(`/api/admin/navi-meeting-samples${q}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const body = (await res.json()) as {
         ok?: boolean;
-        stats?: IntakeSampleStats;
-        samples?: IntakeSampleRow[];
+        stats?: NaviMeetingSampleStats;
+        samples?: NaviMeetingSampleRow[];
         message?: string;
-        ai?: {
-          keyConfigured: boolean;
-          keyEnv: string;
-          keyLocalFile: string;
-          keyDeploy: string;
-          limits: {
-            userPerMinute: number;
-            userPerHour: number;
-            userPerDay: number;
-          };
-        };
       };
+
       if (!res.ok || !body.ok) {
         setError(body.message ?? "불러오기 실패");
         return;
       }
+
       setStats(body.stats ?? null);
       setSamples(body.samples ?? []);
-      setAiStatus(body.ai ?? null);
       setVisibleCount(10);
-      onNewCount?.(body.stats?.newCount ?? 0);
     } catch {
       setError("불러오기 실패");
     } finally {
       setBusy(false);
     }
-  }, [token, statusFilter, onNewCount]);
+  }, [token, statusFilter]);
 
   useEffect(() => {
     void load();
@@ -97,7 +81,7 @@ export function IntakeParserAdminPanel({
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/intake-samples/export", {
+      const res = await fetch("/api/admin/navi-meeting-samples/export", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -119,23 +103,31 @@ export function IntakeParserAdminPanel({
         cursorPrompt?: string;
         message?: string;
       };
-      if (!res.ok || !body.ok || !body.json || !body.summary || !body.cursorPrompt) {
+
+      if (
+        !res.ok ||
+        !body.ok ||
+        !body.json ||
+        !body.summary ||
+        !body.cursorPrompt
+      ) {
         setError(body.message ?? "export 실패");
         return;
       }
 
       const stamp = todayISO();
       downloadTextFile(
-        `intake-samples-${stamp}.json`,
+        `navi-${stamp}.json`,
         body.json,
         "application/json"
       );
       downloadTextFile(
-        `intake-summary-${stamp}.md`,
+        `navi-summary-${stamp}.md`,
         body.summary,
         "text/markdown"
       );
       setCursorPrompt(body.cursorPrompt);
+
       if (markExported) await load();
     } catch {
       setError("export 실패");
@@ -149,7 +141,7 @@ export function IntakeParserAdminPanel({
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/intake-samples/mark-reviewed", {
+      const res = await fetch("/api/admin/navi-meeting-samples/mark-reviewed", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -176,7 +168,7 @@ export function IntakeParserAdminPanel({
       const day = row.createdAt.slice(0, 10);
       return day >= exportFrom && day <= exportTo;
     });
-    const bundle = buildIntakeSampleExportBundle(
+    const bundle = buildNaviMeetingSampleExportBundle(
       rows,
       `${exportFrom} ~ ${exportTo}`
     );
@@ -184,14 +176,11 @@ export function IntakeParserAdminPanel({
   };
 
   const clearAllSamples = async () => {
-    if (
-      !window.confirm("매물고객 파서 샘플을 전체 삭제할까요?")
-    )
-      return;
+    if (!window.confirm("네비 파서 샘플을 전체 삭제할까요?")) return;
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/intake-samples/clear", {
+      const res = await fetch("/api/admin/navi-meeting-samples/clear", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -209,19 +198,62 @@ export function IntakeParserAdminPanel({
     }
   };
 
+  const backfillFromPastSchedules = async () => {
+    if (
+      !window.confirm(
+        "기존(과거) schedules를 모두 읽어서 네비 파서 샘플 테이블에 채울까요?\n(기본은 중복 schedule은 스킵합니다)"
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/navi-meeting-samples/backfill", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ force: false }),
+      });
+      const body = (await res.json()) as {
+        ok?: boolean;
+        message?: string;
+        inserted?: number;
+        scanned?: number;
+      };
+      if (!res.ok || !body.ok) {
+        setError(body.message ?? "backfill 실패");
+        return;
+      }
+      await load();
+    } catch {
+      setError("backfill 실패");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card className="space-y-3 !p-3">
       <div>
-        <p className="text-[14px] font-bold">파서 · 매물고객 수집</p>
+        <p className="text-[14px] font-bold">파서 · 네비 수집</p>
         <p className="mt-0.5 text-[11px] text-gray-500">
-          메시지·사진 입력 시 원문과 파싱 결과를 모읍니다. 원하는 날 export 후
-          Cursor에 붙여 파서 개선 작업 리스트를 받으세요.
+          네비(현장동선) 입력(일정 생성) 기반으로 고객·매물 정보를
+          파싱/수집합니다.
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           <Button
             type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void backfillFromPastSchedules()}
+          >
+            과거 schedule 전부 채우기
+          </Button>
+          <Button
+            type="button"
             variant="danger"
-            size="md"
             disabled={busy}
             onClick={() => void clearAllSamples()}
           >
@@ -230,43 +262,13 @@ export function IntakeParserAdminPanel({
         </div>
       </div>
 
-      {aiStatus ? (
-        <div
-          className={[
-            "rounded-xl border px-2.5 py-2.5",
-            aiStatus.keyConfigured
-              ? "border-emerald-100 bg-emerald-50/70"
-              : "border-amber-100 bg-amber-50/80",
-          ].join(" ")}
-        >
-          <p className="text-[12px] font-bold text-gray-800">
-            DeepSeek API 키{" "}
-            <span
-              className={
-                aiStatus.keyConfigured ? "text-emerald-700" : "text-amber-800"
-              }
-            >
-              {aiStatus.keyConfigured ? "설정됨" : "없음 — 여기에 값을 넣으세요"}
-            </span>
-          </p>
-          <p className="mt-1 text-[11px] leading-snug text-gray-600">
-            변수 이름 <span className="font-mono">{aiStatus.keyEnv}</span>
-            . 로컬은 <span className="font-mono">{aiStatus.keyLocalFile}</span>
-            , 배포는 {aiStatus.keyDeploy}. 키 값은 화면에 보이지 않습니다.
-          </p>
-          <p className="mt-1 text-[11px] text-gray-500">
-            회원 한 명당 분 {aiStatus.limits.userPerMinute}회 · 시{" "}
-            {aiStatus.limits.userPerHour}회 · 일 {aiStatus.limits.userPerDay}회.
-            DeepSeek 콘솔에서 월 지출 한도도 걸어 두세요.
-          </p>
-        </div>
-      ) : null}
-
       {stats ? (
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2">
             <p className="text-[10px] text-gray-500">전체</p>
-            <p className="text-[18px] font-extrabold tabular-nums">{stats.total}</p>
+            <p className="text-[18px] font-extrabold tabular-nums">
+              {stats.total}
+            </p>
           </div>
           <div className="rounded-lg border border-[#D9E6F8] bg-[#F7FAFF] px-2.5 py-2">
             <p className="text-[10px] text-[#6B8AB8]">미처리</p>
@@ -276,12 +278,14 @@ export function IntakeParserAdminPanel({
           </div>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2">
             <p className="text-[10px] text-gray-500">이번 주</p>
-            <p className="text-[18px] font-extrabold tabular-nums">{stats.weekCount}</p>
+            <p className="text-[18px] font-extrabold tabular-nums">
+              {stats.weekCount}
+            </p>
           </div>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-2">
-            <p className="text-[10px] text-gray-500">메시지 / 사진</p>
+            <p className="text-[10px] text-gray-500">일정/매물</p>
             <p className="text-[14px] font-bold tabular-nums">
-              {stats.messageCount} / {stats.photoCount}
+              {stats.scheduleCount} / {stats.propertyCount}
             </p>
           </div>
         </div>
@@ -291,6 +295,7 @@ export function IntakeParserAdminPanel({
         <div className="border-b border-gray-100 bg-gray-50/80 px-2.5 py-2">
           <p className="text-[12px] font-bold text-gray-800">Cursor export</p>
         </div>
+
         <div className="space-y-2 p-2.5">
           <div className="grid grid-cols-2 gap-1.5">
             <label className="block text-[11px] text-gray-500">
@@ -299,7 +304,7 @@ export function IntakeParserAdminPanel({
                 type="date"
                 value={exportFrom}
                 onChange={(e) => setExportFrom(e.target.value)}
-                className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                className="mt-1 block h-9 w-full rounded-lg border border-gray-200 px-2 text-[12px]"
               />
             </label>
             <label className="block text-[11px] text-gray-500">
@@ -308,84 +313,96 @@ export function IntakeParserAdminPanel({
                 type="date"
                 value={exportTo}
                 onChange={(e) => setExportTo(e.target.value)}
-                className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
+                className="mt-1 block h-9 w-full rounded-lg border border-gray-200 px-2 text-[12px]"
               />
             </label>
           </div>
-          <label className="block text-[11px] text-gray-500">
-            상태
-            <select
-              value={exportStatus}
-              onChange={(e) =>
-                setExportStatus(
-                  e.target.value as "all" | "new" | "exported" | "reviewed"
-                )
-              }
-              className="mt-0.5 h-9 w-full rounded-lg border border-gray-200 px-2 text-[13px]"
-            >
-              <option value="new">미처리만</option>
-              <option value="exported">export됨</option>
-              <option value="reviewed">검토완료</option>
-              <option value="all">전체</option>
-            </select>
-          </label>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-            <Button
-              fullWidth
-              className="!min-h-[36px] !text-[12px]"
-              disabled={busy}
-              onClick={() => void runExport(true)}
-            >
-              JSON·요약 다운 + export 표시
-            </Button>
-            <Button
-              fullWidth
-              variant="secondary"
-              className="!min-h-[36px] !text-[12px]"
-              disabled={busy}
-              onClick={() => void runExport(false)}
-            >
-              다운로드만 (상태 유지)
-            </Button>
-          </div>
-          <Button
-            fullWidth
-            variant="secondary"
-            className="!min-h-[34px] !text-[12px]"
-            disabled={busy}
-            onClick={previewBundle}
-          >
-            Cursor 프롬프트 미리보기
-          </Button>
-          {cursorPrompt ? (
-            <div className="space-y-1.5">
-              <textarea
-                readOnly
-                value={cursorPrompt}
-                className="min-h-[140px] w-full rounded-lg border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-700"
-              />
-              <Button
-                fullWidth
-                variant="secondary"
-                className="!min-h-[34px] !text-[12px]"
-                onClick={() => {
-                  void navigator.clipboard.writeText(cursorPrompt);
-                }}
+
+          <div className="grid grid-cols-2 gap-1.5 items-center">
+            <label className="block text-[11px] text-gray-500">
+              export 상태
+              <select
+                value={exportStatus}
+                onChange={(e) =>
+                  setExportStatus(
+                    e.target.value as "all" | "new" | "exported" | "reviewed"
+                  )
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-gray-200 px-2 text-[12px]"
               >
-                Cursor 프롬프트 복사
+                <option value="all">전체</option>
+                <option value="new">미처리</option>
+                <option value="exported">export됨</option>
+                <option value="reviewed">검토완료</option>
+              </select>
+            </label>
+
+            <div className="flex justify-end gap-1.5">
+              <Button
+                variant="secondary"
+                className="!min-h-[34px] !px-3 !text-[12px]"
+                disabled={busy}
+                onClick={previewBundle}
+              >
+                미리보기
               </Button>
             </div>
-          ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              disabled={busy}
+              className="!min-h-[40px] !px-4 !text-[13px]"
+              onClick={() => void runExport(false)}
+            >
+              export(표시만)
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              className="!min-h-[40px] !px-4 !text-[13px]"
+              onClick={() => void runExport(true)}
+            >
+              export + 내보냄 처리
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {cursorPrompt ? (
+        <div className="space-y-1.5">
+          <p className="text-[12px] font-bold text-gray-800">Cursor prompt</p>
+          <textarea
+            value={cursorPrompt}
+            readOnly
+            className="h-28 w-full resize-none rounded-lg border border-gray-200 bg-white p-2 text-[11px] text-gray-700"
+          />
+          <div className="flex gap-1.5">
+            <Button
+              variant="secondary"
+              disabled={busy}
+              className="!min-h-[34px] !px-3 !text-[12px]"
+              onClick={() => void navigator.clipboard.writeText(cursorPrompt)}
+            >
+              복사
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              className="!min-h-[34px] !px-3 !text-[12px]"
+              onClick={() => setCursorPrompt("")}
+            >
+              닫기
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-1.5 items-center">
         <select
           value={statusFilter}
           onChange={(e) =>
-            setStatusFilter(
-              e.target.value as "all" | "new" | "exported" | "reviewed"
-            )
+            setStatusFilter(e.target.value as "all" | "new" | "exported" | "reviewed")
           }
           className="h-9 rounded-lg border border-gray-200 px-2 text-[12px]"
         >
@@ -394,6 +411,7 @@ export function IntakeParserAdminPanel({
           <option value="exported">export됨</option>
           <option value="reviewed">검토완료</option>
         </select>
+
         <Button
           variant="secondary"
           className="!min-h-[34px] !px-3 !text-[12px]"
@@ -402,12 +420,15 @@ export function IntakeParserAdminPanel({
         >
           새로고침
         </Button>
+
         <Button
           variant="secondary"
           className="!min-h-[34px] !px-3 !text-[12px]"
           disabled={busy || samples.length === 0}
           onClick={() =>
-            void markReviewed(samples.filter((s) => s.status !== "reviewed").map((s) => s.id))
+            void markReviewed(
+              samples.filter((s) => s.status !== "reviewed").map((s) => s.id)
+            )
           }
         >
           목록 전체 검토완료
@@ -430,21 +451,21 @@ export function IntakeParserAdminPanel({
               <button
                 type="button"
                 className="flex w-full items-start justify-between gap-2 px-2.5 py-2 text-left"
-                onClick={() =>
-                  setExpandedId((id) => (id === row.id ? null : row.id))
-                }
+                onClick={() => setExpandedId((id) => (id === row.id ? null : row.id))}
               >
                 <div className="min-w-0">
                   <p className="text-[12px] font-bold text-gray-800">
-                    <span className="text-[#3182F6]">{row.source}</span>
+                    <span className="text-[#3182F6]">{row.scheduleId}</span>
                     <span className="text-gray-300"> · </span>
-                    {row.kind}
                     <span className="ml-1.5 text-[10px] font-semibold text-gray-400">
                       {row.status}
                     </span>
                   </p>
                   <p className="mt-0.5 truncate text-[11px] text-gray-500">
-                    {row.rawText}
+                    {row.parsed.visit.date ?? "-"} {row.parsed.visit.time ?? "-"} ·{" "}
+                    {row.parsed.customer.guestName ??
+                      row.parsed.customer.customerId ??
+                      "-"}
                   </p>
                   <p className="mt-0.5 text-[10px] text-gray-400">
                     {formatSeoulDateTime(row.createdAt)}
@@ -460,7 +481,7 @@ export function IntakeParserAdminPanel({
               {expandedId === row.id ? (
                 <div className="space-y-2 border-t border-gray-100 px-2.5 pb-2.5 pt-2">
                   <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-[10px] text-gray-700">
-                    {row.rawText}
+                    {JSON.stringify(row.rawPayload, null, 2)}
                   </pre>
                   <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-[#F7FAFF] p-2 text-[10px] text-gray-700">
                     {JSON.stringify(row.parsed, null, 2)}
@@ -502,3 +523,4 @@ export function IntakeParserAdminPanel({
     </Card>
   );
 }
+

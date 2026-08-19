@@ -50,7 +50,7 @@ export function NaviAppModal({
       </p>
 
       <div className="space-y-2">
-        {NAVI_APPS.map((app) => {
+        {NAVI_APPS.filter((app) => app.id !== "kakaonavi").map((app) => {
           const disabled = Boolean(app.disabled);
           const isSelected = !disabled && selected === app.id;
           return (
@@ -76,12 +76,21 @@ export function NaviAppModal({
               ].join(" ")}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={app.image}
-                alt=""
-                className="h-full w-full object-cover object-center"
-                draggable={false}
-              />
+              <span className="relative h-full w-full">
+                <img
+                  src={app.image}
+                  alt=""
+                  className="h-full w-full object-cover object-center"
+                  draggable={false}
+                />
+                {app.id === "kakaonavi" ? (
+                  <span
+                    aria-hidden
+                    style={{ backgroundColor: app.buttonBg }}
+                    className="absolute top-[8%] right-[6%] h-[18%] w-[28%] rounded"
+                  />
+                ) : null}
+              </span>
             </button>
           );
         })}
@@ -98,9 +107,7 @@ export function NaviAppModal({
           <span>항상 이 앱으로 열기</span>
         </label>
       ) : (
-        <p className="mt-4 text-center text-sm font-medium text-gray-400">
-          (준비중)
-        </p>
+        null
       )}
 
       <div className="mt-5 grid grid-cols-2 gap-2">

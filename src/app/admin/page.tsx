@@ -9,7 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { formatSeoulDateTime, todayISO, toISODate } from "@/lib/date";
 import { planDisplayForUser } from "@/lib/planDisplay";
 import { PlanBadge } from "@/components/PlanBadge";
-import { IntakeParserAdminPanel } from "@/components/admin/IntakeParserAdminPanel";
+import { ParsersAdminPanel } from "@/components/admin/ParsersAdminPanel";
 
 function daysAgoISO(days: number): string {
   const d = new Date();
@@ -296,6 +296,9 @@ export default function AdminPage() {
   const [deletedRows, setDeletedRows] = useState<DeletedRow[]>([]);
   const [deletedQ, setDeletedQ] = useState("");
   const [deletedAccountsQ, setDeletedAccountsQ] = useState("");
+  const [deletedCategory, setDeletedCategory] = useState<"soft" | "withdrawn">("soft");
+  const [restoreVisibleCount, setRestoreVisibleCount] = useState(5);
+  const [withdrawVisibleCount, setWithdrawVisibleCount] = useState(5);
   const [restoreRow, setRestoreRow] = useState<DeletedRow | null>(null);
   const [restoreToUsername, setRestoreToUsername] = useState("");
 
@@ -311,6 +314,14 @@ export default function AdminPage() {
       counts: Record<string, number>;
     }[]
   >([]);
+
+  useEffect(() => {
+    setRestoreVisibleCount(5);
+  }, [deletedRows.length]);
+
+  useEffect(() => {
+    setWithdrawVisibleCount(5);
+  }, [deletedAccounts.length]);
 
   const [staffList, setStaffList] = useState<Record<string, unknown>[]>([]);
   const [staffForm, setStaffForm] = useState({
@@ -352,7 +363,6 @@ export default function AdminPage() {
   );
   const [copiedErrorId, setCopiedErrorId] = useState<string | null>(null);
   const [errorBadge, setErrorBadge] = useState(0);
-  const [parserNewBadge, setParserNewBadge] = useState(0);
   const [expandedErrorId, setExpandedErrorId] = useState<string | null>(null);
 
   const [promoCodes, setPromoCodes] = useState<PromoCodeRow[]>([]);
@@ -682,26 +692,6 @@ export default function AdminPage() {
     [clearSession]
   );
 
-  const loadParserBadge = useCallback(
-    async (token: string) => {
-      const res = await fetch("/api/admin/intake-samples?status=new&limit=1", {
-        headers: authHeaders(token),
-      });
-      if (checkAdminUnauthorized(res)) {
-        clearSession();
-        return;
-      }
-      const body = (await res.json()) as {
-        ok?: boolean;
-        stats?: { newCount?: number };
-      };
-      if (res.ok && body.ok) {
-        setParserNewBadge(body.stats?.newCount ?? 0);
-      }
-    },
-    [clearSession]
-  );
-
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(AUTH_STORAGE);
@@ -715,7 +705,6 @@ export default function AdminPage() {
           await loadAccounts(saved.token);
           if (saved.role === "super") {
             await loadErrorBadge(saved.token);
-            await loadParserBadge(saved.token);
           }
         } catch {
           sessionStorage.removeItem(AUTH_STORAGE);
@@ -725,7 +714,7 @@ export default function AdminPage() {
     } catch {
       /* ignore */
     }
-  }, [loadAccounts, loadErrorBadge, loadParserBadge, loadSummary]);
+  }, [loadAccounts, loadErrorBadge, loadSummary]);
 
   useEffect(() => {
     if (!session || session.role !== "super") return;
@@ -1006,11 +995,6 @@ export default function AdminPage() {
                   onClick={() => void switchTab("parser")}
                 >
                   파서
-                  {parserNewBadge > 0 ? (
-                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3182F6] px-1 text-[9px] font-extrabold leading-none text-white">
-                      {parserNewBadge > 99 ? "99+" : parserNewBadge}
-                    </span>
-                  ) : null}
                 </button>
                 <button
                   type="button"
@@ -1404,59 +1388,80 @@ export default function AdminPage() {
 
         {tab === "deleted" ? (
           <>
-            <Card className="space-y-2.5 !p-3">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={deletedCategory === "soft" ? "primary" : "secondary"}
+                className="!min-h-[40px] !px-4 !text-[13px]"
+                onClick={() => setDeletedCategory("soft")}
+              >
+                소프트삭제 복원
+              </Button>
+              <Button
+                type="button"
+                variant={
+                  deletedCategory === "withdrawn" ? "primary" : "secondary"
+                }
+                className="!min-h-[40px] !px-4 !text-[13px]"
+                onClick={() => setDeletedCategory("withdrawn")}
+              >
+                탈퇴
+              </Button>
+            </div>
+            {deletedCategory === "soft" ? (
+              <Card className="space-y-2.5 !p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-[14px] font-bold">소프트 삭제 · 복원</p>
                   <p className="mt-0.5 text-[11px] text-gray-500">
-                    최근 3건 · 나머지는 검색 · 복원은 슈퍼만
+                    최근 5건 · 나머지는 더보기 · 복원은 슈퍼만
                   </p>
                 </div>
                 {isSuper && process.env.NODE_ENV !== "production" ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="shrink-0 text-[11px] font-semibold text-gray-400 disabled:opacity-50"
-                    onClick={() => {
-                      void (async () => {
-                        setBusy(true);
-                        setError("");
-                        try {
-                          const res = await fetch(
-                            "/api/admin/deleted/seed-test",
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                ...authHeaders(session.token),
-                              },
-                              body: JSON.stringify({}),
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="shrink-0 text-[11px] font-semibold text-gray-400 disabled:opacity-50"
+                      onClick={() => {
+                        void (async () => {
+                          setBusy(true);
+                          setError("");
+                          try {
+                            const res = await fetch(
+                              "/api/admin/deleted/seed-test",
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  ...authHeaders(session.token),
+                                },
+                                body: JSON.stringify({}),
+                              }
+                            );
+                            const body = (await res.json()) as {
+                              ok?: boolean;
+                              message?: string;
+                              owner?: { username: string };
+                            };
+                            if (!res.ok || !body.ok) {
+                              setError(body.message ?? "테스트 생성 실패");
+                              return;
                             }
-                          );
-                          const body = (await res.json()) as {
-                            ok?: boolean;
-                            message?: string;
-                            owner?: { username: string };
-                          };
-                          if (!res.ok || !body.ok) {
-                            setError(body.message ?? "테스트 생성 실패");
-                            return;
+                            alert(
+                              `소프트삭제 테스트 4건을 만들었습니다.\n소유: @${body.owner?.username ?? "-"}\n고객/매물/네비 탭에서 확인·복원해 보세요.`
+                            );
+                            await loadDeleted(session.token, delType, deletedQ);
+                            await loadSummary(session.token);
+                          } catch {
+                            setError("테스트 생성에 실패했습니다.");
+                          } finally {
+                            setBusy(false);
                           }
-                          alert(
-                            `소프트삭제 테스트 4건을 만들었습니다.\n소유: @${body.owner?.username ?? "-"}\n고객/매물/네비 탭에서 확인·복원해 보세요.`
-                          );
-                          await loadDeleted(session.token, delType, deletedQ);
-                          await loadSummary(session.token);
-                        } catch {
-                          setError("테스트 생성에 실패했습니다.");
-                        } finally {
-                          setBusy(false);
-                        }
-                      })();
-                    }}
-                  >
-                    테스트
-                  </button>
+                        })();
+                      }}
+                    >
+                      테스트
+                    </button>
                 ) : null}
               </div>
 
@@ -1511,7 +1516,9 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-0.5 text-[12px]">
-                {deletedRows.map((row) => (
+                {deletedRows
+                  .slice(0, restoreVisibleCount)
+                  .map((row) => (
                   <div
                     key={`${row.user_id}:${row.id}`}
                     className="flex items-center gap-2 border-b border-gray-50 py-2"
@@ -1551,7 +1558,7 @@ export default function AdminPage() {
                       </button>
                     ) : null}
                   </div>
-                ))}
+                  ))}
                 {deletedRows.length === 0 ? (
                   <p className="py-3 text-center text-gray-400">
                     {deletedQ.trim()
@@ -1559,18 +1566,36 @@ export default function AdminPage() {
                       : "삭제된 항목이 없습니다."}
                   </p>
                 ) : (
-                  <p className="pt-1 text-center text-[10px] text-gray-400">
-                    행을 누르면 삭제 시점 상세 · 최대 3건 · 더 찾으려면 검색
-                  </p>
+                  <>
+                    <p className="pt-1 text-center text-[10px] text-gray-400">
+                      행을 누르면 삭제 시점 상세 · 최대 3건
+                    </p>
+                    {deletedRows.length > restoreVisibleCount ? (
+                      <div className="pt-1 flex justify-center">
+                        <Button
+                          variant="secondary"
+                          className="!min-h-[34px] !px-4 !text-[12px]"
+                          disabled={busy}
+                          onClick={() =>
+                            setRestoreVisibleCount((v) => v + 5)
+                          }
+                        >
+                          더보기 ({Math.min(deletedRows.length, restoreVisibleCount)}/{deletedRows.length})
+                        </Button>
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
-            </Card>
+              </Card>
+            ) : null}
 
-            <Card className="space-y-2.5 !p-3">
+            {deletedCategory === "withdrawn" ? (
+              <Card className="space-y-2.5 !p-3">
               <div>
                 <p className="text-[14px] font-bold">탈퇴 계정</p>
                 <p className="mt-0.5 text-[11px] text-gray-500">
-                  최근 3건 · 나머지는 검색 · 복구는 슈퍼만
+                  최근 5건 · 나머지는 더보기 · 복구는 슈퍼만
                 </p>
               </div>
               <div className="flex gap-1.5">
@@ -1602,7 +1627,9 @@ export default function AdminPage() {
                 </Button>
               </div>
               <div className="space-y-0.5 text-[12px]">
-                {deletedAccounts.map((d) => (
+                {deletedAccounts
+                  .slice(0, withdrawVisibleCount)
+                  .map((d) => (
                   <div
                     key={d.username}
                     className="flex items-center gap-2 border-b border-gray-50 py-2"
@@ -1670,7 +1697,7 @@ export default function AdminPage() {
                       </button>
                     ) : null}
                   </div>
-                ))}
+                  ))}
                 {deletedAccounts.length === 0 ? (
                   <p className="py-3 text-center text-gray-400">
                     {deletedAccountsQ.trim()
@@ -1678,14 +1705,31 @@ export default function AdminPage() {
                       : "탈퇴 계정이 없습니다."}
                   </p>
                 ) : (
-                  <p className="pt-1 text-center text-[10px] text-gray-400">
-                    {deletedAccountsQ.trim()
-                      ? "검색 최대 3건"
-                      : "최근 3건 · 더 찾으려면 검색"}
-                  </p>
+                  <>
+                    <p className="pt-1 text-center text-[10px] text-gray-400">
+                      {deletedAccountsQ.trim()
+                        ? "검색 최대 5건"
+                        : "최근 5건 · 더보기를 누르세요"}
+                    </p>
+                    {deletedAccounts.length > withdrawVisibleCount ? (
+                      <div className="pt-1 flex justify-center">
+                        <Button
+                          variant="secondary"
+                          className="!min-h-[34px] !px-4 !text-[12px]"
+                          disabled={busy}
+                          onClick={() =>
+                            setWithdrawVisibleCount((v) => v + 5)
+                          }
+                        >
+                          더보기 ({Math.min(deletedAccounts.length, withdrawVisibleCount)}/{deletedAccounts.length})
+                        </Button>
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
-            </Card>
+              </Card>
+            ) : null}
           </>
         ) : null}
 
@@ -2306,9 +2350,8 @@ export default function AdminPage() {
         ) : null}
 
         {tab === "parser" && isSuper && session ? (
-          <IntakeParserAdminPanel
+          <ParsersAdminPanel
             token={session.token}
-            onNewCount={setParserNewBadge}
           />
         ) : null}
 
