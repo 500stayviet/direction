@@ -25,10 +25,15 @@ import {
 } from "@/lib/storage";
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 
+function hasUsableListCache<T>(peek: () => T[] | null): boolean {
+  const list = peek();
+  return list !== null && list.length > 0;
+}
+
 /**
  * sessionStorage/메모리 캐시는 클라이언트 전용.
- * useSyncExternalStore의 getServerSnapshot=null 로 SSR·hydration을 맞추고,
- * hydration 이후 getSnapshot에서 session 캐시를 먼저 복원한다.
+ * 서버 fetch가 끝나기 전에는 리스트 UI가 「없습니다」를 보여 주지 않도록
+ * loading을 유지한다 (캐시에 카드가 이미 있으면 즉시 표시).
  */
 function useEntityListState<T>(
   peek: () => T[] | null,
@@ -55,7 +60,7 @@ function useEntityListState<T>(
   const [loading, setLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
-    return peek() === null;
+    return !hasUsableListCache(peek);
   });
 
   const items = override ?? cached ?? [];
@@ -70,15 +75,12 @@ function useEntityListState<T>(
     [cached]
   );
 
-  // 캐시가 바뀌면 override를 비워 캐시를 따름 (기존 subscribe → setItems(cached)와 동일)
   useEffect(() => {
-    if (cached) {
+    if (cached !== null) {
       setOverride(null);
-      setLoading(false);
     }
   }, [cached]);
 
-  // 렌더 중 notify 금지 — session 캐시 채우기는 마운트/세션 확정 후
   useEffect(() => {
     const syncedId = peekCurrentUser()?.id ?? null;
     if (syncedId) ensureEntityCacheUser(syncedId);
@@ -90,8 +92,8 @@ function useEntityListState<T>(
       const userId = await getSessionUserId();
       ensureEntityCacheUser(userId);
       if (cancelled) return;
-      const hadCache = Boolean(peek());
-      if (!hadCache) {
+
+      if (!hasUsableListCache(peek)) {
         setLoading(true);
       }
       try {
