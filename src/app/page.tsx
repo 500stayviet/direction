@@ -133,8 +133,6 @@ export default function HomePage() {
       /* ignore */
     }
     setDeadlineModalOpen(true);
-    const timer = window.setTimeout(() => setDeadlineModalOpen(false), 4500);
-    return () => window.clearTimeout(timer);
   }, [user, customers]);
 
   const closeFreeNotice = () => setFreeNoticeOpen(false);
@@ -357,7 +355,7 @@ export default function HomePage() {
 
       <Modal
         open={deadlineModalOpen && deadlineCustomers.length > 0}
-        onClose={closeDeadlineModal}
+        onClose={() => {}}
         position="center"
         title="마지막 계약 데드라인"
         description={`희망 입주 시작일 기준 ${CONTRACT_DEADLINE_DAYS}일 전인 고객만 표시해요 · 단일은 그날, 기간은 시작~끝까지 보여요`}
