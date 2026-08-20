@@ -468,7 +468,7 @@ export function PropertyEditor({
 
           {showArriveTime ? (
             <TimePicker
-              label="방문 약속 시간"
+              label="물건예약시간"
               value={property.arriveTime ?? ""}
               onChange={(arriveTime) => update({ arriveTime })}
               timeFormat="hhmm"
@@ -613,7 +613,7 @@ export function PropertyEditor({
 
       {showArriveTime && (
         <TimePicker
-          label="방문 약속 시간"
+          label="물건예약시간"
           value={property.arriveTime ?? ""}
           onChange={(arriveTime) => update({ arriveTime })}
           timeFormat="hhmm"

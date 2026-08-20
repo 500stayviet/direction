@@ -38,7 +38,7 @@ export function SchedulePropertySwapModal({
       description={
         canSwap
           ? from
-            ? `${fromIndex + 1}번 매물을 어느 자리와 바꿀까요? 방문 약속 시간은 자리에 그대로 남고, 매물만 바뀝니다.`
+            ? `${fromIndex + 1}번 매물을 어느 자리와 바꿀까요? 물건예약시간은 자리에 그대로 남고, 매물만 바뀝니다.`
             : undefined
           : undefined
       }

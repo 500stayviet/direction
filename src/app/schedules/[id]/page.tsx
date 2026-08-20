@@ -422,14 +422,14 @@ function ScheduleDetailInner() {
     if (!visitDate) {
       showWarn({
         target: "visitDate",
-        message: "방문 일자 칸 입력은 필수입니다.",
+        message: "고객방문일 칸 입력은 필수입니다.",
       });
       return;
     }
     if (!visitTime) {
       showWarn({
         target: "visitTime",
-        message: "만나는 시간 칸 입력은 필수입니다.",
+        message: "고객방문시간 칸 입력은 필수입니다.",
       });
       return;
     }
@@ -750,7 +750,7 @@ function ScheduleDetailInner() {
             <Card className="space-y-2">
               <div ref={visitDateRef}>
                 <DatePicker
-                  label="방문 일자"
+                  label="고객방문일"
                   required
                   invalid={
                     validationFocus?.target === "visitDate" ||
@@ -762,7 +762,7 @@ function ScheduleDetailInner() {
               </div>
               <div ref={visitTimeRef}>
                 <TimePicker
-                  label="만나는 시간"
+                  label="고객방문시간"
                   required
                   invalid={
                     validationFocus?.target === "visitTime" ||

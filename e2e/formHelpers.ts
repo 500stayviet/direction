@@ -75,7 +75,7 @@ export async function fillMinimalResidentialProperty(
 
 export async function fillVisitScheduleMeta(page: Page) {
   await page.getByRole("button", { name: "년월일 선택" }).click();
-  await expect(page.getByRole("heading", { name: "방문 일자" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "고객방문일" })).toBeVisible();
   await page
     .locator(".grid.grid-cols-7.gap-y-1 button:not([disabled])")
     .first()
