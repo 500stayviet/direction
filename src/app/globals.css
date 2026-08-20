@@ -143,6 +143,27 @@ main {
   }
 }
 
+@keyframes border-sparkle-match {
+  0%,
+  100% {
+    border-color: #047857; /* emerald-700 */
+    border-style: solid;
+    background-color: #d1fae5; /* emerald-100 */
+  }
+  50% {
+    border-color: #065f46; /* emerald-800 */
+    border-style: solid;
+    background-color: #a7f3d0; /* emerald-200 */
+  }
+}
+
+.animate-border-sparkle-match {
+  border-color: #047857;
+  border-style: solid;
+  background-color: #d1fae5;
+  animation: border-sparkle-match 2.4s ease-in-out infinite;
+}
+
 @keyframes border-sparkle {
   0%,
   100% {

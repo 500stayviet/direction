@@ -404,16 +404,15 @@ export function getAlertBadgeCounts(): {
 
 /**
  * 리스트 카드 강조.
- * 공유 미열람·고객↔매물 매칭 미열람 모두 초록 박스("share").
- * 상세 안 매칭 패널의 반짝임("match")과 구분한다.
+ * 공유 미열람은 연한 초록("share"), 고객↔매물 매칭 미열람은 진한 초록("match").
  */
 export function listCardHighlight(
   tab: AlertTab,
   id: string
 ): "share" | "match" | null {
+  if (tab === "customers" && hasUnseenMatchForCustomer(id)) return "match";
+  if (tab === "properties" && hasUnseenMatchForProperty(id)) return "match";
   if (isShareUnseen(tab, id)) return "share";
-  if (tab === "customers" && hasUnseenMatchForCustomer(id)) return "share";
-  if (tab === "properties" && hasUnseenMatchForProperty(id)) return "share";
   return null;
 }
 
@@ -426,7 +425,9 @@ export function listCardFrameClass(
   if (highlight === "share") {
     return "border-2 border-solid border-emerald-500 bg-emerald-50";
   }
-  if (highlight === "match") return "animate-border-sparkle bg-white";
+  if (highlight === "match") {
+    return "border-2 border-solid border-emerald-700 bg-emerald-100 animate-border-sparkle-match";
+  }
   return "border border-gray-200 bg-white";
 }
 
@@ -441,7 +442,7 @@ export function alertHighlightClass(
     return "!border-2 !border-solid !border-emerald-500 !bg-emerald-50 !shadow-none";
   }
   if (highlight === "match") {
-    return "!border-2 animate-border-sparkle !shadow-none";
+    return "!border-2 !border-solid !border-emerald-700 !bg-emerald-100 animate-border-sparkle-match !shadow-none";
   }
   // 고객·매물·네비 idle 공통: 업무용 흰 면 + 진한 슬레이트 실선
   return "!border-2 !border-solid !border-slate-400 !bg-white !shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
