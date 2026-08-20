@@ -26,7 +26,6 @@ import {
 import {
   getTeamAlertsSnapshot,
   hasUnseenMatchForCustomer,
-  listCardHighlight,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -208,7 +207,6 @@ export default function CustomerListPage() {
                 <CustomerListCard
                   customer={c}
                   viewerId={myId}
-                  alertHighlight={listCardHighlight("customers", c.id)}
                   right={
                     showTeamChip ? (
                       <TeamShareChip

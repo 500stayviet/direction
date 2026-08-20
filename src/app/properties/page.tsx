@@ -23,7 +23,6 @@ import {
 import {
   getTeamAlertsSnapshot,
   hasUnseenMatchForProperty,
-  listCardHighlight,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -203,7 +202,6 @@ export default function PropertyListPage() {
                 <PropertyListCard
                   property={p}
                   viewerId={myId}
-                  alertHighlight={listCardHighlight("properties", p.id)}
                   right={
                     showTeamChip ? (
                       <TeamShareChip

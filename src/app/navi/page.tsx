@@ -22,7 +22,6 @@ import {
 } from "@/lib/teamActionGuard";
 import {
   getTeamAlertsSnapshot,
-  listCardHighlight,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -242,7 +241,6 @@ export default function NaviEntryPage() {
                   schedule={s}
                   customers={customers}
                   viewerId={myId}
-                  alertHighlight={listCardHighlight("navi", s.id)}
                   right={
                     <TeamShareChip
                       shared={Boolean(s.workspaceShared)}

@@ -19,6 +19,7 @@ import {
   isMatchUnseen,
   markMatchSeen,
   subscribeTeamAlerts,
+  type ListCardBadge,
 } from "@/lib/teamAlerts";
 import type { Customer, ListedProperty } from "@/lib/types";
 
@@ -47,6 +48,20 @@ function CloseXButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function matchInlineBadge(
+  matchKind: "own" | "partner",
+  unseen: boolean
+): ListCardBadge[] {
+  if (!unseen) return [];
+  return [
+    {
+      kind: matchKind === "partner" ? "newMatch" : "match",
+      label: matchKind === "partner" ? "새매칭" : "매칭",
+      at: 0,
+    },
+  ];
+}
+
 export function MatchingPropertiesSection({
   title,
   listHint,
@@ -55,6 +70,7 @@ export function MatchingPropertiesSection({
   emptyText,
   onRemoved,
   customerId,
+  matchKind = "own",
 }: {
   title: string;
   listHint?: string;
@@ -64,6 +80,8 @@ export function MatchingPropertiesSection({
   onRemoved: (id: string) => void;
   /** 매칭 알람 앵커(고객 id) */
   customerId?: string;
+  /** own=내 리스트 매칭(파랑), partner=사이트내 공유 새매칭(노랑) */
+  matchKind?: "own" | "partner";
 }) {
   useAlertsTick();
   const viewerId = peekCurrentUser()?.id;
@@ -95,7 +113,9 @@ export function MatchingPropertiesSection({
   };
 
   const openPreview = (p: ListedProperty) => {
-    if (customerId) markMatchSeen(customerId, p.id, "customer");
+    if (customerId) {
+      markMatchSeen(customerId, p.id, "customer", matchKind === "partner");
+    }
     setPreview(p);
   };
 
@@ -115,8 +135,10 @@ export function MatchingPropertiesSection({
         </Card>
       ) : (
         items.map((p) => {
+          const partner = matchKind === "partner";
           const matchNew =
-            Boolean(customerId) && isMatchUnseen(customerId!, p.id, "customer");
+            Boolean(customerId) &&
+            isMatchUnseen(customerId!, p.id, "customer", partner);
           return (
             <div
               key={p.id}
@@ -129,7 +151,8 @@ export function MatchingPropertiesSection({
                 className="!mb-1.5"
                 showSavedDate={false}
                 showAgencyBadge
-                alertHighlight={matchNew ? "match" : null}
+                showListAlerts={false}
+                inlineBadges={matchInlineBadge(matchKind, matchNew)}
                 right={<CloseXButton onClick={() => setPendingDelete(p)} />}
                 renderCard={(card) => (
                   <div
@@ -221,6 +244,7 @@ export function MatchingCustomersSection({
   emptyText,
   onRemoved,
   propertyId,
+  matchKind = "own",
 }: {
   title: string;
   listHint?: string;
@@ -230,6 +254,7 @@ export function MatchingCustomersSection({
   onRemoved: (id: string) => void;
   /** 매칭 알람 앵커(매물 id) */
   propertyId?: string;
+  matchKind?: "own" | "partner";
 }) {
   useAlertsTick();
   const viewerId = peekCurrentUser()?.id;
@@ -253,7 +278,9 @@ export function MatchingCustomersSection({
   };
 
   const openPreview = (c: Customer) => {
-    if (propertyId) markMatchSeen(c.id, propertyId, "property");
+    if (propertyId) {
+      markMatchSeen(c.id, propertyId, "property", matchKind === "partner");
+    }
     setPreview(c);
   };
 
@@ -273,8 +300,10 @@ export function MatchingCustomersSection({
         </Card>
       ) : (
         items.map((c) => {
+          const partner = matchKind === "partner";
           const matchNew =
-            Boolean(propertyId) && isMatchUnseen(c.id, propertyId!, "property");
+            Boolean(propertyId) &&
+            isMatchUnseen(c.id, propertyId!, "property", partner);
           return (
             <div
               key={c.id}
@@ -287,7 +316,8 @@ export function MatchingCustomersSection({
                 className="!mb-1.5"
                 showDeadline={false}
                 showSavedDate={false}
-                alertHighlight={matchNew ? "match" : null}
+                showListAlerts={false}
+                inlineBadges={matchInlineBadge(matchKind, matchNew)}
                 right={<CloseXButton onClick={() => setPendingDelete(c)} />}
                 renderCard={(card) => (
                   <div

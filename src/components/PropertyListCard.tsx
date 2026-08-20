@@ -14,8 +14,14 @@ import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatCardAddress } from "@/lib/seoulRegions";
 import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
-import { getPropertyDeadlineLabel } from "@/lib/deadline";
-import { listCardFrameClass } from "@/lib/teamAlerts";
+import { getPropertyDeadlineLabel, getDeadlineBadgeSortAt } from "@/lib/deadline";
+import {
+  listCardFrameClass,
+  type AlertTab,
+  type ListCardBadge,
+} from "@/lib/teamAlerts";
+import { ListCardAlertBadges } from "@/components/ListCardAlertBadges";
+import { useListCardAlertBadges } from "@/hooks/useListCardAlertBadges";
 import type { ListedProperty } from "@/lib/types";
 
 export function getPropertyListContact(p: ListedProperty): {
@@ -48,7 +54,10 @@ interface PropertyListCardProps {
   showSavedDate?: boolean;
   /** true면 협력 사무소명 (조건 매칭용) */
   showAgencyBadge?: boolean;
-  /** 공유 신규(연한 초록) | 매칭 신규(연한→진한 초록) */
+  alertTab?: AlertTab;
+  showListAlerts?: boolean;
+  inlineBadges?: ListCardBadge[];
+  /** @deprecated 뱃지로 대체됨 */
   alertHighlight?: "share" | "match" | null;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;
@@ -62,6 +71,9 @@ export function PropertyListCard({
   cardClassName = "",
   showSavedDate = true,
   showAgencyBadge = false,
+  alertTab = "properties",
+  showListAlerts = true,
+  inlineBadges = [],
   alertHighlight = null,
   viewerId,
 }: PropertyListCardProps) {
@@ -86,6 +98,15 @@ export function PropertyListCard({
   const moneyText = moneyLabel && moneyLabel !== "-" ? moneyLabel : "";
   const moveInText = getPropertyMoveInLabel(p);
   const deadlineLabel = done ? null : getPropertyDeadlineLabel(p);
+  const moveInStart = p.moveInFrom || (/^\d{4}-\d{2}-\d{2}$/.test(p.moveInDate ?? "") ? p.moveInDate : null);
+  const deadlineAt = deadlineLabel ? getDeadlineBadgeSortAt(moveInStart) : 0;
+  const listBadges = useListCardAlertBadges({
+    tab: alertTab,
+    id: p.id,
+    deadlineLabel,
+    deadlineAt,
+  });
+  const badges = showListAlerts ? listBadges : inlineBadges;
   const agencyText =
     showAgencyBadge && p.hasPartnerAgency
       ? p.partnerAgency?.name?.trim() || ""
@@ -225,13 +246,13 @@ export function PropertyListCard({
 
   return (
     <div
-      className={["relative", deadlineLabel ? "pt-2" : "", className].join(" ")}
+      className={[
+        "relative",
+        badges.length > 0 || deadlineLabel ? "pt-2" : "",
+        className,
+      ].join(" ")}
     >
-      {deadlineLabel ? (
-        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-amber-700 shadow-sm ring-2 ring-[#F9FAFB]">
-          {deadlineLabel}
-        </span>
-      ) : null}
+      <ListCardAlertBadges badges={badges} />
       {renderCard(card)}
     </div>
   );

@@ -7,15 +7,31 @@ export type MatchAlertSide = "customer" | "property";
 export type AlertState = {
   shareSeeded: Record<AlertTab, boolean>;
   matchSeeded: boolean;
+  newMatchSeeded: boolean;
   knownShare: Record<AlertTab, string[]>;
   unseenShare: Record<AlertTab, string[]>;
   knownMatch: string[];
-  /** 고객 상세 → 조건에 맞는 매물 미열람 */
+  knownNewMatch: string[];
+  /** 고객 상세 → 조건에 맞는 매물 미열람 (내 리스트) */
   unseenMatchCustomer: string[];
-  /** 매물 상세 → 조건에 맞는 고객 미열람 */
+  /** 매물 상세 → 조건에 맞는 고객 미열람 (내 리스트) */
   unseenMatchProperty: string[];
+  /** 고객 상세 → 사이트내 공유 매물 미열람 */
+  unseenNewMatchCustomer: string[];
+  /** 매물 상세 → 사이트내 공유 고객 미열람 */
+  unseenNewMatchProperty: string[];
+  /** 뱃지 등장 시각 — key 예: share:customers:id, match:c:id, newMatch:p:id */
+  alertSince: Record<string, number>;
   /** 데모 시드 알람 — 본인 생성 데모 id를 공유처럼 유지 */
   preserveDemoShareAlerts: boolean;
+};
+
+export type ListCardBadgeKind = "share" | "match" | "newMatch" | "deadline";
+
+export type ListCardBadge = {
+  kind: ListCardBadgeKind;
+  label: string;
+  at: number;
 };
 
 const STORAGE_PREFIX = "realty_team_alerts_v2";
@@ -35,11 +51,16 @@ const emptyTabFlags = (): Record<AlertTab, boolean> => ({
 const emptyState = (): AlertState => ({
   shareSeeded: emptyTabFlags(),
   matchSeeded: false,
+  newMatchSeeded: false,
   knownShare: emptyTabLists(),
   unseenShare: emptyTabLists(),
   knownMatch: [],
+  knownNewMatch: [],
   unseenMatchCustomer: [],
   unseenMatchProperty: [],
+  unseenNewMatchCustomer: [],
+  unseenNewMatchProperty: [],
+  alertSince: {},
   preserveDemoShareAlerts: false,
 });
 
@@ -89,6 +110,7 @@ function loadFromStorage(uid: string): AlertState {
         navi: Boolean(parsed.shareSeeded?.navi),
       },
       matchSeeded: Boolean(parsed.matchSeeded),
+      newMatchSeeded: Boolean(parsed.newMatchSeeded),
       knownShare: {
         customers: parsed.knownShare?.customers ?? [],
         properties: parsed.knownShare?.properties ?? [],
@@ -100,8 +122,15 @@ function loadFromStorage(uid: string): AlertState {
         navi: parsed.unseenShare?.navi ?? [],
       },
       knownMatch: parsed.knownMatch ?? [],
+      knownNewMatch: parsed.knownNewMatch ?? [],
       unseenMatchCustomer: parsed.unseenMatchCustomer ?? [],
       unseenMatchProperty: parsed.unseenMatchProperty ?? [],
+      unseenNewMatchCustomer: parsed.unseenNewMatchCustomer ?? [],
+      unseenNewMatchProperty: parsed.unseenNewMatchProperty ?? [],
+      alertSince:
+        parsed.alertSince && typeof parsed.alertSince === "object"
+          ? (parsed.alertSince as Record<string, number>)
+          : {},
       preserveDemoShareAlerts: Boolean(parsed.preserveDemoShareAlerts),
     };
   } catch {
@@ -119,6 +148,39 @@ function sameList(a: string[], b: string[]) {
     if (a[i] !== b[i]) return false;
   }
   return true;
+}
+
+function noteAlertSince(key: string) {
+  if (!state.alertSince[key]) {
+    state.alertSince = { ...state.alertSince, [key]: Date.now() };
+  }
+}
+
+function clearAlertSince(key: string) {
+  if (!(key in state.alertSince)) return;
+  const next = { ...state.alertSince };
+  delete next[key];
+  state.alertSince = next;
+}
+
+function alertSinceOrNow(key: string): number {
+  return state.alertSince[key] ?? Date.now();
+}
+
+function shareAlertKey(tab: AlertTab, id: string) {
+  return `share:${tab}:${id}`;
+}
+
+function matchAlertKey(side: "customer" | "property", id: string) {
+  return side === "customer" ? `match:c:${id}` : `match:p:${id}`;
+}
+
+function newMatchAlertKey(side: "customer" | "property", id: string) {
+  return side === "customer" ? `newMatch:c:${id}` : `newMatch:p:${id}`;
+}
+
+function deadlineAlertKey(tab: AlertTab, id: string) {
+  return `deadline:${tab}:${id}`;
 }
 
 export function subscribeTeamAlerts(listener: Listener): () => void {
@@ -198,12 +260,14 @@ export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
     if (!known.has(id)) {
       known.add(id);
       unseen.add(id);
+      noteAlertSince(shareAlertKey(tab, id));
     }
   }
   for (const id of [...known]) {
     if (!incoming.has(id)) {
       known.delete(id);
       unseen.delete(id);
+      clearAlertSince(shareAlertKey(tab, id));
     }
   }
   for (const id of [...unseen]) {
@@ -228,12 +292,17 @@ export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
   notify();
 }
 
-/** 현재 성립 매칭 쌍 동기화 — 신규 쌍은 고객·매물 양쪽에 각각 unseen */
-export function syncMatchPairs(pairKeys: string[]) {
+/** 현재 성립 매칭 쌍 동기화 — own=내 리스트, partner=사이트내 공유(새매칭) */
+export function syncMatchPairs(ownKeys: string[], partnerKeys: string[] = []) {
+  if (!userId) return;
+  syncOwnMatchPairs(ownKeys);
+  syncPartnerMatchPairs(partnerKeys);
+}
+
+function syncOwnMatchPairs(pairKeys: string[]) {
   if (!userId) return;
   const incoming = new Set(pairKeys.filter(Boolean));
 
-  // 체험 매칭(demo_*)은 캐시 일시 비움 때 목록에서 빠져도 known에서 지우지 않음
   if (state.preserveDemoShareAlerts) {
     for (const key of state.knownMatch) {
       if (key.includes("demo_")) incoming.add(key);
@@ -268,6 +337,11 @@ export function syncMatchPairs(pairKeys: string[]) {
       known.add(key);
       unseenC.add(key);
       unseenP.add(key);
+      const parsed = parseMatchPairKey(key);
+      if (parsed) {
+        noteAlertSince(matchAlertKey("customer", parsed.customerId));
+        noteAlertSince(matchAlertKey("property", parsed.propertyId));
+      }
     }
   }
   for (const key of [...known]) {
@@ -275,6 +349,15 @@ export function syncMatchPairs(pairKeys: string[]) {
       known.delete(key);
       unseenC.delete(key);
       unseenP.delete(key);
+      const parsed = parseMatchPairKey(key);
+      if (parsed) {
+        if (!hasUnseenOwnMatchForCustomer(parsed.customerId)) {
+          clearAlertSince(matchAlertKey("customer", parsed.customerId));
+        }
+        if (!hasUnseenOwnMatchForProperty(parsed.propertyId)) {
+          clearAlertSince(matchAlertKey("property", parsed.propertyId));
+        }
+      }
     }
   }
   for (const key of [...unseenC]) {
@@ -305,6 +388,83 @@ export function syncMatchPairs(pairKeys: string[]) {
   notify();
 }
 
+function syncPartnerMatchPairs(pairKeys: string[]) {
+  if (!userId) return;
+  const incoming = new Set(pairKeys.filter(Boolean));
+
+  if (!state.newMatchSeeded) {
+    state = {
+      ...state,
+      newMatchSeeded: true,
+      knownNewMatch: sortedUnique(incoming),
+      unseenNewMatchCustomer: [],
+      unseenNewMatchProperty: [],
+    };
+    persist();
+    notify();
+    return;
+  }
+
+  const known = new Set(state.knownNewMatch);
+  const unseenC = new Set(state.unseenNewMatchCustomer);
+  const unseenP = new Set(state.unseenNewMatchProperty);
+
+  for (const key of incoming) {
+    if (!known.has(key)) {
+      known.add(key);
+      unseenC.add(key);
+      unseenP.add(key);
+      const parsed = parseMatchPairKey(key);
+      if (parsed) {
+        noteAlertSince(newMatchAlertKey("customer", parsed.customerId));
+        noteAlertSince(newMatchAlertKey("property", parsed.propertyId));
+      }
+    }
+  }
+  for (const key of [...known]) {
+    if (!incoming.has(key)) {
+      known.delete(key);
+      unseenC.delete(key);
+      unseenP.delete(key);
+      const parsed = parseMatchPairKey(key);
+      if (parsed) {
+        if (!hasUnseenNewMatchForCustomer(parsed.customerId)) {
+          clearAlertSince(newMatchAlertKey("customer", parsed.customerId));
+        }
+        if (!hasUnseenNewMatchForProperty(parsed.propertyId)) {
+          clearAlertSince(newMatchAlertKey("property", parsed.propertyId));
+        }
+      }
+    }
+  }
+  for (const key of [...unseenC]) {
+    if (!incoming.has(key)) unseenC.delete(key);
+  }
+  for (const key of [...unseenP]) {
+    if (!incoming.has(key)) unseenP.delete(key);
+  }
+
+  const nextKnown = sortedUnique(known);
+  const nextC = sortedUnique(unseenC);
+  const nextP = sortedUnique(unseenP);
+  if (
+    sameList(nextKnown, state.knownNewMatch) &&
+    sameList(nextC, state.unseenNewMatchCustomer) &&
+    sameList(nextP, state.unseenNewMatchProperty)
+  ) {
+    return;
+  }
+
+  state = {
+    ...state,
+    knownNewMatch: nextKnown,
+    unseenNewMatchCustomer: nextC,
+    unseenNewMatchProperty: nextP,
+  };
+  persist();
+  notify();
+}
+
 export function markShareSeen(tab: AlertTab, id: string) {
   if (!userId || !id) return;
   if (!state.unseenShare[tab].includes(id)) return;
@@ -315,6 +475,7 @@ export function markShareSeen(tab: AlertTab, id: string) {
       [tab]: state.unseenShare[tab].filter((x) => x !== id),
     },
   };
+  clearAlertSince(shareAlertKey(tab, id));
   persist();
   notify();
 }
@@ -322,22 +483,53 @@ export function markShareSeen(tab: AlertTab, id: string) {
 export function markMatchSeen(
   customerId: string,
   propertyId: string,
-  side: MatchAlertSide
+  side: MatchAlertSide,
+  partner = false
 ) {
   if (!userId) return;
   const key = matchPairKey(customerId, propertyId);
-  if (side === "customer") {
+  if (partner) {
+    if (side === "customer") {
+      if (!state.unseenNewMatchCustomer.includes(key)) return;
+      state = {
+        ...state,
+        unseenNewMatchCustomer: state.unseenNewMatchCustomer.filter(
+          (x) => x !== key
+        ),
+      };
+      if (!hasUnseenNewMatchForCustomer(customerId)) {
+        clearAlertSince(newMatchAlertKey("customer", customerId));
+      }
+    } else {
+      if (!state.unseenNewMatchProperty.includes(key)) return;
+      state = {
+        ...state,
+        unseenNewMatchProperty: state.unseenNewMatchProperty.filter(
+          (x) => x !== key
+        ),
+      };
+      if (!hasUnseenNewMatchForProperty(propertyId)) {
+        clearAlertSince(newMatchAlertKey("property", propertyId));
+      }
+    }
+  } else if (side === "customer") {
     if (!state.unseenMatchCustomer.includes(key)) return;
     state = {
       ...state,
       unseenMatchCustomer: state.unseenMatchCustomer.filter((x) => x !== key),
     };
+    if (!hasUnseenOwnMatchForCustomer(customerId)) {
+      clearAlertSince(matchAlertKey("customer", customerId));
+    }
   } else {
     if (!state.unseenMatchProperty.includes(key)) return;
     state = {
       ...state,
       unseenMatchProperty: state.unseenMatchProperty.filter((x) => x !== key),
     };
+    if (!hasUnseenOwnMatchForProperty(propertyId)) {
+      clearAlertSince(matchAlertKey("property", propertyId));
+    }
   }
   persist();
   notify();
@@ -350,22 +542,48 @@ export function isShareUnseen(tab: AlertTab, id: string): boolean {
 export function isMatchUnseen(
   customerId: string,
   propertyId: string,
-  side: MatchAlertSide
+  side: MatchAlertSide,
+  partner = false
 ): boolean {
   const key = matchPairKey(customerId, propertyId);
+  if (partner) {
+    return side === "customer"
+      ? state.unseenNewMatchCustomer.includes(key)
+      : state.unseenNewMatchProperty.includes(key);
+  }
   return side === "customer"
     ? state.unseenMatchCustomer.includes(key)
     : state.unseenMatchProperty.includes(key);
 }
 
-export function hasUnseenMatchForCustomer(customerId: string): boolean {
+export function hasUnseenOwnMatchForCustomer(customerId: string): boolean {
   const prefix = `${customerId}::`;
   return state.unseenMatchCustomer.some((k) => k.startsWith(prefix));
 }
 
-export function hasUnseenMatchForProperty(propertyId: string): boolean {
+export function hasUnseenOwnMatchForProperty(propertyId: string): boolean {
   const suffix = `::${propertyId}`;
   return state.unseenMatchProperty.some((k) => k.endsWith(suffix));
+}
+
+export function hasUnseenNewMatchForCustomer(customerId: string): boolean {
+  const prefix = `${customerId}::`;
+  return state.unseenNewMatchCustomer.some((k) => k.startsWith(prefix));
+}
+
+export function hasUnseenNewMatchForProperty(propertyId: string): boolean {
+  const suffix = `::${propertyId}`;
+  return state.unseenNewMatchProperty.some((k) => k.endsWith(suffix));
+}
+
+/** @deprecated use hasUnseenOwnMatchForCustomer */
+export function hasUnseenMatchForCustomer(customerId: string): boolean {
+  return hasUnseenOwnMatchForCustomer(customerId);
+}
+
+/** @deprecated use hasUnseenOwnMatchForProperty */
+export function hasUnseenMatchForProperty(propertyId: string): boolean {
+  return hasUnseenOwnMatchForProperty(propertyId);
 }
 
 export function firstUnseenMatchPropertyId(
@@ -395,40 +613,94 @@ export function getAlertBadgeCounts(): {
 } {
   return {
     customers:
-      state.unseenShare.customers.length + state.unseenMatchCustomer.length,
+      state.unseenShare.customers.length +
+      state.unseenMatchCustomer.length +
+      state.unseenNewMatchCustomer.length,
     properties:
-      state.unseenShare.properties.length + state.unseenMatchProperty.length,
+      state.unseenShare.properties.length +
+      state.unseenMatchProperty.length +
+      state.unseenNewMatchProperty.length,
     navi: state.unseenShare.navi.length,
   };
 }
 
+export function getListCardAlertBadges(input: {
+  tab: AlertTab;
+  id: string;
+  deadlineLabel?: string | null;
+  deadlineAt?: number;
+}): ListCardBadge[] {
+  const badges: ListCardBadge[] = [];
+  const { tab, id, deadlineLabel, deadlineAt = 0 } = input;
+
+  if (isShareUnseen(tab, id)) {
+    badges.push({
+      kind: "share",
+      label: "팀공유",
+      at: alertSinceOrNow(shareAlertKey(tab, id)),
+    });
+  }
+
+  if (tab === "customers" && hasUnseenOwnMatchForCustomer(id)) {
+    badges.push({
+      kind: "match",
+      label: "매칭",
+      at: alertSinceOrNow(matchAlertKey("customer", id)),
+    });
+  }
+  if (tab === "properties" && hasUnseenOwnMatchForProperty(id)) {
+    badges.push({
+      kind: "match",
+      label: "매칭",
+      at: alertSinceOrNow(matchAlertKey("property", id)),
+    });
+  }
+
+  if (tab === "customers" && hasUnseenNewMatchForCustomer(id)) {
+    badges.push({
+      kind: "newMatch",
+      label: "새매칭",
+      at: alertSinceOrNow(newMatchAlertKey("customer", id)),
+    });
+  }
+  if (tab === "properties" && hasUnseenNewMatchForProperty(id)) {
+    badges.push({
+      kind: "newMatch",
+      label: "새매칭",
+      at: alertSinceOrNow(newMatchAlertKey("property", id)),
+    });
+  }
+
+  if (deadlineLabel) {
+    badges.push({
+      kind: "deadline",
+      label: deadlineLabel,
+      at: deadlineAt > 0 ? deadlineAt : 0,
+    });
+  }
+
+  return badges.sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind));
+}
+
 /**
- * 리스트 카드 강조.
- * 공유 미열람은 연한 초록 고정("share").
- * 매칭 미열람은 연한 초록 → 진한 초록 2단계("match").
+ * 리스트 카드 강조 — 뱃지로 대체. 테두리는 기본 유지.
  */
 export function listCardHighlight(
   tab: AlertTab,
   id: string
 ): "share" | "match" | null {
-  if (tab === "customers" && hasUnseenMatchForCustomer(id)) return "match";
-  if (tab === "properties" && hasUnseenMatchForProperty(id)) return "match";
-  if (isShareUnseen(tab, id)) return "share";
+  void tab;
+  void id;
   return null;
 }
 
-/** 리스트 카드 테두리: 알람이 온 카드는 초록 박스 */
+/** 리스트 카드 테두리 */
 export function listCardFrameClass(
   done: boolean,
-  highlight: "share" | "match" | null | undefined
+  _highlight: "share" | "match" | null | undefined
 ): string {
+  void _highlight;
   if (done) return "border border-gray-200 bg-gray-50";
-  if (highlight === "share") {
-    return "border-2 border-solid border-emerald-400 bg-emerald-50";
-  }
-  if (highlight === "match") {
-    return "animate-match-alert-stage";
-  }
   return "border border-gray-200 bg-white";
 }
 
@@ -436,16 +708,10 @@ export function alertHighlightClass(
   highlight: "share" | "match" | null | undefined,
   done?: boolean
 ): string {
+  void highlight;
   if (done) {
     return "!border-2 !border-solid !bg-gray-200 !border-gray-300 !shadow-none text-gray-500";
   }
-  if (highlight === "share") {
-    return "!border-2 !border-solid !border-emerald-400 !bg-emerald-50 !shadow-none";
-  }
-  if (highlight === "match") {
-    return "!shadow-none animate-match-alert-stage";
-  }
-  // 고객·매물·네비 idle 공통: 업무용 흰 면 + 진한 슬레이트 실선
   return "!border-2 !border-solid !border-slate-400 !bg-white !shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
 }
 
@@ -488,6 +754,7 @@ export function injectDemoTestAlerts(input: {
       navi: true,
     },
     matchSeeded: true,
+    newMatchSeeded: true,
     knownShare: nextKnownShare,
     unseenShare: {
       customers: mergeUnseenNewOnly(
@@ -507,6 +774,7 @@ export function injectDemoTestAlerts(input: {
       ),
     },
     knownMatch: nextKnownMatch,
+    knownNewMatch: state.knownNewMatch,
     unseenMatchCustomer: mergeUnseenNewOnly(
       state.unseenMatchCustomer,
       state.knownMatch,

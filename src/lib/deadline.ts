@@ -102,3 +102,14 @@ export function getPropertyDeadlineLabel(property: {
   }
   return `임대희망일 ${CONTRACT_DEADLINE_DAYS}일전`;
 }
+
+/** 뱃지 정렬용 — 데드라인 당일 00:00 기준 */
+export function getDeadlineBadgeSortAt(
+  moveInISO: string | null | undefined
+): number {
+  if (!moveInISO) return 0;
+  const deadline = getContractDeadlineISO(moveInISO);
+  if (!deadline) return 0;
+  const d = parseISODate(deadline);
+  return d?.getTime() ?? 0;
+}

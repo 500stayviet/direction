@@ -13,11 +13,17 @@ import {
   getCustomerMoveInLabel,
 } from "@/lib/format";
 import { formatSavedDate } from "@/lib/date";
-import { getContractDeadlineLabel } from "@/lib/deadline";
+import { getContractDeadlineLabel, getCustomerMoveInTarget, getDeadlineBadgeSortAt } from "@/lib/deadline";
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
-import { listCardFrameClass } from "@/lib/teamAlerts";
+import {
+  listCardFrameClass,
+  type AlertTab,
+  type ListCardBadge,
+} from "@/lib/teamAlerts";
+import { ListCardAlertBadges } from "@/components/ListCardAlertBadges";
+import { useListCardAlertBadges } from "@/hooks/useListCardAlertBadges";
 import type { Customer } from "@/lib/types";
 
 interface CustomerListCardProps {
@@ -31,7 +37,13 @@ interface CustomerListCardProps {
   showDeadline?: boolean;
   /** false면 등록일 숨김 */
   showSavedDate?: boolean;
-  /** 공유 신규(연한 초록) | 매칭 신규(연한→진한 초록) */
+  /** 리스트 알람 뱃지 (팀공유·매칭·새매칭·45일) */
+  alertTab?: AlertTab;
+  /** false면 리스트 알람 훅 비활성 (조건 매칭 패널 등) */
+  showListAlerts?: boolean;
+  /** showListAlerts=false일 때만 사용 */
+  inlineBadges?: ListCardBadge[];
+  /** @deprecated 뱃지로 대체됨 */
   alertHighlight?: "share" | "match" | null;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;
@@ -83,6 +95,9 @@ export function CustomerListCard({
   className = "",
   showDeadline = true,
   showSavedDate = true,
+  alertTab = "customers",
+  showListAlerts = true,
+  inlineBadges = [],
   alertHighlight = null,
   viewerId,
 }: CustomerListCardProps) {
@@ -90,6 +105,16 @@ export function CustomerListCard({
   const done = Boolean(c.contractCompleted);
   const deadlineLabel =
     showDeadline && !done ? getContractDeadlineLabel(c) : null;
+  const deadlineAt = deadlineLabel
+    ? getDeadlineBadgeSortAt(getCustomerMoveInTarget(c))
+    : 0;
+  const listBadges = useListCardAlertBadges({
+    tab: alertTab,
+    id: c.id,
+    deadlineLabel,
+    deadlineAt,
+  });
+  const badges = showListAlerts ? listBadges : inlineBadges;
   const sharer = teamSharerLabel(
     c.createdByName,
     c.createdBy,
@@ -208,13 +233,13 @@ export function CustomerListCard({
 
   return (
     <div
-      className={["relative", deadlineLabel ? "pt-2" : "", className].join(" ")}
+      className={[
+        "relative",
+        badges.length > 0 || deadlineLabel ? "pt-2" : "",
+        className,
+      ].join(" ")}
     >
-      {deadlineLabel ? (
-        <span className="absolute left-3 top-2 z-10 -translate-y-1/2 rounded-md border border-amber-400 bg-amber-50 px-1.5 py-0.5 text-[12px] font-extrabold leading-none text-amber-700 shadow-sm ring-2 ring-[#F9FAFB]">
-          {deadlineLabel}
-        </span>
-      ) : null}
+      <ListCardAlertBadges badges={badges} />
       {renderCard(card)}
     </div>
   );

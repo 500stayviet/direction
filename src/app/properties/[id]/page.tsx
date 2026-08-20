@@ -367,6 +367,7 @@ export default function PropertyDetailPage() {
               title="현장동선내 공유 고객"
               items={matches.partner}
               propertyId={property.id}
+              matchKind="partner"
               emptyText={<SiteShareMatchingEmpty kind="customer" />}
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))

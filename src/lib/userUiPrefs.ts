@@ -98,6 +98,25 @@ function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
     remote.knownMatch,
     remote.unseenMatchProperty
   );
+  const knownNewMatch = mergeKnownUnseen(
+    local.knownNewMatch,
+    [],
+    remote.knownNewMatch,
+    []
+  ).known;
+  const newMatchC = mergeKnownUnseen(
+    local.knownNewMatch,
+    local.unseenNewMatchCustomer,
+    remote.knownNewMatch,
+    remote.unseenNewMatchCustomer
+  );
+  const newMatchP = mergeKnownUnseen(
+    local.knownNewMatch,
+    local.unseenNewMatchProperty,
+    remote.knownNewMatch,
+    remote.unseenNewMatchProperty
+  );
+  const alertSince = { ...remote.alertSince, ...local.alertSince };
 
   return {
     shareSeeded: {
@@ -106,6 +125,7 @@ function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
       navi: local.shareSeeded.navi || remote.shareSeeded.navi,
     },
     matchSeeded: local.matchSeeded || remote.matchSeeded,
+    newMatchSeeded: local.newMatchSeeded || remote.newMatchSeeded,
     knownShare: {
       customers: customers.known,
       properties: properties.known,
@@ -117,8 +137,12 @@ function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
       navi: navi.unseen,
     },
     knownMatch,
+    knownNewMatch,
     unseenMatchCustomer: matchC.unseen,
     unseenMatchProperty: matchP.unseen,
+    unseenNewMatchCustomer: newMatchC.unseen,
+    unseenNewMatchProperty: newMatchP.unseen,
+    alertSince,
     preserveDemoShareAlerts:
       local.preserveDemoShareAlerts || remote.preserveDemoShareAlerts,
   };
@@ -159,8 +183,16 @@ function parseRemote(raw: unknown): UiPrefs | null {
         navi: a.unseenShare?.navi ?? [],
       },
       knownMatch: a.knownMatch ?? [],
+      knownNewMatch: a.knownNewMatch ?? [],
       unseenMatchCustomer: a.unseenMatchCustomer ?? [],
       unseenMatchProperty: a.unseenMatchProperty ?? [],
+      unseenNewMatchCustomer: a.unseenNewMatchCustomer ?? [],
+      unseenNewMatchProperty: a.unseenNewMatchProperty ?? [],
+      newMatchSeeded: Boolean(a.newMatchSeeded),
+      alertSince:
+        a.alertSince && typeof a.alertSince === "object"
+          ? (a.alertSince as Record<string, number>)
+          : {},
       preserveDemoShareAlerts: Boolean(a.preserveDemoShareAlerts),
     },
   };

@@ -7,7 +7,7 @@ import {
   subscribeAuthChange,
 } from "@/lib/auth";
 import { isForeignTeamItem } from "@/lib/teamActionGuard";
-import { findMatchingProperties } from "@/lib/matchCustomerProperty";
+import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
 import {
   peekCustomers,
   peekProperties,
@@ -115,16 +115,21 @@ export function TeamAlertsSync() {
     );
 
     const runMatch = () => {
-      const pairs: string[] = [];
+      const ownPairs: string[] = [];
+      const partnerPairs: string[] = [];
       for (const c of customers) {
         if (c.contractCompleted) continue;
-        const matched = findMatchingProperties(c, properties);
-        for (const p of matched) {
+        const { own, partner } = findMatchingPropertiesGrouped(c, properties);
+        for (const p of own) {
           if (p.contractCompleted) continue;
-          pairs.push(matchPairKey(c.id, p.id));
+          ownPairs.push(matchPairKey(c.id, p.id));
+        }
+        for (const p of partner) {
+          if (p.contractCompleted) continue;
+          partnerPairs.push(matchPairKey(c.id, p.id));
         }
       }
-      syncMatchPairs(pairs);
+      syncMatchPairs(ownPairs, partnerPairs);
     };
 
     // N×M 매칭은 첫 페인트 이후. 뱃지는 idle 또는 0.8초 안에 맞춰진다.
