@@ -256,7 +256,7 @@ export default function SignupPage() {
               ].join(" ")}
             >
               <Link
-                href="/terms"
+                href="/terms?from=signup"
                 className="font-bold text-[#3182F6] underline-offset-2 hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >

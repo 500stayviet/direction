@@ -21,6 +21,12 @@ function tabFromSearch(raw: string | null): Tab {
   return "service";
 }
 
+function termsBackHref(from: string | null): string {
+  if (from === "signup") return "/signup";
+  if (from === "login") return "/login";
+  return "/";
+}
+
 const REVISION = "시행일 2026. 8. 1. · 개정 2026. 8. 16.";
 
 function BusinessOperatorBlock() {
@@ -64,13 +70,14 @@ export default function TermsPage() {
 
 function TermsPageInner() {
   const searchParams = useSearchParams();
+  const backHref = termsBackHref(searchParams.get("from"));
   const [tab, setTab] = useState<Tab>(() =>
     tabFromSearch(searchParams.get("tab"))
   );
 
   return (
     <main className="pb-4">
-      <PageHeader title="약관 및 안내" backHref="/" />
+      <PageHeader title="약관 및 안내" backHref={backHref} />
 
       <div className="mb-4 grid grid-cols-4 gap-1 rounded-2xl bg-gray-100 p-1">
         {TABS.map((item) => (

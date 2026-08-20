@@ -209,7 +209,7 @@ function LoginPageInner() {
         </div>
         <p className="px-0.5 text-[12px] text-gray-400">
           <Link
-            href="/terms"
+            href="/terms?from=login"
             className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
           >
             이용약관 · 개인정보 · 광고 · 면책 안내
