@@ -226,8 +226,8 @@ function extractBlankFields(body: string): Partial<Record<BlankFieldKey, string>
 
 function yesNoToken(value: string): string {
   const t = value.replace(/\s+/g, "");
-  if (/^유|있음|가능|필요/.test(t)) return "유";
-  if (/^무|없음|불가|불필요/.test(t)) return "무";
+  if (/^유|있음|가능|필요|^필$/.test(t)) return "유";
+  if (/^무|없음|불가|불필요|^불$/.test(t)) return "무";
   return value.trim();
 }
 

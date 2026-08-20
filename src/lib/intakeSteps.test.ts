@@ -21,6 +21,7 @@ import {
   locationStepReadyToAdvance,
   talkNormalizeModeForStep,
 } from "./intakeSteps.ts";
+import { parseIntakeText } from "./intakeParse.ts";
 
 describe("intakeSteps", () => {
   it("마이크 칸별 정규화 모드를 고른다", () => {
@@ -163,6 +164,30 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       parseIntakeStep("주차 필요", "flags", "property").partial.parking,
+      "유"
+    );
+  });
+
+  it("필·불 축약도 필요·불필요로 받는다", () => {
+    assert.equal(parseIntakeStep("대출 필", "flags", "customer").partial.loan, "유");
+    assert.equal(
+      parseIntakeStep("주차 불", "flags", "customer").partial.parking,
+      "무"
+    );
+    assert.equal(
+      parseIntakeStep("엘베 필", "elevator", "customer").partial.elevator,
+      "유"
+    );
+    assert.equal(
+      parseIntakeText("대출 필 보증 불 주차 필", "customer").loan,
+      "유"
+    );
+    assert.equal(
+      parseIntakeText("대출 필 보증 불 주차 필", "customer").insurance,
+      "무"
+    );
+    assert.equal(
+      parseIntakeText("대출 필 보증 불 주차 필", "customer").parking,
       "유"
     );
   });

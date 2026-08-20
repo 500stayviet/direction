@@ -624,7 +624,7 @@ function parseFieldEokSlashMoney(text: string): {
 const YESNO_VALUE =
   "(?:있음|있어요|있고|있습니다|가능(?:해요|합니다|함)?|유|됨|돼요|돼|가능|" +
   "가|불필요(?:합니다|해요|함)?|불가(?:능)?(?:해요|합니다|함)?|불|" +
-  "필요(?:합니다|해요|함)?|" +
+  "필요(?:합니다|해요|함)?|필|" +
   "안\\s*(?:됩니다|되요|돼요|됨|돼(?:요)?|되)|" +
   "안돼(?:요)?|안됩니다|안되요|" +
   "없(?:음|어요|어|습니다)?|무)";
@@ -632,7 +632,7 @@ const YESNO_VALUE =
 function yesNoFromToken(token: string): YesNo {
   const compact = token.replace(/\s+/g, "");
   if (/^(불|무)$/.test(compact)) return "무";
-  if (/^(가|유)$/.test(compact)) return "유";
+  if (/^(가|유|필)$/.test(compact)) return "유";
   return /없|불가|무|안돼|안됨|안되|불필요/.test(compact) ? "무" : "유";
 }
 
@@ -661,7 +661,7 @@ function isYesNoPreferenceMatch(
 ): boolean {
   const matched = text.slice(index, end).replace(/\s+/g, " ").trim();
   if (
-    /^(?:엘리베이터|엘레베이터|엘베|승강기|주차(?:장)?|대출|(?:전세)?보증보험|보증)\s*(?:유|무|있음|없음|있어요|없어요|가능|불가(?:능)?|필요|불필요|안됨|안돼|안돼요|안되요)$/.test(
+    /^(?:엘리베이터|엘레베이터|엘베|승강기|주차(?:장)?|대출|(?:전세)?보증보험|보증)\s*(?:유|무|있음|없음|있어요|없어요|가능|불가(?:능)?|필요|불필요|필|불|안됨|안돼|안돼요|안되요)$/.test(
       matched
     )
   ) {
