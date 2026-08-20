@@ -361,7 +361,7 @@ describe("intakeSteps", () => {
     assert.doesNotMatch(chain.commits[0]?.display ?? "", /엘베/);
     assert.equal(chain.commits[1]?.key, "elevator");
     assert.equal(chain.commits[1]?.partial.elevator, "무");
-    assert.match(chain.commits[1]?.display ?? "", /엘베없음/);
+    assert.match(chain.commits[1]?.display ?? "", /엘베무/);
   });
 
   it("flags remainder는 채운 항목만 순서와 상관없이 소비한다", () => {
@@ -840,8 +840,8 @@ describe("intakeSteps", () => {
     assert.equal(flagsLine?.example, "대출가능 보증보험 가능 주차불가");
 
     const elevLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "elevator");
-    assert.equal(elevLine?.nameHint, "(있음/없음)");
-    assert.equal(elevLine?.example, "엘리베이터 있음");
+    assert.equal(elevLine?.nameHint, "(유/무)");
+    assert.equal(elevLine?.example, "엘베 유");
 
     const locationIndex = INTAKE_GUIDE_STEPS.property.findIndex(
       (line) => line.key === "location"
