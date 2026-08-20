@@ -10,6 +10,11 @@ import { PhoneInput } from "@/components/PhoneInput";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { registerUser } from "@/lib/auth";
+import {
+  clearSignupDraft,
+  readSignupDraft,
+  writeSignupDraft,
+} from "@/lib/signupDraft";
 import { normalizeUsername } from "@/lib/supabase/email";
 import {
   getMissingSignupFields,
@@ -53,6 +58,7 @@ export default function SignupPage() {
     Partial<Record<SignupFieldKey, HTMLElement | null>>
   >({});
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftHydrated = useRef(false);
 
   const setFieldRef =
     (key: SignupFieldKey) => (node: HTMLElement | null) => {
@@ -73,6 +79,57 @@ export default function SignupPage() {
     missingFields.includes(key) ||
     (key === "username" &&
       (usernameCheck.status === "taken" || usernameCheck.status === "error"));
+
+  useEffect(() => {
+    const draft = readSignupDraft();
+    if (draft) {
+      setShopName(draft.shopName);
+      setName(draft.name);
+      setUsername(draft.username);
+      setPassword(draft.password);
+      setPasswordConfirm(draft.passwordConfirm);
+      setPhone(draft.phone);
+      setPasswordHint(draft.passwordHint);
+      setEventCode(draft.eventCode);
+      setAgreed(draft.agreed);
+      setUsernameCheck(
+        draft.usernameCheck.status === "checking"
+          ? { status: "idle" }
+          : draft.usernameCheck
+      );
+    }
+    draftHydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    writeSignupDraft({
+      shopName,
+      name,
+      username,
+      password,
+      passwordConfirm,
+      phone,
+      passwordHint,
+      eventCode,
+      agreed,
+      usernameCheck:
+        usernameCheck.status === "checking"
+          ? { status: "idle" }
+          : usernameCheck,
+    });
+  }, [
+    shopName,
+    name,
+    username,
+    password,
+    passwordConfirm,
+    phone,
+    passwordHint,
+    eventCode,
+    agreed,
+    usernameCheck,
+  ]);
 
   useEffect(() => {
     if (!validationActive || !focusField) return;
@@ -204,6 +261,7 @@ export default function SignupPage() {
         setLoading(false);
         return;
       }
+      clearSignupDraft();
       const params = new URLSearchParams({
         registered: "1",
         username: result.user.username,
