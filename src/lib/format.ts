@@ -531,8 +531,8 @@ export function yesNoFromNeed(value: string): "유" | "무" | "" {
 
 /** 고객 카드·상세 표시 */
 export function customerNeedLabel(value?: string | null): string {
-  if (value === "유" || value === true) return "필요";
-  if (value === "무" || value === false) return "불필요";
+  if (value === "유") return "필요";
+  if (value === "무") return "불필요";
   return value?.trim() || "-";
 }
 
