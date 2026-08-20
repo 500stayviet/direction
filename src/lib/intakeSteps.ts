@@ -16,7 +16,11 @@ import {
   MOVE_IN_IMMEDIATE_RE,
   MOVE_IN_NEGOTIABLE_RE,
 } from "@/lib/intakeParse";
-import { availFromYesNo, needsJeonseInsurance } from "@/lib/format";
+import {
+  availFromYesNo,
+  isTalkPhoneComplete,
+  needsJeonseInsurance,
+} from "@/lib/format";
 import { skipsResidentialExtras, needsMaintenanceFee } from "@/lib/constants";
 import { splitRestAddress } from "@/lib/propertyRoomNo";
 import {
@@ -1226,7 +1230,9 @@ export function parseIntakeStep(
 
   if (step === "phone") {
     const phone = parsed.phone;
-    if (!phone) return { ok: false, partial: {}, display: "" };
+    if (!phone || !isTalkPhoneComplete(phone)) {
+      return { ok: false, partial: {}, display: "" };
+    }
     const partial: Partial<IntakeParseResult> = { phone, options: [] };
     return {
       ok: true,
@@ -1362,7 +1368,9 @@ export function parseIntakeStep(
     const tenant =
       parsed.tenantPhone ??
       (!parsed.landlordPhone ? parsed.phone : undefined);
-    if (!tenant) return { ok: false, partial: {}, display: "" };
+    if (!tenant || !isTalkPhoneComplete(tenant)) {
+      return { ok: false, partial: {}, display: "" };
+    }
     const partial: Partial<IntakeParseResult> = {
       tenantPhone: tenant,
       options: [],
@@ -1389,7 +1397,9 @@ export function parseIntakeStep(
       }
       landlord = parsed.phone ?? parsed.tenantPhone;
     }
-    if (!landlord) return { ok: false, partial: {}, display: "" };
+    if (!landlord || !isTalkPhoneComplete(landlord)) {
+      return { ok: false, partial: {}, display: "" };
+    }
     if (prior?.tenantPhone && landlord === prior.tenantPhone) {
       return { ok: false, partial: {}, display: "" };
     }

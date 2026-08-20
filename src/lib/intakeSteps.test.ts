@@ -1181,4 +1181,27 @@ describe("intakeSteps", () => {
       "010-9876-5432"
     );
   });
+
+  it("대화 전화 칸은 휴대폰 11자리가 아니면 확정하지 않는다", () => {
+    const incomplete = parseIntakeStep("010100101", "phone", "customer");
+    assert.equal(incomplete.ok, false);
+
+    const partial = parseIntakeStep("010-1234", "phone", "customer");
+    assert.equal(partial.ok, false);
+
+    const complete = parseIntakeStep("01011111259", "phone", "customer");
+    assert.equal(complete.ok, true);
+    assert.equal(complete.partial.phone, "010-1111-1259");
+
+    const tenantIndex = INTAKE_GUIDE_STEPS.property.findIndex(
+      (line) => line.key === "tenantPhone"
+    );
+    const shortTenant = parseIntakeStepChain(
+      "임차인 010-100-101",
+      tenantIndex,
+      "property",
+      {}
+    );
+    assert.equal(shortTenant.commits.length, 0);
+  });
 });

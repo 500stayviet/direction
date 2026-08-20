@@ -63,6 +63,15 @@ export function backfillShopName(raw: string | null | undefined): string {
  * - 서울: 02-123-4567 / 02-1234-5678
  * - 기타 지역: 031-123-4567 형태
  */
+/** 대화 입력 전화 칸 — 휴대폰(01x)은 11자리, 유선은 국번별 최소 자리 */
+export function isTalkPhoneComplete(phone: string): boolean {
+  const d = toKrPhoneDigits(phone);
+  if (!d.startsWith("0")) return false;
+  if (/^01[016789]/.test(d)) return d.length === 11;
+  if (d.startsWith("02")) return d.length >= 9 && d.length <= 10;
+  return d.length >= 10 && d.length <= 11;
+}
+
 export function formatPhoneInput(phone: string): string {
   const d = toKrPhoneDigits(phone);
   if (!d) return "";
