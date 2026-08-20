@@ -309,14 +309,23 @@ function ScheduleCreateInner() {
     }
   };
 
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    if (presetCustomerId) {
+      router.replace(`/customers/${presetCustomerId}`);
+      return;
+    }
+    router.replace("/");
+  };
+
   return (
     <main className="relative">
       <PageHeader
         title="방문 일정 만들기"
-        onBack={pickOpen ? () => setPickOpen(false) : undefined}
-        backHref={
-          presetCustomerId ? `/customers/${presetCustomerId}` : "/"
-        }
+        onBack={pickOpen ? () => setPickOpen(false) : goBack}
         subtitle="고객 선택 후 매물 동선을 구성하세요"
       />
 
