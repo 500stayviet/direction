@@ -1204,4 +1204,14 @@ describe("intakeSteps", () => {
     );
     assert.equal(shortTenant.commits.length, 0);
   });
+
+  it("잘못 합쳐진 전화 조각 뒤에 올바른 11자리가 오면 뒤 번호를 쓴다", () => {
+    const merged = parseIntakeStep(
+      "010 0101 1010 01011111285",
+      "phone",
+      "customer"
+    );
+    assert.equal(merged.ok, true);
+    assert.equal(merged.partial.phone, "010-1111-1285");
+  });
 });

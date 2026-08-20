@@ -1,3 +1,40 @@
+function digitsOnly(text: string): string {
+  return text.replace(/\D/g, "");
+}
+
+const SPOKEN_PHONE_CHUNK = /[가-힣a-zA-Z]/;
+
+/** 대화 전화 칸 — 숫자 인식 조각을 이어 붙이지 않고 한 줄로 합친다 */
+export function absorbPhoneSpeech(committed: string, incoming: string): string {
+  const b = incoming.replace(/\s+/g, " ").trim();
+  if (!b) return committed.trim();
+  if (SPOKEN_PHONE_CHUNK.test(b.replace(/[다시에의하이픈빼기\s-]/g, ""))) {
+    return absorbCommitted(committed, incoming);
+  }
+
+  const bDigits = digitsOnly(b);
+  if (!bDigits) return committed.trim();
+
+  const aDigits = digitsOnly(committed);
+  if (!aDigits) return bDigits;
+  if (bDigits === aDigits) return aDigits;
+
+  if (bDigits.startsWith(aDigits)) return bDigits;
+  if (aDigits.startsWith(bDigits)) return aDigits;
+
+  if (bDigits.length === 11 && /^01[016789]/.test(bDigits)) return bDigits;
+
+  const joined = aDigits + bDigits;
+  if (joined.length <= 11 && /^0/.test(joined)) return joined;
+
+  if (joined.length > 11) {
+    const tail = joined.slice(-11);
+    if (/^01[016789]/.test(tail)) return tail;
+  }
+
+  return bDigits.length >= aDigits.length ? bDigits : aDigits;
+}
+
 /** 인식 결과가 앞 글자와 겹치면 이어 붙이지 않는다 */
 export function mergeSpeech(prefix: string, spoken: string): string {
   const a = prefix.replace(/\s+/g, " ").trim();

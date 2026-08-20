@@ -30,6 +30,7 @@ import {
 } from "@/lib/intakeSteps";
 import {
   absorbCommitted,
+  absorbPhoneSpeech,
   composeTalkText,
   readSpeechResultsSince,
 } from "@/lib/speechTranscript";
@@ -433,7 +434,10 @@ export function IntakeTalkModal({
         return true;
       }
       const piece = remainder || trimmed;
-      stepSpeechRef.current = absorbCommitted(stepSpeechRef.current, piece);
+      stepSpeechRef.current =
+        key === "phone" || key === "tenantPhone" || key === "landlordPhone"
+          ? absorbPhoneSpeech(stepSpeechRef.current, piece)
+          : absorbCommitted(stepSpeechRef.current, piece);
       const text = stepSpeechRef.current;
       const chain = parseIntakeStepChain(
         text,

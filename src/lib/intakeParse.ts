@@ -10,6 +10,7 @@ import {
 import {
   formatMoveInRange,
   formatPhoneInput,
+  isTalkPhoneComplete,
   needsJeonseInsurance,
   needsLoanFlag,
   toKrPhoneDigits,
@@ -1789,6 +1790,21 @@ function parsePhoneHits(text: string): PhoneHit[] {
     }
   }
   return hits;
+}
+
+/** 대화 전화 칸 — 여러 조각이 있을 때 마지막 완전한 휴대폰 번호 */
+export function lastTalkMobilePhone(text: string): string | undefined {
+  const hits = parsePhoneHits(text);
+  for (let i = hits.length - 1; i >= 0; i -= 1) {
+    const formatted = hits[i]!.formatted;
+    if (
+      /^01[016789]/.test(toKrPhoneDigits(formatted)) &&
+      isTalkPhoneComplete(formatted)
+    ) {
+      return formatted;
+    }
+  }
+  return undefined;
 }
 
 const NAME_STOP = new Set([

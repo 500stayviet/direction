@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   absorbCommitted,
+  absorbPhoneSpeech,
   appendSpoken,
   collapseRepeatSpeech,
   composeTalkText,
@@ -79,6 +80,21 @@ describe("speechTranscript", () => {
     assert.equal(
       absorbCommitted("원룸 매매", "원룸 매매 암사동"),
       "원룸 매매 암사동"
+    );
+  });
+
+  it("전화 숫자 인식 조각은 공백으로 이어 붙이지 않는다", () => {
+    assert.equal(absorbPhoneSpeech("", "010"), "010");
+    assert.equal(absorbPhoneSpeech("010", "0101"), "0101");
+    assert.equal(absorbPhoneSpeech("0101", "01011111285"), "01011111285");
+    assert.equal(absorbPhoneSpeech("010", "11111285"), "01011111285");
+    assert.equal(
+      absorbPhoneSpeech("010 0101 1010", "01011111285"),
+      "01011111285"
+    );
+    assert.equal(
+      absorbPhoneSpeech("", "공일공 일일일일 이팔오"),
+      "공일공 일일일일 이팔오"
     );
   });
 });

@@ -6,6 +6,7 @@ import {
   parseIntakeText,
   parseTalkDealTypeField,
   parseTalkRoomTypeField,
+  lastTalkMobilePhone,
   consumeYesNoField,
   dateRangeLinkTail,
   hasDateRangeWord,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/intakeParse";
 import {
   availFromYesNo,
+  formatPhoneInput,
   isTalkPhoneComplete,
   needsJeonseInsurance,
 } from "@/lib/format";
@@ -50,6 +52,50 @@ export function talkNormalizeModeForStep(
 
 function normalizeTalkStep(raw: string, step: IntakeStepKey): string {
   return normalizeIntakeInput(raw, talkNormalizeModeForStep(step));
+}
+
+function pickTalkMobilePhone(
+  text: string,
+  step: "phone" | "tenantPhone" | "landlordPhone"
+): string | undefined {
+  const digits = digitsOnly(normalizeTalkStep(text, step));
+  if (!/^01[016789]/.test(digits)) return undefined;
+  if (digits.length === 11) return formatPhoneInput(digits);
+  if (digits.length > 11) {
+    const tail = digits.slice(-11);
+    if (/^01[016789]/.test(tail)) return formatPhoneInput(tail);
+  }
+  return undefined;
+}
+
+function digitsOnly(text: string): string {
+  return text.replace(/\D/g, "");
+}
+
+function resolveTalkPhoneCandidate(
+  text: string,
+  step: "phone" | "tenantPhone" | "landlordPhone",
+  parsed: IntakeParseResult
+): string | undefined {
+  const normalized = normalizeTalkStep(text, step);
+
+  if (step === "tenantPhone") {
+    const tenant =
+      parsed.tenantPhone ?? (!parsed.landlordPhone ? parsed.phone : undefined);
+    return tenant && isTalkPhoneComplete(tenant) ? tenant : undefined;
+  }
+
+  if (step === "landlordPhone") {
+    const landlord =
+      parsed.landlordPhone ?? parsed.phone ?? parsed.tenantPhone;
+    return landlord && isTalkPhoneComplete(landlord) ? landlord : undefined;
+  }
+
+  const last = lastTalkMobilePhone(normalized);
+  if (last) return last;
+
+  const mobile = pickTalkMobilePhone(text, step);
+  return mobile && isTalkPhoneComplete(mobile) ? mobile : undefined;
 }
 
 export type IntakeStepLine = {
@@ -1229,8 +1275,8 @@ export function parseIntakeStep(
   const parsed = parseIntakeText(scoped, kind, today, mode);
 
   if (step === "phone") {
-    const phone = parsed.phone;
-    if (!phone || !isTalkPhoneComplete(phone)) {
+    const phone = resolveTalkPhoneCandidate(scoped, "phone", parsed);
+    if (!phone) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = { phone, options: [] };
@@ -1365,10 +1411,8 @@ export function parseIntakeStep(
     if (prior?.tenantPhone) {
       return { ok: false, partial: {}, display: "" };
     }
-    const tenant =
-      parsed.tenantPhone ??
-      (!parsed.landlordPhone ? parsed.phone : undefined);
-    if (!tenant || !isTalkPhoneComplete(tenant)) {
+    const tenant = resolveTalkPhoneCandidate(scoped, "tenantPhone", parsed);
+    if (!tenant) {
       return { ok: false, partial: {}, display: "" };
     }
     const partial: Partial<IntakeParseResult> = {
@@ -1397,6 +1441,10 @@ export function parseIntakeStep(
       }
       landlord = parsed.phone ?? parsed.tenantPhone;
     }
+    landlord = resolveTalkPhoneCandidate(scoped, "landlordPhone", {
+      ...parsed,
+      landlordPhone: landlord,
+    });
     if (!landlord || !isTalkPhoneComplete(landlord)) {
       return { ok: false, partial: {}, display: "" };
     }
