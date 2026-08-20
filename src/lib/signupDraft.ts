@@ -61,6 +61,13 @@ function parseUsernameCheck(value: unknown): SignupDraftUsernameCheck {
   return { status: "idle" };
 }
 
+export function usernameCheckForDraft(
+  check: SignupDraftUsernameCheck | { status: "checking" }
+): SignupDraftUsernameCheck {
+  if (check.status === "checking") return { status: "idle" };
+  return check;
+}
+
 export function writeSignupDraft(draft: SignupDraft): void {
   try {
     sessionStorage.setItem(SIGNUP_DRAFT_KEY, JSON.stringify(draft));

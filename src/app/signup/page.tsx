@@ -13,6 +13,7 @@ import { registerUser } from "@/lib/auth";
 import {
   clearSignupDraft,
   readSignupDraft,
+  usernameCheckForDraft,
   writeSignupDraft,
 } from "@/lib/signupDraft";
 import { normalizeUsername } from "@/lib/supabase/email";
@@ -92,11 +93,7 @@ export default function SignupPage() {
       setPasswordHint(draft.passwordHint);
       setEventCode(draft.eventCode);
       setAgreed(draft.agreed);
-      setUsernameCheck(
-        draft.usernameCheck.status === "checking"
-          ? { status: "idle" }
-          : draft.usernameCheck
-      );
+      setUsernameCheck(draft.usernameCheck);
     }
     draftHydrated.current = true;
   }, []);
@@ -113,10 +110,7 @@ export default function SignupPage() {
       passwordHint,
       eventCode,
       agreed,
-      usernameCheck:
-        usernameCheck.status === "checking"
-          ? { status: "idle" }
-          : usernameCheck,
+      usernameCheck: usernameCheckForDraft(usernameCheck),
     });
   }, [
     shopName,
