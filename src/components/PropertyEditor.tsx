@@ -708,11 +708,6 @@ export function PropertyEditor({
                 />
               </div>
             </div>
-            <SiteShareFormField
-              value={false}
-              onChange={() => {}}
-              siteShareBlocked
-            />
           </div>
         ) : null}
 

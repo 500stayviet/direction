@@ -65,18 +65,11 @@ export function SiteShareFormField({
 }: {
   value: boolean;
   onChange: (next: boolean) => void;
-  /** 협력부동산 매물 등 — 사이트내 공유 불가 */
+  /** 협력부동산 매물 등 — 사이트내 공유 불가 (서비스 개시 후 안내 노출) */
   siteShareBlocked?: boolean;
 }) {
-  if (siteShareBlocked) {
-    return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-center text-[13px] font-semibold leading-snug text-amber-900">
-        협력부동산 소유의 매물은 사이트내 공유가 불가합니다.
-      </p>
-    );
-  }
-
   if (!SITE_SHARE_UI_ENABLED) return null;
+  if (siteShareBlocked) return null;
 
   const shared = value === true;
   return (
