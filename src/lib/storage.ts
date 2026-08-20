@@ -476,26 +476,44 @@ function persistDueProperties(
   );
 }
 
-let customersInflight: Promise<Customer[]> | null = null;
+export type EntityListLoadResult<T> = {
+  ok: boolean;
+  items: T[];
+};
 
-export async function getCustomers(): Promise<Customer[]> {
+let customersInflight: Promise<EntityListLoadResult<Customer>> | null = null;
+
+async function fetchCustomersList(): Promise<EntityListLoadResult<Customer>> {
+  const userId = await getSessionUserId();
+  if (userId) ensureEntityCacheUser(userId);
+  const result = await listActivePayloads("customers", enrichCustomer);
+  if (!result.ok) {
+    const cached = peekCustomers();
+    if (cached === null) return { ok: false, items: [] };
+    return {
+      ok: false,
+      items: cached.map(applyCustomerDueComplete),
+    };
+  }
+  const next = result.items.map(applyCustomerDueComplete);
+  persistDueCustomers(result.items, next);
+  setCustomersCache(next);
+  return { ok: true, items: next };
+}
+
+export async function loadCustomersList(): Promise<
+  EntityListLoadResult<Customer>
+> {
   if (customersInflight) return customersInflight;
-  customersInflight = (async () => {
-    const userId = await getSessionUserId();
-    ensureEntityCacheUser(userId);
-    const result = await listActivePayloads("customers", enrichCustomer);
-    if (!result.ok) {
-      const cached = peekCustomers() ?? [];
-      return cached.map(applyCustomerDueComplete);
-    }
-    const next = result.items.map(applyCustomerDueComplete);
-    persistDueCustomers(result.items, next);
-    setCustomersCache(next);
-    return next;
-  })().finally(() => {
+  customersInflight = fetchCustomersList().finally(() => {
     customersInflight = null;
   });
   return customersInflight;
+}
+
+export async function getCustomers(): Promise<Customer[]> {
+  const result = await loadCustomersList();
+  return result.items;
 }
 
 export async function saveCustomers(customers: Customer[]): Promise<void> {
@@ -663,29 +681,45 @@ export async function getCustomerById(
   }
 }
 
-let propertiesInflight: Promise<ListedProperty[]> | null = null;
+let propertiesInflight: Promise<EntityListLoadResult<ListedProperty>> | null =
+  null;
 
-export async function getListedProperties(): Promise<ListedProperty[]> {
+async function fetchListedPropertiesList(): Promise<
+  EntityListLoadResult<ListedProperty>
+> {
+  const userId = await getSessionUserId();
+  if (userId) ensureEntityCacheUser(userId);
+  const result = await listActivePayloads(
+    "listed_properties",
+    enrichProperty
+  );
+  if (!result.ok) {
+    const cached = peekProperties();
+    if (cached === null) return { ok: false, items: [] };
+    return {
+      ok: false,
+      items: cached.map(applyPropertyDueComplete),
+    };
+  }
+  const next = result.items.map(applyPropertyDueComplete);
+  persistDueProperties(result.items, next);
+  setPropertiesCache(next);
+  return { ok: true, items: next };
+}
+
+export async function loadListedPropertiesList(): Promise<
+  EntityListLoadResult<ListedProperty>
+> {
   if (propertiesInflight) return propertiesInflight;
-  propertiesInflight = (async () => {
-    const userId = await getSessionUserId();
-    ensureEntityCacheUser(userId);
-    const result = await listActivePayloads(
-      "listed_properties",
-      enrichProperty
-    );
-    if (!result.ok) {
-      const cached = peekProperties() ?? [];
-      return cached.map(applyPropertyDueComplete);
-    }
-    const next = result.items.map(applyPropertyDueComplete);
-    persistDueProperties(result.items, next);
-    setPropertiesCache(next);
-    return next;
-  })().finally(() => {
+  propertiesInflight = fetchListedPropertiesList().finally(() => {
     propertiesInflight = null;
   });
   return propertiesInflight;
+}
+
+export async function getListedProperties(): Promise<ListedProperty[]> {
+  const result = await loadListedPropertiesList();
+  return result.items;
 }
 
 export async function saveListedProperties(
@@ -847,26 +881,39 @@ function persistDueSchedules(original: Schedule[], next: Schedule[]) {
   );
 }
 
-let schedulesInflight: Promise<Schedule[]> | null = null;
+let schedulesInflight: Promise<EntityListLoadResult<Schedule>> | null = null;
 
-export async function getSchedules(): Promise<Schedule[]> {
+async function fetchSchedulesList(): Promise<EntityListLoadResult<Schedule>> {
+  const userId = await getSessionUserId();
+  if (userId) ensureEntityCacheUser(userId);
+  const result = await listActivePayloads("schedules", enrichSchedule);
+  if (!result.ok) {
+    const cached = peekSchedules();
+    if (cached === null) return { ok: false, items: [] };
+    return {
+      ok: false,
+      items: cached.map(applyScheduleDueComplete),
+    };
+  }
+  const next = result.items.map(applyScheduleDueComplete);
+  persistDueSchedules(result.items, next);
+  setSchedulesCache(next);
+  return { ok: true, items: next };
+}
+
+export async function loadSchedulesList(): Promise<
+  EntityListLoadResult<Schedule>
+> {
   if (schedulesInflight) return schedulesInflight;
-  schedulesInflight = (async () => {
-    const userId = await getSessionUserId();
-    ensureEntityCacheUser(userId);
-    const result = await listActivePayloads("schedules", enrichSchedule);
-    if (!result.ok) {
-      const cached = peekSchedules() ?? [];
-      return cached.map(applyScheduleDueComplete);
-    }
-    const next = result.items.map(applyScheduleDueComplete);
-    persistDueSchedules(result.items, next);
-    setSchedulesCache(next);
-    return next;
-  })().finally(() => {
+  schedulesInflight = fetchSchedulesList().finally(() => {
     schedulesInflight = null;
   });
   return schedulesInflight;
+}
+
+export async function getSchedules(): Promise<Schedule[]> {
+  const result = await loadSchedulesList();
+  return result.items;
 }
 
 export async function refreshAllEntityLists(): Promise<void> {

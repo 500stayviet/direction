@@ -26,7 +26,11 @@ import {
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
-import { usePropertiesList } from "@/hooks/useEntityList";
+import {
+  isEntityListEmptyConfirmed,
+  showEntityListLoading,
+  usePropertiesList,
+} from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import { TeamShareChip } from "@/components/SiteShareUi";
 import type { ListedProperty } from "@/lib/types";
@@ -38,7 +42,8 @@ type PendingAction = {
 
 export default function PropertyListPage() {
   const router = useRouter();
-  const { items: properties, loading, setItems: setProperties } = usePropertiesList();
+  const { items: properties, status, setItems: setProperties } =
+    usePropertiesList();
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
@@ -168,7 +173,7 @@ export default function PropertyListPage() {
         title="매물 리스트"
         backHref="/"
         subtitle={
-          loading && properties.length === 0
+          showEntityListLoading(status, properties.length)
             ? "불러오는 중…"
             : `등록 ${properties.length}건`
         }
@@ -183,14 +188,14 @@ export default function PropertyListPage() {
           className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
-        {loading && properties.length === 0 ? (
+        {showEntityListLoading(status, properties.length) ? (
           <Card>
             <p className="text-sm text-gray-400">불러오는 중…</p>
           </Card>
         ) : filtered.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500">
-              {properties.length === 0
+              {isEntityListEmptyConfirmed(status, properties.length)
                 ? "등록된 매물이 없습니다. 아래 버튼으로 추가해 주세요."
                 : "검색 결과가 없습니다."}
             </p>

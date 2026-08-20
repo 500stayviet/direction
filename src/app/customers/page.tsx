@@ -29,7 +29,11 @@ import {
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
-import { useCustomersList } from "@/hooks/useEntityList";
+import {
+  isEntityListEmptyConfirmed,
+  showEntityListLoading,
+  useCustomersList,
+} from "@/hooks/useEntityList";
 import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import { TeamShareChip } from "@/components/SiteShareUi";
 import type { Customer } from "@/lib/types";
@@ -42,7 +46,11 @@ type PendingAction = {
 export default function CustomerListPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const { items: customers, loading, setItems: setCustomers } = useCustomersList();
+  const {
+    items: customers,
+    status,
+    setItems: setCustomers,
+  } = useCustomersList();
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [nudgeFirstCard, setNudgeFirstCard] = useState(false);
@@ -168,7 +176,7 @@ export default function CustomerListPage() {
         backHref="/"
         titleTone="customer"
         subtitle={
-          loading && customers.length === 0
+          showEntityListLoading(status, customers.length)
             ? "불러오는 중…"
             : `등록 ${customers.length}명`
         }
@@ -183,18 +191,18 @@ export default function CustomerListPage() {
           className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
-        {loading && customers.length === 0 ? (
+        {showEntityListLoading(status, customers.length) ? (
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center">
             <p className="text-[15px] font-semibold text-gray-400">불러오는 중…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center">
             <p className="text-[15px] font-semibold text-gray-500">
-              {customers.length === 0
+              {isEntityListEmptyConfirmed(status, customers.length)
                 ? "등록된 고객이 없습니다."
                 : "검색 결과가 없습니다."}
             </p>
-            {customers.length === 0 ? (
+            {isEntityListEmptyConfirmed(status, customers.length) ? (
               <p className="mt-1 text-[13px] text-gray-400">
                 아래 버튼으로 추가해 주세요.
               </p>

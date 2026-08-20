@@ -25,7 +25,12 @@ import {
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
-import { useCustomersList, useSchedulesList } from "@/hooks/useEntityList";
+import {
+  isEntityListEmptyConfirmed,
+  showEntityListLoading,
+  useCustomersList,
+  useSchedulesList,
+} from "@/hooks/useEntityList";
 import { TeamShareChip } from "@/components/SiteShareUi";
 import type { Customer, Schedule } from "@/lib/types";
 
@@ -77,7 +82,8 @@ function sortSchedules(list: Schedule[], mode: SortMode): Schedule[] {
 
 export default function NaviEntryPage() {
   const router = useRouter();
-  const { items: schedules, loading, setItems: setSchedules } = useSchedulesList();
+  const { items: schedules, status, setItems: setSchedules } =
+    useSchedulesList();
   const { items: customerList } = useCustomersList();
   const customers = useMemo(() => {
     const map: Record<string, Customer> = {};
@@ -224,14 +230,16 @@ export default function NaviEntryPage() {
       </div>
 
       <div className="space-y-2 overflow-visible pr-2">
-        {loading && schedules.length === 0 ? (
+        {showEntityListLoading(status, schedules.length) ? (
           <Card>
             <p className="text-sm text-gray-400">불러오는 중…</p>
           </Card>
         ) : sorted.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500">
-              저장된 방문 일정이 없습니다. 아래 버튼으로 만들어 주세요.
+              {isEntityListEmptyConfirmed(status, schedules.length)
+                ? "저장된 방문 일정이 없습니다. 아래 버튼으로 만들어 주세요."
+                : "표시할 일정이 없습니다."}
             </p>
           </Card>
         ) : (
