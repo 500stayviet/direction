@@ -38,7 +38,7 @@ export function getCustomerMoveInTarget(customer: Customer): string | null {
 }
 
 /**
- * 오늘이 '희망 입주 시작일까지 정확히 45일 전'일 때만 true
+ * 오늘이 '희망 입주 시작일까지 45일 이하'일 때 true
  * — 기준: 희망 입주 시작일(moveInFrom). 종료일(moveInTo)은 보지 않음
  */
 export function isContractDeadlineActive(
@@ -58,15 +58,30 @@ export function daysUntilISO(iso: string, today: string = todayISO()): number {
 }
 
 /**
- * 오늘이 입주 시작일까지 정확히 45일 전일 때만 true
+ * 입주 시작일까지 남은 일수 (당일=0). 과거·미입력이면 null.
+ */
+export function daysUntilMoveIn(
+  moveInISO: string | null | undefined,
+  today: string = todayISO()
+): number | null {
+  if (!moveInISO) return null;
+  if (moveInISO < today) return null;
+  const left = daysUntilISO(moveInISO, today);
+  if (!Number.isFinite(left) || left < 0) return null;
+  return left;
+}
+
+/**
+ * 오늘이 '희망 입주 시작일까지 45일 이하'일 때 true
+ * — 45일 전부터 입주 당일까지 매일 표시
  */
 export function isMoveInDeadlineActive(
   moveInISO: string | null | undefined,
   today: string = todayISO()
 ): boolean {
-  if (!moveInISO) return false;
-  if (moveInISO < today) return false;
-  return daysUntilISO(moveInISO, today) === CONTRACT_DEADLINE_DAYS;
+  const left = daysUntilMoveIn(moveInISO, today);
+  if (left == null) return false;
+  return left <= CONTRACT_DEADLINE_DAYS;
 }
 
 function moveInStartISO(from?: string, date?: string): string | null {
@@ -75,32 +90,40 @@ function moveInStartISO(from?: string, date?: string): string | null {
   return null;
 }
 
-/**
- * 알림 배지 문구
- * — 단일이든 기간이든 라벨은 동일 (상세 날짜는 카드 하단 희망입주에서 확인)
- */
-export function getContractDeadlineLabel(customer: Customer): string | null {
-  if (!isContractDeadlineActive(customer)) return null;
-  return `희망 입주일 ${CONTRACT_DEADLINE_DAYS}일전`;
+function formatMoveInDeadlineLabel(prefix: string, daysLeft: number): string {
+  if (daysLeft === 0) return `${prefix} 당일`;
+  return `${prefix} ${daysLeft}일전`;
 }
 
-export function getPropertyDeadlineLabel(property: {
-  contractCompleted?: boolean;
-  moveInVacant?: boolean;
-  moveInNegotiable?: boolean;
-  moveInFrom?: string;
-  moveInDate?: string;
-}): string | null {
+/**
+ * 알림 배지 문구 — 남은 일수 반영 (45일 전~당일)
+ */
+export function getContractDeadlineLabel(
+  customer: Customer,
+  today: string = todayISO()
+): string | null {
+  const moveIn = getCustomerMoveInTarget(customer);
+  const left = daysUntilMoveIn(moveIn, today);
+  if (left == null || left > CONTRACT_DEADLINE_DAYS) return null;
+  return formatMoveInDeadlineLabel("희망 입주일", left);
+}
+
+export function getPropertyDeadlineLabel(
+  property: {
+    contractCompleted?: boolean;
+    moveInVacant?: boolean;
+    moveInNegotiable?: boolean;
+    moveInFrom?: string;
+    moveInDate?: string;
+  },
+  today: string = todayISO()
+): string | null {
   if (property.contractCompleted) return null;
   if (property.moveInVacant || property.moveInNegotiable) return null;
-  if (
-    !isMoveInDeadlineActive(
-      moveInStartISO(property.moveInFrom, property.moveInDate)
-    )
-  ) {
-    return null;
-  }
-  return `임대희망일 ${CONTRACT_DEADLINE_DAYS}일전`;
+  const moveIn = moveInStartISO(property.moveInFrom, property.moveInDate);
+  const left = daysUntilMoveIn(moveIn, today);
+  if (left == null || left > CONTRACT_DEADLINE_DAYS) return null;
+  return formatMoveInDeadlineLabel("임대희망일", left);
 }
 
 /** 뱃지 정렬용 — 데드라인 당일 00:00 기준 */
