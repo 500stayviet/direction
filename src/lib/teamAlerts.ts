@@ -183,6 +183,37 @@ function deadlineAlertKey(tab: AlertTab, id: string) {
   return `deadline:${tab}:${id}`;
 }
 
+function unseenSidesFromPairKeys(
+  keys: Iterable<string>,
+  sinceKey: (side: "customer" | "property", id: string) => string
+): { customer: string[]; property: string[] } {
+  const unseenC = new Set<string>();
+  const unseenP = new Set<string>();
+  for (const key of keys) {
+    unseenC.add(key);
+    unseenP.add(key);
+    const parsed = parseMatchPairKey(key);
+    if (parsed) {
+      noteAlertSince(sinceKey("customer", parsed.customerId));
+      noteAlertSince(sinceKey("property", parsed.propertyId));
+    }
+  }
+  return {
+    customer: sortedUnique(unseenC),
+    property: sortedUnique(unseenP),
+  };
+}
+
+/** 리스트 카드 — 내 리스트 매칭 건수 */
+export function formatOwnMatchBadgeLabel(count: number): string {
+  return count > 0 ? `매칭 ${count}` : "매칭";
+}
+
+/** 리스트 카드 — 사이트내 공유 매칭 건수 */
+export function formatSiteMatchBadgeLabel(count: number): string {
+  return count > 0 ? `사이트내 ${count}` : "사이트내";
+}
+
 export function subscribeTeamAlerts(listener: Listener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -316,12 +347,13 @@ function syncOwnMatchPairs(pairKeys: string[]) {
   }
 
   if (!state.matchSeeded) {
+    const unseen = unseenSidesFromPairKeys(incoming, matchAlertKey);
     state = {
       ...state,
       matchSeeded: true,
       knownMatch: sortedUnique(incoming),
-      unseenMatchCustomer: [],
-      unseenMatchProperty: [],
+      unseenMatchCustomer: unseen.customer,
+      unseenMatchProperty: unseen.property,
     };
     persist();
     notify();
@@ -393,12 +425,13 @@ function syncPartnerMatchPairs(pairKeys: string[]) {
   const incoming = new Set(pairKeys.filter(Boolean));
 
   if (!state.newMatchSeeded) {
+    const unseen = unseenSidesFromPairKeys(incoming, newMatchAlertKey);
     state = {
       ...state,
       newMatchSeeded: true,
       knownNewMatch: sortedUnique(incoming),
-      unseenNewMatchCustomer: [],
-      unseenNewMatchProperty: [],
+      unseenNewMatchCustomer: unseen.customer,
+      unseenNewMatchProperty: unseen.property,
     };
     persist();
     notify();
@@ -557,33 +590,63 @@ export function isMatchUnseen(
 }
 
 export function hasUnseenOwnMatchForCustomer(customerId: string): boolean {
-  const prefix = `${customerId}::`;
-  return state.unseenMatchCustomer.some((k) => k.startsWith(prefix));
+  return countUnseenOwnMatchForCustomer(customerId) > 0;
 }
 
 export function hasUnseenOwnMatchForProperty(propertyId: string): boolean {
-  const suffix = `::${propertyId}`;
-  return state.unseenMatchProperty.some((k) => k.endsWith(suffix));
+  return countUnseenOwnMatchForProperty(propertyId) > 0;
 }
 
 export function hasUnseenNewMatchForCustomer(customerId: string): boolean {
-  const prefix = `${customerId}::`;
-  return state.unseenNewMatchCustomer.some((k) => k.startsWith(prefix));
+  return countUnseenNewMatchForCustomer(customerId) > 0;
 }
 
 export function hasUnseenNewMatchForProperty(propertyId: string): boolean {
+  return countUnseenNewMatchForProperty(propertyId) > 0;
+}
+
+export function countUnseenOwnMatchForCustomer(customerId: string): number {
+  const prefix = `${customerId}::`;
+  return state.unseenMatchCustomer.filter((k) => k.startsWith(prefix)).length;
+}
+
+export function countUnseenOwnMatchForProperty(propertyId: string): number {
   const suffix = `::${propertyId}`;
-  return state.unseenNewMatchProperty.some((k) => k.endsWith(suffix));
+  return state.unseenMatchProperty.filter((k) => k.endsWith(suffix)).length;
+}
+
+export function countUnseenNewMatchForCustomer(customerId: string): number {
+  const prefix = `${customerId}::`;
+  return state.unseenNewMatchCustomer.filter((k) => k.startsWith(prefix)).length;
+}
+
+export function countUnseenNewMatchForProperty(propertyId: string): number {
+  const suffix = `::${propertyId}`;
+  return state.unseenNewMatchProperty.filter((k) => k.endsWith(suffix)).length;
 }
 
 /** @deprecated use hasUnseenOwnMatchForCustomer */
 export function hasUnseenMatchForCustomer(customerId: string): boolean {
-  return hasUnseenOwnMatchForCustomer(customerId);
+  return hasAnyUnseenMatchForCustomer(customerId);
 }
 
 /** @deprecated use hasUnseenOwnMatchForProperty */
 export function hasUnseenMatchForProperty(propertyId: string): boolean {
-  return hasUnseenOwnMatchForProperty(propertyId);
+  return hasAnyUnseenMatchForProperty(propertyId);
+}
+
+export function hasAnyUnseenMatchForCustomer(customerId: string): boolean {
+  return (
+    hasUnseenOwnMatchForCustomer(customerId) ||
+    hasUnseenNewMatchForCustomer(customerId)
+  );
+}
+
+export function hasAnyUnseenMatchForProperty(propertyId: string): boolean {
+  return (
+    hasUnseenOwnMatchForProperty(propertyId) ||
+    hasUnseenNewMatchForProperty(propertyId)
+  );
 }
 
 export function firstUnseenMatchPropertyId(
@@ -641,34 +704,46 @@ export function getListCardAlertBadges(input: {
     });
   }
 
-  if (tab === "customers" && hasUnseenOwnMatchForCustomer(id)) {
-    badges.push({
-      kind: "match",
-      label: "매칭",
-      at: alertSinceOrNow(matchAlertKey("customer", id)),
-    });
+  if (tab === "customers") {
+    const ownCount = countUnseenOwnMatchForCustomer(id);
+    if (ownCount > 0) {
+      badges.push({
+        kind: "match",
+        label: formatOwnMatchBadgeLabel(ownCount),
+        at: alertSinceOrNow(matchAlertKey("customer", id)),
+      });
+    }
   }
-  if (tab === "properties" && hasUnseenOwnMatchForProperty(id)) {
-    badges.push({
-      kind: "match",
-      label: "매칭",
-      at: alertSinceOrNow(matchAlertKey("property", id)),
-    });
+  if (tab === "properties") {
+    const ownCount = countUnseenOwnMatchForProperty(id);
+    if (ownCount > 0) {
+      badges.push({
+        kind: "match",
+        label: formatOwnMatchBadgeLabel(ownCount),
+        at: alertSinceOrNow(matchAlertKey("property", id)),
+      });
+    }
   }
 
-  if (tab === "customers" && hasUnseenNewMatchForCustomer(id)) {
-    badges.push({
-      kind: "newMatch",
-      label: "새매칭",
-      at: alertSinceOrNow(newMatchAlertKey("customer", id)),
-    });
+  if (tab === "customers") {
+    const siteCount = countUnseenNewMatchForCustomer(id);
+    if (siteCount > 0) {
+      badges.push({
+        kind: "newMatch",
+        label: formatSiteMatchBadgeLabel(siteCount),
+        at: alertSinceOrNow(newMatchAlertKey("customer", id)),
+      });
+    }
   }
-  if (tab === "properties" && hasUnseenNewMatchForProperty(id)) {
-    badges.push({
-      kind: "newMatch",
-      label: "새매칭",
-      at: alertSinceOrNow(newMatchAlertKey("property", id)),
-    });
+  if (tab === "properties") {
+    const siteCount = countUnseenNewMatchForProperty(id);
+    if (siteCount > 0) {
+      badges.push({
+        kind: "newMatch",
+        label: formatSiteMatchBadgeLabel(siteCount),
+        at: alertSinceOrNow(newMatchAlertKey("property", id)),
+      });
+    }
   }
 
   if (deadlineLabel) {

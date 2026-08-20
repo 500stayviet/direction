@@ -15,6 +15,8 @@ import {
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
 import {
+  formatOwnMatchBadgeLabel,
+  formatSiteMatchBadgeLabel,
   getTeamAlertsSnapshot,
   isMatchUnseen,
   markMatchSeen,
@@ -56,7 +58,10 @@ function matchInlineBadge(
   return [
     {
       kind: matchKind === "partner" ? "newMatch" : "match",
-      label: matchKind === "partner" ? "새매칭" : "매칭",
+      label:
+        matchKind === "partner"
+          ? formatSiteMatchBadgeLabel(1)
+          : formatOwnMatchBadgeLabel(1),
       at: 0,
     },
   ];
