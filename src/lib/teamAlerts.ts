@@ -204,14 +204,14 @@ function unseenSidesFromPairKeys(
   };
 }
 
-/** 리스트 카드 — 내 리스트 매칭 건수 */
+/** 리스트 카드 — 내 리스트 매칭 건수 (1건이면 숫자 생략) */
 export function formatOwnMatchBadgeLabel(count: number): string {
-  return count > 0 ? `매칭 ${count}` : "매칭";
+  return count > 1 ? `매칭 ${count}` : "매칭";
 }
 
-/** 리스트 카드 — 사이트내 공유 매칭 건수 */
+/** 리스트 카드 — 사이트내 공유 매칭 건수 (1건이면 숫자 생략) */
 export function formatSiteMatchBadgeLabel(count: number): string {
-  return count > 0 ? `사이트내 ${count}` : "사이트내";
+  return count > 1 ? `사이트내 ${count}` : "사이트내";
 }
 
 export function subscribeTeamAlerts(listener: Listener): () => void {

@@ -44,7 +44,9 @@ describe("teamAlerts match badges", () => {
   });
 
   it("매칭·사이트내 뱃지 라벨에 건수를 붙인다", () => {
+    assert.equal(formatOwnMatchBadgeLabel(1), "매칭");
     assert.equal(formatOwnMatchBadgeLabel(3), "매칭 3");
+    assert.equal(formatSiteMatchBadgeLabel(1), "사이트내");
     assert.equal(formatSiteMatchBadgeLabel(2), "사이트내 2");
   });
 
@@ -69,7 +71,7 @@ describe("teamAlerts match badges", () => {
     });
     assert.equal(
       siteBadges.find((b) => b.kind === "newMatch")?.label,
-      "사이트내 1"
+      "사이트내"
     );
 
     const propertyBadges = getListCardAlertBadges({
@@ -78,7 +80,7 @@ describe("teamAlerts match badges", () => {
     });
     assert.equal(
       propertyBadges.find((b) => b.kind === "match")?.label,
-      "매칭 1"
+      "매칭"
     );
   });
 });
