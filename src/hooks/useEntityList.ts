@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
   type Dispatch,
@@ -11,6 +12,7 @@ import {
 import { getSessionUserId, peekCurrentUser } from "@/lib/auth";
 import {
   ensureEntityCacheUser,
+  hydrateEntityCacheIfNeeded,
   peekCustomers,
   peekProperties,
   peekSchedules,
@@ -26,23 +28,35 @@ import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 /**
  * sessionStorage/메모리 캐시는 클라이언트 전용.
  * useSyncExternalStore의 getServerSnapshot=null 로 SSR·hydration을 맞추고,
- * hydration 이후에만 캐시 스냅샷을 쓴다 (등록 N명 불일치 방지).
- *
- * getSnapshot은 순수 읽기만 — ensureEntityCacheUser(notify)는 이펙트에서.
+ * hydration 이후 getSnapshot에서 session 캐시를 먼저 복원한다.
  */
 function useEntityListState<T>(
   peek: () => T[] | null,
   loadFresh: () => Promise<T[]>
 ) {
+  const readSnapshot = useMemo(
+    () => () => {
+      if (typeof window !== "undefined") {
+        hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
+      }
+      return peek();
+    },
+    [peek]
+  );
+
   const cached = useSyncExternalStore(
     subscribeEntityCache,
-    peek,
+    readSnapshot,
     () => null
   );
 
   /** 낙관적 갱신용. null이면 캐시를 그대로 표시 */
   const [override, setOverride] = useState<T[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
+    return peek() === null;
+  });
 
   const items = override ?? cached ?? [];
 
@@ -77,9 +91,7 @@ function useEntityListState<T>(
       ensureEntityCacheUser(userId);
       if (cancelled) return;
       const hadCache = Boolean(peek());
-      if (hadCache) {
-        setLoading(false);
-      } else {
+      if (!hadCache) {
         setLoading(true);
       }
       try {

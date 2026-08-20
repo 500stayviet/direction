@@ -136,6 +136,12 @@ function fillMissingFromSession(userId: string) {
   return changed;
 }
 
+/** notify 없이 session→메모리 복원 (getSnapshot 등 렌더 중 호출용) */
+export function hydrateEntityCacheIfNeeded(userId: string | null | undefined) {
+  if (!userId) return;
+  fillMissingFromSession(userId);
+}
+
 export function ensureEntityCacheUser(userId: string | null) {
   if (!userId) {
     clearEntityCache();

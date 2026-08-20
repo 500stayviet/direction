@@ -38,7 +38,7 @@ type PendingAction = {
 
 export default function PropertyListPage() {
   const router = useRouter();
-  const { items: properties, setItems: setProperties } = usePropertiesList();
+  const { items: properties, loading, setItems: setProperties } = usePropertiesList();
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
@@ -167,7 +167,11 @@ export default function PropertyListPage() {
       <PageHeader
         title="매물 리스트"
         backHref="/"
-        subtitle={`등록 ${properties.length}건`}
+        subtitle={
+          loading && properties.length === 0
+            ? "불러오는 중…"
+            : `등록 ${properties.length}건`
+        }
       />
 
       <div className="space-y-2 pb-4">
@@ -179,7 +183,11 @@ export default function PropertyListPage() {
           className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
-        {filtered.length === 0 ? (
+        {loading && properties.length === 0 ? (
+          <Card>
+            <p className="text-sm text-gray-400">불러오는 중…</p>
+          </Card>
+        ) : filtered.length === 0 ? (
           <Card>
             <p className="text-sm text-gray-500">
               {properties.length === 0
