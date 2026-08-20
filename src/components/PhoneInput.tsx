@@ -15,6 +15,7 @@ interface PhoneInputProps {
   labelRight?: React.ReactNode;
   labelHint?: string;
   unitHint?: string;
+  filledVariant?: "field" | "identity" | "plain";
 }
 
 export function PhoneInput({
@@ -28,13 +29,14 @@ export function PhoneInput({
   labelRight,
   labelHint,
   unitHint,
+  filledVariant = "identity",
 }: PhoneInputProps) {
   return (
     <Input
       label={label}
       required={required}
       invalid={invalid}
-      filledVariant="identity"
+      filledVariant={filledVariant}
       labelRight={labelRight}
       labelHint={labelHint}
       unitHint={unitHint}

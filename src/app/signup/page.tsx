@@ -163,15 +163,17 @@ export default function SignupPage() {
     }
 
     const normalized = normalizeUsername(username);
-    const alreadyOk =
+    const dupOk =
       usernameCheck.status === "ok" &&
       usernameCheck.username === normalized;
-    if (!alreadyOk) {
-      const ok = await checkUsername();
-      if (!ok) {
-        showFieldWarn("username", "아이디 중복 확인을 완료해 주세요.");
-        return;
-      }
+    if (!dupOk) {
+      showFieldWarn(
+        "username",
+        usernameCheck.status === "taken" || usernameCheck.status === "error"
+          ? usernameCheck.message
+          : "아이디 중복 확인을 완료해 주세요."
+      );
+      return;
     }
     setValidationActive(false);
     setWarnOpen(false);
@@ -288,6 +290,7 @@ export default function SignupPage() {
                   invalidLabelRight={
                     missingFields.includes("username") ? "필수 입력" : null
                   }
+                  filledVariant="plain"
                   hint=""
                 />
               </div>
@@ -336,6 +339,7 @@ export default function SignupPage() {
               autoComplete="new-password"
               invalid={isInvalid("password")}
               invalidHighlight="input"
+              filledVariant="plain"
             />
           </div>
           <div ref={setFieldRef("passwordConfirm")}>
@@ -350,6 +354,7 @@ export default function SignupPage() {
               invalid={isInvalid("passwordConfirm")}
               invalidHighlight="input"
               invalidLabelRight={passwordConfirmInvalidRight}
+              filledVariant="plain"
             />
           </div>
           <div ref={setFieldRef("passwordHint")}>
@@ -361,6 +366,7 @@ export default function SignupPage() {
               placeholder="본인만 알아볼 수 있는 힌트"
               invalid={isInvalid("passwordHint")}
               invalidHighlight="input"
+              filledVariant="plain"
               labelRight={
                 <span className="text-[11px] font-semibold leading-tight">
                   비밀번호 변경에 사용됩니다 타인과 공유금지
@@ -374,18 +380,21 @@ export default function SignupPage() {
             onChange={(e) => setShopName(e.target.value)}
             placeholder="예: 천호동"
             hint="「부동산」「공인중개사사무소」가 없으면 저장 시 공인중개사사무소가 붙습니다"
+            filledVariant="plain"
           />
           <Input
             label="이름 (선택)"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="홍길동"
+            filledVariant="plain"
           />
           <PhoneInput
             label="전화번호 (선택)"
             value={phone}
             onChange={setPhone}
             hint=""
+            filledVariant="plain"
           />
           <div className="overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50/80">
             <button
@@ -422,6 +431,7 @@ export default function SignupPage() {
                   onChange={(e) => setEventCode(e.target.value)}
                   placeholder="추천인 아이디 또는 프로모 코드"
                   hint="둘 중 하나만 입력하면 됩니다"
+                  filledVariant="plain"
                 />
               </div>
             ) : null}
