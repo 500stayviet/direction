@@ -18,6 +18,7 @@ import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
 import {
+  listCardAlertEffectFromBadges,
   listCardFrameClass,
   type AlertTab,
   type ListCardBadge,
@@ -43,8 +44,6 @@ interface CustomerListCardProps {
   showListAlerts?: boolean;
   /** showListAlerts=false일 때만 사용 */
   inlineBadges?: ListCardBadge[];
-  /** @deprecated 뱃지로 대체됨 */
-  alertHighlight?: "share" | "match" | null;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;
 }
@@ -98,7 +97,6 @@ export function CustomerListCard({
   alertTab = "customers",
   showListAlerts = true,
   inlineBadges = [],
-  alertHighlight = null,
   viewerId,
 }: CustomerListCardProps) {
   const saved = showSavedDate ? formatSavedDate(c.createdAt) : "";
@@ -115,6 +113,7 @@ export function CustomerListCard({
     deadlineAt,
   });
   const badges = showListAlerts ? listBadges : inlineBadges;
+  const alertEffect = done ? null : listCardAlertEffectFromBadges(badges);
   const sharer = teamSharerLabel(
     c.createdByName,
     c.createdBy,
@@ -133,7 +132,7 @@ export function CustomerListCard({
     <article
       className={[
         "flex overflow-hidden rounded-xl",
-        listCardFrameClass(done, done ? null : alertHighlight),
+        listCardFrameClass(done, alertEffect),
       ].join(" ")}
     >
       <div

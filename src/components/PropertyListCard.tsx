@@ -16,6 +16,7 @@ import { formatCardAddress } from "@/lib/seoulRegions";
 import { formatPropertyPlaceLine } from "@/lib/propertyRoomNo";
 import { getPropertyDeadlineLabel, getDeadlineBadgeSortAt } from "@/lib/deadline";
 import {
+  listCardAlertEffectFromBadges,
   listCardFrameClass,
   type AlertTab,
   type ListCardBadge,
@@ -57,8 +58,6 @@ interface PropertyListCardProps {
   alertTab?: AlertTab;
   showListAlerts?: boolean;
   inlineBadges?: ListCardBadge[];
-  /** @deprecated 뱃지로 대체됨 */
-  alertHighlight?: "share" | "match" | null;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;
 }
@@ -74,7 +73,6 @@ export function PropertyListCard({
   alertTab = "properties",
   showListAlerts = true,
   inlineBadges = [],
-  alertHighlight = null,
   viewerId,
 }: PropertyListCardProps) {
   const saved = showSavedDate ? formatSavedDate(p.createdAt) : "";
@@ -107,6 +105,7 @@ export function PropertyListCard({
     deadlineAt,
   });
   const badges = showListAlerts ? listBadges : inlineBadges;
+  const alertEffect = done ? null : listCardAlertEffectFromBadges(badges);
   const agencyText =
     showAgencyBadge && p.hasPartnerAgency
       ? p.partnerAgency?.name?.trim() || ""
@@ -116,7 +115,7 @@ export function PropertyListCard({
     <article
       className={[
         "flex overflow-hidden rounded-xl",
-        listCardFrameClass(done, done ? null : alertHighlight),
+        listCardFrameClass(done, alertEffect),
         cardClassName,
       ].join(" ")}
     >

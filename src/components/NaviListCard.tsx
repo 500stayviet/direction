@@ -14,7 +14,11 @@ import {
 import { peekCurrentUser } from "@/lib/auth";
 import { teamSharerLabel } from "@/lib/teamActionGuard";
 import { parseSeoulAddress } from "@/lib/seoulRegions";
-import { listCardFrameClass, type AlertTab } from "@/lib/teamAlerts";
+import {
+  listCardAlertEffectFromBadges,
+  listCardFrameClass,
+  type AlertTab,
+} from "@/lib/teamAlerts";
 import { ListCardAlertBadges } from "@/components/ListCardAlertBadges";
 import { useListCardAlertBadges } from "@/hooks/useListCardAlertBadges";
 import type { Customer, Schedule } from "@/lib/types";
@@ -89,8 +93,6 @@ interface NaviListCardProps {
   renderCard?: (card: ReactElement) => ReactNode;
   className?: string;
   alertTab?: AlertTab;
-  /** @deprecated 뱃지로 대체됨 */
-  alertHighlight?: "share" | "match" | null;
   viewerId?: string;
 }
 
@@ -101,7 +103,6 @@ export function NaviListCard({
   renderCard = (card) => card,
   className = "",
   alertTab = "navi",
-  alertHighlight = null,
   viewerId,
 }: NaviListCardProps) {
   const done = isScheduleEnded(s);
@@ -120,6 +121,7 @@ export function NaviListCard({
     viewerId ?? peekCurrentUser()?.id
   );
   const shareBadges = useListCardAlertBadges({ tab: alertTab, id: s.id });
+  const alertEffect = done ? null : listCardAlertEffectFromBadges(shareBadges);
   const hasTopBadges =
     shareBadges.length > 0 || done || kind === "today" || kind === "tomorrow";
 
@@ -127,7 +129,7 @@ export function NaviListCard({
     <article
       className={[
         "flex overflow-hidden rounded-xl",
-        listCardFrameClass(done, done ? null : alertHighlight),
+        listCardFrameClass(done, alertEffect),
       ].join(" ")}
     >
       <div

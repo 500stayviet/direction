@@ -682,35 +682,64 @@ export function getListCardAlertBadges(input: {
   return badges.sort((a, b) => a.at - b.at || a.kind.localeCompare(b.kind));
 }
 
-/**
- * 리스트 카드 강조 — 뱃지로 대체. 테두리는 기본 유지.
- */
-export function listCardHighlight(
-  tab: AlertTab,
-  id: string
-): "share" | "match" | null {
-  void tab;
-  void id;
-  return null;
+const ALERT_EFFECT_PRIORITY: Record<ListCardBadgeKind, number> = {
+  newMatch: 40,
+  match: 30,
+  share: 20,
+  deadline: 10,
+};
+
+const ALERT_FRAME_CLASS: Record<ListCardBadgeKind, string> = {
+  share: "animate-share-alert-stage",
+  match: "animate-match-alert-stage",
+  newMatch: "animate-newmatch-alert-stage",
+  deadline: "animate-deadline-alert-stage",
+};
+
+/** 뱃지 목록에서 카드 테두리·배경 효과용 종류 (복수일 때 우선순위) */
+export function listCardAlertEffectFromBadges(
+  badges: ListCardBadge[]
+): ListCardBadgeKind | null {
+  if (badges.length === 0) return null;
+  const sorted = [...badges].sort(
+    (a, b) =>
+      ALERT_EFFECT_PRIORITY[b.kind] - ALERT_EFFECT_PRIORITY[a.kind] ||
+      a.at - b.at
+  );
+  return sorted[0]!.kind;
 }
 
-/** 리스트 카드 테두리 */
+/** 리스트 카드 알람 강조 (뱃지와 동일 조건) */
+export function listCardHighlight(
+  tab: AlertTab,
+  id: string,
+  deadlineLabel?: string | null,
+  deadlineAt?: number
+): ListCardBadgeKind | null {
+  return listCardAlertEffectFromBadges(
+    getListCardAlertBadges({ tab, id, deadlineLabel, deadlineAt })
+  );
+}
+
+/** 리스트 카드 테두리 — 알람 시 뱃지 색과 맞는 2.5초 단계 애니메이션 */
 export function listCardFrameClass(
   done: boolean,
-  _highlight: "share" | "match" | null | undefined
+  effect: ListCardBadgeKind | null | undefined
 ): string {
-  void _highlight;
   if (done) return "border border-gray-200 bg-gray-50";
+  if (effect && ALERT_FRAME_CLASS[effect]) return ALERT_FRAME_CLASS[effect];
   return "border border-gray-200 bg-white";
 }
 
 export function alertHighlightClass(
-  highlight: "share" | "match" | null | undefined,
+  highlight: ListCardBadgeKind | null | undefined,
   done?: boolean
 ): string {
-  void highlight;
   if (done) {
     return "!border-2 !border-solid !bg-gray-200 !border-gray-300 !shadow-none text-gray-500";
+  }
+  if (highlight && ALERT_FRAME_CLASS[highlight]) {
+    return `!shadow-none ${ALERT_FRAME_CLASS[highlight]}`;
   }
   return "!border-2 !border-solid !border-slate-400 !bg-white !shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
 }
