@@ -21,7 +21,6 @@ import {
   availFromYesNo,
   formatCustomerTalkFlagValue,
   formatPhoneInput,
-  formatPropertyElevatorTalkValue,
   isTalkPhoneComplete,
   needsJeonseInsurance,
 } from "@/lib/format";
@@ -159,8 +158,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "elevator",
       name: "엘리베이터",
-      nameHint: "(있음/없음)",
-      example: "엘리베이터 있음",
+      nameHint: "(유/무)",
+      example: "엘베 유",
     },
     {
       key: "tenantPhone",
@@ -544,7 +543,7 @@ function formatElevatorValueLine(
   const label =
     kind === "customer"
       ? formatCustomerTalkFlagValue(partial.elevator)
-      : formatPropertyElevatorTalkValue(partial.elevator);
+      : partial.elevator;
   return `엘베${label}`;
 }
 
