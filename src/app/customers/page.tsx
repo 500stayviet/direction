@@ -42,7 +42,7 @@ type PendingAction = {
 export default function CustomerListPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const { items: customers, setItems: setCustomers } = useCustomersList();
+  const { items: customers, loading, setItems: setCustomers } = useCustomersList();
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [nudgeFirstCard, setNudgeFirstCard] = useState(false);
@@ -167,7 +167,11 @@ export default function CustomerListPage() {
         title="고객리스트"
         backHref="/"
         titleTone="customer"
-        subtitle={`등록 ${customers.length}명`}
+        subtitle={
+          loading && customers.length === 0
+            ? "불러오는 중…"
+            : `등록 ${customers.length}명`
+        }
       />
 
       <div className="space-y-3 pb-4">
@@ -179,7 +183,11 @@ export default function CustomerListPage() {
           className="min-h-[44px] rounded-full border-gray-300 bg-white px-4 shadow-none"
         />
 
-        {filtered.length === 0 ? (
+        {loading && customers.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center">
+            <p className="text-[15px] font-semibold text-gray-400">불러오는 중…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-center">
             <p className="text-[15px] font-semibold text-gray-500">
               {customers.length === 0
