@@ -121,9 +121,14 @@ export function NaviListCard({
     viewerId ?? peekCurrentUser()?.id
   );
   const shareBadges = useListCardAlertBadges({ tab: alertTab, id: s.id });
-  const alertEffect = done ? null : listCardAlertEffectFromBadges(shareBadges);
+  const naviWhenBadges = done || kind === "today" || kind === "tomorrow";
+  const alertEffect =
+    done || naviWhenBadges
+      ? null
+      : listCardAlertEffectFromBadges(shareBadges);
+  const topShareBadges = done ? [] : shareBadges;
   const hasTopBadges =
-    shareBadges.length > 0 || done || kind === "today" || kind === "tomorrow";
+    topShareBadges.length > 0 || done || kind === "today" || kind === "tomorrow";
 
   const card = (
     <article
@@ -240,7 +245,6 @@ export function NaviListCard({
     >
       {hasTopBadges ? (
         <div className="absolute left-3 top-2.5 z-10 flex max-w-[calc(100%-1.5rem)] -translate-y-1/2 flex-wrap items-center gap-1">
-          <ListCardAlertBadges badges={shareBadges} floating={false} />
           {done ? (
             <EndedBadge className="shadow-sm ring-2 ring-[#F9FAFB]" />
           ) : kind === "today" ? (
@@ -252,6 +256,7 @@ export function NaviListCard({
               하루전
             </span>
           ) : null}
+          <ListCardAlertBadges badges={topShareBadges} floating={false} />
         </div>
       ) : null}
       {renderCard(card)}
