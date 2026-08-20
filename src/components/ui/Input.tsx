@@ -34,8 +34,8 @@ interface FieldProps {
   suffixCompact?: boolean;
   /** 라벨 바로 옆 작은 표시. 예: (약) */
   labelNote?: string;
-  /** identity: 이름·전화 — 채워지면 짙은 초록, 가운데 */
-  filledVariant?: "field" | "identity";
+  /** identity: 이름·전화 — 채워지면 짙은 초록, 가운데. plain: 로그인 등 기본 입력 */
+  filledVariant?: "field" | "identity" | "plain";
 }
 
 export function Field({
@@ -154,22 +154,28 @@ export function Input({
     prefix?: string;
   }) {
   const hasValue = String(props.value ?? "").trim().length > 0;
+  const useFilledStyle = filledVariant !== "plain";
   const filledClass =
     filledVariant === "identity"
       ? filledIdentityInputClass
       : filledInputClass;
   const statusClass = invalid
     ? invalidInputClass
-    : hasValue
+    : hasValue && useFilledStyle
       ? filledClass
       : "";
   const identityAlign =
     filledVariant === "identity" && hasValue ? "text-center" : "";
   const filledAlign =
-    filledVariant !== "identity" && hasValue && !invalid ? "text-center" : "";
+    useFilledStyle &&
+    filledVariant !== "identity" &&
+    hasValue &&
+    !invalid
+      ? "text-center"
+      : "";
   const hideSpin = Boolean(prefix || suffix);
   const fieldFilledClass =
-    filledVariant !== "identity" && hasValue && !invalid
+    useFilledStyle && filledVariant !== "identity" && hasValue && !invalid
       ? "input-field-filled"
       : "";
 

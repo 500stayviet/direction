@@ -4,13 +4,13 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { BrandIcon } from "@/components/BrandIcon";
 import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
 import { markSignupWelcomePending } from "@/lib/signupWelcome";
 import { isAutoLoginEnabled, setAutoLoginEnabled } from "@/lib/loginPrefs";
-import { requiredStarClass } from "@/lib/uiInvalid";
 
 export default function LoginPage() {
   return (
@@ -32,7 +32,6 @@ function LoginPageInner() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [autoLogin, setAutoLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -117,7 +116,6 @@ function LoginPageInner() {
       setFindSuccess(true);
       setUsername(findUsername.trim().toLowerCase());
       setPassword(nextPassword);
-      setShowPassword(true);
     } catch (err) {
       setFindError(
         err instanceof Error ? err.message : "비밀번호 변경에 실패했습니다."
@@ -128,32 +126,10 @@ function LoginPageInner() {
   };
 
   return (
-    <main className="relative flex min-h-[calc(100dvh-5rem)] flex-col overflow-hidden py-3">
-      <div
-        className="pointer-events-none absolute -left-16 -top-10 h-56 w-56 rounded-full bg-[#3182F6]/10"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-20 bottom-24 h-48 w-48 rounded-full bg-[#3182F6]/[0.08]"
-        aria-hidden
-      />
-
-      {success ? (
-        <p className="relative z-10 mb-3 shrink-0 rounded-[20px] bg-blue-50 px-3.5 py-2.5 text-center text-[13px] font-semibold text-[#3182F6]">
-          {success}
-        </p>
-      ) : null}
-      <InstallAppGuide className="relative z-10 mb-3 shrink-0" />
-
-      <div className="relative flex flex-1 flex-col justify-center">
-      <div className="relative mb-4 px-1 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(49,130,246,0.35)]">
-          <BrandIcon size={56} />
-        </div>
-        <p className="mt-3 text-[13px] font-bold tracking-tight text-[#3182F6]">
-          현장동선
-        </p>
-        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-gray-900">
+    <main className="py-6">
+      <div className="mb-4 px-1">
+        <p className="text-[13px] font-bold text-[#3182F6]">현장동선</p>
+        <h1 className="mt-2 text-[28px] font-bold tracking-tight text-gray-900">
           로그인
         </h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500">
@@ -161,36 +137,34 @@ function LoginPageInner() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="relative space-y-4">
-        <div className="space-y-3 rounded-[24px] border border-gray-100 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
-          <AuthField
+      {success ? (
+        <p className="mb-3 rounded-xl bg-gray-50 px-3.5 py-2.5 text-[13px] font-semibold text-gray-700">
+          {success}
+        </p>
+      ) : null}
+      <InstallAppGuide className="mb-3 shrink-0" />
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Card className="space-y-2.5">
+          <Input
             label="아이디"
             value={username}
-            onChange={setUsername}
+            onChange={(e) => setUsername(e.target.value)}
             placeholder="아이디를 입력하세요"
             autoComplete="username"
-            icon={<UserIcon />}
+            filledVariant="plain"
           />
-          <AuthField
+          <Input
             label="비밀번호"
+            type="password"
             value={password}
-            onChange={setPassword}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="비밀번호를 입력하세요"
             autoComplete="current-password"
-            type={showPassword ? "text" : "password"}
-            icon={<LockIcon />}
-            trailing={
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="rounded-lg px-2 py-1 text-[12px] font-bold text-[#3182F6] active:scale-95 transition-all duration-150"
-              >
-                {showPassword ? "숨김" : "보기"}
-              </button>
-            }
+            filledVariant="plain"
           />
 
-          <div className="flex items-center justify-between gap-3 px-0.5">
+          <div className="flex items-center justify-between gap-3 px-0.5 pt-0.5">
             <label className="flex cursor-pointer items-center gap-1.5 text-[12px] font-medium text-gray-500">
               <input
                 type="checkbox"
@@ -207,24 +181,24 @@ function LoginPageInner() {
             <button
               type="button"
               onClick={openFind}
-              className="text-[12px] font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline active:scale-95 transition-all duration-150"
+              className="text-[12px] font-semibold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline active:scale-95 transition-all duration-150"
             >
               비밀번호 변경
             </button>
           </div>
 
           {error && (
-            <p className="rounded-xl bg-red-50 px-3 py-2.5 text-[13px] font-semibold text-red-600">
+            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
               {error}
             </p>
           )}
-        </div>
+        </Card>
 
         <Button type="submit" fullWidth size="lg" disabled={loading}>
           {loading ? "로그인 중..." : "로그인"}
         </Button>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-1.5 pt-1 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-1.5 px-0.5 text-[13px]">
           <span className="text-gray-400">아직 계정이 없으신가요?</span>
           <Link
             href="/signup"
@@ -233,7 +207,7 @@ function LoginPageInner() {
             회원가입하기
           </Link>
         </div>
-        <p className="text-center text-[12px] text-gray-400">
+        <p className="px-0.5 text-[12px] text-gray-400">
           <Link
             href="/terms"
             className="font-semibold text-gray-500 underline-offset-2 hover:text-[#3182F6] hover:underline"
@@ -242,7 +216,6 @@ function LoginPageInner() {
           </Link>
         </p>
       </form>
-      </div>
 
       <Modal
         open={findOpen}
@@ -254,8 +227,8 @@ function LoginPageInner() {
       >
         {findSuccess ? (
           <div className="space-y-3">
-            <div className="rounded-2xl bg-blue-50 px-4 py-3 text-center">
-              <p className="text-[13px] font-semibold text-[#3182F6]">
+            <div className="rounded-2xl bg-gray-50 px-4 py-3">
+              <p className="text-[13px] font-semibold text-gray-800">
                 새 비밀번호가 설정되었습니다
               </p>
               <p className="mt-1 text-[12px] text-gray-600">
@@ -268,43 +241,43 @@ function LoginPageInner() {
           </div>
         ) : (
           <form onSubmit={handleFind} className="space-y-2.5">
-            <AuthField
-              dense
+            <Input
               label="아이디"
               required
               value={findUsername}
-              onChange={setFindUsername}
+              onChange={(e) => setFindUsername(e.target.value)}
               placeholder="가입한 아이디"
               autoComplete="username"
+              filledVariant="plain"
             />
-            <AuthField
-              dense
+            <Input
               label="비밀번호 힌트"
               required
               value={findHint}
-              onChange={setFindHint}
+              onChange={(e) => setFindHint(e.target.value)}
               placeholder="가입 시 입력한 힌트"
               autoComplete="off"
+              filledVariant="plain"
             />
-            <AuthField
-              dense
+            <Input
               label="새 비밀번호"
               required
               value={newPassword}
-              onChange={setNewPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               placeholder="6자 이상"
               type="password"
               autoComplete="new-password"
+              filledVariant="plain"
             />
-            <AuthField
-              dense
+            <Input
               label="새 비밀번호 확인"
               required
               value={newPasswordConfirm}
-              onChange={setNewPasswordConfirm}
+              onChange={(e) => setNewPasswordConfirm(e.target.value)}
               placeholder="다시 입력"
               type="password"
               autoComplete="new-password"
+              filledVariant="plain"
             />
             {findError && (
               <p className="rounded-xl bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-600">
@@ -327,110 +300,5 @@ function LoginPageInner() {
         )}
       </Modal>
     </main>
-  );
-}
-
-function AuthField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  required,
-  type = "text",
-  autoComplete,
-  icon,
-  trailing,
-  dense = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-  autoComplete?: string;
-  icon?: React.ReactNode;
-  trailing?: React.ReactNode;
-  dense?: boolean;
-}) {
-  return (
-    <label className={["block", dense ? "space-y-1" : "space-y-1.5"].join(" ")}>
-      <span
-        className={[
-          "font-semibold text-gray-600",
-          dense ? "text-[12px]" : "text-[13px]",
-        ].join(" ")}
-      >
-        {label}
-        {required && <span className={requiredStarClass}>*</span>}
-      </span>
-      <div
-        className={[
-          "flex items-center gap-2 border border-gray-200 bg-gray-50 transition",
-          "focus-within:border-[#3182F6] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#3182F6]/20",
-          dense
-            ? "h-[36px] min-h-[36px] rounded-xl px-3"
-            : "min-h-[52px] rounded-2xl px-3.5",
-        ].join(" ")}
-      >
-        {icon && (
-          <span className="shrink-0 text-gray-400" aria-hidden>
-            {icon}
-          </span>
-        )}
-        <input
-          className={[
-            "min-w-0 flex-1 bg-transparent font-medium text-gray-900 outline-none",
-            "placeholder:font-normal placeholder:text-gray-400",
-            dense
-              ? "h-full py-0 text-[15px] placeholder:text-[13px]"
-              : "py-3 text-[16px]",
-          ].join(" ")}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          required={required}
-          type={type}
-          autoComplete={autoComplete}
-        />
-        {trailing}
-      </div>
-    </label>
-  );
-}
-
-function UserIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M5 19c1.5-3.5 4-5 7-5s5.5 1.5 7 5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M7 11V8a5 5 0 0 1 10 0v3"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <rect
-        x="5"
-        y="11"
-        width="14"
-        height="10"
-        rx="2.5"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-    </svg>
   );
 }
