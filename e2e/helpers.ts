@@ -125,23 +125,6 @@ export async function loginViaUi(
   await dismissHomeModalsIfShown(page);
 }
 
-/** 가입 직후 홈 완료 안내 */
-export async function dismissSignupWelcomeIfShown(
-  page: Page,
-  timeoutMs = 4000
-) {
-  const heading = page.getByRole("heading", {
-    name: "회원가입이 완료되었습니다",
-  });
-  try {
-    await heading.waitFor({ state: "visible", timeout: timeoutMs });
-    await page.getByRole("button", { name: "확인", exact: true }).click();
-    await heading.waitFor({ state: "hidden", timeout: 4000 });
-  } catch {
-    /* already seen */
-  }
-}
-
 /** 로그인 후 홈 기능 소개 모달이 있으면 닫기 */
 export async function dismissFeatureIntroIfShown(
   page: Page,
@@ -177,9 +160,8 @@ export async function dismissDeadlineModalIfShown(
   }
 }
 
-/** 홈 위 가입완료·기능소개·데드라인 모달이 로그아웃 등을 가리지 않게 닫기 */
+/** 홈 위 기능소개·데드라인 모달이 로그아웃 등을 가리지 않게 닫기 */
 export async function dismissHomeModalsIfShown(page: Page) {
-  await dismissSignupWelcomeIfShown(page, 4000);
   await dismissFeatureIntroIfShown(page, 4000);
   await dismissDeadlineModalIfShown(page, 2500);
 }

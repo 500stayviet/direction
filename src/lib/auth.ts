@@ -596,7 +596,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
     clearAuthRuntimeCache();
     try {
       const supabase = createClient();
-      await supabase.auth.signOut();
+      void supabase.auth.signOut();
     } catch {
       /* env 없을 때는 무시 — API에서 처리 */
     }

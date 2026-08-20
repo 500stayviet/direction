@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { loginUser, resetPasswordWithHint } from "@/lib/auth";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
-import { markSignupWelcomePending } from "@/lib/signupWelcome";
 import { isAutoLoginEnabled, setAutoLoginEnabled } from "@/lib/loginPrefs";
 
 export default function LoginPage() {
@@ -40,7 +39,6 @@ function LoginPageInner() {
     const registered = searchParams.get("registered") === "1";
     const preset = searchParams.get("username")?.trim() ?? "";
     if (registered) {
-      markSignupWelcomePending();
       setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
     }
     if (preset) setUsername(preset);

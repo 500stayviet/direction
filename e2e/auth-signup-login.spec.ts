@@ -29,13 +29,6 @@ test("로그인 후 기능 소개 모달 · 닫기/일주일간 보지 않기", 
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(page).toHaveURL(/\/(\?|$)/);
 
-  const welcomeHeading = page.getByRole("heading", {
-    name: "회원가입이 완료되었습니다",
-  });
-  await expect(welcomeHeading).toBeVisible({ timeout: 10_000 });
-  await page.getByRole("button", { name: "확인", exact: true }).click();
-  await expect(welcomeHeading).toBeHidden({ timeout: 5_000 });
-
   const introHeading = page.getByRole("heading", {
     name: "이런 기능을 쓸 수 있어요",
   });

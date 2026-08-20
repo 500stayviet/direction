@@ -2,14 +2,14 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/PhoneInput";
 import { RequiredFieldWarnModal } from "@/components/RequiredFieldWarnModal";
 import { StickyActionBar } from "@/components/StickyActionBar";
-import { hardRedirectLogin, registerUser } from "@/lib/auth";
-import { markSignupWelcomePending } from "@/lib/signupWelcome";
+import { registerUser } from "@/lib/auth";
 import { normalizeUsername } from "@/lib/supabase/email";
 import {
   getMissingSignupFields,
@@ -28,6 +28,7 @@ type UsernameCheck =
 const SIGNUP_EVENT_SECTION_UNLOCKED = false;
 
 export default function SignupPage() {
+  const router = useRouter();
   const [shopName, setShopName] = useState("");
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -198,14 +199,16 @@ export default function SignupPage() {
             message: result.message,
           });
         }
+        setLoading(false);
         return;
       }
-      markSignupWelcomePending();
-      hardRedirectLogin({
-        registered: true,
+      const params = new URLSearchParams({
+        registered: "1",
         username: result.user.username,
       });
-    } finally {
+      router.replace(`/login?${params.toString()}`);
+    } catch {
+      setError("회원가입 요청을 처리하지 못했습니다.");
       setLoading(false);
     }
   };
