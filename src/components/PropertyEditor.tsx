@@ -33,7 +33,10 @@ import { DealTypeToggle } from "@/components/DealTypeToggle";
 import { applyDealTypeToMoney } from "@/lib/dealTypeMoney";
 import {
   AVAIL_TOGGLE,
+  ELEVATOR_TOGGLE,
   availFromYesNo,
+  booleanFromElevator,
+  elevatorFromBoolean,
   formatMoveInRange,
   formatPhoneInput,
   needsJeonseInsurance,
@@ -1207,17 +1210,13 @@ export function PropertyEditor({
               required
               invalid={isInvalid("elevator")}
               columns={2}
-              value={
-                property.elevator === true
-                  ? "유"
-                  : property.elevator === false
-                    ? "무"
-                    : undefined
-              }
-              options={["유", "무"] as const}
-              onChange={(v) =>
-                update({ elevator: v === "" ? undefined : v === "유" })
-              }
+              keepLayout
+              value={elevatorFromBoolean(property.elevator)}
+              options={ELEVATOR_TOGGLE}
+              onChange={(v) => {
+                const next = booleanFromElevator(v);
+                update({ elevator: next });
+              }}
             />
             </div>
             <div>
@@ -1390,17 +1389,13 @@ export function PropertyEditor({
             required
             invalid={isInvalid("elevator")}
             columns={2}
-            value={
-              property.elevator === true
-                ? "유"
-                : property.elevator === false
-                  ? "무"
-                  : undefined
-            }
-            options={["유", "무"] as const}
-            onChange={(v) =>
-              update({ elevator: v === "" ? undefined : v === "유" })
-            }
+            keepLayout
+            value={elevatorFromBoolean(property.elevator)}
+            options={ELEVATOR_TOGGLE}
+            onChange={(v) => {
+              const next = booleanFromElevator(v);
+              update({ elevator: next });
+            }}
           />
           </div>
           <div>

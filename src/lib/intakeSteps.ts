@@ -21,6 +21,7 @@ import {
   availFromYesNo,
   formatCustomerTalkFlagValue,
   formatPhoneInput,
+  formatPropertyElevatorTalkValue,
   isTalkPhoneComplete,
   needsJeonseInsurance,
 } from "@/lib/format";
@@ -129,8 +130,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "elevator",
       name: "엘리베이터",
-      nameHint: "(유/무)",
-      example: "엘베 유",
+      nameHint: "(필요/불필요)",
+      example: "엘베 필요",
     },
     { key: "notes", name: "메모", example: "남향 저층" },
   ],
@@ -536,9 +537,15 @@ export function formatFlagsValueLine(
 }
 
 function formatElevatorValueLine(
-  partial: Partial<IntakeParseResult>
+  partial: Partial<IntakeParseResult>,
+  kind: IntakeKind
 ): string {
-  return partial.elevator ? `엘베${partial.elevator}` : "";
+  if (!partial.elevator) return "";
+  const label =
+    kind === "customer"
+      ? formatCustomerTalkFlagValue(partial.elevator)
+      : formatPropertyElevatorTalkValue(partial.elevator);
+  return `엘베${label}`;
 }
 
 function mergeFlagsFromText(
@@ -1233,7 +1240,7 @@ export function parseIntakeStep(
     return {
       ok: true,
       partial: merged,
-      display: formatElevatorValueLine(merged),
+      display: formatElevatorValueLine(merged, kind),
     };
   }
 

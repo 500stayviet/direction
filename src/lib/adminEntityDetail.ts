@@ -13,6 +13,7 @@ import {
   yesNoLabel,
   needsJeonseInsurance,
   formatBuildingParking,
+  propertyElevatorLabel,
 } from "@/lib/format";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import { formatLandAreaLine } from "@/lib/landArea";
@@ -230,7 +231,7 @@ function buildPropertyFields(
             .join(" · ")
         : "무";
     push(fields, "주차", parking);
-    push(fields, "엘리베이터", p.elevator ? "유" : "무");
+    push(fields, "엘리베이터", propertyElevatorLabel(p.elevator));
     if (Array.isArray(p.options) && p.options.length > 0) {
       push(fields, "옵션", p.options.join(", "));
     }
@@ -316,7 +317,9 @@ export function buildAdminCustomerDetail(args: {
   if (showParking) {
     push(fields, "주차", customerNeedLabel(getCustomerParkingLabel(c)));
   }
-  if (showElevator) push(fields, "엘리베이터", yesNoLabel(c.elevatorNeeded));
+  if (showElevator) {
+    push(fields, "엘리베이터", customerNeedLabel(c.elevatorNeeded));
+  }
 
   push(fields, "메모", str(c.notes) || undefined);
   push(fields, "팀공유", c.workspaceShared ? "유" : "무");

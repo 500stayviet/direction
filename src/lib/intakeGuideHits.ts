@@ -5,6 +5,7 @@ import {
   formatGuideMoveInRange,
   formatMoney,
   formatPhoneInput,
+  formatPropertyElevatorTalkValue,
 } from "@/lib/format";
 import {
   intakeMoveInPeriod,
@@ -140,7 +141,12 @@ export function intakeGuideHits(
   if (parsed.insurance) flagParts.push(`보증${flagWord(parsed.insurance)}`);
   if (parsed.parking) flagParts.push(`주차${flagWord(parsed.parking)}`);
   if (flagParts.length > 0) hits.flags = flagParts.join(" · ");
-  if (parsed.elevator) hits.elevator = `엘베${parsed.elevator}`;
+  if (parsed.elevator) {
+    hits.elevator =
+      kind === "customer"
+        ? `엘베${formatCustomerTalkFlagValue(parsed.elevator)}`
+        : `엘베${formatPropertyElevatorTalkValue(parsed.elevator)}`;
+  }
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
 
   const notes = parsed.notes.trim();

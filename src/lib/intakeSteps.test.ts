@@ -336,7 +336,7 @@ describe("intakeSteps", () => {
     assert.doesNotMatch(chain.commits[0]?.display ?? "", /엘베/);
     assert.equal(chain.commits[1]?.key, "elevator");
     assert.equal(chain.commits[1]?.partial.elevator, "무");
-    assert.match(chain.commits[1]?.display ?? "", /엘베무/);
+    assert.match(chain.commits[1]?.display ?? "", /엘베없음/);
   });
 
   it("flags remainder는 채운 항목만 순서와 상관없이 소비한다", () => {

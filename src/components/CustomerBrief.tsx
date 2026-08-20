@@ -12,7 +12,6 @@ import {
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
   customerNeedLabel,
-  yesNoLabel,
   needsJeonseInsurance,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
@@ -58,8 +57,8 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
   const showElevator = customer.roomType !== "토지";
   const parkingLabel = getCustomerParkingLabel(customer);
   const loanLabel = getCustomerLoanLabel(customer);
-  const insuranceLabel = yesNoLabel(customer.insuranceNeeded);
-  const elevatorLabel = yesNoLabel(customer.elevatorNeeded);
+  const insuranceLabel = customerNeedLabel(customer.insuranceNeeded);
+  const elevatorLabel = customerNeedLabel(customer.elevatorNeeded);
   const dealLabel = customer.dealType?.trim() || "";
   const typeLabel = displayRoomType(customer.roomType, customer.buildingKind);
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
@@ -200,7 +199,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
               <StatusChip
                 label="엘리베이터"
                 value={elevatorLabel}
-                active={elevatorLabel === "유"}
+                active={elevatorLabel === "필요"}
               />
             ) : null}
           </div>

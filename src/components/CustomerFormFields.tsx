@@ -637,9 +637,10 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
         <OptionToggle
           label="엘리베이터"
           columns={2}
-          value={elevatorNeeded || undefined}
-          options={["유", "무"] as const}
-          onChange={(next) => onPatch({ elevatorNeeded: next })}
+          keepLayout
+          value={needFromYesNo(elevatorNeeded)}
+          options={CUSTOMER_NEED_TOGGLE}
+          onChange={(next) => onPatch({ elevatorNeeded: yesNoFromNeed(next) })}
         />
       )}
       <div>

@@ -476,8 +476,11 @@ export function needsJeonseInsurance(
 
 export const AVAIL_TOGGLE = ["가능", "불가"] as const;
 
-/** 고객 등록 — 대출·보증보험·주차 (매칭은 유/무로 동일) */
+/** 고객 등록 — 대출·보증보험·주차·엘리베이터 (매칭은 유/무로 동일) */
 export const CUSTOMER_NEED_TOGGLE = ["필요", "불필요"] as const;
+
+/** 매물 등록 — 엘리베이터 유무 */
+export const ELEVATOR_TOGGLE = ["있음", "없음"] as const;
 
 export function availFromYesNo(
   value?: string | null
@@ -517,6 +520,30 @@ export function customerNeedLabel(value?: string | null): string {
 /** 대화 입력 고객 flags 줄 표시 */
 export function formatCustomerTalkFlagValue(value: "유" | "무"): string {
   return value === "유" ? "필요" : "불필요";
+}
+
+export function elevatorFromBoolean(
+  value?: boolean | null
+): "있음" | "없음" | undefined {
+  if (value === true) return "있음";
+  if (value === false) return "없음";
+  return undefined;
+}
+
+export function booleanFromElevator(value: string): boolean | undefined {
+  if (value === "있음" || value === "유") return true;
+  if (value === "없음" || value === "무") return false;
+  return undefined;
+}
+
+/** 매물 카드·상세 표시 */
+export function propertyElevatorLabel(value?: boolean | null): string {
+  return elevatorFromBoolean(value) ?? "-";
+}
+
+/** 대화 입력 매물 엘리베이터 줄 표시 */
+export function formatPropertyElevatorTalkValue(value: "유" | "무"): string {
+  return value === "유" ? "있음" : "없음";
 }
 
 /** 건물 주차 — 예) 지상 5대, 지하 10대 */

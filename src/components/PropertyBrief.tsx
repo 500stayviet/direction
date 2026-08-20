@@ -18,6 +18,7 @@ import {
   isInsuranceJoined,
   needsJeonseInsurance,
   formatBuildingParking,
+  propertyElevatorLabel,
 } from "@/lib/format";
 import { formatLandAreaLine } from "@/lib/landArea";
 import { formatDisplayTime } from "@/components/TimePicker";
@@ -660,7 +661,7 @@ export function PropertyBrief({
             property.elevator === false) ? (
           <StatusChip
             label="엘리베이터"
-            value={property.elevator ? "유" : "무"}
+            value={propertyElevatorLabel(property.elevator)}
             active={property.elevator === true}
           />
           ) : null}

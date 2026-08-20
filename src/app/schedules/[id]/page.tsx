@@ -58,7 +58,6 @@ import {
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
-  yesNoLabel,
   needsJeonseInsurance,
   matchesBudgetSearch,
   matchesPhoneSearch,
@@ -1013,7 +1012,7 @@ function ScheduleDetailInner() {
                         {customer.roomType !== "토지" ? (
                           <CustomerMeta
                             label="엘리베이터"
-                            value={yesNoLabel(customer.elevatorNeeded)}
+                            value={customerNeedLabel(customer.elevatorNeeded)}
                           />
                         ) : null}
                         {customer.notes?.trim() ? (

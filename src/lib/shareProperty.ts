@@ -6,6 +6,7 @@ import {
   isInsuranceJoined,
   needsJeonseInsurance,
   formatBuildingParking,
+  propertyElevatorLabel,
 } from "@/lib/format";
 import { skipsResidentialExtras, needsRoomBathCounts, formatUnitCountsLine, displayRoomType, needsMaintenanceFee } from "@/lib/constants";
 import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
@@ -168,7 +169,7 @@ export function buildPropertyShareText(
     }
 
     if (property.roomType !== "토지") {
-      lines.push(`엘리베이터: ${property.elevator ? "유" : "무"}`);
+      lines.push(`엘리베이터: ${propertyElevatorLabel(property.elevator)}`);
     }
 
     if (showResidential) {
