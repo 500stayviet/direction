@@ -32,18 +32,26 @@ function LoginPageInner() {
   const [password, setPassword] = useState("");
   const [autoLogin, setAutoLogin] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [signupCompleteOpen, setSignupCompleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const registered = searchParams.get("registered") === "1";
     const preset = searchParams.get("username")?.trim() ?? "";
     if (registered) {
-      setSuccess("회원가입이 완료되었습니다. 로그인해 주세요.");
+      setSignupCompleteOpen(true);
     }
     if (preset) setUsername(preset);
     setAutoLogin(isAutoLoginEnabled());
   }, [searchParams]);
+
+  const closeSignupComplete = () => {
+    setSignupCompleteOpen(false);
+    const preset = searchParams.get("username")?.trim();
+    router.replace(
+      preset ? `/login?username=${encodeURIComponent(preset)}` : "/login"
+    );
+  };
 
   const [findOpen, setFindOpen] = useState(false);
   const [findUsername, setFindUsername] = useState("");
@@ -57,7 +65,6 @@ function LoginPageInner() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
     setLoading(true);
     try {
       const result = await loginUser(username, password, { autoLogin });
@@ -135,11 +142,6 @@ function LoginPageInner() {
         </p>
       </div>
 
-      {success ? (
-        <p className="mb-3 rounded-xl bg-gray-50 px-3.5 py-2.5 text-[13px] font-semibold text-gray-700">
-          {success}
-        </p>
-      ) : null}
       <InstallAppGuide className="mb-3 shrink-0" />
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -214,6 +216,31 @@ function LoginPageInner() {
           </Link>
         </p>
       </form>
+
+      <Modal
+        open={signupCompleteOpen}
+        onClose={closeSignupComplete}
+        position="center"
+        dense
+        className="!max-h-[min(100dvh-32px,fit-content)] !w-[min(100%,336px)] !max-w-[336px] overflow-hidden !px-3.5 !pb-3 !pt-3.5"
+      >
+        <p className="text-center text-[13px] font-bold tracking-tight text-[#3182F6]">
+          현장동선
+        </p>
+        <h2 className="mt-1 text-center text-[18px] font-bold leading-snug tracking-tight text-gray-900">
+          회원가입이 완료되었습니다
+        </h2>
+        <p className="mt-2 text-center text-[13px] font-medium leading-relaxed text-gray-500">
+          가입한 아이디로 로그인해 주세요.
+        </p>
+        <button
+          type="button"
+          onClick={closeSignupComplete}
+          className="mt-4 flex h-10 w-full items-center justify-center rounded-full bg-[#3182F6] text-[14px] font-bold text-white shadow-sm active:scale-[0.98] transition-all duration-150"
+        >
+          확인
+        </button>
+      </Modal>
 
       <Modal
         open={findOpen}
