@@ -142,11 +142,9 @@ export function hydrateEntityCacheIfNeeded(userId: string | null | undefined) {
   fillMissingFromSession(userId);
 }
 
+/** 로그아웃은 clearAuthRuntimeCache → clearEntityCache. userId null = 아직 모름 → 캐시 유지 */
 export function ensureEntityCacheUser(userId: string | null) {
-  if (!userId) {
-    clearEntityCache();
-    return;
-  }
+  if (!userId) return;
   if (fillMissingFromSession(userId)) {
     notify();
   }

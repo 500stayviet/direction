@@ -9,7 +9,13 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { getSessionUserId, peekCurrentUser } from "@/lib/auth";
+import {
+  getAccessToken,
+  getAuthEpoch,
+  getSessionUserId,
+  peekCurrentUser,
+  subscribeAuthChange,
+} from "@/lib/auth";
 import {
   ensureEntityCacheUser,
   hydrateEntityCacheIfNeeded,
@@ -19,25 +25,59 @@ import {
   subscribeEntityCache,
 } from "@/lib/entityCache";
 import {
-  getCustomers,
-  getListedProperties,
-  getSchedules,
+  loadCustomersList,
+  loadListedPropertiesList,
+  loadSchedulesList,
+  type EntityListLoadResult,
 } from "@/lib/storage";
 import type { Customer, ListedProperty, Schedule } from "@/lib/types";
 
-function hasUsableListCache<T>(peek: () => T[] | null): boolean {
-  const list = peek();
-  return list !== null && list.length > 0;
+/** pending = 아직 확정 전(로딩). ready = fetch 성공 또는 캐시로 표시 가능 */
+export type EntityListStatus = "pending" | "ready";
+
+function hasListCache<T>(peek: () => T[] | null): boolean {
+  return peek() !== null;
+}
+
+function initialListStatus<T>(peek: () => T[] | null): EntityListStatus {
+  if (typeof window === "undefined") return "pending";
+  hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
+  return hasListCache(peek) ? "ready" : "pending";
+}
+
+/** 카드 없을 때 「불러오는 중」 */
+export function showEntityListLoading(
+  status: EntityListStatus,
+  count: number
+): boolean {
+  return status === "pending" && count === 0;
+}
+
+/** fetch·캐시로 「등록된 … 없습니다」 확정 */
+export function isEntityListEmptyConfirmed(
+  status: EntityListStatus,
+  count: number
+): boolean {
+  return status === "ready" && count === 0;
+}
+
+function resolveStatusAfterFetch<T>(
+  peek: () => T[] | null,
+  result: EntityListLoadResult<T>
+): EntityListStatus {
+  if (result.ok) return "ready";
+  if (hasListCache(peek)) return "ready";
+  return "pending";
 }
 
 /**
  * sessionStorage/메모리 캐시는 클라이언트 전용.
- * 서버 fetch가 끝나기 전에는 리스트 UI가 「없습니다」를 보여 주지 않도록
- * loading을 유지한다 (캐시에 카드가 이미 있으면 즉시 표시).
+ * fetch 실패 + 캐시 없음 → pending 유지(auth 재시도).
+ * 캐시 있으면 즉시 ready( stale-while-revalidate ).
  */
 function useEntityListState<T>(
   peek: () => T[] | null,
-  loadFresh: () => Promise<T[]>
+  loadFresh: () => Promise<EntityListLoadResult<T>>
 ) {
   const readSnapshot = useMemo(
     () => () => {
@@ -55,15 +95,16 @@ function useEntityListState<T>(
     () => null
   );
 
-  /** 낙관적 갱신용. null이면 캐시를 그대로 표시 */
   const [override, setOverride] = useState<T[] | null>(null);
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === "undefined") return true;
-    hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
-    return !hasUsableListCache(peek);
-  });
+  const [status, setStatus] = useState<EntityListStatus>(() =>
+    initialListStatus(peek)
+  );
+  const [authEpoch, setAuthEpoch] = useState(() =>
+    typeof window === "undefined" ? 0 : getAuthEpoch()
+  );
 
   const items = override ?? cached ?? [];
+  const loading = showEntityListLoading(status, items.length);
 
   const setItems = useCallback<Dispatch<SetStateAction<T[]>>>(
     (action) => {
@@ -78,50 +119,69 @@ function useEntityListState<T>(
   useEffect(() => {
     if (cached !== null) {
       setOverride(null);
+      setStatus("ready");
+      return;
     }
-  }, [cached]);
+    if (!hasListCache(peek)) {
+      setStatus("pending");
+    }
+  }, [cached, peek]);
 
   useEffect(() => {
     const syncedId = peekCurrentUser()?.id ?? null;
     if (syncedId) ensureEntityCacheUser(syncedId);
   }, []);
 
+  useEffect(() => subscribeAuthChange(() => setAuthEpoch(getAuthEpoch())), []);
+
   useEffect(() => {
     let cancelled = false;
+
     void (async () => {
       const userId = await getSessionUserId();
-      ensureEntityCacheUser(userId);
+      if (userId) ensureEntityCacheUser(userId);
       if (cancelled) return;
 
-      if (!hasUsableListCache(peek)) {
-        setLoading(true);
+      const user = peekCurrentUser();
+      const token = await getAccessToken();
+      if (!user?.id || !token) {
+        setStatus(hasListCache(peek) ? "ready" : "pending");
+        return;
       }
+
+      if (!hasListCache(peek)) {
+        setStatus("pending");
+      }
+
       try {
-        await loadFresh();
+        const result = await loadFresh();
+        if (cancelled) return;
+        setStatus(resolveStatusAfterFetch(peek, result));
       } catch {
-        /* 캐시가 있으면 그대로 두고, 없으면 빈 목록 */
+        if (cancelled) return;
+        setStatus(hasListCache(peek) ? "ready" : "pending");
       }
-      if (!cancelled) setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [loadFresh, peek]);
+  }, [loadFresh, peek, authEpoch]);
 
-  return { items, loading, setItems };
+  return { items, status, loading, setItems };
 }
 
 export function useCustomersList() {
-  return useEntityListState<Customer>(peekCustomers, getCustomers);
+  return useEntityListState<Customer>(peekCustomers, loadCustomersList);
 }
 
 export function usePropertiesList() {
   return useEntityListState<ListedProperty>(
     peekProperties,
-    getListedProperties
+    loadListedPropertiesList
   );
 }
 
 export function useSchedulesList() {
-  return useEntityListState<Schedule>(peekSchedules, getSchedules);
+  return useEntityListState<Schedule>(peekSchedules, loadSchedulesList);
 }
