@@ -512,6 +512,7 @@ export async function insertCustomer(opts: {
   ownerUserId: string;
   workspaceId?: string | null;
   name: string;
+  phone?: string;
   roomType?: string;
   preferredGus?: string[];
   preferredDongs?: string[];
@@ -526,7 +527,7 @@ export async function insertCustomer(opts: {
   const payload = {
     id,
     name: opts.name,
-    phone: "010-9999-8877",
+    phone: opts.phone ?? "010-9999-8877",
     dealType: "월세" as const,
     roomType,
     deposit: 1000,
@@ -571,5 +572,92 @@ export async function insertCustomer(opts: {
   });
   if (error) throw new Error(`insert customer: ${error.message}`);
   return { id, preferredGus, preferredDongs, roomType };
+}
+
+/** 네비·일정 상세 E2E — DB에 방문 일정 직접 삽입 */
+export async function insertSchedule(opts: {
+  ownerUserId: string;
+  workspaceId?: string | null;
+  customerId?: string;
+  guestName?: string;
+  visitDate?: string;
+  visitTime?: string;
+}) {
+  const admin = serviceSupabase();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const jibun = String(Math.floor(1000 + Math.random() * 8999));
+  const address = `서울 강동구 성내동 ${jibun}`;
+  const propertyId = randomUUID();
+  const property = {
+    id: propertyId,
+    address,
+    roomNo: "",
+    buildingName: "",
+    floorPassword: "",
+    roomPassword: "",
+    arriveTime: opts.visitTime ?? "14:00",
+    tenantPhone: "01012345678",
+    landlordPhone: "",
+    hasPartnerAgency: false,
+    partnerAgency: { name: "", dong: "", phone: "" },
+    roomType: "원룸" as const,
+    dealType: "전세" as const,
+    deposit: 1000,
+    monthlyRent: undefined,
+    maintenanceFee: 0,
+    maintenanceIncludes: [] as string[],
+    options: [] as string[],
+    petAllowed: "무" as const,
+    elevator: false,
+    parkingType: "무" as const,
+    parkingFeeType: "별도" as const,
+    loanAvailable: "무" as const,
+    insuranceType: "무" as const,
+    landUse: "",
+    moveInFrom: "",
+    moveInTo: "",
+    moveInSingle: false,
+    moveInDate: "협의가능",
+    moveInNegotiable: true,
+    moveInVacant: false,
+    partnerAgencyShared: false,
+    workspaceShared: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const payload = {
+    id,
+    customerId: opts.customerId,
+    guestName: opts.guestName,
+    visitDate: opts.visitDate ?? now.slice(0, 10),
+    visitTime: opts.visitTime ?? "14:00",
+    properties: [property],
+    routeSummary: [] as Array<{
+      fromIndex: number;
+      toIndex: number;
+      distanceKm: number;
+      durationMin: number;
+    }>,
+    workspaceShared: false,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: opts.ownerUserId,
+    createdByName: "e2e",
+  };
+  const { error } = await admin.from("schedules").insert({
+    id,
+    user_id: opts.ownerUserId,
+    workspace_id: opts.workspaceId ?? null,
+    created_by: opts.ownerUserId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
+  if (error) throw new Error(`insert schedule: ${error.message}`);
+  return { id, address, propertyId };
 }
 
