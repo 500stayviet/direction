@@ -31,7 +31,7 @@ interface CustomerListCardProps {
   showDeadline?: boolean;
   /** false면 등록일 숨김 */
   showSavedDate?: boolean;
-  /** 공유 신규(정적) | 매칭 신규(반짝임) */
+  /** 공유 신규(연한 초록) | 매칭 신규(연한→진한 초록) */
   alertHighlight?: "share" | "match" | null;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;

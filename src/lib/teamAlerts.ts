@@ -404,7 +404,8 @@ export function getAlertBadgeCounts(): {
 
 /**
  * 리스트 카드 강조.
- * 공유 미열람은 연한 초록("share"), 고객↔매물 매칭 미열람은 진한 초록("match").
+ * 공유 미열람은 연한 초록 고정("share").
+ * 매칭 미열람은 연한 초록 → 진한 초록 2단계("match").
  */
 export function listCardHighlight(
   tab: AlertTab,
@@ -423,10 +424,10 @@ export function listCardFrameClass(
 ): string {
   if (done) return "border border-gray-200 bg-gray-50";
   if (highlight === "share") {
-    return "border-2 border-solid border-emerald-500 bg-emerald-50";
+    return "border-2 border-solid border-emerald-400 bg-emerald-50";
   }
   if (highlight === "match") {
-    return "border-2 border-solid border-emerald-700 bg-emerald-100 animate-border-sparkle-match";
+    return "animate-match-alert-stage";
   }
   return "border border-gray-200 bg-white";
 }
@@ -439,10 +440,10 @@ export function alertHighlightClass(
     return "!border-2 !border-solid !bg-gray-200 !border-gray-300 !shadow-none text-gray-500";
   }
   if (highlight === "share") {
-    return "!border-2 !border-solid !border-emerald-500 !bg-emerald-50 !shadow-none";
+    return "!border-2 !border-solid !border-emerald-400 !bg-emerald-50 !shadow-none";
   }
   if (highlight === "match") {
-    return "!border-2 !border-solid !border-emerald-700 !bg-emerald-100 animate-border-sparkle-match !shadow-none";
+    return "!shadow-none animate-match-alert-stage";
   }
   // 고객·매물·네비 idle 공통: 업무용 흰 면 + 진한 슬레이트 실선
   return "!border-2 !border-solid !border-slate-400 !bg-white !shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
