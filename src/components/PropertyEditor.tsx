@@ -1274,6 +1274,7 @@ export function PropertyEditor({
                 required
                 invalid={isInvalid("loan")}
                 columns={2}
+                keepLayout
                 value={availFromYesNo(property.loanAvailable)}
                 options={AVAIL_TOGGLE}
                 onChange={(next) =>
@@ -1290,6 +1291,7 @@ export function PropertyEditor({
                 required
                 invalid={isInvalid("insurance")}
                 columns={2}
+                keepLayout
                 value={availFromYesNo(property.insuranceType)}
                 options={AVAIL_TOGGLE}
                 onChange={(next) =>
@@ -1304,6 +1306,7 @@ export function PropertyEditor({
               required
               invalid={isInvalid("parking")}
               columns={2}
+              keepLayout
               value={availFromYesNo(property.parkingType)}
               options={AVAIL_TOGGLE}
               onChange={(next) => {

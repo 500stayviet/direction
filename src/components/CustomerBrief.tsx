@@ -11,8 +11,8 @@ import {
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
+  customerNeedLabel,
   yesNoLabel,
-  availLabel,
   needsJeonseInsurance,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
@@ -173,7 +173,7 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             {showLoanInsurancePet ? (
               <StatusChip
                 label="대출"
-                value={availLabel(loanLabel)}
+                value={customerNeedLabel(loanLabel)}
                 active={loanLabel !== "무" && loanLabel !== "-"}
               />
             ) : null}
@@ -181,14 +181,14 @@ export function CustomerBrief({ customer }: { customer: Customer }) {
             needsJeonseInsurance(customer.dealType, customer.roomType) ? (
               <StatusChip
                 label="보증보험"
-                value={availLabel(insuranceLabel)}
+                value={customerNeedLabel(insuranceLabel)}
                 active={insuranceLabel === "유"}
               />
             ) : null}
             {showParking ? (
               <StatusChip
                 label="주차"
-                value={availLabel(parkingLabel)}
+                value={customerNeedLabel(parkingLabel)}
                 active={
                   parkingLabel !== "무" &&
                   parkingLabel !== "-" &&

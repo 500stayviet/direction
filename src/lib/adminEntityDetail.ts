@@ -3,6 +3,7 @@ import {
   formatDepositRent,
   formatMoney,
   formatVisitDateTime,
+  customerNeedLabel,
   getCustomerBudgetLabel,
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
@@ -307,12 +308,14 @@ export function buildAdminCustomerDetail(args: {
   const showElevator = c.roomType !== "토지";
 
   if (showLoanInsurancePet) {
-    push(fields, "대출", getCustomerLoanLabel(c));
+    push(fields, "대출", customerNeedLabel(getCustomerLoanLabel(c)));
     if (needsJeonseInsurance(c.dealType, c.roomType)) {
-      push(fields, "보증보험", yesNoLabel(c.insuranceNeeded));
+      push(fields, "보증보험", customerNeedLabel(c.insuranceNeeded));
     }
   }
-  if (showParking) push(fields, "주차", getCustomerParkingLabel(c));
+  if (showParking) {
+    push(fields, "주차", customerNeedLabel(getCustomerParkingLabel(c)));
+  }
   if (showElevator) push(fields, "엘리베이터", yesNoLabel(c.elevatorNeeded));
 
   push(fields, "메모", str(c.notes) || undefined);

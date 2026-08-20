@@ -66,7 +66,7 @@ const MESSAGES: Record<CustomerFieldKey, (dealType: DealType) => string> = {
   monthlyRentTo: () => requiredInputMessage("월세 까지"),
   moveIn: () => requiredInputMessage("입주희망일"),
   loan: () => requiredInputMessage("대출"),
-  insurance: () => requiredInputMessage("전세보증보험 가입 가능 여부"),
+  insurance: () => requiredInputMessage("전세보증보험"),
   parking: () => requiredInputMessage("주차"),
   teamShare: () => requiredInputMessage("팀공유 유무"),
   preferredLocation: () => requiredInputMessage("선호지역"),

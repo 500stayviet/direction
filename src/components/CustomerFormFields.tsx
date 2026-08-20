@@ -11,10 +11,10 @@ import {
 import { customerMemoPlaceholder } from "@/lib/memoPlaceholders";
 import type { CustomerFieldKey } from "@/lib/customerValidation";
 import {
-  AVAIL_TOGGLE,
-  availFromYesNo,
+  CUSTOMER_NEED_TOGGLE,
+  needFromYesNo,
   needsJeonseInsurance,
-  yesNoFromAvail,
+  yesNoFromNeed,
 } from "@/lib/format";
 import {
   isCustomerLandOrBuilding,
@@ -596,23 +596,25 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
             required
             invalid={isInvalid("loan")}
             columns={2}
-            value={availFromYesNo(loanNeeded)}
-            options={AVAIL_TOGGLE}
-            onChange={(next) => onPatch({ loanNeeded: yesNoFromAvail(next) })}
+            keepLayout
+            value={needFromYesNo(loanNeeded)}
+            options={CUSTOMER_NEED_TOGGLE}
+            onChange={(next) => onPatch({ loanNeeded: yesNoFromNeed(next) })}
           />
         </div>
       )}
       {showInsurance && (
         <div ref={setFieldRef("insurance")}>
           <OptionToggle
-            label="전세보증보험 가입 가능 여부"
+            label="전세보증보험"
             required
             invalid={isInvalid("insurance")}
             columns={2}
-            value={availFromYesNo(insuranceNeeded)}
-            options={AVAIL_TOGGLE}
+            keepLayout
+            value={needFromYesNo(insuranceNeeded)}
+            options={CUSTOMER_NEED_TOGGLE}
             onChange={(next) =>
-              onPatch({ insuranceNeeded: yesNoFromAvail(next) })
+              onPatch({ insuranceNeeded: yesNoFromNeed(next) })
             }
           />
         </div>
@@ -624,9 +626,10 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
             required
             invalid={isInvalid("parking")}
             columns={2}
-            value={availFromYesNo(parkingType)}
-            options={AVAIL_TOGGLE}
-            onChange={(next) => onPatch({ parkingType: yesNoFromAvail(next) })}
+            keepLayout
+            value={needFromYesNo(parkingType)}
+            options={CUSTOMER_NEED_TOGGLE}
+            onChange={(next) => onPatch({ parkingType: yesNoFromNeed(next) })}
           />
         </div>
       )}

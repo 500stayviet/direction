@@ -53,12 +53,12 @@ import {
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import {
   formatVisitDateTime,
+  customerNeedLabel,
   getCustomerBudgetLabel,
   getCustomerLoanLabel,
   getCustomerMoveInLabel,
   getCustomerParkingLabel,
   yesNoLabel,
-  availLabel,
   needsJeonseInsurance,
   matchesBudgetSearch,
   matchesPhoneSearch,
@@ -990,7 +990,7 @@ function ScheduleDetailInner() {
                           <>
                             <CustomerMeta
                               label="대출"
-                              value={availLabel(getCustomerLoanLabel(customer))}
+                              value={customerNeedLabel(getCustomerLoanLabel(customer))}
                             />
                             {needsJeonseInsurance(
                               customer.dealType,
@@ -998,9 +998,7 @@ function ScheduleDetailInner() {
                             ) ? (
                             <CustomerMeta
                               label="보증보험"
-                              value={availLabel(
-                                yesNoLabel(customer.insuranceNeeded)
-                              )}
+                              value={customerNeedLabel(customer.insuranceNeeded)}
                             />
                             ) : null}
                           </>
@@ -1009,7 +1007,7 @@ function ScheduleDetailInner() {
                         customer.roomType !== "건물" ? (
                           <CustomerMeta
                             label="주차"
-                            value={availLabel(getCustomerParkingLabel(customer))}
+                            value={customerNeedLabel(getCustomerParkingLabel(customer))}
                           />
                         ) : null}
                         {customer.roomType !== "토지" ? (

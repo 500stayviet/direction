@@ -19,6 +19,7 @@ import {
 } from "@/lib/intakeParse";
 import {
   availFromYesNo,
+  formatCustomerTalkFlagValue,
   formatPhoneInput,
   isTalkPhoneComplete,
   needsJeonseInsurance,
@@ -122,8 +123,8 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
     {
       key: "flags",
       name: "대출 · 보증보험 · 주차",
-      nameHint: "(가능/불가)",
-      example: "대출가능 보증보험 가능 주차불가",
+      nameHint: "(필요/불필요)",
+      example: "대출필요 보증 필요 주차불필요",
     },
     {
       key: "elevator",
@@ -351,32 +352,41 @@ function flagFieldsForContext(
 }
 
 export function flagsGuideCopy(
+  kind: IntakeKind,
   dealType?: IntakeParseResult["dealType"],
   roomType?: IntakeParseResult["roomType"]
 ): { name: string; nameHint: string; example: string } {
+  const customer = kind === "customer";
   if (skipsResidentialExtras(roomType)) {
     return {
       name: "주차",
-      nameHint: "(가능/불가)",
-      example: "주차가능",
+      nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+      example: customer ? "주차필요" : "주차가능",
     };
   }
   if (needsJeonseInsurance(dealType, roomType) || !dealType) {
     return {
       name: "대출 · 보증보험 · 주차",
-      nameHint: "(가능/불가)",
-      example: "대출가능 보증보험 가능 주차불가",
+      nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+      example: customer
+        ? "대출필요 보증 필요 주차불필요"
+        : "대출가능 보증보험 가능 주차불가",
     };
   }
   return {
     name: "대출 · 주차",
-    nameHint: "(가능/불가)",
-    example: "대출가능 주차불가",
+    nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+    example: customer ? "대출필요 주차불필요" : "대출가능 주차불가",
   };
 }
 
-function formatAvailTalkFlag(value: NonNullable<IntakeParseResult["loan"]>): string {
-  return availFromYesNo(value) ?? "";
+function formatTalkFlagLabel(
+  value: NonNullable<IntakeParseResult["loan"]>,
+  kind: IntakeKind
+): string {
+  return kind === "customer"
+    ? formatCustomerTalkFlagValue(value)
+    : (availFromYesNo(value) ?? "");
 }
 
 export function flagsStepComplete(
@@ -505,6 +515,7 @@ export function firstIncompleteGuideIndex(
 
 export function formatFlagsValueLine(
   partial: Partial<IntakeParseResult>,
+  kind: IntakeKind,
   dealType?: IntakeParseResult["dealType"],
   roomType?: IntakeParseResult["roomType"]
 ): string {
@@ -513,13 +524,13 @@ export function formatFlagsValueLine(
   const keep = new Set(flagFieldsForContext(deal, room));
   const parts: string[] = [];
   if (keep.has("loan") && partial.loan) {
-    parts.push(`대출${formatAvailTalkFlag(partial.loan)}`);
+    parts.push(`대출${formatTalkFlagLabel(partial.loan, kind)}`);
   }
   if (keep.has("insurance") && partial.insurance) {
-    parts.push(`보증${formatAvailTalkFlag(partial.insurance)}`);
+    parts.push(`보증${formatTalkFlagLabel(partial.insurance, kind)}`);
   }
   if (keep.has("parking") && partial.parking) {
-    parts.push(`주차${formatAvailTalkFlag(partial.parking)}`);
+    parts.push(`주차${formatTalkFlagLabel(partial.parking, kind)}`);
   }
   return parts.join(" · ");
 }
@@ -1205,7 +1216,7 @@ export function parseIntakeStep(
     return {
       ok: true,
       partial: merged,
-      display: formatFlagsValueLine(merged, deal, room),
+      display: formatFlagsValueLine(merged, kind, deal, room),
     };
   }
 

@@ -17,6 +17,8 @@ interface OptionToggleProps<T extends string> {
   options: readonly T[] | T[];
   onChange: (value: T | "") => void;
   columns?: 1 | 2 | 3 | 4;
+  /** true면 선택 후에도 옵션 위치를 유지 (한 줄만 남기지 않음) */
+  keepLayout?: boolean;
   invalid?: boolean;
   disabled?: boolean;
 }
@@ -29,12 +31,13 @@ export function OptionToggle<T extends string>({
   options,
   onChange,
   columns = 3,
+  keepLayout = false,
   invalid,
   disabled = false,
 }: OptionToggleProps<T>) {
   const selected = (value || "") as T | "";
   const canToggleOff = options.length > 1;
-  const collapsed = Boolean(selected) && canToggleOff;
+  const collapsed = !keepLayout && Boolean(selected) && canToggleOff;
   const shown: T[] =
     collapsed && selected ? [selected] : [...options];
 

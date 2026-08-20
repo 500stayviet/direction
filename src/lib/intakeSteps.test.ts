@@ -383,13 +383,26 @@ describe("intakeSteps", () => {
       INTAKE_GUIDE_STEPS.property.find((l) => l.key === "notes")?.example,
       "관리비. 남향. 저층 등"
     );
-    assert.equal(flagsGuideCopy("전세").example, "대출가능 보증보험 가능 주차불가");
-    assert.equal(flagsGuideCopy("월세").name, "대출 · 주차");
-    assert.equal(flagsGuideCopy("매매").example, "대출가능 주차불가");
+    assert.equal(
+      flagsGuideCopy("property", "전세").example,
+      "대출가능 보증보험 가능 주차불가"
+    );
+    assert.equal(flagsGuideCopy("property", "월세").name, "대출 · 주차");
+    assert.equal(
+      flagsGuideCopy("property", "매매").example,
+      "대출가능 주차불가"
+    );
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "월세"), true);
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "전세"), false);
-    assert.equal(flagsGuideCopy("전세", "상가").name, "주차");
-    assert.equal(flagsGuideCopy("전세", "사무실").example, "주차가능");
+    assert.equal(flagsGuideCopy("property", "전세", "상가").name, "주차");
+    assert.equal(
+      flagsGuideCopy("property", "전세", "사무실").example,
+      "주차가능"
+    );
+    assert.equal(
+      flagsGuideCopy("customer", "전세").example,
+      "대출필요 보증 필요 주차불필요"
+    );
     assert.equal(flagsStepComplete({ parking: "유" }, "전세", "상가"), true);
     assert.equal(
       parseIntakeStep("대출 유 보증 유 주차 가능", "flags", "property", {

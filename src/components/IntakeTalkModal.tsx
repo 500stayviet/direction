@@ -1122,7 +1122,7 @@ export function IntakeTalkModal({
             steps.money?.partial
           );
           const resolvedRoom = steps.roomType?.partial?.roomType;
-          const flagsCopy = flagsGuideCopy(resolvedDeal, resolvedRoom);
+          const flagsCopy = flagsGuideCopy(kind, resolvedDeal, resolvedRoom);
           const stepExample =
             line.key === "money"
               ? moneyStepExample(resolvedDeal)
@@ -1132,7 +1132,12 @@ export function IntakeTalkModal({
                   ? flagsCopy.example
                   : line.example;
           const flagsValues = isFlags
-            ? formatFlagsValueLine(row?.partial ?? {}, resolvedDeal, resolvedRoom)
+            ? formatFlagsValueLine(
+                row?.partial ?? {},
+                kind,
+                resolvedDeal,
+                resolvedRoom
+              )
             : "";
           const rowDisplay = isFlags
             ? flagsValues || row?.display || ""

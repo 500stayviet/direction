@@ -1,5 +1,6 @@
 import { needsRoomBathCounts } from "@/lib/constants";
 import {
+  formatCustomerTalkFlagValue,
   formatDepositRent,
   formatGuideMoveInRange,
   formatMoney,
@@ -130,10 +131,14 @@ export function intakeGuideHits(
     if (move) hits.dates = formatGuideMoveInRange(move.from, move.to);
   }
 
+  const flagWord = (value: "유" | "무") =>
+    kind === "customer"
+      ? formatCustomerTalkFlagValue(value)
+      : formatTalkFlagValue(value);
   const flagParts: string[] = [];
-  if (parsed.loan) flagParts.push(`대출${formatTalkFlagValue(parsed.loan)}`);
-  if (parsed.insurance) flagParts.push(`보증${formatTalkFlagValue(parsed.insurance)}`);
-  if (parsed.parking) flagParts.push(`주차${formatTalkFlagValue(parsed.parking)}`);
+  if (parsed.loan) flagParts.push(`대출${flagWord(parsed.loan)}`);
+  if (parsed.insurance) flagParts.push(`보증${flagWord(parsed.insurance)}`);
+  if (parsed.parking) flagParts.push(`주차${flagWord(parsed.parking)}`);
   if (flagParts.length > 0) hits.flags = flagParts.join(" · ");
   if (parsed.elevator) hits.elevator = `엘베${parsed.elevator}`;
   if (parsed.workspaceShared) hits.share = `팀공유 ${parsed.workspaceShared}`;
