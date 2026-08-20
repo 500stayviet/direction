@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CONTRACT_DEADLINE_DAYS,
+  CONTRACT_DEADLINE_UNTIL_DAYS,
   addDaysISO,
   getContractDeadlineLabel,
   getPropertyDeadlineLabel,
@@ -31,10 +32,11 @@ describe("deadline alerts", () => {
     assert.equal(getContractDeadlineLabel(customer(moveIn), TODAY), null);
   });
 
-  it("입주 45일 전부터 당일까지 알람", () => {
+  it("입주 45일 전~30일 전까지만 알람", () => {
     const moveIn45 = addDaysISO(TODAY, CONTRACT_DEADLINE_DAYS)!;
+    const moveIn30 = addDaysISO(TODAY, CONTRACT_DEADLINE_UNTIL_DAYS)!;
+    const moveIn29 = addDaysISO(TODAY, CONTRACT_DEADLINE_UNTIL_DAYS - 1)!;
     const moveIn10 = addDaysISO(TODAY, 10)!;
-    const moveIn0 = TODAY;
 
     assert.equal(isMoveInDeadlineActive(moveIn45, TODAY), true);
     assert.equal(
@@ -42,32 +44,42 @@ describe("deadline alerts", () => {
       "희망 입주일 45일전"
     );
 
-    assert.equal(isMoveInDeadlineActive(moveIn10, TODAY), true);
+    assert.equal(isMoveInDeadlineActive(moveIn30, TODAY), true);
     assert.equal(
-      getContractDeadlineLabel(customer(moveIn10), TODAY),
-      "희망 입주일 10일전"
+      getContractDeadlineLabel(customer(moveIn30), TODAY),
+      "희망 입주일 30일전"
     );
 
-    assert.equal(isMoveInDeadlineActive(moveIn0, TODAY), true);
-    assert.equal(
-      getContractDeadlineLabel(customer(moveIn0), TODAY),
-      "희망 입주일 당일"
-    );
+    assert.equal(isMoveInDeadlineActive(moveIn29, TODAY), false);
+    assert.equal(getContractDeadlineLabel(customer(moveIn29), TODAY), null);
+
+    assert.equal(isMoveInDeadlineActive(moveIn10, TODAY), false);
+    assert.equal(getContractDeadlineLabel(customer(moveIn10), TODAY), null);
   });
 
-  it("매물도 임대희망일 남은 일수로 표시", () => {
+  it("매물도 45~30일 구간만 임대희망일 뱃지", () => {
     assert.equal(
       getPropertyDeadlineLabel(
         {
-          moveInFrom: addDaysISO(TODAY, 5)!,
+          moveInFrom: addDaysISO(TODAY, 35)!,
         },
         TODAY
       ),
-      "임대희망일 5일전"
+      "임대희망일 35일전"
+    );
+    assert.equal(
+      getPropertyDeadlineLabel(
+        {
+          moveInFrom: addDaysISO(TODAY, 20)!,
+        },
+        TODAY
+      ),
+      null
     );
   });
 
-  it(`CONTRACT_DEADLINE_DAYS는 ${CONTRACT_DEADLINE_DAYS}`, () => {
+  it(`알람 구간은 ${CONTRACT_DEADLINE_DAYS}일~${CONTRACT_DEADLINE_UNTIL_DAYS}일`, () => {
     assert.equal(CONTRACT_DEADLINE_DAYS, 45);
+    assert.equal(CONTRACT_DEADLINE_UNTIL_DAYS, 30);
   });
 });
