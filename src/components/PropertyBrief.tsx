@@ -123,6 +123,11 @@ export function PropertyBrief({
 
   const showArriveChip = showArriveTime && Boolean(property.arriveTime);
   const visitTouchUi = showArriveTime && !matchPreview;
+  const showPartnerContact =
+    property.hasPartnerAgency && !matchPreview;
+  const showPhoneSection =
+    Boolean(property.tenantPhone || property.landlordPhone) ||
+    showPartnerContact;
   const memoText = showArriveTime
     ? property.notes?.trim() || ""
     : notesWithDoorPasswords(property);
@@ -266,7 +271,7 @@ export function PropertyBrief({
         {/* 원터치 전화 — 제목 좌상단 · 안내 옆 · 상호/지역/번호 */}
         {(property.tenantPhone ||
           property.landlordPhone ||
-          property.hasPartnerAgency) ? (
+          showPartnerContact) && showPhoneSection ? (
           <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
             <div className="flex items-baseline gap-x-2 gap-y-0.5">
               <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
@@ -296,7 +301,7 @@ export function PropertyBrief({
                     : "flex flex-col items-end",
                 ].join(" ")}
               >
-                {property.hasPartnerAgency ? (
+                {showPartnerContact ? (
                   property.partnerAgency?.phone ? (
                     <PhoneLink
                       phone={property.partnerAgency.phone}

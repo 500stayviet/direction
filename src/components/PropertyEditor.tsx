@@ -396,7 +396,11 @@ export function PropertyEditor({
         onChange={(next) => update({ workspaceShared: next })}
         hasTeam={hasTeam}
       />
-      <SiteShareFormField value={false} onChange={() => {}} />
+      <SiteShareFormField
+        value={property.partnerAgencyShared === true}
+        onChange={(next) => update({ partnerAgencyShared: next })}
+        siteShareBlocked={property.hasPartnerAgency}
+      />
     </>
   ) : null;
 
@@ -649,7 +653,13 @@ export function PropertyEditor({
                 partnerAgency: on
                   ? property.partnerAgency
                   : { name: "", phone: "", dong: "" },
-                ...(on ? { tenantPhone: "", landlordPhone: "" } : {}),
+                ...(on
+                  ? {
+                      tenantPhone: "",
+                      landlordPhone: "",
+                      partnerAgencyShared: false,
+                    }
+                  : {}),
               });
             }}
           />
@@ -698,6 +708,11 @@ export function PropertyEditor({
                 />
               </div>
             </div>
+            <SiteShareFormField
+              value={false}
+              onChange={() => {}}
+              siteShareBlocked
+            />
           </div>
         ) : null}
 

@@ -725,13 +725,20 @@ export async function upsertListedProperty(
   const shared = Boolean(property.workspaceShared === true);
   const folded = foldDoorPasswordsIntoNotes(property);
   const sanitized: ListedProperty = folded.hasPartnerAgency
-    ? { ...folded, tenantPhone: "", landlordPhone: "" }
+    ? {
+        ...folded,
+        tenantPhone: "",
+        landlordPhone: "",
+        partnerAgencyShared: false,
+      }
     : folded;
   const payload = withCreatorMeta(
     {
       ...sanitized,
       workspaceShared: shared,
-      partnerAgencyShared: Boolean(sanitized.partnerAgencyShared === true),
+      partnerAgencyShared: sanitized.hasPartnerAgency
+        ? false
+        : Boolean(sanitized.partnerAgencyShared === true),
     },
     actor,
     boundWorkspace,
