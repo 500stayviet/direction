@@ -481,6 +481,19 @@ export type EntityListLoadResult<T> = {
   items: T[];
 };
 
+/** 부팅 직후 빈 응답이 캐시를 지우며 「없습니다」 깜빡임 — 기존 캐시가 있으면 거부 */
+function rejectSuspiciousEmptyFetch<T>(
+  next: T[],
+  peek: () => T[] | null,
+  mapCached: (items: T[]) => T[]
+): EntityListLoadResult<T> | null {
+  const prev = peek();
+  if (next.length === 0 && (prev?.length ?? 0) > 0) {
+    return { ok: false, items: mapCached(prev!) };
+  }
+  return null;
+}
+
 let customersInflight: Promise<EntityListLoadResult<Customer>> | null = null;
 
 async function fetchCustomersList(): Promise<EntityListLoadResult<Customer>> {
@@ -496,6 +509,12 @@ async function fetchCustomersList(): Promise<EntityListLoadResult<Customer>> {
     };
   }
   const next = result.items.map(applyCustomerDueComplete);
+  const suspicious = rejectSuspiciousEmptyFetch(
+    next,
+    peekCustomers,
+    (items) => items.map(applyCustomerDueComplete)
+  );
+  if (suspicious) return suspicious;
   persistDueCustomers(result.items, next);
   setCustomersCache(next);
   return { ok: true, items: next };
@@ -702,6 +721,12 @@ async function fetchListedPropertiesList(): Promise<
     };
   }
   const next = result.items.map(applyPropertyDueComplete);
+  const suspicious = rejectSuspiciousEmptyFetch(
+    next,
+    peekProperties,
+    (items) => items.map(applyPropertyDueComplete)
+  );
+  if (suspicious) return suspicious;
   persistDueProperties(result.items, next);
   setPropertiesCache(next);
   return { ok: true, items: next };
@@ -896,6 +921,12 @@ async function fetchSchedulesList(): Promise<EntityListLoadResult<Schedule>> {
     };
   }
   const next = result.items.map(applyScheduleDueComplete);
+  const suspicious = rejectSuspiciousEmptyFetch(
+    next,
+    peekSchedules,
+    (items) => items.map(applyScheduleDueComplete)
+  );
+  if (suspicious) return suspicious;
   persistDueSchedules(result.items, next);
   setSchedulesCache(next);
   return { ok: true, items: next };

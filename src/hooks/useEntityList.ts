@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import {
+  getAccessToken,
   getAuthEpoch,
   getSessionUserId,
   peekCurrentUser,
@@ -58,6 +59,15 @@ export function isEntityListEmptyConfirmed(
   count: number
 ): boolean {
   return status === "ready" && count === 0;
+}
+
+function resolveStatusAfterFetch<T>(
+  peek: () => T[] | null,
+  result: EntityListLoadResult<T>
+): EntityListStatus {
+  if (result.ok) return "ready";
+  if (hasListCache(peek)) return "ready";
+  return "pending";
 }
 
 /**
@@ -109,9 +119,13 @@ function useEntityListState<T>(
   useEffect(() => {
     if (cached !== null) {
       setOverride(null);
-      setStatus((prev) => (prev === "pending" ? "ready" : prev));
+      setStatus("ready");
+      return;
     }
-  }, [cached]);
+    if (!hasListCache(peek)) {
+      setStatus("pending");
+    }
+  }, [cached, peek]);
 
   useEffect(() => {
     const syncedId = peekCurrentUser()?.id ?? null;
@@ -128,17 +142,21 @@ function useEntityListState<T>(
       if (userId) ensureEntityCacheUser(userId);
       if (cancelled) return;
 
-      const hadCache = hasListCache(peek);
-      if (!hadCache) setStatus("pending");
+      const user = peekCurrentUser();
+      const token = await getAccessToken();
+      if (!user?.id || !token) {
+        setStatus(hasListCache(peek) ? "ready" : "pending");
+        return;
+      }
+
+      if (!hasListCache(peek)) {
+        setStatus("pending");
+      }
 
       try {
         const result = await loadFresh();
         if (cancelled) return;
-        if (result.ok || hasListCache(peek)) {
-          setStatus("ready");
-        } else {
-          setStatus("pending");
-        }
+        setStatus(resolveStatusAfterFetch(peek, result));
       } catch {
         if (cancelled) return;
         setStatus(hasListCache(peek) ? "ready" : "pending");

@@ -80,7 +80,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   /** 최초 부팅이 끝난 뒤·같은 탭 재진입 시에는 스플래시 생략 */
   const [booted, setBooted] = useState(false);
-  const [sessionKey, setSessionKey] = useState("guest");
+  const [sessionKey, setSessionKey] = useState(
+    () =>
+      (typeof window !== "undefined" ? peekCurrentUser()?.id : null) ?? "guest"
+  );
   const splashShownAt = useRef(Date.now());
   const skipSplash = useRef(false);
   const initialPath = useRef(pathname);

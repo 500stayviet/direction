@@ -7,7 +7,6 @@ import {
   isDemoHiddenForUser,
 } from "@/lib/demoSeedPayload";
 import {
-  clearEntityCache,
   removeCustomerFromCache,
   removePropertyFromCache,
   removeScheduleFromCache,
@@ -65,9 +64,11 @@ function purgeExpiredDemoFromCache() {
   removeScheduleFromCache(schId);
 }
 
-/** 시드 upsert 후 옛 payload(선호위치 없음)가 캐시에 남지 않게 */
+/** 시드 upsert 후 서버에서 리스트를 다시 받음 — clearEntityCache는 빈 화면 깜빡임 유발 */
 function invalidateAfterDemoSeed() {
-  clearEntityCache();
+  void import("@/lib/storage")
+    .then((m) => m.refreshAllEntityLists())
+    .catch(() => undefined);
 }
 
 function injectDemoAlertsOnce(userId: string) {
