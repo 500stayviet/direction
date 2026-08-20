@@ -272,6 +272,14 @@ export function PropertyEditor({
     onChange(next);
   };
 
+  const updateAgency = (patch: Partial<Property["partnerAgency"]>) =>
+    onChange({
+      ...property,
+      partnerAgency: { ...property.partnerAgency, ...patch },
+    });
+
+  const showContactFields = !property.hasPartnerAgency;
+
   const toggleList = (key: "maintenanceIncludes" | "options", value: string) => {
     const current = property[key] ?? [];
     const next = current.includes(value)
@@ -622,6 +630,78 @@ export function PropertyEditor({
       )}
 
       <div className="space-y-1.5">
+        <label
+          className={[
+            "flex min-h-[38px] items-center gap-3 rounded-xl border px-3.5",
+            "active:scale-[0.99] transition-all duration-150",
+            property.hasPartnerAgency
+              ? "border-emerald-300 bg-emerald-50"
+              : "border-gray-200 bg-gray-50",
+          ].join(" ")}
+        >
+          <CircleCheck
+            accent="emerald"
+            checked={property.hasPartnerAgency ?? false}
+            onChange={(e) => {
+              const on = e.target.checked;
+              update({
+                hasPartnerAgency: on,
+                partnerAgency: on
+                  ? property.partnerAgency
+                  : { name: "", phone: "", dong: "" },
+                ...(on ? { tenantPhone: "", landlordPhone: "" } : {}),
+              });
+            }}
+          />
+          <span
+            className={[
+              "text-[15px] font-bold",
+              property.hasPartnerAgency ? "text-emerald-800" : "text-gray-900",
+            ].join(" ")}
+          >
+            협력 부동산 매물
+          </span>
+        </label>
+        {property.hasPartnerAgency ? (
+          <div className="space-y-1.5">
+            <div ref={setFieldRef("partnerName")}>
+              <Input
+                label="상호명"
+                value={property.partnerAgency.name}
+                onChange={(e) => updateAgency({ name: e.target.value })}
+                placeholder="OO부동산"
+                filledVariant="identity"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div ref={setFieldRef("partnerDong")}>
+                <Input
+                  label="동"
+                  required={requireDong}
+                  invalid={isInvalid("partnerDong")}
+                  value={property.partnerAgency.dong}
+                  onChange={(e) => updateAgency({ dong: e.target.value })}
+                  placeholder="성내동"
+                  filledVariant="identity"
+                />
+              </div>
+              <div ref={setFieldRef("partnerPhone")}>
+                <PhoneInput
+                  label="연락처"
+                  required
+                  invalid={isInvalid("partnerPhone")}
+                  value={property.partnerAgency.phone}
+                  onChange={(phone) => updateAgency({ phone })}
+                  placeholder="02-1234-5678"
+                  hint=""
+                  filledVariant="identity"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {showContactFields ? (
           <div ref={setFieldRef("contacts")} className="space-y-1.5">
             <div className="flex items-baseline gap-1.5">
               <p className="shrink-0 text-[13px] font-semibold text-gray-600">
@@ -653,6 +733,7 @@ export function PropertyEditor({
               않습니다.
             </p>
           </div>
+        ) : null}
       </div>
 
       <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-3">

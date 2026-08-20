@@ -93,6 +93,15 @@ export function getMissingRequiredFields(
   const requireDong = options?.requireDong !== false;
   const missing: PropertyFieldKey[] = [];
 
+  if (property.hasPartnerAgency) {
+    if (requireDong && !property.partnerAgency?.dong?.trim()) {
+      missing.push("partnerDong");
+    }
+    if (!onlyDigits(property.partnerAgency?.phone ?? "")) {
+      missing.push("partnerPhone");
+    }
+  }
+
   if (!hasUsableContact(property)) {
     missing.push("contacts");
   }
