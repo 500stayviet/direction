@@ -29,7 +29,7 @@ async function __DELETE_handler(request: Request) {
     const { error } = await auth.admin
       .from("navi_meeting_parse_samples")
       .delete()
-      .neq("id", "");
+      .gte("created_at", "1970-01-01T00:00:00Z");
 
     if (error) {
       return NextResponse.json(
