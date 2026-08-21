@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  dismissDeadlineModalIfShown,
   fillLoginForm,
   loginViaUi,
   prepareAppPage,
@@ -36,6 +37,8 @@ test("로그인 후 기능 소개 모달 · 닫기/일주일간 보지 않기", 
 
   await page.locator("button").filter({ hasText: /^닫기$/ }).click();
   await expect(introHeading).toBeHidden({ timeout: 5_000 });
+  // 기능 소개를 닫으면 데모 시드 계약 데드라인 모달이 남을 수 있음
+  await dismissDeadlineModalIfShown(page, 5000);
 
   await page.locator("nav a[href='/customers']").click();
   await expect(page).toHaveURL(/\/customers/);
