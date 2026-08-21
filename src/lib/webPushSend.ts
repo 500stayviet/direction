@@ -1,8 +1,11 @@
 import webpush from "web-push";
 import {
   deepLinkForMatchPair,
+  deepLinkForShareAlert,
   formatMatchAlertBody,
   formatMatchAlertTitle,
+  formatShareAlertBody,
+  formatShareAlertTitle,
 } from "@/lib/alertMessaging";
 import type { Customer, ListedProperty } from "@/lib/types";
 
@@ -56,6 +59,45 @@ export async function sendMatchWebPush(input: {
     body: formatMatchAlertBody(input.customer, input.property),
     url,
     tag: `${input.kind}:${input.customerId}::${input.propertyId}`,
+  });
+
+  try {
+    await webpush.sendNotification(
+      {
+        endpoint: input.subscription.endpoint,
+        keys: {
+          p256dh: input.subscription.p256dh,
+          auth: input.subscription.auth,
+        },
+      },
+      payload
+    );
+    return true;
+  } catch (err: unknown) {
+    const status = (err as { statusCode?: number })?.statusCode;
+    if (status === 404 || status === 410) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+export async function sendShareWebPush(input: {
+  subscription: PushSubscriptionRow;
+  tab: "customers" | "properties" | "navi";
+  entityId: string;
+  label: string;
+  origin: string;
+}): Promise<boolean> {
+  if (!ensureWebPushConfigured()) return false;
+
+  const path = deepLinkForShareAlert(input.tab, input.entityId);
+  const url = `${input.origin.replace(/\/$/, "")}${path}`;
+  const payload = JSON.stringify({
+    title: formatShareAlertTitle(),
+    body: formatShareAlertBody(input.label),
+    url,
+    tag: `share:${input.tab}:${input.entityId}`,
   });
 
   try {

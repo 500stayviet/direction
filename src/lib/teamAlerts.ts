@@ -4,6 +4,10 @@ import {
   formatOwnMatchBadgeLabel,
   formatSiteMatchBadgeLabel,
 } from "@/lib/alertLabels";
+import {
+  matchPairKey as matchPairKeyFromMessaging,
+  parseMatchPairKey as parseMatchPairKeyFromMessaging,
+} from "@/lib/alertMessaging";
 import type { MatchEntityKind } from "@/lib/matchPools";
 
 export type AlertTab = "customers" | "properties" | "navi";
@@ -273,18 +277,13 @@ export function ensureTeamAlertsUser(uid: string | null | undefined) {
 }
 
 export function matchPairKey(customerId: string, propertyId: string): string {
-  return `${customerId}::${propertyId}`;
+  return matchPairKeyFromMessaging(customerId, propertyId);
 }
 
 export function parseMatchPairKey(
   key: string
 ): { customerId: string; propertyId: string } | null {
-  const i = key.indexOf("::");
-  if (i <= 0) return null;
-  return {
-    customerId: key.slice(0, i),
-    propertyId: key.slice(i + 2),
-  };
+  return parseMatchPairKeyFromMessaging(key);
 }
 
 /** 팀원 공유·생성으로 내 리스트에 보이는 id 동기화 */

@@ -5,7 +5,10 @@ import {
   computeWorkspaceMatchPairs,
   pairKeysToCandidates,
 } from "@/lib/serverAlertScan";
+import { computeSharePushCandidates } from "@/lib/serverShareAlertScan";
+import { loadRemoteUiPrefsForUser } from "@/lib/serverUiPrefs";
 import {
+  loadForeignSharedEntitiesForUser,
   loadMatchPoolCustomersForUser,
   loadMatchPoolPropertiesForUser,
 } from "@/lib/serverWorkspaceEntities";
@@ -13,6 +16,7 @@ import {
   isWebPushConfigured,
   resolveOrigin,
   sendMatchWebPush,
+  sendShareWebPush,
 } from "@/lib/webPushSend";
 
 function authorizeCron(request: Request): boolean {
@@ -54,24 +58,63 @@ async function pruneStaleLogs(
   }
 }
 
+async function sendToSubscriptions(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  subs: { endpoint: string; p256dh: string; auth: string }[],
+  send: (sub: { endpoint: string; p256dh: string; auth: string }) => Promise<boolean>
+): Promise<boolean> {
+  let anySent = false;
+  for (const sub of subs) {
+    const ok = await send(sub).catch(() => false);
+    if (ok === false) {
+      await admin
+        .from("push_subscriptions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("endpoint", String(sub.endpoint));
+      continue;
+    }
+    anySent = true;
+  }
+  return anySent;
+}
+
 async function processUser(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   origin: string
-): Promise<{ sent: number; skipped: number }> {
-  const [customers, properties, subsRes, sentKeys] = await Promise.all([
-    loadMatchPoolCustomersForUser(admin, userId),
-    loadMatchPoolPropertiesForUser(admin, userId),
-    admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId),
-    loadSentKeys(admin, userId),
-  ]);
+): Promise<{ sent: number; skipped: number; shareSent: number; shareSkipped: number }> {
+  const [customers, properties, foreignShared, uiPrefs, subsRes, sentKeys] =
+    await Promise.all([
+      loadMatchPoolCustomersForUser(admin, userId),
+      loadMatchPoolPropertiesForUser(admin, userId),
+      loadForeignSharedEntitiesForUser(admin, userId),
+      loadRemoteUiPrefsForUser(admin, userId),
+      admin
+        .from("push_subscriptions")
+        .select("endpoint, p256dh, auth")
+        .eq("user_id", userId),
+      loadSentKeys(admin, userId),
+    ]);
 
   const subs = subsRes.data ?? [];
-  if (subs.length === 0) return { sent: 0, skipped: 0 };
+  if (subs.length === 0) {
+    return { sent: 0, skipped: 0, shareSent: 0, shareSkipped: 0 };
+  }
 
   const matchPairs = computeWorkspaceMatchPairs(customers, properties, userId);
-  const candidates = pairKeysToCandidates(matchPairs);
-  const activeKeys = new Set(candidates.map((c) => `${c.kind}:${c.pairKey}`));
+  const matchCandidates = pairKeysToCandidates(matchPairs);
+  const shareCandidates = computeSharePushCandidates({
+    foreign: foreignShared,
+    alerts: uiPrefs.alerts,
+    hides: uiPrefs.hides,
+  });
+
+  const activeKeys = new Set([
+    ...matchCandidates.map((c) => `${c.kind}:${c.pairKey}`),
+    ...shareCandidates.map((c) => `share:${c.pairKey}`),
+  ]);
   await pruneStaleLogs(admin, userId, activeKeys);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
@@ -79,8 +122,10 @@ async function processUser(
 
   let sent = 0;
   let skipped = 0;
+  let shareSent = 0;
+  let shareSkipped = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of matchCandidates) {
     const dedupeKey = `${candidate.kind}:${candidate.pairKey}`;
     if (sentKeys.has(dedupeKey)) {
       skipped += 1;
@@ -91,14 +136,9 @@ async function processUser(
     const property = propertyById.get(candidate.propertyId);
     if (!customer || !property) continue;
 
-    let anySent = false;
-    for (const sub of subs) {
-      const ok = await sendMatchWebPush({
-        subscription: {
-          endpoint: String(sub.endpoint),
-          p256dh: String(sub.p256dh),
-          auth: String(sub.auth),
-        },
+    const anySent = await sendToSubscriptions(admin, userId, subs, (sub) =>
+      sendMatchWebPush({
+        subscription: sub,
         kind: candidate.kind,
         customer,
         property,
@@ -106,18 +146,8 @@ async function processUser(
         propertyId: candidate.propertyId,
         side: candidate.side,
         origin,
-      }).catch(() => false);
-
-      if (ok === false) {
-        await admin
-          .from("push_subscriptions")
-          .delete()
-          .eq("user_id", userId)
-          .eq("endpoint", String(sub.endpoint));
-        continue;
-      }
-      anySent = true;
-    }
+      })
+    );
 
     if (anySent) {
       await admin.from("alert_push_log").upsert(
@@ -133,7 +163,38 @@ async function processUser(
     }
   }
 
-  return { sent, skipped };
+  for (const candidate of shareCandidates) {
+    const dedupeKey = `share:${candidate.pairKey}`;
+    if (sentKeys.has(dedupeKey)) {
+      shareSkipped += 1;
+      continue;
+    }
+
+    const anySent = await sendToSubscriptions(admin, userId, subs, (sub) =>
+      sendShareWebPush({
+        subscription: sub,
+        tab: candidate.tab,
+        entityId: candidate.entityId,
+        label: candidate.label,
+        origin,
+      })
+    );
+
+    if (anySent) {
+      await admin.from("alert_push_log").upsert(
+        {
+          user_id: userId,
+          pair_key: candidate.pairKey,
+          kind: "share",
+          sent_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,pair_key,kind" }
+      );
+      shareSent += 1;
+    }
+  }
+
+  return { sent, skipped, shareSent, shareSkipped };
 }
 
 async function __GET_handler(request: Request) {
@@ -174,11 +235,15 @@ async function __GET_handler(request: Request) {
   const userIds = [...new Set((subRows ?? []).map((r) => r.user_id as string))];
   let totalSent = 0;
   let totalSkipped = 0;
+  let totalShareSent = 0;
+  let totalShareSkipped = 0;
 
   for (const userId of userIds) {
     const result = await processUser(admin, userId, origin);
     totalSent += result.sent;
     totalSkipped += result.skipped;
+    totalShareSent += result.shareSent;
+    totalShareSkipped += result.shareSkipped;
   }
 
   return NextResponse.json({
@@ -186,6 +251,8 @@ async function __GET_handler(request: Request) {
     users: userIds.length,
     sent: totalSent,
     skipped: totalSkipped,
+    shareSent: totalShareSent,
+    shareSkipped: totalShareSkipped,
   });
 }
 

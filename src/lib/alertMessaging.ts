@@ -62,6 +62,21 @@ export function deepLinkForShareAlert(
   return `/${tab}?scrollShare=${entityId}`;
 }
 
+export function sharePairKey(
+  tab: "customers" | "properties" | "navi",
+  entityId: string
+): string {
+  return `share:${tab}:${entityId}`;
+}
+
+export function formatShareAlertTitle(): string {
+  return "현장동선 · 팀공유";
+}
+
+export function formatShareAlertBody(label: string): string {
+  return label.trim() || "팀에서 공유한 항목";
+}
+
 export function propertyBriefLine(property: ListedProperty): string {
   return property.address?.trim() || "";
 }

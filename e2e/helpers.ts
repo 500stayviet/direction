@@ -643,3 +643,212 @@ export async function insertSchedule(opts: {
   return { id, address, propertyId };
 }
 
+/** 리스트 알람 뱃지(팀공유·매칭 등) 대기 */
+export async function expectListBadge(page: Page, label: string) {
+  await expect(page.getByText(label, { exact: true }).first()).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+export async function expectNoListBadge(page: Page, label: string) {
+  await expect(page.getByText(label, { exact: true })).toHaveCount(0, {
+    timeout: 10_000,
+  });
+}
+
+/** 동일 계정 own 매칭 — createdAt으로 알람 쪽 결정 */
+export async function insertOwnMatchingPair(opts: {
+  userId: string;
+  workspaceId?: string | null;
+  customerCreatedAt: string;
+  propertyCreatedAt: string;
+}) {
+  const admin = serviceSupabase();
+  const customerId = randomUUID();
+  const propertyId = randomUUID();
+  const jibun = String(Math.floor(1000 + Math.random() * 8999));
+  const address = `서울 강동구 천호동 ${jibun}`;
+
+  const customerPayload = {
+    id: customerId,
+    name: "매칭고객",
+    phone: "010-2222-3333",
+    dealType: "월세" as const,
+    roomType: "원룸" as const,
+    depositFrom: 1000,
+    depositTo: 1000,
+    depositSingle: true,
+    monthlyRentFrom: 50,
+    monthlyRentTo: 50,
+    monthlyRentSingle: true,
+    preferredGus: ["강동구"],
+    preferredDongs: ["강동구|천호동"],
+    loanNeeded: "무" as const,
+    insuranceNeeded: "무" as const,
+    parkingType: "무" as const,
+    petAllowed: "무" as const,
+    elevatorNeeded: "무" as const,
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    workspaceShared: false,
+    createdAt: opts.customerCreatedAt,
+    updatedAt: opts.customerCreatedAt,
+    createdBy: opts.userId,
+    createdByName: "e2e",
+  };
+
+  const propertyPayload = {
+    id: propertyId,
+    address,
+    roomNo: "101",
+    roomType: "원룸" as const,
+    dealType: "월세" as const,
+    deposit: 1000,
+    monthlyRent: 50,
+    maintenanceFee: 0,
+    petAllowed: "무" as const,
+    parkingType: "무" as const,
+    loanAvailable: "무" as const,
+    insuranceType: "무" as const,
+    elevator: false,
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    workspaceShared: false,
+    createdAt: opts.propertyCreatedAt,
+    updatedAt: opts.propertyCreatedAt,
+    createdBy: opts.userId,
+    createdByName: "e2e",
+  };
+
+  const customerRow = {
+    id: customerId,
+    user_id: opts.userId,
+    workspace_id: opts.workspaceId ?? null,
+    created_by: opts.userId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload: customerPayload,
+    created_at: opts.customerCreatedAt,
+    updated_at: opts.customerCreatedAt,
+    deleted_at: null,
+  };
+  const propertyRow = {
+    id: propertyId,
+    user_id: opts.userId,
+    workspace_id: opts.workspaceId ?? null,
+    created_by: opts.userId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload: propertyPayload,
+    created_at: opts.propertyCreatedAt,
+    updated_at: opts.propertyCreatedAt,
+    deleted_at: null,
+  };
+
+  const cRes = await admin.from("customers").insert(customerRow);
+  if (cRes.error) throw new Error(cRes.error.message);
+  const pRes = await admin.from("listed_properties").insert(propertyRow);
+  if (pRes.error) throw new Error(pRes.error.message);
+
+  return { customerId, propertyId, address };
+}
+
+/** 멤버 고객 + 오너 비공유 매물 (사이트내 매칭) */
+export async function insertSiteMatchPair(opts: {
+  memberUserId: string;
+  ownerUserId: string;
+  workspaceId: string;
+}) {
+  const admin = serviceSupabase();
+  const customerId = randomUUID();
+  const propertyId = randomUUID();
+  const now = new Date().toISOString();
+  const jibun = String(Math.floor(1000 + Math.random() * 8999));
+  const address = `서울 강동구 천호동 ${jibun}`;
+
+  const customerPayload = {
+    id: customerId,
+    name: "사이트고객",
+    phone: "010-3333-4444",
+    dealType: "월세" as const,
+    roomType: "원룸" as const,
+    depositFrom: 1000,
+    depositTo: 1000,
+    depositSingle: true,
+    monthlyRentFrom: 50,
+    monthlyRentTo: 50,
+    monthlyRentSingle: true,
+    preferredGus: ["강동구"],
+    preferredDongs: ["강동구|천호동"],
+    loanNeeded: "무" as const,
+    insuranceNeeded: "무" as const,
+    parkingType: "무" as const,
+    petAllowed: "무" as const,
+    elevatorNeeded: "무" as const,
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    workspaceShared: false,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: opts.memberUserId,
+    createdByName: "e2e",
+  };
+
+  const propertyPayload = {
+    id: propertyId,
+    address,
+    roomNo: "101",
+    roomType: "원룸" as const,
+    dealType: "월세" as const,
+    deposit: 1000,
+    monthlyRent: 50,
+    maintenanceFee: 0,
+    petAllowed: "무" as const,
+    parkingType: "무" as const,
+    loanAvailable: "무" as const,
+    insuranceType: "무" as const,
+    elevator: false,
+    moveInFrom: "2026-12-01",
+    moveInTo: "2026-12-01",
+    moveInSingle: true,
+    workspaceShared: false,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: opts.ownerUserId,
+    createdByName: "e2e",
+  };
+
+  const cRes = await admin.from("customers").insert({
+    id: customerId,
+    user_id: opts.memberUserId,
+    workspace_id: opts.workspaceId,
+    created_by: opts.memberUserId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload: customerPayload,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
+  if (cRes.error) throw new Error(cRes.error.message);
+
+  const pRes = await admin.from("listed_properties").insert({
+    id: propertyId,
+    user_id: opts.ownerUserId,
+    workspace_id: opts.workspaceId,
+    created_by: opts.ownerUserId,
+    created_by_name: "e2e",
+    workspace_shared: false,
+    payload: propertyPayload,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
+  if (pRes.error) throw new Error(pRes.error.message);
+
+  return { customerId, propertyId, address };
+}
+

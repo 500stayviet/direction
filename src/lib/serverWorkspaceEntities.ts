@@ -1,4 +1,5 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
+import type { ForeignSharedEntity } from "@/lib/serverShareAlertScan";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -159,4 +160,78 @@ export async function loadMatchPoolPropertiesForUser(
     userId,
     enrichProperty
   );
+}
+
+type SchedulePayload = {
+  guestName?: string;
+  customerName?: string;
+};
+
+async function listForeignSharedRows(
+  admin: Admin,
+  table: "customers" | "listed_properties" | "schedules",
+  userId: string,
+  workspaceId: string
+): Promise<RowMeta[]> {
+  const selectCols =
+    "id, user_id, workspace_id, created_by, created_by_name, deleted_at, workspace_shared, payload";
+  const { data } = await admin
+    .from(table)
+    .select(selectCols)
+    .eq("workspace_id", workspaceId)
+    .eq("workspace_shared", true)
+    .is("deleted_at", null);
+  if (!data) return [];
+  return (data as unknown as RowMeta[]).filter(
+    (row) =>
+      row.user_id !== userId &&
+      row.created_by !== userId &&
+      !row.id.startsWith("demo_")
+  );
+}
+
+export async function loadForeignSharedEntitiesForUser(
+  admin: Admin,
+  userId: string
+): Promise<ForeignSharedEntity[]> {
+  const workspaceId = await getWorkspaceId(admin, userId);
+  if (!workspaceId) return [];
+
+  const [customers, properties, schedules] = await Promise.all([
+    listForeignSharedRows(admin, "customers", userId, workspaceId),
+    listForeignSharedRows(admin, "listed_properties", userId, workspaceId),
+    listForeignSharedRows(admin, "schedules", userId, workspaceId),
+  ]);
+
+  const out: ForeignSharedEntity[] = [];
+
+  for (const row of customers) {
+    const payload = row.payload as Customer;
+    out.push({
+      id: row.id,
+      tab: "customers",
+      label: payload.name?.trim() || "고객",
+    });
+  }
+  for (const row of properties) {
+    const payload = row.payload as ListedProperty;
+    out.push({
+      id: row.id,
+      tab: "properties",
+      label: payload.address?.trim() || payload.roomType?.trim() || "매물",
+    });
+  }
+  for (const row of schedules) {
+    const payload = row.payload as SchedulePayload;
+    out.push({
+      id: row.id,
+      tab: "navi",
+      label:
+        payload.guestName?.trim() ||
+        payload.customerName?.trim() ||
+        "방문 일정",
+    });
+  }
+
+  return out;
 }

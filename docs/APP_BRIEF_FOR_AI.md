@@ -113,7 +113,7 @@
 | **계정 정지** | 로그인 가능, **홈 외 차단** + 사유 (`AccountSuspendedGate`) |
 | **세션 무효/계정 종료** | 토큰 폐기·탈퇴 등으로 세션이 비면 상단(로그인/가입)·하단(알람 없음) **동기화** (`subscribeAuthChange`) |
 | **Realtime** | 화면이 켜져 있을 때 팀 공유 변경 반영 |
-| **Web Push cron** | GitHub Actions `cron-alerts.yml` (10분) → `/api/cron/alerts`. Vercel Hobby는 cron 1일 1회 제한으로 `vercel.json` cron 미사용 |
+| **Web Push cron** | GitHub Actions `cron-alerts.yml` — 매칭·**팀공유** (`kind=share`) |
 | **등록 뒤로** | 고객·매물 신규: `router.back()` + 리스트 폴백 |
 
 ### 4.5 홈 푸터 (사업자 고지)
