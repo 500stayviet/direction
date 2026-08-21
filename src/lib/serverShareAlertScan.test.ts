@@ -17,7 +17,7 @@ function emptyAlerts(overrides: Partial<AlertState> = {}): AlertState {
     unseenNewMatchCustomer: [],
     unseenNewMatchProperty: [],
     alertSince: {},
-    preserveDemoShareAlerts: false,
+    preserveDemoMatchAlerts: false,
     ...overrides,
   };
 }

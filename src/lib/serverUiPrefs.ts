@@ -45,7 +45,10 @@ function parseAlerts(raw: unknown): AlertState | null {
       a.alertSince && typeof a.alertSince === "object"
         ? (a.alertSince as Record<string, number>)
         : {},
-    preserveDemoShareAlerts: Boolean(a.preserveDemoShareAlerts),
+    preserveDemoMatchAlerts: Boolean(
+      a.preserveDemoMatchAlerts ??
+        (a as { preserveDemoShareAlerts?: boolean }).preserveDemoShareAlerts
+    ),
   };
 }
 
