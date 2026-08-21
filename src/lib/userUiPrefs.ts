@@ -143,8 +143,12 @@ function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
     unseenNewMatchCustomer: newMatchC.unseen,
     unseenNewMatchProperty: newMatchP.unseen,
     alertSince,
-    preserveDemoShareAlerts:
-      local.preserveDemoShareAlerts || remote.preserveDemoShareAlerts,
+    preserveDemoMatchAlerts: Boolean(
+      local.preserveDemoMatchAlerts ||
+        remote.preserveDemoMatchAlerts ||
+        (local as { preserveDemoShareAlerts?: boolean }).preserveDemoShareAlerts ||
+        (remote as { preserveDemoShareAlerts?: boolean }).preserveDemoShareAlerts
+    ),
   };
 }
 
@@ -193,7 +197,10 @@ function parseRemote(raw: unknown): UiPrefs | null {
         a.alertSince && typeof a.alertSince === "object"
           ? (a.alertSince as Record<string, number>)
           : {},
-      preserveDemoShareAlerts: Boolean(a.preserveDemoShareAlerts),
+      preserveDemoMatchAlerts: Boolean(
+        a.preserveDemoMatchAlerts ??
+          (a as { preserveDemoShareAlerts?: boolean }).preserveDemoShareAlerts
+      ),
     },
   };
 }

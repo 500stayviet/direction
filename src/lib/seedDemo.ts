@@ -77,9 +77,6 @@ function injectDemoAlertsOnce(userId: string) {
   ensureTeamAlertsUser(userId);
   const [custId, propId, schId] = DEMO_CORE_IDS;
   injectDemoTestAlerts({
-    customerIds: [custId],
-    propertyIds: [propId],
-    scheduleIds: [schId],
     matchPairs: [matchPairKey(custId, propId)],
   });
 
@@ -91,7 +88,7 @@ function injectDemoAlertsOnce(userId: string) {
  * - 서버(service_role) API로 심어 RLS/컬럼 이슈를 피함
  * - 탭 세션(로그인)당 한 번만 시도
  * - 이미 시드된 버전이면 삭제한 데모를 되살리지 않음
- * - 시드 후 체험용 알람(공유·매칭)을 한 번 띄움
+ * - 시드 후 체험용 매칭 알람을 한 번 띄움 (팀공유 뱃지 없음)
  * - 가입일로부터 7일이 지나면 시드하지 않고 데모 카드를 만료 처리
  */
 export async function seedDemoDataIfNeeded(): Promise<void> {

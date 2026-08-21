@@ -32,8 +32,8 @@ export type AlertState = {
   unseenNewMatchProperty: string[];
   /** 뱃지 등장 시각 — key 예: share:customers:id, match:c:id, newMatch:p:id */
   alertSince: Record<string, number>;
-  /** 데모 시드 알람 — 본인 생성 데모 id를 공유처럼 유지 */
-  preserveDemoShareAlerts: boolean;
+  /** 데모 시드 매칭 알람 — sync 시 demo_* 쌍 유지 */
+  preserveDemoMatchAlerts: boolean;
 };
 
 export type ListCardBadgeKind = "share" | "match" | "newMatch" | "deadline";
@@ -71,7 +71,7 @@ const emptyState = (): AlertState => ({
   unseenNewMatchCustomer: [],
   unseenNewMatchProperty: [],
   alertSince: {},
-  preserveDemoShareAlerts: false,
+  preserveDemoMatchAlerts: false,
 });
 
 type Listener = () => void;
@@ -113,7 +113,7 @@ function loadFromStorage(uid: string): AlertState {
     const raw = localStorage.getItem(storageKey(uid));
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw) as Partial<AlertState>;
-    return {
+    return stripDemoShareAlerts({
       shareSeeded: {
         customers: Boolean(parsed.shareSeeded?.customers),
         properties: Boolean(parsed.shareSeeded?.properties),
@@ -141,11 +141,42 @@ function loadFromStorage(uid: string): AlertState {
         parsed.alertSince && typeof parsed.alertSince === "object"
           ? (parsed.alertSince as Record<string, number>)
           : {},
-      preserveDemoShareAlerts: Boolean(parsed.preserveDemoShareAlerts),
-    };
+      preserveDemoMatchAlerts: Boolean(
+        parsed.preserveDemoMatchAlerts ??
+          (parsed as { preserveDemoShareAlerts?: boolean }).preserveDemoShareAlerts
+      ),
+    });
   } catch {
     return emptyState();
   }
+}
+
+function stripDemoShareAlerts(s: AlertState): AlertState {
+  const stripIds = (ids: string[]) => ids.filter((id) => !id.startsWith("demo_"));
+  const nextKnownShare = {
+    customers: stripIds(s.knownShare.customers),
+    properties: stripIds(s.knownShare.properties),
+    navi: stripIds(s.knownShare.navi),
+  };
+  const nextUnseenShare = {
+    customers: stripIds(s.unseenShare.customers),
+    properties: stripIds(s.unseenShare.properties),
+    navi: stripIds(s.unseenShare.navi),
+  };
+  const nextAlertSince = { ...s.alertSince };
+  for (const tab of ["customers", "properties", "navi"] as AlertTab[]) {
+    for (const id of [...s.knownShare[tab], ...s.unseenShare[tab]]) {
+      if (id.startsWith("demo_")) {
+        delete nextAlertSince[shareAlertKey(tab, id)];
+      }
+    }
+  }
+  return {
+    ...s,
+    knownShare: nextKnownShare,
+    unseenShare: nextUnseenShare,
+    alertSince: nextAlertSince,
+  };
 }
 
 function sortedUnique(ids: Iterable<string>): string[] {
@@ -262,7 +293,7 @@ export function getTeamAlertsSnapshot(): AlertState {
 
 export function applyAlertStateFromRemote(next: AlertState) {
   skipRemoteUiPrefsSync = true;
-  state = next;
+  state = stripDemoShareAlerts(next);
   persist();
   notify();
   skipRemoteUiPrefsSync = false;
@@ -290,16 +321,6 @@ export function parseMatchPairKey(
 export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
   if (!userId) return;
   const incoming = new Set(foreignIds.filter(Boolean));
-
-  // 체험 시드(demo_*)는 본인 생성이라 foreign 목록에 없음 → 알람 유지용으로 포함
-  if (state.preserveDemoShareAlerts) {
-    for (const id of state.knownShare[tab]) {
-      if (id.startsWith("demo_")) incoming.add(id);
-    }
-    for (const id of state.unseenShare[tab]) {
-      if (id.startsWith("demo_")) incoming.add(id);
-    }
-  }
 
   if (!state.shareSeeded[tab]) {
     state = {
@@ -376,7 +397,7 @@ function syncOwnMatchPairs(
   if (!userId) return;
   const incoming = new Set(pairKeys.filter(Boolean));
 
-  if (state.preserveDemoShareAlerts) {
+  if (state.preserveDemoMatchAlerts) {
     for (const key of state.knownMatch) {
       if (key.includes("demo_")) incoming.add(key);
     }
@@ -886,15 +907,10 @@ export function alertHighlightClass(
 }
 
 /**
- * 데모 시드 직후 — 본인 생성 체험 카드도 공유·매칭 알람처럼 보이게 강제.
+ * 데모 시드 직후 — 체험 매칭 알람만 주입 (팀공유 아님).
  * 이미 known에 있는 id는 unseen에 다시 넣지 않음(껐다가 시드 버전 올려도 부활 방지).
  */
-export function injectDemoTestAlerts(input: {
-  customerIds: string[];
-  propertyIds: string[];
-  scheduleIds: string[];
-  matchPairs: string[];
-}) {
+export function injectDemoTestAlerts(input: { matchPairs: string[] }) {
   if (!userId) return;
 
   const merge = (prev: string[], add: string[]) =>
@@ -908,41 +924,13 @@ export function injectDemoTestAlerts(input: {
     return merge(prevUnseen, fresh);
   };
 
-  const nextKnownShare = {
-    customers: merge(state.knownShare.customers, input.customerIds),
-    properties: merge(state.knownShare.properties, input.propertyIds),
-    navi: merge(state.knownShare.navi, input.scheduleIds),
-  };
   const nextKnownMatch = merge(state.knownMatch, input.matchPairs);
 
   state = {
     ...state,
-    preserveDemoShareAlerts: true,
-    shareSeeded: {
-      customers: true,
-      properties: true,
-      navi: true,
-    },
+    preserveDemoMatchAlerts: true,
     matchSeeded: true,
     newMatchSeeded: true,
-    knownShare: nextKnownShare,
-    unseenShare: {
-      customers: mergeUnseenNewOnly(
-        state.unseenShare.customers,
-        state.knownShare.customers,
-        input.customerIds
-      ),
-      properties: mergeUnseenNewOnly(
-        state.unseenShare.properties,
-        state.knownShare.properties,
-        input.propertyIds
-      ),
-      navi: mergeUnseenNewOnly(
-        state.unseenShare.navi,
-        state.knownShare.navi,
-        input.scheduleIds
-      ),
-    },
     knownMatch: nextKnownMatch,
     knownNewMatch: state.knownNewMatch,
     unseenMatchCustomer: mergeUnseenNewOnly(

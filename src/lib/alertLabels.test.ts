@@ -72,7 +72,7 @@ describe("alertCounts", () => {
       unseenNewMatchCustomer: [],
       unseenNewMatchProperty: [],
       alertSince: {},
-      preserveDemoShareAlerts: false,
+      preserveDemoMatchAlerts: false,
     });
     assert.equal(total, 2);
   });
@@ -91,7 +91,7 @@ describe("alertCounts", () => {
       unseenNewMatchCustomer: [],
       unseenNewMatchProperty: [],
       alertSince: {},
-      preserveDemoShareAlerts: false,
+      preserveDemoMatchAlerts: false,
     };
     assert.equal(pickAlertBannerHref(matchState), "/customers/c1?scrollMatch=1");
 
