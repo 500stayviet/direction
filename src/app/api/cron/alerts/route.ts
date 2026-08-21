@@ -6,8 +6,8 @@ import {
   pairKeysToCandidates,
 } from "@/lib/serverAlertScan";
 import {
-  loadWorkspaceCustomersForUser,
-  loadWorkspacePropertiesForUser,
+  loadMatchPoolCustomersForUser,
+  loadMatchPoolPropertiesForUser,
 } from "@/lib/serverWorkspaceEntities";
 import {
   isWebPushConfigured,
@@ -60,8 +60,8 @@ async function processUser(
   origin: string
 ): Promise<{ sent: number; skipped: number }> {
   const [customers, properties, subsRes, sentKeys] = await Promise.all([
-    loadWorkspaceCustomersForUser(admin, userId),
-    loadWorkspacePropertiesForUser(admin, userId),
+    loadMatchPoolCustomersForUser(admin, userId),
+    loadMatchPoolPropertiesForUser(admin, userId),
     admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId),
     loadSentKeys(admin, userId),
   ]);
@@ -69,8 +69,8 @@ async function processUser(
   const subs = subsRes.data ?? [];
   if (subs.length === 0) return { sent: 0, skipped: 0 };
 
-  const { own, partner } = computeWorkspaceMatchPairs(customers, properties);
-  const candidates = pairKeysToCandidates(own, partner);
+  const matchPairs = computeWorkspaceMatchPairs(customers, properties, userId);
+  const candidates = pairKeysToCandidates(matchPairs);
   const activeKeys = new Set(candidates.map((c) => `${c.kind}:${c.pairKey}`));
   await pruneStaleLogs(admin, userId, activeKeys);
 
@@ -104,6 +104,7 @@ async function processUser(
         property,
         customerId: candidate.customerId,
         propertyId: candidate.propertyId,
+        side: candidate.side,
         origin,
       }).catch(() => false);
 

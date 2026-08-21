@@ -1,28 +1,39 @@
-import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
-import { matchPairKey } from "@/lib/alertMessaging";
+import {
+  buildMatchAlertSideMaps,
+  computeMatchPairKeys,
+  indexCustomers,
+  indexProperties,
+} from "@/lib/matchPools";
+import type { MatchEntityKind } from "@/lib/matchPools";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 export function computeWorkspaceMatchPairs(
   customers: Customer[],
-  properties: ListedProperty[]
-): { own: string[]; partner: string[] } {
-  const own = new Set<string>();
-  const partner = new Set<string>();
-  for (const c of customers) {
-    if (c.contractCompleted) continue;
-    const grouped = findMatchingPropertiesGrouped(c, properties);
-    for (const p of grouped.own) {
-      if (p.contractCompleted) continue;
-      own.add(matchPairKey(c.id, p.id));
-    }
-    for (const p of grouped.partner) {
-      if (p.contractCompleted) continue;
-      partner.add(matchPairKey(c.id, p.id));
-    }
-  }
+  properties: ListedProperty[],
+  userId: string
+): {
+  own: string[];
+  partner: string[];
+  ownSides: Map<string, MatchEntityKind>;
+  siteSides: Map<string, MatchEntityKind>;
+} {
+  const { ownKeys, siteKeys } = computeMatchPairKeys({
+    customers,
+    properties,
+    userId,
+  });
+  const sideMaps = buildMatchAlertSideMaps({
+    userId,
+    ownKeys,
+    siteKeys,
+    customersById: indexCustomers(customers),
+    propertiesById: indexProperties(properties),
+  });
   return {
-    own: [...own],
-    partner: [...partner],
+    own: ownKeys,
+    partner: siteKeys,
+    ownSides: sideMaps.ownSides,
+    siteSides: sideMaps.siteSides,
   };
 }
 
@@ -31,14 +42,19 @@ export type PushCandidate = {
   kind: "match" | "newMatch";
   customerId: string;
   propertyId: string;
+  side: MatchEntityKind;
 };
 
-export function pairKeysToCandidates(
-  own: string[],
-  partner: string[]
-): PushCandidate[] {
+export function pairKeysToCandidates(input: {
+  own: string[];
+  partner: string[];
+  ownSides: Map<string, MatchEntityKind>;
+  siteSides: Map<string, MatchEntityKind>;
+}): PushCandidate[] {
   const out: PushCandidate[] = [];
-  for (const pairKey of own) {
+  for (const pairKey of input.own) {
+    const side = input.ownSides.get(pairKey);
+    if (!side) continue;
     const i = pairKey.indexOf("::");
     if (i <= 0) continue;
     out.push({
@@ -46,9 +62,12 @@ export function pairKeysToCandidates(
       kind: "match",
       customerId: pairKey.slice(0, i),
       propertyId: pairKey.slice(i + 2),
+      side,
     });
   }
-  for (const pairKey of partner) {
+  for (const pairKey of input.partner) {
+    const side = input.siteSides.get(pairKey);
+    if (!side) continue;
     const i = pairKey.indexOf("::");
     if (i <= 0) continue;
     out.push({
@@ -56,6 +75,7 @@ export function pairKeysToCandidates(
       kind: "newMatch",
       customerId: pairKey.slice(0, i),
       propertyId: pairKey.slice(i + 2),
+      side,
     });
   }
   return out;

@@ -87,6 +87,47 @@ async function listTable<T>(
     .map(mapRow);
 }
 
+async function listTableAllWorkspace<T>(
+  admin: Admin,
+  table: "customers" | "listed_properties",
+  userId: string,
+  mapRow: (row: RowMeta) => T
+): Promise<T[]> {
+  const workspaceId = await getWorkspaceId(admin, userId);
+  const selectCols =
+    "id, user_id, workspace_id, created_by, created_by_name, deleted_at, workspace_shared, payload";
+
+  const { data: own, error } = await admin
+    .from(table)
+    .select(selectCols)
+    .eq("user_id", userId)
+    .is("deleted_at", null);
+
+  if (error || !own) return [];
+
+  const byId = new Map<string, RowMeta>();
+  for (const row of own as unknown as RowMeta[]) {
+    byId.set(row.id, row);
+  }
+
+  if (workspaceId) {
+    const { data: workspaceRows } = await admin
+      .from(table)
+      .select(selectCols)
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
+    if (workspaceRows) {
+      for (const row of workspaceRows as unknown as RowMeta[]) {
+        if (!byId.has(row.id)) byId.set(row.id, row);
+      }
+    }
+  }
+
+  return [...byId.values()]
+    .filter((row) => !row.id.startsWith("demo_") || row.user_id === userId)
+    .map(mapRow);
+}
+
 export async function loadWorkspaceCustomersForUser(
   admin: Admin,
   userId: string
@@ -99,4 +140,23 @@ export async function loadWorkspacePropertiesForUser(
   userId: string
 ): Promise<ListedProperty[]> {
   return listTable(admin, "listed_properties", userId, enrichProperty);
+}
+
+export async function loadMatchPoolCustomersForUser(
+  admin: Admin,
+  userId: string
+): Promise<Customer[]> {
+  return listTableAllWorkspace(admin, "customers", userId, enrichCustomer);
+}
+
+export async function loadMatchPoolPropertiesForUser(
+  admin: Admin,
+  userId: string
+): Promise<ListedProperty[]> {
+  return listTableAllWorkspace(
+    admin,
+    "listed_properties",
+    userId,
+    enrichProperty
+  );
 }

@@ -3,10 +3,10 @@ import { isInsuranceJoined, needsJeonseInsurance, needsLoanFlag, resolveCustomer
 import type { Customer, ListedProperty, RoomType } from "@/lib/types";
 
 /**
- * 다른 회원(사이트내공유) 매물·고객 자동 매칭.
- * 회원 모집 우선으로 당분간 비활성 — 내 리스트 매칭만 사용.
+ * 사이트내 매칭 — `crossMember*` 인자(워크스페이스 비공유 풀 등)가
+ * 비어 있지 않을 때만 partner 결과를 계산한다.
  */
-export const CROSS_MEMBER_PROPERTY_MATCH_ENABLED = false;
+export const CROSS_MEMBER_PROPERTY_MATCH_ENABLED = true;
 
 // ─────────────────────────────────────────────
 // 기존 후보군 생성(boolean) 로직 — 배지/알람에서 계속 사용
@@ -866,11 +866,17 @@ export function findMatchingPropertiesGrouped(
   partner: ListedProperty[];
 } {
   const own = findMatchingPropertiesScored(customer, myProperties);
-  if (!CROSS_MEMBER_PROPERTY_MATCH_ENABLED) return { own, partner: [] };
+  if (
+    !CROSS_MEMBER_PROPERTY_MATCH_ENABLED ||
+    crossMemberProperties.length === 0
+  ) {
+    return { own, partner: [] };
+  }
   const ownIds = new Set(own.map((p) => p.id));
-  const partner = findMatchingPropertiesScored(customer, crossMemberProperties).filter(
-    (p) => !ownIds.has(p.id)
-  );
+  const partner = findMatchingPropertiesScored(
+    customer,
+    crossMemberProperties
+  ).filter((p) => !ownIds.has(p.id));
   return { own, partner };
 }
 
@@ -914,11 +920,17 @@ export function findMatchingCustomersGrouped(
   partner: Customer[];
 } {
   const own = findMatchingCustomersScored(property, myCustomers);
-  if (!CROSS_MEMBER_PROPERTY_MATCH_ENABLED) return { own, partner: [] };
+  if (
+    !CROSS_MEMBER_PROPERTY_MATCH_ENABLED ||
+    crossMemberCustomers.length === 0
+  ) {
+    return { own, partner: [] };
+  }
   const ownIds = new Set(own.map((c) => c.id));
-  const partner = findMatchingCustomersScored(property, crossMemberCustomers).filter(
-    (c) => !ownIds.has(c.id)
-  );
+  const partner = findMatchingCustomersScored(
+    property,
+    crossMemberCustomers
+  ).filter((c) => !ownIds.has(c.id));
   return { own, partner };
 }
 

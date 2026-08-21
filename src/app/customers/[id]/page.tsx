@@ -28,7 +28,8 @@ import {
   upsertCustomer,
 } from "@/lib/storage";
 import { usePropertiesList } from "@/hooks/useEntityList";
-import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import { useMatchPoolEntities } from "@/hooks/useMatchPool";
+import { groupedMatchesForCustomer } from "@/lib/matchDisplay";
 import {
   firstUnseenMatchPropertyId,
 } from "@/lib/teamAlerts";
@@ -88,12 +89,16 @@ export default function CustomerDetailPage() {
     setEditing(true);
   }, [customer, searchParams, router]);
 
+  const myId = peekCurrentUser()?.id;
+  const matchPool = useMatchPoolEntities(myId);
+  const propertiesForMatch = matchPool.properties ?? properties;
+
   const matches = useMemo(
     () =>
       customer
-        ? findMatchingPropertiesGrouped(customer, properties)
+        ? groupedMatchesForCustomer(customer, propertiesForMatch, myId)
         : { own: [], partner: [] },
-    [customer, properties]
+    [customer, propertiesForMatch, myId]
   );
 
   useEffect(() => {
@@ -120,7 +125,6 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const myId = peekCurrentUser()?.id;
   const isForeign = isForeignTeamItem(customer.createdBy, myId);
 
   const handleDelete = () => {

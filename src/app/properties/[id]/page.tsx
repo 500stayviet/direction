@@ -25,7 +25,7 @@ import {
 } from "@/lib/propertyValidation";
 import { findPropertyBySameAddressRoom } from "@/lib/duplicateEntity";
 import { composeRestAddress } from "@/lib/propertyRoomNo";
-import { findMatchingCustomersGrouped } from "@/lib/matchCustomerProperty";
+import { groupedMatchesForProperty } from "@/lib/matchDisplay";
 import {
   deleteListedProperty,
   getListedPropertyById,
@@ -41,6 +41,7 @@ import {
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
+import { useMatchPoolEntities } from "@/hooks/useMatchPool";
 import type { ListedProperty, User } from "@/lib/types";
 
 export default function PropertyDetailPage() {
@@ -116,12 +117,16 @@ export default function PropertyDetailPage() {
     setEditing(true);
   }, [property, searchParams, router, agent?.id]);
 
+  const myId = peekCurrentUser()?.id ?? agent?.id;
+  const matchPool = useMatchPoolEntities(myId);
+  const customersForMatch = matchPool.customers ?? customers;
+
   const matches = useMemo(
     () =>
       property
-        ? findMatchingCustomersGrouped(property, customers)
+        ? groupedMatchesForProperty(property, customersForMatch, myId)
         : { own: [], partner: [] },
-    [property, customers]
+    [property, customersForMatch, myId]
   );
 
   useEffect(() => {
@@ -148,7 +153,6 @@ export default function PropertyDetailPage() {
     );
   }
 
-  const myId = peekCurrentUser()?.id ?? agent?.id;
   const isForeign = isForeignTeamItem(property.createdBy, myId);
 
   const saveProperty = async () => {

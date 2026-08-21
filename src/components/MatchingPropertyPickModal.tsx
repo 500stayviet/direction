@@ -7,7 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PropertyListCard } from "@/components/PropertyListCard";
 import { SiteShareMatchingEmpty } from "@/components/SiteShareUi";
 import { MAX_SCHEDULE_PROPERTIES } from "@/lib/constants";
-import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import { groupedMatchesForCustomer } from "@/lib/matchDisplay";
 import { peekCurrentUser } from "@/lib/auth";
 import type { Customer, ListedProperty } from "@/lib/types";
 
@@ -34,9 +34,9 @@ export function MatchingPropertyPickModal({
   const matches = useMemo(
     () =>
       customer
-        ? findMatchingPropertiesGrouped(customer, properties)
+        ? groupedMatchesForCustomer(customer, properties, viewerId)
         : { own: [], partner: [] },
-    [customer, properties]
+    [customer, properties, viewerId]
   );
 
   const orderOf = (id: string) => {

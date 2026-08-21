@@ -4,6 +4,7 @@ import {
   formatOwnMatchBadgeLabel,
   formatSiteMatchBadgeLabel,
 } from "@/lib/alertLabels";
+import type { MatchEntityKind } from "@/lib/matchPools";
 
 export type AlertTab = "customers" | "properties" | "navi";
 /** 고객 상세에서 본 매칭 vs 매물 상세에서 본 매칭 — 서로 독립 */
@@ -188,20 +189,52 @@ function deadlineAlertKey(tab: AlertTab, id: string) {
   return `deadline:${tab}:${id}`;
 }
 
-function unseenSidesFromPairKeys(
+
+function applyOneSidedUnseen(
+  key: string,
+  side: MatchEntityKind | undefined,
+  unseenC: Set<string>,
+  unseenP: Set<string>,
+  sinceKey: (side: "customer" | "property", id: string) => string,
+  fallbackBoth: boolean
+) {
+  const parsed = parseMatchPairKey(key);
+  if (side === "customer") {
+    unseenC.add(key);
+    if (parsed) noteAlertSince(sinceKey("customer", parsed.customerId));
+    return;
+  }
+  if (side === "property") {
+    unseenP.add(key);
+    if (parsed) noteAlertSince(sinceKey("property", parsed.propertyId));
+    return;
+  }
+  if (!fallbackBoth) return;
+  unseenC.add(key);
+  unseenP.add(key);
+  if (parsed) {
+    noteAlertSince(sinceKey("customer", parsed.customerId));
+    noteAlertSince(sinceKey("property", parsed.propertyId));
+  }
+}
+
+function buildOneSidedUnseen(
   keys: Iterable<string>,
-  sinceKey: (side: "customer" | "property", id: string) => string
+  sides: Map<string, MatchEntityKind> | undefined,
+  sinceKey: (side: "customer" | "property", id: string) => string,
+  fallbackBoth: boolean
 ): { customer: string[]; property: string[] } {
   const unseenC = new Set<string>();
   const unseenP = new Set<string>();
   for (const key of keys) {
-    unseenC.add(key);
-    unseenP.add(key);
-    const parsed = parseMatchPairKey(key);
-    if (parsed) {
-      noteAlertSince(sinceKey("customer", parsed.customerId));
-      noteAlertSince(sinceKey("property", parsed.propertyId));
-    }
+    applyOneSidedUnseen(
+      key,
+      sides?.get(key),
+      unseenC,
+      unseenP,
+      sinceKey,
+      fallbackBoth
+    );
   }
   return {
     customer: sortedUnique(unseenC),
@@ -324,13 +357,23 @@ export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
 }
 
 /** 현재 성립 매칭 쌍 동기화 — own=내 리스트, partner=사이트내 공유(새매칭) */
-export function syncMatchPairs(ownKeys: string[], partnerKeys: string[] = []) {
+export function syncMatchPairs(
+  ownKeys: string[],
+  partnerKeys: string[] = [],
+  sideMaps?: {
+    ownSides?: Map<string, MatchEntityKind>;
+    siteSides?: Map<string, MatchEntityKind>;
+  }
+) {
   if (!userId) return;
-  syncOwnMatchPairs(ownKeys);
-  syncPartnerMatchPairs(partnerKeys);
+  syncOwnMatchPairs(ownKeys, sideMaps?.ownSides);
+  syncPartnerMatchPairs(partnerKeys, sideMaps?.siteSides);
 }
 
-function syncOwnMatchPairs(pairKeys: string[]) {
+function syncOwnMatchPairs(
+  pairKeys: string[],
+  ownSides?: Map<string, MatchEntityKind>
+) {
   if (!userId) return;
   const incoming = new Set(pairKeys.filter(Boolean));
 
@@ -347,7 +390,12 @@ function syncOwnMatchPairs(pairKeys: string[]) {
   }
 
   if (!state.matchSeeded) {
-    const unseen = unseenSidesFromPairKeys(incoming, matchAlertKey);
+    const unseen = buildOneSidedUnseen(
+      incoming,
+      ownSides,
+      matchAlertKey,
+      !ownSides
+    );
     state = {
       ...state,
       matchSeeded: true,
@@ -367,13 +415,14 @@ function syncOwnMatchPairs(pairKeys: string[]) {
   for (const key of incoming) {
     if (!known.has(key)) {
       known.add(key);
-      unseenC.add(key);
-      unseenP.add(key);
-      const parsed = parseMatchPairKey(key);
-      if (parsed) {
-        noteAlertSince(matchAlertKey("customer", parsed.customerId));
-        noteAlertSince(matchAlertKey("property", parsed.propertyId));
-      }
+      applyOneSidedUnseen(
+        key,
+        ownSides?.get(key),
+        unseenC,
+        unseenP,
+        matchAlertKey,
+        !ownSides
+      );
     }
   }
   for (const key of [...known]) {
@@ -420,12 +469,20 @@ function syncOwnMatchPairs(pairKeys: string[]) {
   notify();
 }
 
-function syncPartnerMatchPairs(pairKeys: string[]) {
+function syncPartnerMatchPairs(
+  pairKeys: string[],
+  siteSides?: Map<string, MatchEntityKind>
+) {
   if (!userId) return;
   const incoming = new Set(pairKeys.filter(Boolean));
 
   if (!state.newMatchSeeded) {
-    const unseen = unseenSidesFromPairKeys(incoming, newMatchAlertKey);
+    const unseen = buildOneSidedUnseen(
+      incoming,
+      siteSides,
+      newMatchAlertKey,
+      !siteSides
+    );
     state = {
       ...state,
       newMatchSeeded: true,
@@ -445,13 +502,14 @@ function syncPartnerMatchPairs(pairKeys: string[]) {
   for (const key of incoming) {
     if (!known.has(key)) {
       known.add(key);
-      unseenC.add(key);
-      unseenP.add(key);
-      const parsed = parseMatchPairKey(key);
-      if (parsed) {
-        noteAlertSince(newMatchAlertKey("customer", parsed.customerId));
-        noteAlertSince(newMatchAlertKey("property", parsed.propertyId));
-      }
+      applyOneSidedUnseen(
+        key,
+        siteSides?.get(key),
+        unseenC,
+        unseenP,
+        newMatchAlertKey,
+        !siteSides
+      );
     }
   }
   for (const key of [...known]) {

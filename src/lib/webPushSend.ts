@@ -40,6 +40,7 @@ export async function sendMatchWebPush(input: {
   property: ListedProperty;
   customerId: string;
   propertyId: string;
+  side?: "customer" | "property";
   origin: string;
 }): Promise<boolean> {
   if (!ensureWebPushConfigured()) return false;
@@ -47,7 +48,7 @@ export async function sendMatchWebPush(input: {
   const path = deepLinkForMatchPair(
     input.customerId,
     input.propertyId,
-    "customer"
+    input.side ?? "customer"
   );
   const url = `${input.origin.replace(/\/$/, "")}${path}`;
   const payload = JSON.stringify({

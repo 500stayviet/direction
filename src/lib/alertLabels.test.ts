@@ -106,18 +106,26 @@ describe("alertCounts", () => {
 
 describe("serverAlertScan", () => {
   it("computes pair keys", () => {
+    const userId = "u1";
     const customer = {
       id: "c1",
+      createdBy: userId,
+      createdAt: "2026-01-02T00:00:00.000Z",
       contractCompleted: false,
       dealType: "월세",
       roomType: "투룸",
-      deposit: 1000,
-      monthlyRent: 50,
+      depositFrom: 1000,
+      depositTo: 1000,
+      depositSingle: true,
+      monthlyRentFrom: 50,
+      monthlyRentTo: 50,
       preferredGus: ["강동구"],
       preferredDongs: ["강동구|천호동"],
     } as Customer;
     const property = {
       id: "p1",
+      createdBy: userId,
+      createdAt: "2026-01-01T00:00:00.000Z",
       contractCompleted: false,
       dealType: "월세",
       roomType: "투룸",
@@ -125,9 +133,10 @@ describe("serverAlertScan", () => {
       monthlyRent: 50,
       address: "강동구 천호동",
     } as ListedProperty;
-    const pairs = computeWorkspaceMatchPairs([customer], [property]);
+    const pairs = computeWorkspaceMatchPairs([customer], [property], userId);
     assert.ok(pairs.own.length >= 1);
-    const candidates = pairKeysToCandidates(pairs.own, pairs.partner);
+    const candidates = pairKeysToCandidates(pairs);
     assert.equal(candidates[0]?.kind, "match");
+    assert.equal(candidates[0]?.side, "customer");
   });
 });

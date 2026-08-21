@@ -6,8 +6,14 @@ import {
   peekCurrentUser,
   subscribeAuthChange,
 } from "@/lib/auth";
+import { useMatchPoolEntities } from "@/hooks/useMatchPool";
 import { isForeignTeamItem } from "@/lib/teamActionGuard";
-import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
+import {
+  buildMatchAlertSideMaps,
+  computeMatchPairKeys,
+  indexCustomers,
+  indexProperties,
+} from "@/lib/matchPools";
 import {
   peekCustomers,
   peekProperties,
@@ -18,7 +24,6 @@ import {
   ensureTeamAlertsUser,
   getAlertBadgeCounts,
   getTeamAlertsSnapshot,
-  matchPairKey,
   subscribeTeamAlerts,
   syncMatchPairs,
   syncShareIds,
@@ -87,6 +92,7 @@ export function TeamAlertsSync() {
   const customers = useCachedCustomers();
   const properties = useCachedProperties();
   const schedules = useCachedSchedules();
+  const matchPool = useMatchPoolEntities(userId);
 
   useEffect(() => {
     ensureTeamAlertsUser(userId);
@@ -115,21 +121,21 @@ export function TeamAlertsSync() {
     );
 
     const runMatch = () => {
-      const ownPairs: string[] = [];
-      const partnerPairs: string[] = [];
-      for (const c of customers) {
-        if (c.contractCompleted) continue;
-        const { own, partner } = findMatchingPropertiesGrouped(c, properties);
-        for (const p of own) {
-          if (p.contractCompleted) continue;
-          ownPairs.push(matchPairKey(c.id, p.id));
-        }
-        for (const p of partner) {
-          if (p.contractCompleted) continue;
-          partnerPairs.push(matchPairKey(c.id, p.id));
-        }
-      }
-      syncMatchPairs(ownPairs, partnerPairs);
+      const poolCustomers = matchPool.customers ?? customers;
+      const poolProperties = matchPool.properties ?? properties;
+      const { ownKeys, siteKeys } = computeMatchPairKeys({
+        customers: poolCustomers,
+        properties: poolProperties,
+        userId,
+      });
+      const sideMaps = buildMatchAlertSideMaps({
+        userId,
+        ownKeys,
+        siteKeys,
+        customersById: indexCustomers(poolCustomers),
+        propertiesById: indexProperties(poolProperties),
+      });
+      syncMatchPairs(ownKeys, siteKeys, sideMaps);
     };
 
     // N×M 매칭은 첫 페인트 이후. 뱃지는 idle 또는 0.8초 안에 맞춰진다.
@@ -139,7 +145,14 @@ export function TeamAlertsSync() {
     }
     const timer = window.setTimeout(runMatch, 0);
     return () => window.clearTimeout(timer);
-  }, [userId, customers, properties, schedules]);
+  }, [
+    userId,
+    customers,
+    properties,
+    schedules,
+    matchPool.customers,
+    matchPool.properties,
+  ]);
 
   return null;
 }

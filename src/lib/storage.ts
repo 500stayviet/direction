@@ -414,6 +414,72 @@ async function listActivePayloads<T>(
   }
 }
 
+/** 매칭 풀 — 워크스페이스 전체(팀원 비공유 포함). 리스트 표시용 아님 */
+async function listWorkspaceMatchPoolPayloads<T>(
+  table: EntityTable,
+  mapRow: (row: RowMeta) => T
+): Promise<ListFetchResult<T>> {
+  if (table === "schedules") return { ok: true, items: [] };
+  try {
+    const { getAccessToken } = await import("./auth");
+    const token = await getAccessToken();
+    if (!token) return { ok: false };
+
+    const userId = await requireUserId();
+    const workspaceId = await getWorkspaceId(userId);
+    const supabase = createClient();
+    const canSharedCol = hasWorkspaceSharedColumn(table);
+
+    const selectOwn = async (withSharedCol: boolean) => {
+      const selectCols = baseSelectCols(withSharedCol && canSharedCol);
+      return supabase
+        .from(table)
+        .select(selectCols)
+        .eq("user_id", userId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false });
+    };
+
+    let { data, error } = await selectOwn(canSharedCol);
+    if (
+      error &&
+      (table === "listed_properties" || table === "customers") &&
+      isMissingWorkspaceSharedColumn(error)
+    ) {
+      ({ data, error } = await selectOwn(false));
+    }
+    if (error || !data) return { ok: false };
+
+    const byId = new Map((data as unknown as RowMeta[]).map((r) => [r.id, r]));
+
+    if (workspaceId && canSharedCol) {
+      const selectCols = baseSelectCols(true);
+      const workspaceRows = await supabase
+        .from(table)
+        .select(selectCols)
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false });
+      if (!workspaceRows.error && workspaceRows.data) {
+        for (const row of workspaceRows.data as unknown as RowMeta[]) {
+          if (!byId.has(row.id)) byId.set(row.id, row);
+        }
+      }
+    }
+
+    const demoExpired = isDemoHiddenForUser(peekCurrentUser());
+    const rows = [...byId.values()].filter((row) => {
+      if (!isDemoEntityId(row.id)) return true;
+      if (demoExpired) return false;
+      return row.user_id === userId;
+    });
+
+    return { ok: true, items: rows.map(mapRow) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 function enrichCustomer(row: RowMeta): Customer {
   const payload = row.payload as Customer;
   return {
@@ -745,6 +811,40 @@ export async function loadListedPropertiesList(): Promise<
 export async function getListedProperties(): Promise<ListedProperty[]> {
   const result = await loadListedPropertiesList();
   return result.items;
+}
+
+let matchPoolCustomersInflight: Promise<Customer[]> | null = null;
+
+export async function getMatchPoolCustomers(): Promise<Customer[]> {
+  if (matchPoolCustomersInflight) return matchPoolCustomersInflight;
+  matchPoolCustomersInflight = (async () => {
+    const result = await listWorkspaceMatchPoolPayloads(
+      "customers",
+      enrichCustomer
+    );
+    if (!result.ok) return [];
+    return result.items.map(applyCustomerDueComplete);
+  })().finally(() => {
+    matchPoolCustomersInflight = null;
+  });
+  return matchPoolCustomersInflight;
+}
+
+let matchPoolPropertiesInflight: Promise<ListedProperty[]> | null = null;
+
+export async function getMatchPoolProperties(): Promise<ListedProperty[]> {
+  if (matchPoolPropertiesInflight) return matchPoolPropertiesInflight;
+  matchPoolPropertiesInflight = (async () => {
+    const result = await listWorkspaceMatchPoolPayloads(
+      "listed_properties",
+      enrichProperty
+    );
+    if (!result.ok) return [];
+    return result.items.map(applyPropertyDueComplete);
+  })().finally(() => {
+    matchPoolPropertiesInflight = null;
+  });
+  return matchPoolPropertiesInflight;
 }
 
 export async function saveListedProperties(
