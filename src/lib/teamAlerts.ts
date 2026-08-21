@@ -729,20 +729,22 @@ export function hasAnyUnseenMatchForProperty(propertyId: string): boolean {
 
 export function firstUnseenMatchPropertyId(
   customerId: string,
-  propertyIdsInOrder: string[]
+  propertyIdsInOrder: string[],
+  partner = false
 ): string | null {
   for (const pid of propertyIdsInOrder) {
-    if (isMatchUnseen(customerId, pid, "customer")) return pid;
+    if (isMatchUnseen(customerId, pid, "customer", partner)) return pid;
   }
   return null;
 }
 
 export function firstUnseenMatchCustomerId(
   propertyId: string,
-  customerIdsInOrder: string[]
+  customerIdsInOrder: string[],
+  partner = false
 ): string | null {
   for (const cid of customerIdsInOrder) {
-    if (isMatchUnseen(cid, propertyId, "property")) return cid;
+    if (isMatchUnseen(cid, propertyId, "property", partner)) return cid;
   }
   return null;
 }

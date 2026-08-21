@@ -129,23 +129,22 @@ export default function PropertyDetailPage() {
     [property, customersForMatch, myId]
   );
 
-  useEffect(() => {
-    if (!property || editing) return;
-    const wantScroll = searchParams.get("scrollMatch") === "1";
-    const firstId = firstUnseenMatchCustomerId(
+  const wantMatchModal = searchParams.get("scrollMatch") === "1";
+  const autoOpenOwnCustomerId = useMemo(() => {
+    if (!property || !wantMatchModal) return null;
+    return firstUnseenMatchCustomerId(
       property.id,
       matches.own.map((c) => c.id)
     );
-    if (!wantScroll && !firstId) return;
-    const targetId = firstId ?? matches.own[0]?.id;
-    if (!targetId) return;
-    const t = window.setTimeout(() => {
-      document
-        .getElementById(`match-customer-${targetId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 120);
-    return () => window.clearTimeout(t);
-  }, [property, editing, matches.own, searchParams]);
+  }, [property, wantMatchModal, matches.own]);
+  const autoOpenPartnerCustomerId = useMemo(() => {
+    if (!property || !wantMatchModal || autoOpenOwnCustomerId) return null;
+    return firstUnseenMatchCustomerId(
+      property.id,
+      matches.partner.map((c) => c.id),
+      true
+    );
+  }, [property, wantMatchModal, autoOpenOwnCustomerId, matches.partner]);
 
   if (!property) {
     return (
@@ -360,6 +359,7 @@ export default function PropertyDetailPage() {
               listHint="(내 고객리스트)"
               items={matches.own}
               propertyId={property.id}
+              autoOpenPreviewId={editing ? null : autoOpenOwnCustomerId}
               emptyText="조건에 맞는 내 고객이 없습니다."
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))
@@ -370,6 +370,7 @@ export default function PropertyDetailPage() {
               items={matches.partner}
               propertyId={property.id}
               matchKind="partner"
+              autoOpenPreviewId={editing ? null : autoOpenPartnerCustomerId}
               emptyText={<SiteShareMatchingEmpty kind="customer" />}
               onRemoved={(id) =>
                 setCustomers((prev) => prev.filter((c) => c.id !== id))
