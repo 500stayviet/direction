@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { formatAlertBannerText } from "@/lib/alertLabels";
 import {
+  ALERT_BANNER_AUTO_HIDE_MS,
   pickAlertBannerHref,
+  totalUnseenFromState,
   unseenMatchSummaryFromState,
 } from "@/lib/alertCounts";
 import {
@@ -35,6 +37,35 @@ function useLoggedIn(): boolean {
   return Boolean(peekCurrentUser()?.id);
 }
 
+/**
+ * 미확인 알람이 늘 때만 배너 표시 → 15초 후 자동 숨김.
+ * 뱃지·탭 제목 등 알람 상태는 확인할 때까지 유지.
+ */
+function useBannerVisible(hasAlerts: boolean, unseenTotal: number): boolean {
+  const [visible, setVisible] = useState(false);
+  const peakUnseenRef = useRef(0);
+
+  useEffect(() => {
+    if (!hasAlerts || unseenTotal <= 0) {
+      setVisible(false);
+      peakUnseenRef.current = 0;
+      return;
+    }
+
+    if (unseenTotal <= peakUnseenRef.current) return;
+
+    peakUnseenRef.current = unseenTotal;
+    setVisible(true);
+    const t = window.setTimeout(
+      () => setVisible(false),
+      ALERT_BANNER_AUTO_HIDE_MS
+    );
+    return () => window.clearTimeout(t);
+  }, [hasAlerts, unseenTotal]);
+
+  return visible;
+}
+
 /** 상단 알람 — 페이지 레이아웃과 분리, 창 위에 떠 있는 배너(포털) */
 export function AlertBanner() {
   const snap = useAlertSnap();
@@ -45,11 +76,12 @@ export function AlertBanner() {
     setMounted(true);
   }, []);
 
-  if (!mounted || !loggedIn) return null;
-
   const summary = unseenMatchSummaryFromState(snap);
   const text = formatAlertBannerText(summary);
-  if (!text) return null;
+  const unseenTotal = totalUnseenFromState(snap);
+  const visible = useBannerVisible(Boolean(text), unseenTotal);
+
+  if (!mounted || !loggedIn || !text || !visible) return null;
 
   const href = pickAlertBannerHref(snap);
 

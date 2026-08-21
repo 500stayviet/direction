@@ -5,6 +5,9 @@ import type { AlertState } from "@/lib/teamAlerts";
 
 /** teamAlerts 상태 스냅샷 기준 집계 (클라이언트) */
 
+/** 상단 플로팅 배너 자동 숨김 — 미확인 알람·뱃지는 유지 */
+export const ALERT_BANNER_AUTO_HIDE_MS = 15_000;
+
 export function totalUnseenFromState(state: AlertState): number {
   return (
     state.unseenShare.customers.length +
