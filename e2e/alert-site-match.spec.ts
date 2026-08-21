@@ -33,14 +33,8 @@ test("팀원 비공유 매물 — 멤버 고객에만 사이트내 뱃지", asyn
   await expectListBadge(pair.memberPage, "사이트내");
 
   await pair.ownerPage.goto("/properties");
-  await expectNoSiteBadge(pair.ownerPage);
+  await expectNoListBadge(pair.ownerPage, "사이트내");
 
   await pair.ownerCtx.close();
   await pair.memberCtx.close();
 });
-
-async function expectNoSiteBadge(page: import("@playwright/test").Page) {
-  await expect(page.getByText("사이트내", { exact: true })).toHaveCount(0, {
-    timeout: 10_000,
-  });
-}

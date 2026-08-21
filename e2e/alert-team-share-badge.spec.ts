@@ -18,7 +18,7 @@ test("팀 공유 후 멤버 리스트에 팀공유 뱃지", async ({ browser }) 
   if (!auth?.user?.id) throw new Error("owner auth missing");
 
   await pair.memberPage.goto("/properties");
-  await expect(pair.memberPage.getByText("등록 0건").or(pair.memberPage.getByText(/등록 \d+건/))).toBeVisible({
+  await expect(pair.memberPage.getByText(/등록 \d+건/)).toBeVisible({
     timeout: 25_000,
   });
 
