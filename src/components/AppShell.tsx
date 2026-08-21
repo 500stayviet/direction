@@ -8,7 +8,7 @@ import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityListWarmup } from "@/components/EntityListWarmup";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
 import { TeamAlertsSync } from "@/components/TeamAlertsSync";
-import { AlertTopInset, AlertUxSync } from "@/components/AlertUxHost";
+import { AlertUxSync } from "@/components/AlertUxHost";
 import { FeatureIntroHost } from "@/components/FeatureIntroHost";
 import { useAppScreenWakeLock } from "@/hooks/useScreenWakeLock";
 
@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "pb-[calc(5rem+env(safe-area-inset-bottom))]",
             ].join(" ")}
           >
-            <AlertTopInset>{children}</AlertTopInset>
+            {children}
           </div>
           {!hideTab && <BottomTabBar />}
           {!hideTab && <AdConsentNotice />}
