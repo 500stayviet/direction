@@ -77,25 +77,30 @@ describe("alertCounts", () => {
     assert.equal(total, 2);
   });
 
-  it("picks banner href", () => {
-    const state = {
+  it("picks banner href for match vs share", () => {
+    const matchState = {
       shareSeeded: { customers: true, properties: true, navi: true },
       matchSeeded: true,
       newMatchSeeded: true,
       knownShare: { customers: [], properties: [], navi: [] },
-      unseenShare: { customers: [], properties: [], navi: ["s1"] },
+      unseenShare: { customers: [], properties: [], navi: [] },
       knownMatch: [],
       knownNewMatch: [],
-      unseenMatchCustomer: [],
-      unseenMatchProperty: ["c::p"],
+      unseenMatchCustomer: ["c1::p1"],
+      unseenMatchProperty: [],
       unseenNewMatchCustomer: [],
       unseenNewMatchProperty: [],
       alertSince: {},
       preserveDemoShareAlerts: false,
     };
-    assert.equal(pickAlertBannerHref(state), "/properties");
-    const summary = unseenMatchSummaryFromState(state);
-    assert.equal(summary.matchOwn, 1);
+    assert.equal(pickAlertBannerHref(matchState), "/customers/c1?scrollMatch=1");
+
+    const shareState = {
+      ...matchState,
+      unseenMatchCustomer: [],
+      unseenShare: { customers: ["c9"], properties: [], navi: [] },
+    };
+    assert.equal(pickAlertBannerHref(shareState), "/customers?scrollShare=c9");
   });
 });
 

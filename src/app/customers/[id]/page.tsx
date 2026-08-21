@@ -31,7 +31,6 @@ import { usePropertiesList } from "@/hooks/useEntityList";
 import { findMatchingPropertiesGrouped } from "@/lib/matchCustomerProperty";
 import {
   firstUnseenMatchPropertyId,
-  markShareSeen,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import type { Customer } from "@/lib/types";
@@ -66,7 +65,6 @@ export default function CustomerDetailPage() {
         Boolean(ws.ok && ws.workspace && (ws.workspace.memberCount ?? 0) > 1)
       );
       setCustomer(found);
-      markShareSeen("customers", found.id);
       void touchRecentCustomer(found.id);
     })();
     return () => {

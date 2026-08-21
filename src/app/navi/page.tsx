@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ListScrollShareTarget } from "@/components/ListScrollShareTarget";
 import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/teamActionGuard";
 import {
   getTeamAlertsSnapshot,
+  isShareUnseen,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -195,6 +197,7 @@ export default function NaviEntryPage() {
 
   return (
     <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
+      <ListScrollShareTarget idPrefix="list-navi" />
       <PageHeader
         title="네비 시작하기"
         backHref="/"
@@ -247,7 +250,7 @@ export default function NaviEntryPage() {
             const done = isScheduleEnded(s);
             const href = `/schedules/${s.id}?from=navi`;
             return (
-              <div key={s.id}>
+              <div key={s.id} id={`list-navi-${s.id}`}>
                 <PrefetchHref href={href} />
                 <NaviListCard
                   schedule={s}
@@ -268,7 +271,9 @@ export default function NaviEntryPage() {
                       hintNudge={nudgeFirstCard && index === 0}
                       leftActionLabel={done ? "복구/수정" : "종료"}
                       onTap={() => {
-                        markShareSeen("navi", s.id);
+                        if (isShareUnseen("navi", s.id)) {
+                          markShareSeen("navi", s.id);
+                        }
                         router.push(href);
                       }}
                       onSwipeLeft={() => {

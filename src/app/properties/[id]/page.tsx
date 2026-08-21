@@ -38,7 +38,6 @@ import {
 } from "@/lib/teamActionGuard";
 import {
   firstUnseenMatchCustomerId,
-  markShareSeen,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
@@ -84,7 +83,6 @@ export default function PropertyDetailPage() {
         Boolean(ws.ok && ws.workspace && (ws.workspace.memberCount ?? 0) > 1)
       );
       setProperty(found);
-      markShareSeen("properties", found.id);
       setAgent(me);
     })();
     return () => {

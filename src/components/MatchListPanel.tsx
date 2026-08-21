@@ -119,6 +119,7 @@ export function MatchingPropertiesSection({
 
   const openPreview = (p: ListedProperty) => {
     if (customerId) {
+      // 매칭 알람 해제 — 반짝이는 카드 미리보기 진입 시에만 (상세·푸시 진입만으로는 해제 안 함)
       markMatchSeen(customerId, p.id, "customer", matchKind === "partner");
     }
     setPreview(p);
@@ -284,6 +285,7 @@ export function MatchingCustomersSection({
 
   const openPreview = (c: Customer) => {
     if (propertyId) {
+      // 매칭 알람 해제 — 반짝이는 카드 미리보기 진입 시에만
       markMatchSeen(c.id, propertyId, "property", matchKind === "partner");
     }
     setPreview(c);

@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ListScrollShareTarget } from "@/components/ListScrollShareTarget";
 import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +27,7 @@ import {
 import {
   getTeamAlertsSnapshot,
   hasUnseenMatchForCustomer,
+  isShareUnseen,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -103,7 +105,9 @@ export default function CustomerListPage() {
   };
 
   const openCustomer = (c: Customer) => {
-    markShareSeen("customers", c.id);
+    if (isShareUnseen("customers", c.id)) {
+      markShareSeen("customers", c.id);
+    }
     router.push(customerHref(c));
   };
 
@@ -171,6 +175,7 @@ export default function CustomerListPage() {
 
   return (
     <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
+      <ListScrollShareTarget idPrefix="list-customer" />
       <PageHeader
         title="고객리스트"
         backHref="/"
@@ -220,6 +225,7 @@ export default function CustomerListPage() {
               return (
                 <Fragment key={c.id}>
                 <PrefetchHref href={customerHref(c)} />
+                <div id={`list-customer-${c.id}`}>
                 <CustomerListCard
                   customer={c}
                   viewerId={myId}
@@ -256,6 +262,7 @@ export default function CustomerListPage() {
                     </SwipeRevealRow>
                   )}
                 />
+                </div>
                 </Fragment>
               );
             })}

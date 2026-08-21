@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ListScrollShareTarget } from "@/components/ListScrollShareTarget";
 import { PrefetchHref } from "@/components/PrefetchHref";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,7 @@ import {
 import {
   getTeamAlertsSnapshot,
   hasUnseenMatchForProperty,
+  isShareUnseen,
   markShareSeen,
   subscribeTeamAlerts,
 } from "@/lib/teamAlerts";
@@ -99,7 +101,9 @@ export default function PropertyListPage() {
   };
 
   const openProperty = (p: ListedProperty) => {
-    markShareSeen("properties", p.id);
+    if (isShareUnseen("properties", p.id)) {
+      markShareSeen("properties", p.id);
+    }
     router.push(propertyHref(p));
   };
 
@@ -169,6 +173,7 @@ export default function PropertyListPage() {
 
   return (
     <main className="-mx-4 min-h-dvh bg-[#F9FAFB] px-4 pb-4">
+      <ListScrollShareTarget idPrefix="list-property" />
       <PageHeader
         title="매물 리스트"
         backHref="/"
@@ -212,6 +217,7 @@ export default function PropertyListPage() {
               return (
                 <Fragment key={p.id}>
                 <PrefetchHref href={propertyHref(p)} />
+                <div id={`list-property-${p.id}`}>
                 <PropertyListCard
                   property={p}
                   viewerId={myId}
@@ -248,6 +254,7 @@ export default function PropertyListPage() {
                     </SwipeRevealRow>
                   )}
                 />
+                </div>
                 </Fragment>
               );
             })}

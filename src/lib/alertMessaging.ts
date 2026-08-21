@@ -53,6 +53,15 @@ export function deepLinkForMatchPair(
   return `/customers/${customerId}?scrollMatch=1`;
 }
 
+/** 팀공유 알람 — 리스트에서 카드 반짝임까지. 탭(상세 진입) 시 markShareSeen */
+export function deepLinkForShareAlert(
+  tab: "customers" | "properties" | "navi",
+  entityId: string
+): string {
+  if (tab === "navi") return `/navi?scrollShare=${entityId}`;
+  return `/${tab}?scrollShare=${entityId}`;
+}
+
 export function propertyBriefLine(property: ListedProperty): string {
   return property.address?.trim() || "";
 }
