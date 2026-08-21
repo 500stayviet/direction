@@ -16,5 +16,7 @@
 
 ## 발송
 
+- **즉시:** 고객·매물·일정 저장 직후 `POST /api/alerts/dispatch` (앱 꺼져 있어도)
+- **백업:** GitHub Actions cron → `/api/cron/alerts` (1시간마다, 놓친 건 보정)
 - `alert_push_log.kind = 'share'`, `pair_key = share:{tab}:{id}` 로 중복 방지
 - 딥링크: `/{tab}?scrollShare={id}` (해제는 리스트 카드 탭 시만)

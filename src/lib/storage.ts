@@ -21,6 +21,7 @@ import {
   isDemoHiddenForUser,
 } from "./demoSeedPayload";
 import { foldDoorPasswordsIntoNotes } from "./propertyPasswords";
+import { postImmediateAlertDispatch } from "./immediateAlertDispatch";
 import {
   applyCustomerDueComplete,
   applyPropertyDueComplete,
@@ -673,6 +674,13 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
   };
   // 방금 쓴 값만 캐시에 반영 — 저장 직후 전체 재조회 생략
   upsertCustomerInCache(saved);
+  postImmediateAlertDispatch({
+    entityKind: "customer",
+    entityId: saved.id,
+    label: saved.name?.trim() || "고객",
+    workspaceId: boundWorkspace,
+    workspaceShared: shared,
+  });
   return peekCustomers() ?? [saved];
 }
 
@@ -933,6 +941,13 @@ export async function upsertListedProperty(
     workspaceShared: shared,
   };
   upsertPropertyInCache(saved);
+  postImmediateAlertDispatch({
+    entityKind: "property",
+    entityId: saved.id,
+    label: saved.address?.trim() || saved.roomType?.trim() || "매물",
+    workspaceId: boundWorkspace,
+    workspaceShared: shared,
+  });
   return peekProperties() ?? [saved];
 }
 
@@ -1216,6 +1231,17 @@ export async function upsertSchedule(schedule: Schedule): Promise<Schedule[]> {
     workspaceId: boundWorkspace || undefined,
   };
   upsertScheduleInCache(saved);
+  const shared = Boolean(payload.workspaceShared);
+  postImmediateAlertDispatch({
+    entityKind: "schedule",
+    entityId: saved.id,
+    label:
+      saved.guestName?.trim() ||
+      saved.title?.trim() ||
+      "방문 일정",
+    workspaceId: boundWorkspace,
+    workspaceShared: shared,
+  });
   return peekSchedules() ?? [saved];
 }
 

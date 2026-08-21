@@ -46,6 +46,17 @@ async function getWorkspaceId(admin: Admin, userId: string): Promise<string | nu
   return (data?.workspace_id as string | undefined) ?? null;
 }
 
+export async function loadWorkspaceMemberIds(
+  admin: Admin,
+  workspaceId: string
+): Promise<string[]> {
+  const { data } = await admin
+    .from("workspace_members")
+    .select("user_id")
+    .eq("workspace_id", workspaceId);
+  return [...new Set((data ?? []).map((row) => row.user_id as string))];
+}
+
 async function listTable<T>(
   admin: Admin,
   table: "customers" | "listed_properties",
