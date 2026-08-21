@@ -32,6 +32,7 @@ import { WORKSPACE_NAME_MAX, normalizeWorkspaceName } from "@/lib/workspaceName"
 import type { User } from "@/lib/types";
 import { planDisplayForUser } from "@/lib/planDisplay";
 import { PlanBadge } from "@/components/PlanBadge";
+import { AccountNotificationSettings } from "@/components/AccountNotificationSettings";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -372,6 +373,8 @@ export default function AccountPage() {
             </div>
           </dl>
         </Card>
+
+        <AccountNotificationSettings />
 
         <Card className="space-y-2.5 !p-3">
           <div>

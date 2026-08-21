@@ -722,6 +722,12 @@ export async function loginUser(
 }
 
 export async function logoutUser(): Promise<void> {
+  try {
+    const { unsubscribeWebPush } = await import("./pushClient");
+    await unsubscribeWebPush();
+  } catch {
+    /* ignore */
+  }
   // 1) 로컬/쿠키 먼저 삭제 — 화면 로그인 상태의 핵심
   clearAuthRuntimeCache();
 

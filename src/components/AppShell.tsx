@@ -8,6 +8,7 @@ import { AdConsentNotice } from "@/components/ads/AdConsentNotice";
 import { EntityListWarmup } from "@/components/EntityListWarmup";
 import { EntityRealtimeSync } from "@/components/EntityRealtimeSync";
 import { TeamAlertsSync } from "@/components/TeamAlertsSync";
+import { AlertTopInset, AlertUxSync } from "@/components/AlertUxHost";
 import { FeatureIntroHost } from "@/components/FeatureIntroHost";
 import { useAppScreenWakeLock } from "@/hooks/useScreenWakeLock";
 
@@ -42,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <EntityListWarmup />
           <EntityRealtimeSync />
           <TeamAlertsSync />
+          <AlertUxSync />
           <div
             className={[
               "min-h-dvh px-4 pt-[max(0.5rem,env(safe-area-inset-top))]",
@@ -56,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "pb-[calc(5rem+env(safe-area-inset-bottom))]",
             ].join(" ")}
           >
-            {children}
+            <AlertTopInset>{children}</AlertTopInset>
           </div>
           {!hideTab && <BottomTabBar />}
           {!hideTab && <AdConsentNotice />}

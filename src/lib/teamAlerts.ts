@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  formatOwnMatchBadgeLabel,
+  formatSiteMatchBadgeLabel,
+} from "@/lib/alertLabels";
+
 export type AlertTab = "customers" | "properties" | "navi";
 /** 고객 상세에서 본 매칭 vs 매물 상세에서 본 매칭 — 서로 독립 */
 export type MatchAlertSide = "customer" | "property";
@@ -69,7 +74,7 @@ const listeners = new Set<Listener>();
 
 let userId: string | null = null;
 let state: AlertState = emptyState();
-let skipRemotePush = false;
+let skipRemoteUiPrefsSync = false;
 
 function notify() {
   listeners.forEach((fn) => {
@@ -92,7 +97,7 @@ function persist() {
   } catch {
     /* ignore */
   }
-  if (!skipRemotePush) {
+  if (!skipRemoteUiPrefsSync) {
     void import("./userUiPrefs").then((m) => m.scheduleUiPrefsPush());
   }
 }
@@ -204,15 +209,10 @@ function unseenSidesFromPairKeys(
   };
 }
 
-/** 리스트 카드 — 내 리스트 매칭 건수 (1건이면 숫자 생략) */
-export function formatOwnMatchBadgeLabel(count: number): string {
-  return count > 1 ? `매칭 ${count}` : "매칭";
-}
-
-/** 리스트 카드 — 사이트내 공유 매칭 건수 (1건이면 숫자 생략) */
-export function formatSiteMatchBadgeLabel(count: number): string {
-  return count > 1 ? `사이트내 ${count}` : "사이트내";
-}
+export {
+  formatOwnMatchBadgeLabel,
+  formatSiteMatchBadgeLabel,
+} from "@/lib/alertLabels";
 
 export function subscribeTeamAlerts(listener: Listener): () => void {
   listeners.add(listener);
@@ -224,11 +224,11 @@ export function getTeamAlertsSnapshot(): AlertState {
 }
 
 export function applyAlertStateFromRemote(next: AlertState) {
-  skipRemotePush = true;
+  skipRemoteUiPrefsSync = true;
   state = next;
   persist();
   notify();
-  skipRemotePush = false;
+  skipRemoteUiPrefsSync = false;
 }
 
 export function ensureTeamAlertsUser(uid: string | null | undefined) {
@@ -685,6 +685,15 @@ export function getAlertBadgeCounts(): {
       state.unseenNewMatchProperty.length,
     navi: state.unseenShare.navi.length,
   };
+}
+
+export function getTotalUnseenAlertCount(): number {
+  const c = getAlertBadgeCounts();
+  return c.customers + c.properties + c.navi;
+}
+
+export function getTeamAlertsStateSnapshot(): AlertState {
+  return state;
 }
 
 export function getListCardAlertBadges(input: {

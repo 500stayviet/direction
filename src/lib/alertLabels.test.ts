@@ -1,0 +1,128 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import {
+  formatAlertBannerText,
+  formatDocumentTitleAlertSuffix,
+  formatOwnMatchBadgeLabel,
+} from "@/lib/alertLabels";
+import {
+  formatMatchAlertBody,
+  formatMatchAlertTitle,
+  matchPairKey,
+  parseMatchPairKey,
+} from "@/lib/alertMessaging";
+import {
+  pickAlertBannerHref,
+  totalUnseenFromState,
+  unseenMatchSummaryFromState,
+} from "@/lib/alertCounts";
+import {
+  computeWorkspaceMatchPairs,
+  pairKeysToCandidates,
+} from "@/lib/serverAlertScan";
+import type { Customer, ListedProperty } from "@/lib/types";
+
+describe("alertLabels", () => {
+  it("formats document title suffix", () => {
+    assert.equal(formatDocumentTitleAlertSuffix(0), "");
+    assert.equal(formatDocumentTitleAlertSuffix(3), "(3) ");
+  });
+
+  it("formats banner text", () => {
+    assert.equal(
+      formatAlertBannerText({ matchOwn: 2, matchPartner: 0, share: 0 }),
+      "조건 매칭 2건 — 확인하기"
+    );
+  });
+});
+
+describe("alertMessaging", () => {
+  it("round-trips pair keys", () => {
+    const key = matchPairKey("c1", "p1");
+    assert.deepEqual(parseMatchPairKey(key), {
+      customerId: "c1",
+      propertyId: "p1",
+    });
+  });
+
+  it("formats match notification copy", () => {
+    const customer = { id: "c1", name: "김고객" } as Customer;
+    const property = {
+      id: "p1",
+      address: "강동구 천호동 123-4",
+    } as ListedProperty;
+    assert.match(formatMatchAlertTitle("match"), /매칭/);
+    assert.match(formatMatchAlertBody(customer, property), /김고객/);
+    assert.match(formatMatchAlertBody(customer, property), /천호동/);
+  });
+});
+
+describe("alertCounts", () => {
+  it("sums unseen totals", () => {
+    const total = totalUnseenFromState({
+      shareSeeded: { customers: true, properties: true, navi: true },
+      matchSeeded: true,
+      newMatchSeeded: true,
+      knownShare: { customers: [], properties: [], navi: [] },
+      unseenShare: { customers: ["a"], properties: [], navi: [] },
+      knownMatch: [],
+      knownNewMatch: [],
+      unseenMatchCustomer: ["c::p"],
+      unseenMatchProperty: [],
+      unseenNewMatchCustomer: [],
+      unseenNewMatchProperty: [],
+      alertSince: {},
+      preserveDemoShareAlerts: false,
+    });
+    assert.equal(total, 2);
+  });
+
+  it("picks banner href", () => {
+    const state = {
+      shareSeeded: { customers: true, properties: true, navi: true },
+      matchSeeded: true,
+      newMatchSeeded: true,
+      knownShare: { customers: [], properties: [], navi: [] },
+      unseenShare: { customers: [], properties: [], navi: ["s1"] },
+      knownMatch: [],
+      knownNewMatch: [],
+      unseenMatchCustomer: [],
+      unseenMatchProperty: ["c::p"],
+      unseenNewMatchCustomer: [],
+      unseenNewMatchProperty: [],
+      alertSince: {},
+      preserveDemoShareAlerts: false,
+    };
+    assert.equal(pickAlertBannerHref(state), "/properties");
+    const summary = unseenMatchSummaryFromState(state);
+    assert.equal(summary.matchOwn, 1);
+  });
+});
+
+describe("serverAlertScan", () => {
+  it("computes pair keys", () => {
+    const customer = {
+      id: "c1",
+      contractCompleted: false,
+      dealType: "월세",
+      roomType: "투룸",
+      deposit: 1000,
+      monthlyRent: 50,
+      preferredGus: ["강동구"],
+      preferredDongs: ["강동구|천호동"],
+    } as Customer;
+    const property = {
+      id: "p1",
+      contractCompleted: false,
+      dealType: "월세",
+      roomType: "투룸",
+      deposit: 1000,
+      monthlyRent: 50,
+      address: "강동구 천호동",
+    } as ListedProperty;
+    const pairs = computeWorkspaceMatchPairs([customer], [property]);
+    assert.ok(pairs.own.length >= 1);
+    const candidates = pairKeysToCandidates(pairs.own, pairs.partner);
+    assert.equal(candidates[0]?.kind, "match");
+  });
+});

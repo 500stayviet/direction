@@ -184,7 +184,7 @@ export function BottomTabBar() {
                   <tab.Icon className="h-8 w-8" />
                   {badgeCount > 0 ? (
                     <span
-                      className="absolute -right-1.5 top-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[9px] font-extrabold leading-none text-white ring-2 ring-white"
+                      className="absolute -right-1.5 top-1 flex h-[15px] min-w-[15px] animate-pulse items-center justify-center rounded-full bg-red-500 px-[3px] text-[9px] font-extrabold leading-none text-white ring-2 ring-white"
                       aria-label={`새 알림 ${badgeCount}건`}
                     >
                       {badgeCount > 99 ? "99+" : badgeCount}
