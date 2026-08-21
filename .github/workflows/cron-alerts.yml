@@ -1,0 +1,24 @@
+# Web Push 매칭 알림 — Vercel Hobby는 cron 1일 1회만 허용하므로 GitHub Actions로 호출
+name: Cron alerts
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger /api/cron/alerts
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Skip: APP_URL or CRON_SECRET not configured in repo secrets."
+            exit 0
+          fi
+          curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL%/}/api/cron/alerts"
