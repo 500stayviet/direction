@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -76,7 +76,6 @@ export function MatchingPropertiesSection({
   onRemoved,
   customerId,
   matchKind = "own",
-  autoOpenPreviewId,
 }: {
   title: string;
   listHint?: string;
@@ -88,13 +87,10 @@ export function MatchingPropertiesSection({
   customerId?: string;
   /** own=내 리스트 매칭(파랑), partner=사이트내 공유 새매칭(노랑) */
   matchKind?: "own" | "partner";
-  /** scrollMatch 등 — 해당 매물 미리보기 모달 자동 오픈 */
-  autoOpenPreviewId?: string | null;
 }) {
   useAlertsTick();
   const viewerId = peekCurrentUser()?.id;
   const [preview, setPreview] = useState<ListedProperty | null>(null);
-  const autoOpenedRef = useRef<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ListedProperty | null>(
     null
   );
@@ -128,18 +124,6 @@ export function MatchingPropertiesSection({
     }
     setPreview(p);
   };
-
-  useEffect(() => {
-    const targetId = autoOpenPreviewId?.trim();
-    if (!targetId || autoOpenedRef.current === targetId) return;
-    const target = items.find((p) => p.id === targetId);
-    if (!target) return;
-    autoOpenedRef.current = targetId;
-    if (customerId) {
-      markMatchSeen(customerId, target.id, "customer", matchKind === "partner");
-    }
-    setPreview(target);
-  }, [autoOpenPreviewId, items, customerId, matchKind]);
 
   return (
     <div className="space-y-1.5">
@@ -268,7 +252,6 @@ export function MatchingCustomersSection({
   onRemoved,
   propertyId,
   matchKind = "own",
-  autoOpenPreviewId,
 }: {
   title: string;
   listHint?: string;
@@ -279,13 +262,10 @@ export function MatchingCustomersSection({
   /** 매칭 알람 앵커(매물 id) */
   propertyId?: string;
   matchKind?: "own" | "partner";
-  /** scrollMatch 등 — 해당 고객 미리보기 모달 자동 오픈 */
-  autoOpenPreviewId?: string | null;
 }) {
   useAlertsTick();
   const viewerId = peekCurrentUser()?.id;
   const [preview, setPreview] = useState<Customer | null>(null);
-  const autoOpenedRef = useRef<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -311,18 +291,6 @@ export function MatchingCustomersSection({
     }
     setPreview(c);
   };
-
-  useEffect(() => {
-    const targetId = autoOpenPreviewId?.trim();
-    if (!targetId || autoOpenedRef.current === targetId) return;
-    const target = items.find((c) => c.id === targetId);
-    if (!target) return;
-    autoOpenedRef.current = targetId;
-    if (propertyId) {
-      markMatchSeen(target.id, propertyId, "property", matchKind === "partner");
-    }
-    setPreview(target);
-  }, [autoOpenPreviewId, items, propertyId, matchKind]);
 
   return (
     <div className="space-y-1.5">

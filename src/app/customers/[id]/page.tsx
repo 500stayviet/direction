@@ -101,22 +101,31 @@ export default function CustomerDetailPage() {
     [customer, propertiesForMatch, myId]
   );
 
-  const wantMatchModal = searchParams.get("scrollMatch") === "1";
-  const autoOpenOwnPropertyId = useMemo(() => {
-    if (!customer || !wantMatchModal) return null;
-    return firstUnseenMatchPropertyId(
+  useEffect(() => {
+    if (!customer || editing) return;
+    const wantScroll = searchParams.get("scrollMatch") === "1";
+    const ownId = firstUnseenMatchPropertyId(
       customer.id,
       matches.own.map((p) => p.id)
     );
-  }, [customer, wantMatchModal, matches.own]);
-  const autoOpenPartnerPropertyId = useMemo(() => {
-    if (!customer || !wantMatchModal || autoOpenOwnPropertyId) return null;
-    return firstUnseenMatchPropertyId(
+    const partnerId = firstUnseenMatchPropertyId(
       customer.id,
       matches.partner.map((p) => p.id),
       true
     );
-  }, [customer, wantMatchModal, autoOpenOwnPropertyId, matches.partner]);
+    if (!wantScroll && !ownId && !partnerId) return;
+    const targetId =
+      ownId ??
+      partnerId ??
+      (wantScroll ? matches.own[0]?.id ?? matches.partner[0]?.id : null);
+    if (!targetId) return;
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`match-property-${targetId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [customer, editing, matches.own, matches.partner, searchParams]);
 
   if (!customer) {
     return (
@@ -256,7 +265,6 @@ export default function CustomerDetailPage() {
                 listHint="(내 매물리스트)"
                 items={matches.own}
                 customerId={customer.id}
-                autoOpenPreviewId={editing ? null : autoOpenOwnPropertyId}
                 emptyText="조건에 맞는 내 매물이 없습니다."
                 onRemoved={(id) =>
                   setProperties((prev) => prev.filter((p) => p.id !== id))
@@ -267,7 +275,6 @@ export default function CustomerDetailPage() {
                 items={matches.partner}
                 customerId={customer.id}
                 matchKind="partner"
-                autoOpenPreviewId={editing ? null : autoOpenPartnerPropertyId}
                 emptyText={<SiteShareMatchingEmpty kind="property" />}
                 onRemoved={(id) =>
                   setProperties((prev) => prev.filter((p) => p.id !== id))

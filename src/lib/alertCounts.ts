@@ -58,7 +58,7 @@ export function collectUnseenMatchPairKeys(state: AlertState): {
 
 /**
  * 알람 배ner·푸시 딥링크 — 해제(mark*Seen)는 하지 않음.
- * - 매칭: 상세 + scrollMatch → 반짝이는 매칭 카드 미리보기 진입 시 해제
+ * - 매칭: 상세 + scrollMatch → 반짝이는 매칭 카드로 스크롤 (카드 탭·미리보기 진입 시 해제)
  * - 팀공유: 리스트 + scrollShare → 해당 카드 탭(상세 진입) 시 해제
  */
 export function pickAlertBannerHref(state: AlertState): string {
