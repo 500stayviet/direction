@@ -41,9 +41,9 @@ function useLoggedIn(): boolean {
 
 /**
  * 미확인 알람이 있을 때:
- * - 홈·고객·매물·네비 리스트 진입 시 배너 재표시
- * - 새 알람 증가 시에도 표시
- * → 5초 후 자동 숨김 (뱃지·반짝임은 유지)
+ * - 홈·고객·매물·네비 **리스트** 진입 시에만 배너 표시 (5초 후 숨김)
+ * - 리스트에서 등록·상세 등으로 이동해도 **남은 카운트다운** 동안만 유지
+ * - 등록·상세·설정 등 그 외 화면에서는 재표시하지 않음
  */
 function useBannerVisible(
   hasAlerts: boolean,
@@ -51,31 +51,44 @@ function useBannerVisible(
   pathname: string
 ): boolean {
   const [visible, setVisible] = useState(false);
-  const peakUnseenRef = useRef(0);
+  /** 리스트에서 배너를 띄운 뒤 자동 숨김 시각 — 비리스트는 이 시각까지만 표시 */
+  const hideAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!hasAlerts || unseenTotal <= 0) {
       setVisible(false);
-      peakUnseenRef.current = 0;
+      hideAtRef.current = null;
       return;
     }
+    const onReminderPath = ALERT_BANNER_REMINDER_PATHS.has(pathname);
 
-    let shouldShow = ALERT_BANNER_REMINDER_PATHS.has(pathname);
-    if (unseenTotal > peakUnseenRef.current) {
-      peakUnseenRef.current = unseenTotal;
-      shouldShow = true;
-    } else if (unseenTotal < peakUnseenRef.current) {
-      peakUnseenRef.current = unseenTotal;
+    const armHide = (ms: number) => {
+      hideAtRef.current = Date.now() + ms;
+      setVisible(true);
+      const t = window.setTimeout(() => {
+        hideAtRef.current = null;
+        setVisible(false);
+      }, ms);
+      return () => window.clearTimeout(t);
+    };
+
+    if (onReminderPath) {
+      return armHide(ALERT_BANNER_AUTO_HIDE_MS);
     }
 
-    if (!shouldShow) return;
+    const hideAt = hideAtRef.current;
+    if (hideAt !== null && Date.now() < hideAt) {
+      const remaining = hideAt - Date.now();
+      setVisible(true);
+      const t = window.setTimeout(() => {
+        hideAtRef.current = null;
+        setVisible(false);
+      }, remaining);
+      return () => window.clearTimeout(t);
+    }
 
-    setVisible(true);
-    const t = window.setTimeout(
-      () => setVisible(false),
-      ALERT_BANNER_AUTO_HIDE_MS
-    );
-    return () => window.clearTimeout(t);
+    setVisible(false);
+    hideAtRef.current = null;
   }, [hasAlerts, unseenTotal, pathname]);
 
   return visible;
