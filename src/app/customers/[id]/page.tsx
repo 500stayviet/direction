@@ -31,7 +31,8 @@ import { usePropertiesList } from "@/hooks/useEntityList";
 import { useMatchPoolEntities } from "@/hooks/useMatchPool";
 import { groupedMatchesForCustomer } from "@/lib/matchDisplay";
 import {
-  firstUnseenMatchPropertyId,
+  getTeamAlertsSnapshot,
+  pickEarlierUnseenMatchPropertyId,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import type { Customer } from "@/lib/types";
@@ -104,24 +105,21 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (!customer || editing) return;
     const wantScroll = searchParams.get("scrollMatch") === "1";
-    const ownId = firstUnseenMatchPropertyId(
+    const alertSince = getTeamAlertsSnapshot().alertSince;
+    const targetId = pickEarlierUnseenMatchPropertyId(
       customer.id,
-      matches.own.map((p) => p.id)
-    );
-    const partnerId = firstUnseenMatchPropertyId(
-      customer.id,
+      matches.own.map((p) => p.id),
       matches.partner.map((p) => p.id),
-      true
+      alertSince
     );
-    if (!wantScroll && !ownId && !partnerId) return;
-    const targetId =
-      ownId ??
-      partnerId ??
+    if (!wantScroll && !targetId) return;
+    const scrollId =
+      targetId ??
       (wantScroll ? matches.own[0]?.id ?? matches.partner[0]?.id : null);
-    if (!targetId) return;
+    if (!scrollId) return;
     const t = window.setTimeout(() => {
       document
-        .getElementById(`match-property-${targetId}`)
+        .getElementById(`match-property-${scrollId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
     return () => window.clearTimeout(t);

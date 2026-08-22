@@ -1,7 +1,10 @@
 import {
   parseMatchPairKey,
 } from "@/lib/alertMessaging";
-import type { AlertState } from "@/lib/teamAlerts";
+import {
+  pairAlertSinceKey,
+  type AlertState,
+} from "@/lib/teamAlerts";
 
 /** teamAlerts 상태 스냅샷 기준 집계 (클라이언트) */
 
@@ -59,48 +62,91 @@ export function collectUnseenMatchPairKeys(state: AlertState): {
   };
 }
 
+function sinceOrLast(state: AlertState, key: string): number {
+  return state.alertSince[key] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function addMatchPairCandidates(
+  byHref: Map<string, number>,
+  state: AlertState,
+  pairKeys: string[],
+  kind: "match" | "newMatch",
+  hrefFor: (parsed: { customerId: string; propertyId: string }) => string
+) {
+  for (const pairKey of pairKeys) {
+    const parsed = parseMatchPairKey(pairKey);
+    if (!parsed) continue;
+    const at = sinceOrLast(state, pairAlertSinceKey(kind, pairKey));
+    const href = hrefFor(parsed);
+    const prev = byHref.get(href);
+    if (prev === undefined || at < prev) byHref.set(href, at);
+  }
+}
+
 /**
  * 알람 배ner·푸시 딥링크 — 해제(mark*Seen)는 하지 않음.
+ * - **먼저 온 알람**(alertSince 오름차순) 한 건
  * - 매칭: 상세 + scrollMatch → 반짝이는 매칭 카드로 스크롤 (카드 탭·미리보기 진입 시 해제)
  * - 팀공유: 리스트 + scrollShare → 해당 카드 탭(상세 진입) 시 해제
  */
 export function pickAlertBannerHref(state: AlertState): string {
-  const firstOwnMatch = state.unseenMatchCustomer[0];
-  if (firstOwnMatch) {
-    const parsed = parseMatchPairKey(firstOwnMatch);
-    if (parsed) {
-      return `/customers/${parsed.customerId}?scrollMatch=1`;
+  const byHref = new Map<string, number>();
+
+  addMatchPairCandidates(
+    byHref,
+    state,
+    state.unseenMatchCustomer,
+    "match",
+    (p) => `/customers/${p.customerId}?scrollMatch=1`
+  );
+  addMatchPairCandidates(
+    byHref,
+    state,
+    state.unseenMatchProperty,
+    "match",
+    (p) => `/properties/${p.propertyId}?scrollMatch=1`
+  );
+  addMatchPairCandidates(
+    byHref,
+    state,
+    state.unseenNewMatchCustomer,
+    "newMatch",
+    (p) => `/customers/${p.customerId}?scrollMatch=1`
+  );
+  addMatchPairCandidates(
+    byHref,
+    state,
+    state.unseenNewMatchProperty,
+    "newMatch",
+    (p) => `/properties/${p.propertyId}?scrollMatch=1`
+  );
+
+  for (const id of state.unseenShare.customers) {
+    const href = `/customers?scrollShare=${id}`;
+    const at = sinceOrLast(state, `share:customers:${id}`);
+    const prev = byHref.get(href);
+    if (prev === undefined || at < prev) byHref.set(href, at);
+  }
+  for (const id of state.unseenShare.properties) {
+    const href = `/properties?scrollShare=${id}`;
+    const at = sinceOrLast(state, `share:properties:${id}`);
+    const prev = byHref.get(href);
+    if (prev === undefined || at < prev) byHref.set(href, at);
+  }
+  for (const id of state.unseenShare.navi) {
+    const href = `/navi?scrollShare=${id}`;
+    const at = sinceOrLast(state, `share:navi:${id}`);
+    const prev = byHref.get(href);
+    if (prev === undefined || at < prev) byHref.set(href, at);
+  }
+
+  let bestHref = "/customers";
+  let bestAt = Number.MAX_SAFE_INTEGER;
+  for (const [href, at] of byHref) {
+    if (at < bestAt) {
+      bestAt = at;
+      bestHref = href;
     }
   }
-  const firstOwnMatchProperty = state.unseenMatchProperty[0];
-  if (firstOwnMatchProperty) {
-    const parsed = parseMatchPairKey(firstOwnMatchProperty);
-    if (parsed) {
-      return `/properties/${parsed.propertyId}?scrollMatch=1`;
-    }
-  }
-  const firstSiteMatch = state.unseenNewMatchCustomer[0];
-  if (firstSiteMatch) {
-    const parsed = parseMatchPairKey(firstSiteMatch);
-    if (parsed) {
-      return `/customers/${parsed.customerId}?scrollMatch=1`;
-    }
-  }
-  const firstSiteMatchProperty = state.unseenNewMatchProperty[0];
-  if (firstSiteMatchProperty) {
-    const parsed = parseMatchPairKey(firstSiteMatchProperty);
-    if (parsed) {
-      return `/properties/${parsed.propertyId}?scrollMatch=1`;
-    }
-  }
-  if (state.unseenShare.customers[0]) {
-    return `/customers?scrollShare=${state.unseenShare.customers[0]}`;
-  }
-  if (state.unseenShare.properties[0]) {
-    return `/properties?scrollShare=${state.unseenShare.properties[0]}`;
-  }
-  if (state.unseenShare.navi[0]) {
-    return `/navi?scrollShare=${state.unseenShare.navi[0]}`;
-  }
-  return "/customers";
+  return bestHref;
 }

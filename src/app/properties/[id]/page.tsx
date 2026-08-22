@@ -37,7 +37,8 @@ import {
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
 import {
-  firstUnseenMatchCustomerId,
+  getTeamAlertsSnapshot,
+  pickEarlierUnseenMatchCustomerId,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
 import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
@@ -132,24 +133,21 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     if (!property || editing) return;
     const wantScroll = searchParams.get("scrollMatch") === "1";
-    const ownId = firstUnseenMatchCustomerId(
+    const alertSince = getTeamAlertsSnapshot().alertSince;
+    const targetId = pickEarlierUnseenMatchCustomerId(
       property.id,
-      matches.own.map((c) => c.id)
-    );
-    const partnerId = firstUnseenMatchCustomerId(
-      property.id,
+      matches.own.map((c) => c.id),
       matches.partner.map((c) => c.id),
-      true
+      alertSince
     );
-    if (!wantScroll && !ownId && !partnerId) return;
-    const targetId =
-      ownId ??
-      partnerId ??
+    if (!wantScroll && !targetId) return;
+    const scrollId =
+      targetId ??
       (wantScroll ? matches.own[0]?.id ?? matches.partner[0]?.id : null);
-    if (!targetId) return;
+    if (!scrollId) return;
     const t = window.setTimeout(() => {
       document
-        .getElementById(`match-customer-${targetId}`)
+        .getElementById(`match-customer-${scrollId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
     return () => window.clearTimeout(t);

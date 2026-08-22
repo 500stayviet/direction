@@ -197,6 +197,20 @@ function noteAlertSince(key: string) {
   }
 }
 
+export function pairAlertSinceKey(
+  kind: "match" | "newMatch",
+  pairKey: string
+): string {
+  return `${kind}:pair:${pairKey}`;
+}
+
+function notePairAlertSince(kind: "match" | "newMatch", pairKey: string) {
+  const key = pairAlertSinceKey(kind, pairKey);
+  if (!state.alertSince[key]) {
+    state.alertSince = { ...state.alertSince, [key]: Date.now() };
+  }
+}
+
 function clearAlertSince(key: string) {
   if (!(key in state.alertSince)) return;
   const next = { ...state.alertSince };
@@ -231,17 +245,20 @@ function applyOneSidedUnseen(
   unseenC: Set<string>,
   unseenP: Set<string>,
   sinceKey: (side: "customer" | "property", id: string) => string,
-  fallbackBoth: boolean
+  fallbackBoth: boolean,
+  pairKind: "match" | "newMatch"
 ) {
   const parsed = parseMatchPairKey(key);
   if (side === "customer") {
     unseenC.add(key);
     if (parsed) noteAlertSince(sinceKey("customer", parsed.customerId));
+    notePairAlertSince(pairKind, key);
     return;
   }
   if (side === "property") {
     unseenP.add(key);
     if (parsed) noteAlertSince(sinceKey("property", parsed.propertyId));
+    notePairAlertSince(pairKind, key);
     return;
   }
   if (!fallbackBoth) return;
@@ -251,13 +268,15 @@ function applyOneSidedUnseen(
     noteAlertSince(sinceKey("customer", parsed.customerId));
     noteAlertSince(sinceKey("property", parsed.propertyId));
   }
+  notePairAlertSince(pairKind, key);
 }
 
 function buildOneSidedUnseen(
   keys: Iterable<string>,
   sides: Map<string, MatchEntityKind> | undefined,
   sinceKey: (side: "customer" | "property", id: string) => string,
-  fallbackBoth: boolean
+  fallbackBoth: boolean,
+  pairKind: "match" | "newMatch"
 ): { customer: string[]; property: string[] } {
   const unseenC = new Set<string>();
   const unseenP = new Set<string>();
@@ -268,7 +287,8 @@ function buildOneSidedUnseen(
       unseenC,
       unseenP,
       sinceKey,
-      fallbackBoth
+      fallbackBoth,
+      pairKind
     );
   }
   return {
@@ -414,7 +434,8 @@ function syncOwnMatchPairs(
       incoming,
       ownSides,
       matchAlertKey,
-      !ownSides
+      !ownSides,
+      "match"
     );
     state = {
       ...state,
@@ -441,7 +462,8 @@ function syncOwnMatchPairs(
         unseenC,
         unseenP,
         matchAlertKey,
-        !ownSides
+        !ownSides,
+        "match"
       );
     }
   }
@@ -501,7 +523,8 @@ function syncPartnerMatchPairs(
       incoming,
       siteSides,
       newMatchAlertKey,
-      !siteSides
+      !siteSides,
+      "newMatch"
     );
     state = {
       ...state,
@@ -528,7 +551,8 @@ function syncPartnerMatchPairs(
         unseenC,
         unseenP,
         newMatchAlertKey,
-        !siteSides
+        !siteSides,
+        "newMatch"
       );
     }
   }
@@ -738,6 +762,60 @@ export function firstUnseenMatchPropertyId(
   return null;
 }
 
+/** 알람 시각(먼저 온 순) — 사이트내 매물 여러 건 포함 */
+export function firstUnseenMatchPropertyIdByAlertSince(
+  customerId: string,
+  propertyIdsInOrder: string[],
+  alertSince: Record<string, number>,
+  partner = false
+): string | null {
+  const kind = partner ? "newMatch" : "match";
+  let bestId: string | null = null;
+  let bestAt = Number.POSITIVE_INFINITY;
+  for (const propertyId of propertyIdsInOrder) {
+    if (!isMatchUnseen(customerId, propertyId, "customer", partner)) continue;
+    const at =
+      alertSince[pairAlertSinceKey(kind, matchPairKey(customerId, propertyId))] ??
+      Number.POSITIVE_INFINITY;
+    if (at < bestAt) {
+      bestAt = at;
+      bestId = propertyId;
+    }
+  }
+  return bestId;
+}
+
+export function pickEarlierUnseenMatchPropertyId(
+  customerId: string,
+  ownPropertyIds: string[],
+  partnerPropertyIds: string[],
+  alertSince: Record<string, number>
+): string | null {
+  const ownId = firstUnseenMatchPropertyIdByAlertSince(
+    customerId,
+    ownPropertyIds,
+    alertSince,
+    false
+  );
+  const partnerId = firstUnseenMatchPropertyIdByAlertSince(
+    customerId,
+    partnerPropertyIds,
+    alertSince,
+    true
+  );
+  if (!ownId) return partnerId;
+  if (!partnerId) return ownId;
+  const ownAt =
+    alertSince[
+      pairAlertSinceKey("match", matchPairKey(customerId, ownId))
+    ] ?? Number.POSITIVE_INFINITY;
+  const partnerAt =
+    alertSince[
+      pairAlertSinceKey("newMatch", matchPairKey(customerId, partnerId))
+    ] ?? Number.POSITIVE_INFINITY;
+  return ownAt <= partnerAt ? ownId : partnerId;
+}
+
 export function firstUnseenMatchCustomerId(
   propertyId: string,
   customerIdsInOrder: string[],
@@ -747,6 +825,59 @@ export function firstUnseenMatchCustomerId(
     if (isMatchUnseen(cid, propertyId, "property", partner)) return cid;
   }
   return null;
+}
+
+export function firstUnseenMatchCustomerIdByAlertSince(
+  propertyId: string,
+  customerIdsInOrder: string[],
+  alertSince: Record<string, number>,
+  partner = false
+): string | null {
+  const kind = partner ? "newMatch" : "match";
+  let bestId: string | null = null;
+  let bestAt = Number.POSITIVE_INFINITY;
+  for (const customerId of customerIdsInOrder) {
+    if (!isMatchUnseen(customerId, propertyId, "property", partner)) continue;
+    const at =
+      alertSince[pairAlertSinceKey(kind, matchPairKey(customerId, propertyId))] ??
+      Number.POSITIVE_INFINITY;
+    if (at < bestAt) {
+      bestAt = at;
+      bestId = customerId;
+    }
+  }
+  return bestId;
+}
+
+export function pickEarlierUnseenMatchCustomerId(
+  propertyId: string,
+  ownCustomerIds: string[],
+  partnerCustomerIds: string[],
+  alertSince: Record<string, number>
+): string | null {
+  const ownId = firstUnseenMatchCustomerIdByAlertSince(
+    propertyId,
+    ownCustomerIds,
+    alertSince,
+    false
+  );
+  const partnerId = firstUnseenMatchCustomerIdByAlertSince(
+    propertyId,
+    partnerCustomerIds,
+    alertSince,
+    true
+  );
+  if (!ownId) return partnerId;
+  if (!partnerId) return ownId;
+  const ownAt =
+    alertSince[
+      pairAlertSinceKey("match", matchPairKey(ownId, propertyId))
+    ] ?? Number.POSITIVE_INFINITY;
+  const partnerAt =
+    alertSince[
+      pairAlertSinceKey("newMatch", matchPairKey(partnerId, propertyId))
+    ] ?? Number.POSITIVE_INFINITY;
+  return ownAt <= partnerAt ? ownId : partnerId;
 }
 
 export function getAlertBadgeCounts(): {
