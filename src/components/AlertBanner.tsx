@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { formatAlertBannerText } from "@/lib/alertLabels";
 import {
   ALERT_BANNER_AUTO_HIDE_MS,
+  ALERT_BANNER_REMINDER_PATHS,
   pickAlertBannerHref,
   totalUnseenFromState,
   unseenMatchSummaryFromState,
@@ -38,10 +40,16 @@ function useLoggedIn(): boolean {
 }
 
 /**
- * 미확인 알람이 늘 때만 배너 표시 → 15초 후 자동 숨김.
- * 뱃지·탭 제목 등 알람 상태는 확인할 때까지 유지.
+ * 미확인 알람이 있을 때:
+ * - 홈·고객·매물·네비 리스트 진입 시 배너 재표시
+ * - 새 알람 증가 시에도 표시
+ * → 5초 후 자동 숨김 (뱃지·반짝임은 유지)
  */
-function useBannerVisible(hasAlerts: boolean, unseenTotal: number): boolean {
+function useBannerVisible(
+  hasAlerts: boolean,
+  unseenTotal: number,
+  pathname: string
+): boolean {
   const [visible, setVisible] = useState(false);
   const peakUnseenRef = useRef(0);
 
@@ -52,22 +60,30 @@ function useBannerVisible(hasAlerts: boolean, unseenTotal: number): boolean {
       return;
     }
 
-    if (unseenTotal <= peakUnseenRef.current) return;
+    let shouldShow = ALERT_BANNER_REMINDER_PATHS.has(pathname);
+    if (unseenTotal > peakUnseenRef.current) {
+      peakUnseenRef.current = unseenTotal;
+      shouldShow = true;
+    } else if (unseenTotal < peakUnseenRef.current) {
+      peakUnseenRef.current = unseenTotal;
+    }
 
-    peakUnseenRef.current = unseenTotal;
+    if (!shouldShow) return;
+
     setVisible(true);
     const t = window.setTimeout(
       () => setVisible(false),
       ALERT_BANNER_AUTO_HIDE_MS
     );
     return () => window.clearTimeout(t);
-  }, [hasAlerts, unseenTotal]);
+  }, [hasAlerts, unseenTotal, pathname]);
 
   return visible;
 }
 
 /** 상단 알람 — 페이지 레이아웃과 분리, 창 위에 떠 있는 배너(포털) */
 export function AlertBanner() {
+  const pathname = usePathname();
   const snap = useAlertSnap();
   const loggedIn = useLoggedIn();
   const [mounted, setMounted] = useState(false);
@@ -79,7 +95,7 @@ export function AlertBanner() {
   const summary = unseenMatchSummaryFromState(snap);
   const text = formatAlertBannerText(summary);
   const unseenTotal = totalUnseenFromState(snap);
-  const visible = useBannerVisible(Boolean(text), unseenTotal);
+  const visible = useBannerVisible(Boolean(text), unseenTotal, pathname);
 
   if (!mounted || !loggedIn || !text || !visible) return null;
 
