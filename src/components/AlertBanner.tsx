@@ -31,6 +31,7 @@ import {
 
 const SWIPE_DISMISS_PX = 36;
 const TAP_SLOP_PX = 10;
+const BANNER_EXIT_MS = 220;
 
 function useAlertSnap() {
   return useSyncExternalStore(
@@ -55,27 +56,19 @@ function useLoggedIn(): boolean {
  * - 리스트에서 등록·상세 등으로 이동해도 **남은 카운트다운** 동안만 유지
  * - 등록·상세·설정 등 그 외 화면에서는 재표시하지 않음
  */
-function useBannerVisible(
+function useBannerSession(
   hasAlerts: boolean,
   unseenTotal: number,
   pathname: string
-): { visible: boolean; dismiss: () => void } {
-  const [visible, setVisible] = useState(false);
+): { show: boolean; hideAfterMs: number; dismiss: () => void } {
+  const [show, setShow] = useState(false);
+  const [hideAfterMs, setHideAfterMs] = useState(ALERT_BANNER_AUTO_HIDE_MS);
   const hideAtRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
 
   const dismiss = useCallback(() => {
-    clearTimer();
     hideAtRef.current = null;
-    setVisible(false);
-  }, [clearTimer]);
+    setShow(false);
+  }, []);
 
   useEffect(() => {
     if (!hasAlerts || unseenTotal <= 0) {
@@ -85,41 +78,24 @@ function useBannerVisible(
 
     const onReminderPath = ALERT_BANNER_REMINDER_PATHS.has(pathname);
 
-    const armHide = (ms: number) => {
-      hideAtRef.current = Date.now() + ms;
-      setVisible(true);
-      clearTimer();
-      timerRef.current = window.setTimeout(() => {
-        timerRef.current = null;
-        hideAtRef.current = null;
-        setVisible(false);
-      }, ms);
-      return clearTimer;
-    };
-
     if (onReminderPath) {
-      return armHide(ALERT_BANNER_AUTO_HIDE_MS);
+      hideAtRef.current = Date.now() + ALERT_BANNER_AUTO_HIDE_MS;
+      setHideAfterMs(ALERT_BANNER_AUTO_HIDE_MS);
+      setShow(true);
+      return;
     }
 
     const hideAt = hideAtRef.current;
     if (hideAt !== null && Date.now() < hideAt) {
-      const remaining = hideAt - Date.now();
-      setVisible(true);
-      clearTimer();
-      timerRef.current = window.setTimeout(() => {
-        timerRef.current = null;
-        hideAtRef.current = null;
-        setVisible(false);
-      }, remaining);
-      return clearTimer;
+      setHideAfterMs(hideAt - Date.now());
+      setShow(true);
+      return;
     }
 
-    setVisible(false);
-    hideAtRef.current = null;
-    clearTimer();
-  }, [hasAlerts, unseenTotal, pathname, dismiss, clearTimer]);
+    dismiss();
+  }, [hasAlerts, unseenTotal, pathname, dismiss]);
 
-  return { visible, dismiss };
+  return { show, hideAfterMs, dismiss };
 }
 
 type BannerMotion = "enter" | "idle" | "exit";
@@ -127,17 +103,35 @@ type BannerMotion = "enter" | "idle" | "exit";
 function AlertBannerCard({
   href,
   text,
+  hideAfterMs,
   onDismiss,
 }: {
   href: string;
   text: string;
+  hideAfterMs: number;
   onDismiss: () => void;
 }) {
   const [dragY, setDragY] = useState(0);
   const [motion, setMotion] = useState<BannerMotion>("enter");
   const startRef = useRef<{ y: number; t: number } | null>(null);
   const swipedRef = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const dismissingRef = useRef(false);
+  const autoHideTimerRef = useRef<number | null>(null);
+
+  const clearAutoHideTimer = useCallback(() => {
+    if (autoHideTimerRef.current !== null) {
+      window.clearTimeout(autoHideTimerRef.current);
+      autoHideTimerRef.current = null;
+    }
+  }, []);
+
+  const finishDismiss = useCallback(() => {
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+    clearAutoHideTimer();
+    setMotion("exit");
+    window.setTimeout(onDismiss, BANNER_EXIT_MS);
+  }, [clearAutoHideTimer, onDismiss]);
 
   useEffect(() => {
     if (motion !== "enter") return;
@@ -145,10 +139,15 @@ function AlertBannerCard({
     return () => window.clearTimeout(t);
   }, [motion]);
 
-  const finishDismiss = useCallback(() => {
-    setMotion("exit");
-    window.setTimeout(onDismiss, 220);
-  }, [onDismiss]);
+  useEffect(() => {
+    clearAutoHideTimer();
+    if (hideAfterMs <= 0) return;
+    autoHideTimerRef.current = window.setTimeout(() => {
+      autoHideTimerRef.current = null;
+      finishDismiss();
+    }, hideAfterMs);
+    return clearAutoHideTimer;
+  }, [hideAfterMs, finishDismiss, clearAutoHideTimer]);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (motion === "exit") return;
@@ -194,7 +193,6 @@ function AlertBannerCard({
 
   return (
     <div
-      ref={cardRef}
       className={[
         "pointer-events-auto w-full max-w-[430px] touch-none select-none",
         motionClass,
@@ -224,7 +222,7 @@ function AlertBannerCard({
   );
 }
 
-/** 상단 알람 — 위에서 내려오며, 스와이프 올려 닫기 */
+/** 상단 알람 — 위에서 내려오며, 5초·스와이프 시 위로 올라가며 닫힘 */
 export function AlertBanner() {
   const pathname = usePathname();
   const snap = useAlertSnap();
@@ -238,13 +236,13 @@ export function AlertBanner() {
   const summary = unseenMatchSummaryFromState(snap);
   const text = formatAlertBannerText(summary);
   const unseenTotal = totalUnseenFromState(snap);
-  const { visible, dismiss } = useBannerVisible(
+  const { show, hideAfterMs, dismiss } = useBannerSession(
     Boolean(text),
     unseenTotal,
     pathname
   );
 
-  if (!mounted || !loggedIn || !text || !visible) return null;
+  if (!mounted || !loggedIn || !text || !show) return null;
 
   const href = pickAlertBannerHref(snap);
 
@@ -254,7 +252,12 @@ export function AlertBanner() {
       role="status"
       aria-live="polite"
     >
-      <AlertBannerCard href={href} text={text} onDismiss={dismiss} />
+      <AlertBannerCard
+        href={href}
+        text={text}
+        hideAfterMs={hideAfterMs}
+        onDismiss={dismiss}
+      />
     </div>,
     document.body
   );
