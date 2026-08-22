@@ -143,6 +143,36 @@ main {
   }
 }
 
+@keyframes alert-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-100% - 10px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alert-banner-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(-100% - 12px));
+  }
+}
+
+.animate-alert-banner-in {
+  animation: alert-banner-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-alert-banner-out {
+  animation: alert-banner-out 0.22s ease-in forwards;
+}
+
 @keyframes share-alert-stage {
   0% {
     border-color: #34d399; /* emerald-400 */
