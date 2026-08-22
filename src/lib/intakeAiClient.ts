@@ -18,6 +18,7 @@ import {
   preprocessCustomerBlankForm,
   preprocessPropertyBlankForm,
 } from "@/lib/blankIntakeForm";
+import { preprocessPropertyShareText } from "@/lib/shareIntakePreprocess";
 
 export { INTAKE_AI_MIN_WAIT_MS };
 
@@ -83,7 +84,8 @@ export async function resolveIntakeWithAi(opts: {
     opts.kind === "customer"
       ? preprocessCustomerBlankForm(opts.raw)
       : opts.kind === "property"
-        ? preprocessPropertyBlankForm(opts.raw)
+        ? (preprocessPropertyBlankForm(opts.raw) ??
+          preprocessPropertyShareText(opts.raw))
         : null;
   const rawForParse = preprocessed !== null ? preprocessed : opts.raw;
   const parsed = parseIntakeText(rawForParse, opts.kind);

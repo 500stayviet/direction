@@ -1,4 +1,4 @@
-import { buildAgentShareFooterLines } from "@/lib/shareAgentFooter";
+import { buildAgentShareFooterLines, stripAgentShareFooter } from "@/lib/shareAgentFooter";
 import type { User } from "@/lib/types";
 
 type Agent = Pick<User, "shopName" | "name" | "phone"> | null | undefined;
@@ -106,11 +106,7 @@ function stripExampleHint(label: string): string {
 }
 
 function cutAgentFooter(text: string): string {
-  const cut = text.search(/[─-]{3,}/);
-  if (cut >= 0) return text.slice(0, cut).trimEnd();
-  const provided = text.search(/\s*-제공-\s*/);
-  if (provided >= 0) return text.slice(0, provided).trimEnd();
-  return text.trimEnd();
+  return stripAgentShareFooter(text);
 }
 
 type BlankFieldKey =

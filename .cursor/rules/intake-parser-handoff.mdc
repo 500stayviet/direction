@@ -7,7 +7,7 @@ alwaysApply: true
 
 Read `docs/AGENT_HANDOFF_INTAKE_PARSER.md` for sample collection / AI.
 
-- **Rules (all paths):** 오피스텔(방/화 기본 1·1), `주`/`임`/`세`, `관`·`엘`·`보`·`매`, 애매한 `.` `,`는 내용, 둘째 값→내용. Message/photo/mic share `parseIntakeText`.
+- **Preprocess (message/photo):** `매물등록 양식` → `preprocessPropertyBlankForm`; 앱 **공유하기 `매물 안내`** → `preprocessPropertyShareText` (푸터 제거·1번 매물만) → then `parseIntakeText` + AI leftover.
 - **AI (message/photo only):** leftover after rules → `POST /api/intake-ai` (DeepSeek V4 Flash). Empty fields + memo only; never overwrite. Empty 거래종류·보증금·월세 may be filled; phone / room-bath / 유무 stay rules-only. Fail → rules still apply. Mic / `intakeSteps.ts`: no AI.
 - **Env:** `DEEPSEEK_API_KEY` in `.env.local` (local) or Vercel env (prod). Admin 파서 tab shows 설정됨/없음, never the key.
 - **Guard:** leftover empty skip; auth required; 8/min · 40/hour · 80/day per user; same leftover 90s skip. Fail (key/balance) → that apply uses rules; next apply tries AI again. Mic: no AI.

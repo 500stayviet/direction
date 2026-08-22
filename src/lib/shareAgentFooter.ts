@@ -26,3 +26,12 @@ export function buildAgentShareFooterLines(
   lines.push("앱 현장동선");
   return lines;
 }
+
+/** 공유·양식 본문 — 업장 푸터(──── / -제공-) 이전만 */
+export function stripAgentShareFooter(text: string): string {
+  const cut = text.search(/[─-]{3,}/);
+  if (cut >= 0) return text.slice(0, cut).trimEnd();
+  const provided = text.search(/\s*-제공-\s*/);
+  if (provided >= 0) return text.slice(0, provided).trimEnd();
+  return text.trimEnd();
+}
