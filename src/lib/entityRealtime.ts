@@ -8,7 +8,10 @@ import {
   getMyWorkspaceId,
   refreshAllEntityLists,
 } from "@/lib/storage";
-import { pullAndMergeUiPrefs } from "@/lib/userUiPrefs";
+import {
+  applyRemoteUiPrefs,
+  pullAndMergeUiPrefs,
+} from "@/lib/userUiPrefs";
 
 const TABLES = ["customers", "listed_properties", "schedules"] as const;
 
@@ -41,7 +44,7 @@ async function dropChannel(channel: RealtimeChannel | null) {
   }
 }
 
-function onChange(
+function onEntityChange(
   payload: RealtimePostgresChangesPayload<Record<string, unknown>>
 ) {
   void applyRealtimeEntityChange({
@@ -52,6 +55,15 @@ function onChange(
   });
 }
 
+function onProfileUiPrefsChange(
+  payload: RealtimePostgresChangesPayload<Record<string, unknown>>
+) {
+  if (payload.eventType !== "UPDATE") return;
+  const uiPrefs = (payload.new as Record<string, unknown> | undefined)?.ui_prefs;
+  if (uiPrefs === undefined) return;
+  applyRemoteUiPrefs(uiPrefs);
+}
+
 export async function stopEntityRealtime(): Promise<void> {
   generation += 1;
   const channel = active;
@@ -59,7 +71,7 @@ export async function stopEntityRealtime(): Promise<void> {
   await dropChannel(channel);
 }
 
-/** 화면이 앞에 있을 때만 구독. 숨기면 끊고, 다시 보이면 목록 한 번 맞춘 뒤 재구독 */
+/** 화면이 앞에 있을 때만 구독. 숨기면 끊고, 다시 보이면 목록·ui_prefs 한 번 맞춘 뒤 재구독 */
 export async function startEntityRealtime(userId: string): Promise<void> {
   const mine = ++generation;
   const prev = active;
@@ -83,6 +95,29 @@ export async function startEntityRealtime(userId: string): Promise<void> {
   const supabase = createClient();
   const channel = supabase.channel(`entity-live:${userId}`);
 
+  channel.on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
+      schema: "public",
+      table: "profiles",
+      filter: `id=eq.${userId}`,
+    },
+    onProfileUiPrefsChange
+  );
+
+  channel.on("system", {}, (payload) => {
+    const status = (payload as { status?: string }).status;
+    if (
+      status === "CHANNEL_ERROR" &&
+      mine === generation &&
+      typeof document !== "undefined" &&
+      document.visibilityState === "visible"
+    ) {
+      void pullAndMergeUiPrefs();
+    }
+  });
+
   for (const table of TABLES) {
     channel.on(
       "postgres_changes",
@@ -92,7 +127,7 @@ export async function startEntityRealtime(userId: string): Promise<void> {
         table,
         filter: `user_id=eq.${userId}`,
       },
-      onChange
+      onEntityChange
     );
     if (workspaceId) {
       channel.on(
@@ -103,7 +138,7 @@ export async function startEntityRealtime(userId: string): Promise<void> {
           table,
           filter: `workspace_id=eq.${workspaceId}`,
         },
-        onChange
+        onEntityChange
       );
     }
   }

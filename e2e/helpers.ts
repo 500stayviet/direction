@@ -650,9 +650,13 @@ export async function expectListBadge(page: Page, label: string) {
   });
 }
 
-export async function expectNoListBadge(page: Page, label: string) {
+export async function expectNoListBadge(
+  page: Page,
+  label: string,
+  timeout = 10_000
+) {
   await expect(page.getByText(label, { exact: true })).toHaveCount(0, {
-    timeout: 10_000,
+    timeout,
   });
 }
 

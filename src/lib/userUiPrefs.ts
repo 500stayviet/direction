@@ -15,7 +15,7 @@ import {
   type HideState,
 } from "@/lib/teamShareHides";
 
-type UiPrefs = {
+export type UiPrefs = {
   hides: HideState;
   alerts: AlertState;
 };
@@ -23,6 +23,9 @@ type UiPrefs = {
 let pushTimer: number | null = null;
 let pushing = false;
 let pulling = false;
+let applyingRemote = false;
+/** 본인 push 에코 — realtime UPDATE 무시용 */
+let lastPushedSnapshot: UiPrefs | null = null;
 
 function isMissingUiPrefsColumn(error: { message?: string } | null) {
   const msg = (error?.message || "").toLowerCase();
@@ -41,7 +44,7 @@ function mergeHideLists(a: string[], b: string[]): string[] {
   return sortedUnique([...a, ...b]);
 }
 
-function mergeHides(local: HideState, remote: HideState): HideState {
+export function mergeHides(local: HideState, remote: HideState): HideState {
   return {
     customers: mergeHideLists(local.customers, remote.customers),
     properties: mergeHideLists(local.properties, remote.properties),
@@ -49,7 +52,12 @@ function mergeHides(local: HideState, remote: HideState): HideState {
   };
 }
 
-function mergeKnownUnseen(localKnown: string[], localUnseen: string[], remoteKnown: string[], remoteUnseen: string[]) {
+function mergeKnownUnseen(
+  localKnown: string[],
+  localUnseen: string[],
+  remoteKnown: string[],
+  remoteUnseen: string[]
+) {
   const known = sortedUnique([...localKnown, ...remoteKnown]);
   const seen = new Set<string>([
     ...localKnown.filter((id) => !localUnseen.includes(id)),
@@ -61,7 +69,7 @@ function mergeKnownUnseen(localKnown: string[], localUnseen: string[], remoteKno
   };
 }
 
-function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
+export function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
   const customers = mergeKnownUnseen(
     local.knownShare.customers,
     local.unseenShare.customers,
@@ -152,7 +160,7 @@ function mergeAlerts(local: AlertState, remote: AlertState): AlertState {
   };
 }
 
-function parseRemote(raw: unknown): UiPrefs | null {
+export function parseRemoteUiPrefs(raw: unknown): UiPrefs | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as { hides?: Partial<HideState>; alerts?: Partial<AlertState> };
   const hides: HideState = {
@@ -212,12 +220,56 @@ function currentPrefs(): UiPrefs {
   };
 }
 
-function samePrefs(a: UiPrefs, b: UiPrefs): boolean {
+export function sameUiPrefs(a: UiPrefs, b: UiPrefs): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function mergeLocalWithRemote(remote: UiPrefs): UiPrefs {
+  const local = currentPrefs();
+  return {
+    hides: mergeHides(local.hides, remote.hides),
+    alerts: mergeAlerts(local.alerts, remote.alerts),
+  };
+}
+
+function applyMergedPrefs(merged: UiPrefs) {
+  applyingRemote = true;
+  try {
+    applyHideStateFromRemote(merged.hides);
+    applyAlertStateFromRemote(merged.alerts);
+  } finally {
+    applyingRemote = false;
+  }
+}
+
+function isOwnPushEcho(remote: UiPrefs): boolean {
+  if (!lastPushedSnapshot) return false;
+  if (!sameUiPrefs(remote, lastPushedSnapshot)) return false;
+  lastPushedSnapshot = null;
+  return true;
+}
+
+/** Realtime·pull 공통 — 원격 ui_prefs를 로컬과 병합해 반영 */
+export function applyRemoteUiPrefs(raw: unknown): boolean {
+  if (pulling || applyingRemote) return false;
+  const remote = parseRemoteUiPrefs(raw);
+  if (!remote) return false;
+  if (isOwnPushEcho(remote)) return false;
+
+  const local = currentPrefs();
+  const merged = mergeLocalWithRemote(remote);
+  if (sameUiPrefs(merged, local)) return false;
+
+  applyMergedPrefs(merged);
+  if (!sameUiPrefs(merged, remote)) {
+    void pushUiPrefs();
+  }
+  return true;
+}
+
 export function scheduleUiPrefsPush() {
-  if (pulling || typeof window === "undefined") return;
+  if (pulling || applyingRemote || typeof window === "undefined") return;
+  lastPushedSnapshot = null;
   if (pushTimer) window.clearTimeout(pushTimer);
   pushTimer = window.setTimeout(() => {
     pushTimer = null;
@@ -244,7 +296,7 @@ export async function pullAndMergeUiPrefs(): Promise<void> {
       }
       return;
     }
-    const remote = parseRemote(data?.ui_prefs);
+    const remote = parseRemoteUiPrefs(data?.ui_prefs);
     const local = currentPrefs();
     if (!remote) {
       if (
@@ -259,13 +311,11 @@ export async function pullAndMergeUiPrefs(): Promise<void> {
       }
       return;
     }
-    const merged: UiPrefs = {
-      hides: mergeHides(local.hides, remote.hides),
-      alerts: mergeAlerts(local.alerts, remote.alerts),
-    };
-    applyHideStateFromRemote(merged.hides);
-    applyAlertStateFromRemote(merged.alerts);
-    if (!samePrefs(merged, remote)) {
+    const merged = mergeLocalWithRemote(remote);
+    if (!sameUiPrefs(merged, local)) {
+      applyMergedPrefs(merged);
+    }
+    if (!sameUiPrefs(merged, remote)) {
       await pushUiPrefs();
     }
   } catch {
@@ -277,17 +327,22 @@ export async function pullAndMergeUiPrefs(): Promise<void> {
 
 async function pushUiPrefs(): Promise<void> {
   const userId = peekCurrentUser()?.id;
-  if (!userId || pushing || pulling) return;
+  if (!userId || pushing || pulling || applyingRemote) return;
   pushing = true;
+  const prefs = currentPrefs();
+  lastPushedSnapshot = prefs;
   try {
     const supabase = createClient();
     const { error } = await supabase
       .from("profiles")
-      .update({ ui_prefs: currentPrefs() })
+      .update({ ui_prefs: prefs })
       .eq("id", userId);
-    if (error && isMissingUiPrefsColumn(error)) return;
+    if (error) {
+      if (isMissingUiPrefsColumn(error)) return;
+      lastPushedSnapshot = null;
+    }
   } catch {
-    /* ignore */
+    lastPushedSnapshot = null;
   } finally {
     pushing = false;
   }

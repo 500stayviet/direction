@@ -17,6 +17,13 @@
  * - 해제: 리스트에서 **해당 카드 탭**(상세 진입) (`markShareSeen`)
  * - 리스트만 보거나 scrollShare로 위치만 맞춘 것으로는 해제하지 않음
  * - 상세 URL 직접 진입으로는 해제하지 않음 (리스트 카드 탭 필요)
+ *
+ * ## 계정·기기 간 동기화
+ * - 알람·숨김 상태는 `profiles.ui_prefs`에 계정 단위 저장
+ * - 앱이 **앞에 있을 때** Supabase Realtime(`profiles` UPDATE)으로 PC·모바일 즉시 반영
+ * - 포그라운드 재진입 시 `pullAndMergeUiPrefs`로 백업 동기화
+ * - 한쪽에서 확인하면 병합 시 **확인 wins** — 다른 기기 뱃지·반짝임도 곧 꺼짐
+ * - 이미 뜬 **OS Web Push 알림**은 원격 확인으로 자동 제거되지 않음 (브라우저 제약)
  */
 
 export type AlertDismissKind = "match" | "share";

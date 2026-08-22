@@ -201,7 +201,7 @@
 | 관리자 | HMAC 세션, 매 요청 active/role 재검증 |
 | PII | 관리자 마스킹, 슈퍼 해제 시 감사 |
 | RLS | 본인·팀 공간 |
-| Realtime | 본인 `user_id` + 소속 `workspace_id` |
+| Realtime | 본인 `user_id` + 소속 `workspace_id` + `profiles.ui_prefs`(알람·숨김) |
 | 에러 로그 | 서버 API `withApiErrorLog` → `app_error_logs` |
 
 ---

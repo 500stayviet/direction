@@ -903,10 +903,6 @@ export function getTotalUnseenAlertCount(): number {
   return c.customers + c.properties + c.navi;
 }
 
-export function getTeamAlertsStateSnapshot(): AlertState {
-  return state;
-}
-
 export function getListCardAlertBadges(input: {
   tab: AlertTab;
   id: string;
