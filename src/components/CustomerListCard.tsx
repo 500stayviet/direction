@@ -78,22 +78,24 @@ function AgencyPhoneRow({
       ) : (
         <span className="min-w-0 flex-1" />
       )}
-      <div className="flex min-w-0 shrink items-center gap-1">
+      <div className="flex min-w-0 max-w-[55%] shrink items-center justify-between gap-1">
         <span
           title={contact.shopName}
           className={[
-            "max-w-[4.5rem] truncate text-[12px] font-semibold",
+            "min-w-0 truncate text-[12px] font-semibold",
             done ? "text-gray-400" : "text-gray-500",
           ].join(" ")}
         >
           {contact.shopName}
         </span>
-        {contact.dong ? (
-          <span className="shrink-0 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-bold text-gray-500">
-            {contact.dong}
-          </span>
-        ) : null}
-        <PhoneChip phone={contact.phone} done={done} className="!ml-0" />
+        <span className="flex shrink-0 items-center gap-1">
+          {contact.dong ? (
+            <span className="shrink-0 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-bold text-gray-500">
+              {contact.dong}
+            </span>
+          ) : null}
+          <PhoneChip phone={contact.phone} done={done} className="!ml-0" />
+        </span>
       </div>
     </div>
   );

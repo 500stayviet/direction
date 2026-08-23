@@ -23,7 +23,7 @@ export function MatchAgencyContactBlock({
   const shopEl = (
     <span
       title={contact.shopName}
-      className="min-w-0 shrink text-[18px] font-extrabold leading-none tracking-tight text-gray-900"
+      className="min-w-0 flex-1 shrink text-[18px] font-extrabold leading-none tracking-tight text-gray-900"
     >
       {contact.shopName}
     </span>
@@ -41,7 +41,14 @@ export function MatchAgencyContactBlock({
     </span>
   );
 
-  const rowClass = "flex w-full min-w-0 items-center gap-1";
+  const rowClass = "flex w-full min-w-0 items-center justify-between gap-2";
+
+  const rightGroup = (
+    <span className="flex shrink-0 items-center gap-1">
+      {dongEl}
+      {phoneEl}
+    </span>
+  );
 
   return (
     <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
@@ -61,14 +68,12 @@ export function MatchAgencyContactBlock({
             className={`${rowClass} !text-[#03B26C]`}
           >
             {shopEl}
-            {dongEl}
-            {phoneEl}
+            {rightGroup}
           </PhoneLink>
         ) : (
           <div className={rowClass}>
             {shopEl}
-            {dongEl}
-            {phoneEl}
+            {rightGroup}
           </div>
         )}
       </div>
