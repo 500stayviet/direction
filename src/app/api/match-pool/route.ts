@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiErrorLog } from "@/lib/appErrorLog";
 import { getAuthUserFromToken, getBearerToken } from "@/lib/serverAuth";
+import { applyMatchPoolRedaction } from "@/lib/matchPoolRedaction";
 import {
   loadMatchPoolCustomersForUser,
   loadMatchPoolPropertiesForUser,
@@ -17,10 +18,15 @@ async function __GET_handler(request: Request) {
   }
 
   try {
-    const [customers, properties] = await Promise.all([
+    const [rawCustomers, rawProperties] = await Promise.all([
       loadMatchPoolCustomersForUser(auth.admin, auth.user.id),
       loadMatchPoolPropertiesForUser(auth.admin, auth.user.id),
     ]);
+    const { customers, properties } = applyMatchPoolRedaction({
+      customers: rawCustomers,
+      properties: rawProperties,
+      viewerUserId: auth.user.id,
+    });
     return NextResponse.json({ ok: true, customers, properties });
   } catch (e) {
     return NextResponse.json(

@@ -1,35 +1,57 @@
 ---
-description: 사이트내 공유 고객·매물 매칭 시 상호·전화 표시 (향후)
+description: 사이트내 공유 고객·매물 매칭 시 상호·전화 표시 및 개인정보 차단
 alwaysApply: true
 ---
 
-# 사이트내 공유 · 매칭 (향후)
+# 사이트내 공유 · 매칭
 
 현재 매칭은 **내 리스트 ↔ 내 리스트**(`matchCustomerProperty`, `MatchListPanel`) 중심.  
 **사이트내 공유**로 타 부동산 고객·매물과 매칭할 때는 아래를 반드시 지킨다.
 
-## 표시 요건
+## 표시 요건 (partner / site pool)
 
-매칭 상세·카드·공유 텍스트에서 **서로의 물건**마다 **올린 쪽 부동산 정보**가 보여야 한다.
+매칭 상세·카드·알림·API에서 **상대 물건**에는 **올린 쪽 부동산(등록 계정) 정보만** 노출한다.
 
-- **상호** (`shopName` / `createdByName` / 협력부동산 `partnerAgency.name` — 맥락에 맞는 필드)
-- **전화번호** (매물·고객 등록자 또는 협력부동산 연락처)
+- **상호** — `createdByShopName` (스냅샷). **`createdByName`(개인명) fallback 금지**
+- **동** — `createdByDong` 또는 조건상 허용된 지역 요약
+- **전화** — `createdByPhone` (등록 중개사 연락처)
 
-목적: 매칭만 보고 **주소 확인 → 상대 중개사에게 연락**까지 이어지게.
+목적: 매칭만 보고 **주소·조건 확인 → 상대 중개사에게 연락**까지 이어지게.
 
-## UI 방향 (현재 코드와의 관계)
+## 절대 노출 금지 (partner / site pool)
+
+- 고객명·고객 전화
+- 임차인·임대인·협력부동산 연락처
+- 메모·현관/호실 비밀번호
+- `createdByName`(등록자 개인명)·`teamSharerLabel` 공유자 줄
+
+## 레이어별 구현
+
+| 레이어 | 담당 |
+|--------|------|
+| **API** | `/api/match-pool` — `applyMatchPoolRedaction` (`matchPoolRedaction.ts`) |
+| **UI 리스트·모달** | `matchPartnerContact` / `matchPartnerPreview` |
+| **알림** | `formatMatchAlertBody` — `kind: newMatch` 시 고객명 대신 등록 부동산 상호·지역 |
+| **e2e** | `site-share-match-privacy.spec.ts` — DOM + API 응답 |
+
+UI prop만으로 숨기지 말고 **서버 redaction·알림 문구**까지 맞출 것.
+
+## UI 방향
 
 - **내 매물 상세·일정:** 원터치 네비·전화 **아이콘 유지** (`PropertyBrief` 기본).
-- **조건 매칭 모달:** `matchPreview` — 네비·전화 **아이콘 없음**, 주소·번호 **줄바꿈·전체 표시** (확인용).
-- 공유 매칭도 매칭 화면은 **정보 확인 우선**; 상호·전화는 **짤리지 않게** 노출.
+- **조건 매칭 모달 (own):** `matchPreview` — 네비·전화 **아이콘 없음**, 주소·번호 **줄바꿈·전체 표시**.
+- **조건 매칭 (partner):** 등록 부동산 연락처만. 메모·비밀번호·공유자 줄 **숨김**.
 
 ## 구현 시 참고
 
-- `PropertyListCard` `showAgencyBadge`, `PropertyBrief` 협력부동산 줄, `teamSharerLabel`
-- `matchCustomerProperty.ts` — 사이트내 공유 매칭 활성화 시 `matchingEnabled`·공유 플래그와 함께 확장
-- 임차인·임대인 번호만으로는 **타 중개사 매칭**에 부족 — **등록 업장 상호·전화**를 함께
+- `resolveMatchAgencyContact`, `MatchAgencyContactBlock`
+- `PropertyListCard`, `CustomerListCard`, `PropertyBrief`, `CustomerBrief`
+- `matchCustomerProperty.ts` — partner 풀은 `split*ForMatching`의 sitePool
+- 신규 진입점(일정 픽·네비·공유 텍스트) 추가 시 partner prop/redaction 체크
 
 ## 하지 말 것
 
 - 공유 매칭에서 상대 상호·전화 없이 주소만 보여 주기
+- partner 풀 전체 JSON을 브라우저에 내려 주기 (DevTools 유출)
+- `newMatch` 알림 본문에 고객명 넣기
 - 매칭 모달에서 주소·전화 `truncate`로 잘라 내기

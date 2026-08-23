@@ -57,6 +57,7 @@ export function showMatchWebNotification(input: {
   customer: Customer;
   property: ListedProperty;
   url: string;
+  side?: "customer" | "property";
 }): boolean {
   if (typeof window === "undefined" || !("Notification" in window)) return false;
   if (Notification.permission !== "granted") return false;
@@ -67,7 +68,10 @@ export function showMatchWebNotification(input: {
 
   try {
     const n = new Notification(formatMatchAlertTitle(input.kind), {
-      body: formatMatchAlertBody(input.customer, input.property),
+      body: formatMatchAlertBody(input.customer, input.property, {
+        kind: input.kind,
+        side: input.side,
+      }),
       icon: "/icon-192.png?v=20260823d",
       tag: ck,
       data: { url: input.url },

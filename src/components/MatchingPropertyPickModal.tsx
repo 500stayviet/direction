@@ -126,9 +126,40 @@ export function MatchingPropertyPickModal({
           <p className="px-0.5 text-sm font-bold text-gray-700">
             현장동선내 공유 매물
           </p>
-          <Card className="!p-3">
-            <SiteShareMatchingEmpty kind="property" />
-          </Card>
+          {matches.partner.length === 0 ? (
+            <Card className="!p-3">
+              <SiteShareMatchingEmpty kind="property" />
+            </Card>
+          ) : (
+            matches.partner.map((p) => {
+              const order = orderOf(p.id);
+              const selected = order > 0;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggle(p.id)}
+                  className="relative w-full cursor-pointer text-left transition-transform duration-150 active:scale-[0.98]"
+                >
+                  <PropertyListCard
+                    property={p}
+                    viewerId={viewerId}
+                    className="!mb-0"
+                    showSavedDate={false}
+                    matchPartnerContact
+                    cardClassName={
+                      selected ? "!border-emerald-400 !bg-emerald-50" : ""
+                    }
+                  />
+                  {selected ? (
+                    <span className="pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-[28px] font-extrabold tabular-nums text-white shadow-md">
+                      {order}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })
+          )}
         </section>
       </div>
 

@@ -55,6 +55,7 @@ import {
 } from "./teamShareHides";
 import { findDongInText, parseSeoulAddress } from "./seoulRegions";
 import { parsePreferredDong } from "./preferredLocation";
+import { applyMatchPoolRedaction } from "./matchPoolRedaction";
 
 type EntityTable = "customers" | "listed_properties" | "schedules";
 
@@ -942,7 +943,17 @@ export async function getMatchPoolCustomers(): Promise<Customer[]> {
       enrichCustomer
     );
     if (!result.ok) return [];
-    return result.items.map(applyCustomerDueComplete);
+    try {
+      const userId = await requireUserId();
+      const redacted = applyMatchPoolRedaction({
+        customers: result.items,
+        properties: [],
+        viewerUserId: userId,
+      });
+      return redacted.customers.map(applyCustomerDueComplete);
+    } catch {
+      return result.items.map(applyCustomerDueComplete);
+    }
   })().finally(() => {
     matchPoolCustomersInflight = null;
   });
@@ -963,7 +974,17 @@ export async function getMatchPoolProperties(): Promise<ListedProperty[]> {
       enrichProperty
     );
     if (!result.ok) return [];
-    return result.items.map(applyPropertyDueComplete);
+    try {
+      const userId = await requireUserId();
+      const redacted = applyMatchPoolRedaction({
+        customers: [],
+        properties: result.items,
+        viewerUserId: userId,
+      });
+      return redacted.properties.map(applyPropertyDueComplete);
+    } catch {
+      return result.items.map(applyPropertyDueComplete);
+    }
   })().finally(() => {
     matchPoolPropertiesInflight = null;
   });

@@ -168,11 +168,13 @@ export function CustomerListCard({
   });
   const badges = showListAlerts ? listBadges : inlineBadges;
   const alertEffect = done ? null : listCardAlertEffectFromBadges(badges);
-  const sharer = teamSharerLabel(
-    c.createdByName,
-    c.createdBy,
-    viewerId ?? peekCurrentUser()?.id
-  );
+  const sharer = matchPartnerContact
+    ? ""
+    : teamSharerLabel(
+        c.createdByName,
+        c.createdBy,
+        viewerId ?? peekCurrentUser()?.id
+      );
   const preferredLabel = formatPreferredLocationLabel(c);
   const moveInLabel =
     c.roomType === "토지" ? "" : getCustomerMoveInLabel(c);

@@ -23,6 +23,9 @@ const SECRET = {
   },
   ownerPhone: "010-7555-5005",
   memberPhone: "010-7666-6006",
+  customerNotes: "메모속고객명비공개고객갑",
+  propertyNotes: "메모속비밀",
+  doorPassword: "9999",
 };
 
 function digits(phone: string) {
@@ -38,8 +41,12 @@ async function expectNoSecrets(scope: Locator) {
     SECRET.partnerAgency.name,
     SECRET.partnerAgency.phone,
     SECRET.partnerAgency.dong,
+    SECRET.customerNotes,
+    SECRET.propertyNotes,
+    SECRET.doorPassword,
     "멤버개인이름",
     "오너개인이름",
+    "공유자",
     "임차인",
     "임대인",
     "협력부동산",
@@ -105,6 +112,92 @@ async function waitForPartnerMatchCard(
   return section;
 }
 
+async function fetchMatchPoolViaPage(page: Page): Promise<unknown> {
+  return page.evaluate(async () => {
+    const raw = localStorage.getItem("realty_app_auth_v1");
+    if (!raw) throw new Error("no auth");
+    const { access_token: token } = JSON.parse(raw) as {
+      access_token?: string;
+    };
+    if (!token) throw new Error("no token");
+    const res = await fetch("/api/match-pool", {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "same-origin",
+    });
+    if (!res.ok) throw new Error(`match-pool ${res.status}`);
+    return res.json();
+  });
+}
+
+function isForeignSitePoolItem(
+  entity: { createdBy?: string; workspaceShared?: boolean },
+  viewerUserId: string
+): boolean {
+  return (
+    Boolean(entity.createdBy) &&
+    entity.createdBy !== viewerUserId &&
+    !entity.workspaceShared
+  );
+}
+
+function assertPoolResponseClean(
+  body: {
+    customers?: Array<{
+      id?: string;
+      createdBy?: string;
+      workspaceShared?: boolean;
+      name?: string;
+      phone?: string;
+      notes?: string;
+      createdByName?: string;
+    }>;
+    properties?: Array<{
+      id?: string;
+      createdBy?: string;
+      workspaceShared?: boolean;
+      tenantPhone?: string;
+      landlordPhone?: string;
+      notes?: string;
+      floorPassword?: string;
+      roomPassword?: string;
+      password?: string;
+      createdByName?: string;
+      partnerAgency?: { name?: string; phone?: string };
+    }>;
+  },
+  viewerUserId: string
+) {
+  for (const c of body.customers ?? []) {
+    if (!isForeignSitePoolItem(c, viewerUserId)) continue;
+    expect(c.name?.trim() ?? "", "site customer name").toBe("");
+    expect(c.phone?.trim() ?? "", "site customer phone").toBe("");
+    expect(c.notes?.trim() ?? "", "site customer notes").toBe("");
+    expect(c.createdByName?.trim() ?? "", "site customer createdByName").toBe(
+      ""
+    );
+  }
+  for (const p of body.properties ?? []) {
+    if (!isForeignSitePoolItem(p, viewerUserId)) continue;
+    expect(p.tenantPhone?.trim() ?? "", "site property tenantPhone").toBe("");
+    expect(p.landlordPhone?.trim() ?? "", "site property landlordPhone").toBe(
+      ""
+    );
+    expect(p.notes?.trim() ?? "", "site property notes").toBe("");
+    expect(p.floorPassword?.trim() ?? "", "site property floorPassword").toBe(
+      ""
+    );
+    expect(p.roomPassword?.trim() ?? "", "site property roomPassword").toBe(
+      ""
+    );
+    expect(p.password?.trim() ?? "", "site property password").toBe("");
+    expect(p.createdByName?.trim() ?? "", "site property createdByName").toBe(
+      ""
+    );
+    expect(p.partnerAgency?.name?.trim() ?? "", "site partner name").toBe("");
+    expect(p.partnerAgency?.phone?.trim() ?? "", "site partner phone").toBe("");
+  }
+}
+
 test("사이트내 공유 매칭 — 상호·동·전화만 (고객·당사자·협력 숨김)", async ({
   browser,
 }) => {
@@ -129,6 +222,9 @@ test("사이트내 공유 매칭 — 상호·동·전화만 (고객·당사자·
       ownerPhone: SECRET.ownerPhone,
       memberShopName: pair.member.shopName,
       memberPhone: SECRET.memberPhone,
+      customerNotes: SECRET.customerNotes,
+      propertyNotes: SECRET.propertyNotes,
+      doorPassword: SECRET.doorPassword,
     },
   });
   const cardAddr = listCardAddress(address);
@@ -140,6 +236,13 @@ test("사이트내 공유 매칭 — 상호·동·전화만 (고객·당사자·
   ).toBeVisible({ timeout: 25_000 });
 
   await pair.memberPage.goto(`/customers/${customerId}`);
+  assertPoolResponseClean(
+    (await fetchMatchPoolViaPage(pair.memberPage)) as Parameters<
+      typeof assertPoolResponseClean
+    >[0],
+    memberAuth.user.id
+  );
+
   const partnerProps = await waitForPartnerMatchCard(
     pair.memberPage,
     "match-section-partner-properties",
@@ -158,6 +261,13 @@ test("사이트내 공유 매칭 — 상호·동·전화만 (고객·당사자·
   await closeMatchModal(pair.memberPage);
 
   await pair.ownerPage.goto(`/properties/${propertyId}`);
+  assertPoolResponseClean(
+    (await fetchMatchPoolViaPage(pair.ownerPage)) as Parameters<
+      typeof assertPoolResponseClean
+    >[0],
+    ownerAuth.user.id
+  );
+
   const partnerCustomers = await waitForPartnerMatchCard(
     pair.ownerPage,
     "match-section-partner-customers",

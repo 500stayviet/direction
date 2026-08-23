@@ -2,6 +2,8 @@ import {
   formatOwnMatchBadgeLabel,
   formatSiteMatchBadgeLabel,
 } from "@/lib/alertLabels";
+import { resolveMatchAgencyContact } from "@/lib/matchAgencyContact";
+import { formatPreferredLocationLabel } from "@/lib/preferredLocation";
 import type { Customer, ListedProperty } from "@/lib/types";
 
 export type MatchAlertKind = "match" | "newMatch";
@@ -34,8 +36,28 @@ export function formatMatchAlertTitle(
 
 export function formatMatchAlertBody(
   customer: Customer,
-  property: ListedProperty
+  property: ListedProperty,
+  input?: { kind?: MatchAlertKind; side?: "customer" | "property" }
 ): string {
+  const kind = input?.kind ?? "match";
+  if (kind === "newMatch") {
+    const side = input?.side ?? "customer";
+    const partnerEntity = side === "customer" ? property : customer;
+    const agency = resolveMatchAgencyContact(partnerEntity);
+    const head = agency.dong
+      ? `${agency.shopName} · ${agency.dong}`
+      : agency.shopName;
+    if (side === "customer") {
+      const addr = property.address?.trim() || "";
+      const pLabel = addr || property.roomType?.trim() || "매물";
+      return `${head} · ${pLabel}`;
+    }
+    const pref =
+      formatPreferredLocationLabel(customer) ||
+      customer.dealType?.trim() ||
+      "매칭 조건";
+    return `${head} · ${pref}`;
+  }
   const cName = customer.name?.trim() || "고객";
   const addr = property.address?.trim() || "";
   const pLabel = addr || property.roomType?.trim() || "매물";

@@ -321,12 +321,14 @@ export function CustomerBrief({
             ) : null}
           </div>
 
-          <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
-            <p className="text-[12px] font-bold text-gray-400">메모</p>
-            <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
-              {customer.notes?.trim() || "-"}
-            </p>
-          </div>
+          {!matchPartnerPreview ? (
+            <div className="rounded-2xl bg-[#F9FAFB] px-3.5 py-3">
+              <p className="text-[12px] font-bold text-gray-400">메모</p>
+              <p className="mt-1 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-gray-800">
+                {customer.notes?.trim() || "-"}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </Card>

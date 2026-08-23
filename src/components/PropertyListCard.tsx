@@ -101,11 +101,13 @@ export function PropertyListCard({
     ? getPropertyListAgencyContact(p)
     : null;
   const done = Boolean(p.contractCompleted);
-  const sharer = teamSharerLabel(
-    p.createdByName,
-    p.createdBy,
-    viewerId ?? peekCurrentUser()?.id
-  );
+  const sharer = matchPartnerContact
+    ? ""
+    : teamSharerLabel(
+        p.createdByName,
+        p.createdBy,
+        viewerId ?? peekCurrentUser()?.id
+      );
   const typeLabel = displayRoomType(p.roomType, p.buildingKind);
   const dealLabel = p.dealType?.trim() || "";
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";

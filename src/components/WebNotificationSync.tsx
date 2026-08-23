@@ -102,16 +102,21 @@ export function WebNotificationSync() {
         if (prev.partner.has(pairKey)) continue;
         const entities = resolveEntitiesForPair(pairKey, customers, properties);
         if (!entities) continue;
+        const onCustomerSide = snap.unseenNewMatchCustomer.includes(pairKey);
+        const side: "customer" | "property" = onCustomerSide
+          ? "customer"
+          : "property";
         showMatchWebNotification({
           userId,
           kind: "newMatch",
           pairKey,
           customer: entities.customer,
           property: entities.property,
+          side,
           url: deepLinkForMatchPair(
             entities.customer.id,
             entities.property.id,
-            "customer"
+            side
           ),
         });
       }

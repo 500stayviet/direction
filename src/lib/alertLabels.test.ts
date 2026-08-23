@@ -45,7 +45,7 @@ describe("alertMessaging", () => {
     });
   });
 
-  it("formats match notification copy", () => {
+  it("formats own match notification copy", () => {
     const customer = { id: "c1", name: "김고객" } as Customer;
     const property = {
       id: "p1",
@@ -54,6 +54,39 @@ describe("alertMessaging", () => {
     assert.match(formatMatchAlertTitle("match"), /매칭/);
     assert.match(formatMatchAlertBody(customer, property), /김고객/);
     assert.match(formatMatchAlertBody(customer, property), /천호동/);
+  });
+
+  it("formats site match notification without customer name", () => {
+    const customer = {
+      id: "c1",
+      name: "비공개고객",
+      preferredDongs: ["강동구|천호동"],
+      dealType: "월세",
+      createdByShopName: "멤버부동산",
+      createdByPhone: "010-1111-2222",
+      createdByDong: "천호동",
+    } as Customer;
+    const property = {
+      id: "p1",
+      address: "강동구 천호동 123-4",
+      createdByShopName: "오너부동산",
+      createdByPhone: "010-3333-4444",
+      createdByDong: "천호동",
+    } as ListedProperty;
+    const bodyCustomer = formatMatchAlertBody(customer, property, {
+      kind: "newMatch",
+      side: "customer",
+    });
+    assert.doesNotMatch(bodyCustomer, /비공개고객/);
+    assert.match(bodyCustomer, /오너부동산/);
+    assert.match(bodyCustomer, /천호동 123-4/);
+
+    const bodyProperty = formatMatchAlertBody(customer, property, {
+      kind: "newMatch",
+      side: "property",
+    });
+    assert.doesNotMatch(bodyProperty, /비공개고객/);
+    assert.match(bodyProperty, /멤버부동산/);
   });
 });
 

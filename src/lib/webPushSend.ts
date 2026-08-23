@@ -56,7 +56,10 @@ export async function sendMatchWebPush(input: {
   const url = `${input.origin.replace(/\/$/, "")}${path}`;
   const payload = JSON.stringify({
     title: formatMatchAlertTitle(input.kind),
-    body: formatMatchAlertBody(input.customer, input.property),
+    body: formatMatchAlertBody(input.customer, input.property, {
+      kind: input.kind,
+      side: input.side,
+    }),
     url,
     tag: `${input.kind}:${input.customerId}::${input.propertyId}`,
   });

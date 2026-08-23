@@ -20,7 +20,7 @@ test("resolveMatchAgencyContact — 고객 스냅샷·선호 동", () => {
 
 test("resolveMatchAgencyContact — 매물 주소에서 동 추출", () => {
   const property = {
-    createdByName: "OO부동산",
+    createdByShopName: "OO부동산",
     createdByPhone: "0212345678",
     address: "서울특별시 강동구 성내동 540",
   } as ListedProperty;
@@ -30,6 +30,16 @@ test("resolveMatchAgencyContact — 매물 주소에서 동 추출", () => {
     dong: "성내동",
     phone: "0212345678",
   });
+});
+
+test("resolveMatchAgencyContact — createdByName fallback 없음", () => {
+  const property = {
+    createdByName: "홍길동",
+    createdByPhone: "0212345678",
+    address: "서울특별시 강동구 성내동 540",
+  } as ListedProperty;
+
+  assert.equal(resolveMatchAgencyContact(property).shopName, "부동산");
 });
 
 test("resolveMatchAgencyContact — 현장동선 상호는 기본 라벨", () => {

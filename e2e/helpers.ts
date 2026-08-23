@@ -775,6 +775,9 @@ export async function insertSiteMatchPair(opts: {
     ownerPhone: string;
     memberShopName: string;
     memberPhone: string;
+    customerNotes?: string;
+    propertyNotes?: string;
+    doorPassword?: string;
   };
 }) {
   const admin = serviceSupabase();
@@ -808,6 +811,7 @@ export async function insertSiteMatchPair(opts: {
     moveInTo: "2026-12-01",
     moveInSingle: true,
     workspaceShared: false,
+    notes: pii?.customerNotes ?? "",
     createdAt: now,
     updatedAt: now,
     createdBy: opts.memberUserId,
@@ -843,6 +847,8 @@ export async function insertSiteMatchPair(opts: {
     landlordPhone: pii?.landlordPhone ?? "",
     hasPartnerAgency: Boolean(pii?.partnerAgency.name),
     partnerAgency: pii?.partnerAgency ?? { name: "", dong: "", phone: "" },
+    notes: pii?.propertyNotes ?? "",
+    floorPassword: pii?.doorPassword ?? "",
     createdAt: now,
     updatedAt: now,
     createdBy: opts.ownerUserId,

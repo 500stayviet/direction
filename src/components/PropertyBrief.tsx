@@ -138,19 +138,15 @@ export function PropertyBrief({
     (Boolean(property.tenantPhone || property.landlordPhone) ||
       showPartnerContact);
   const showPhoneSection = showAgencyContact || showPrivatePhoneSection;
-  const memoText = showArriveTime
-    ? property.notes?.trim() || ""
-    : notesWithDoorPasswords(property);
-  const hasNotes = Boolean(memoText);
   const hasFloorPw = Boolean(property.floorPassword?.trim());
   const hasRoomPw = Boolean(
     (property.roomPassword || property.password)?.trim()
   );
   const showPasswords =
+    !matchPartnerPreview &&
     showArriveTime &&
     property.roomType !== "토지" &&
     (hasFloorPw || hasRoomPw);
-  const showMemo = !omitEmpty || hasNotes;
   const showMoveIn =
     property.roomType !== "토지" &&
     property.roomType !== "건물" &&
@@ -162,6 +158,14 @@ export function PropertyBrief({
 
   const typeLabel = displayRoomType(property.roomType, property.buildingKind);
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
+
+  const memoText = matchPartnerPreview
+    ? ""
+    : showArriveTime
+      ? property.notes?.trim() || ""
+      : notesWithDoorPasswords(property);
+  const hasNotes = Boolean(memoText);
+  const showMemo = !matchPartnerPreview && (!omitEmpty || hasNotes);
 
   const inner = (
     <>

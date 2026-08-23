@@ -48,9 +48,7 @@ function resolveDong(entity: Customer | Property, shopName: string): string {
 export function resolveMatchAgencyContact(
   entity: Customer | Property
 ): MatchAgencyContact {
-  const shopName = normalizeShopName(
-    entity.createdByShopName?.trim() || entity.createdByName
-  );
+  const shopName = normalizeShopName(entity.createdByShopName?.trim());
   const phone = entity.createdByPhone?.trim() || "";
   const dong = resolveDong(entity, shopName);
   return { shopName, dong, phone };
