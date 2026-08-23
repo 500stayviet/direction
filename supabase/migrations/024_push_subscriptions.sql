@@ -33,6 +33,10 @@ alter table public.push_subscriptions enable row level security;
 alter table public.alert_push_log enable row level security;
 
 -- service_role (Cron·API) only — 클라이언트 직접 접근 없음
+revoke all on table public.push_subscriptions from public, anon, authenticated;
+revoke all on table public.alert_push_log from public, anon, authenticated;
+grant all on table public.push_subscriptions to postgres, service_role;
+grant all on table public.alert_push_log to postgres, service_role;
 
 comment on table public.push_subscriptions is 'Web Push subscription per device';
 comment on table public.alert_push_log is 'Sent match push dedup log';
