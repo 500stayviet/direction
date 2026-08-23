@@ -42,27 +42,15 @@ const phoneNumberClass =
 export function CustomerTouchPhoneBlock({
   customer,
   nameAddon,
-  /** 조건 매칭 모달 등 좁은 폭 — 이름·번호 2행 */
-  compact = false,
 }: {
   customer: Customer;
   nameAddon?: ReactNode;
-  compact?: boolean;
 }) {
   const name = customer.name.trim() || "이름 미입력";
-  const phoneTextClass = compact
-    ? `${phoneNumberClass} text-[17px] leading-none tracking-[-0.06em]`
-    : `${phoneNumberClass} text-[20px] tracking-tight`;
+  const phoneTextClass = `${phoneNumberClass} text-[17px] leading-none tracking-[-0.06em]`;
 
   const nameEl = (
-    <span
-      className={[
-        "font-extrabold leading-snug tracking-tight text-gray-900",
-        compact
-          ? "block min-w-0 truncate text-[18px]"
-          : "min-w-0 flex-1 break-words text-[20px]",
-      ].join(" ")}
-    >
+    <span className="min-w-0 flex-1 truncate text-[18px] font-extrabold leading-none tracking-tight text-gray-900">
       {name}
       {nameAddon}
     </span>
@@ -78,18 +66,16 @@ export function CustomerTouchPhoneBlock({
     </span>
   );
 
+  const contactRowClass =
+    "flex w-full min-w-0 items-center gap-1";
+
   return (
     <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
       <div className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
           원터치 전화
         </p>
-        <span
-          className={[
-            touchActionHintClass,
-            compact ? "text-[11px]" : "",
-          ].join(" ")}
-        >
+        <span className={touchActionHintClass}>
           번호를 누르면 전화로 이동
         </span>
       </div>
@@ -98,43 +84,17 @@ export function CustomerTouchPhoneBlock({
           <PhoneLink
             phone={customer.phone}
             showIcon={false}
-            className={[
-              "!w-full !text-[#03B26C]",
-              compact ? "!block" : "!flex !flex-wrap !items-baseline !gap-1.5",
-            ].join(" ")}
-          >
-            {compact ? (
-              <>
-                {nameEl}
-                <span className="mt-1 flex items-center justify-end gap-1">
-                  {roleEl}
-                  {phoneEl}
-                </span>
-              </>
-            ) : (
-              <>
-                {nameEl}
-                {roleEl}
-                {phoneEl}
-              </>
-            )}
-          </PhoneLink>
-        ) : (
-          <div
-            className={[
-              compact ? "space-y-1" : "flex flex-wrap items-baseline gap-1.5",
-            ].join(" ")}
+            className={`${contactRowClass} !text-[#03B26C]`}
           >
             {nameEl}
-            <div
-              className={[
-                "flex items-center gap-1",
-                compact ? "justify-end" : "",
-              ].join(" ")}
-            >
-              {roleEl}
-              {phoneEl}
-            </div>
+            {roleEl}
+            {phoneEl}
+          </PhoneLink>
+        ) : (
+          <div className={contactRowClass}>
+            {nameEl}
+            {roleEl}
+            {phoneEl}
           </div>
         )}
       </div>
@@ -163,12 +123,9 @@ export function CustomerBrief({
   customer,
   /** 원터치 전화 박스·안내 (고객 상세·조건 매칭) */
   showPhoneHint = false,
-  /** 조건 매칭 모달 등 좁은 폭 */
-  compactPhone = false,
 }: {
   customer: Customer;
   showPhoneHint?: boolean;
-  compactPhone?: boolean;
 }) {
   const roomNorm = normalizeRoomType(customer.roomType) ?? customer.roomType;
   const showRoomBath = needsRoomBathCounts(roomNorm);
@@ -216,10 +173,7 @@ export function CustomerBrief({
             </span>
           </div>
           {showPhoneHint ? (
-            <CustomerTouchPhoneBlock
-              customer={customer}
-              compact={compactPhone}
-            />
+            <CustomerTouchPhoneBlock customer={customer} />
           ) : (
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">

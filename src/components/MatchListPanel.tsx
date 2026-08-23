@@ -361,7 +361,7 @@ export function MatchingCustomersSection({
       >
         {preview ? (
           <div className="max-h-[55vh] overflow-y-auto">
-            <CustomerBrief customer={preview} showPhoneHint compactPhone />
+            <CustomerBrief customer={preview} showPhoneHint />
           </div>
         ) : null}
       </Modal>
