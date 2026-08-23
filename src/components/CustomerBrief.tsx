@@ -31,9 +31,9 @@ const chipOff = `${chipBase} bg-[#F2F4F6] text-gray-500`;
 const touchActionHintClass =
   "ml-auto min-w-0 max-w-full rounded px-0.5 py-px text-right text-[12px] font-semibold leading-snug text-amber-600";
 
-/** 고객 역할 라벨 — 리스트 카드와 동일 회색 */
+/** 고객 역할 뱃지 — 매물 협력부동산 동(성내동) 뱃지와 동일 */
 const customerRoleLabelClass =
-  "shrink-0 text-[12px] font-semibold text-gray-500";
+  "shrink-0 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-bold text-gray-500";
 
 const phoneNumberClass =
   "shrink-0 font-extrabold tabular-nums text-[#03B26C] underline decoration-[#03B26C]/45 underline-offset-[3px]";
