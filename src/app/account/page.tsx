@@ -374,8 +374,6 @@ export default function AccountPage() {
           </dl>
         </Card>
 
-        <AccountNotificationSettings />
-
         <Card className="space-y-2.5 !p-3">
           <div>
             <p className="text-[14px] font-bold text-gray-900">팀 공유</p>
@@ -593,6 +591,8 @@ export default function AccountPage() {
             </p>
           ) : null}
         </Card>
+
+        <AccountNotificationSettings />
 
         <Button
           variant="secondary"

@@ -2,17 +2,11 @@
 
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { InstallAppGuide } from "@/components/InstallAppGuide";
 import {
   getWebNotificationPermission,
   requestWebNotificationPermission,
 } from "@/lib/webNotifications";
-import {
-  isIosSafari,
-  isStandalonePwa,
-  pushEnvReady,
-} from "@/lib/pwaDetect";
+import { isIosSafari, isStandalonePwa, pushEnvReady } from "@/lib/pwaDetect";
 import { subscribeWebPush, unsubscribeWebPush } from "@/lib/pushClient";
 import {
   getAuthEpoch,
@@ -29,105 +23,98 @@ function useUserId(): string | null {
   return peekCurrentUser()?.id ?? null;
 }
 
-/** 계정 화면 — 알림·푸시 설정 */
+function prefKey(userId: string) {
+  return `realty_account_notif:${userId}`;
+}
+
+function readPrefOn(userId: string, perm: NotificationPermission | "unsupported") {
+  try {
+    const raw = localStorage.getItem(prefKey(userId));
+    if (raw === "0") return false;
+    if (raw === "1") return perm === "granted";
+  } catch {
+    /* ignore */
+  }
+  return perm === "granted";
+}
+
+function writePref(userId: string, on: boolean) {
+  try {
+    localStorage.setItem(prefKey(userId), on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 계정 화면 — 알림 켜기/끄기 (팀 공유 아래 한 줄) */
 export function AccountNotificationSettings() {
   const userId = useUserId();
   const [busy, setBusy] = useState(false);
   const [perm, setPerm] = useState(() => getWebNotificationPermission());
+  const [, setPrefTick] = useState(0);
 
-  const refreshPerm = useCallback(() => {
+  const refresh = useCallback(() => {
     setPerm(getWebNotificationPermission());
+    setPrefTick((n) => n + 1);
   }, []);
 
   if (!userId) return null;
 
   const needsPwa = isIosSafari() && !isStandalonePwa();
-  const pushReady = pushEnvReady();
+  const on = readPrefOn(userId, perm);
 
-  const onAllow = async () => {
+  const toggle = async () => {
+    if (busy) return;
     setBusy(true);
     try {
+      if (on) {
+        await unsubscribeWebPush();
+        writePref(userId, false);
+        refresh();
+        return;
+      }
+      if (needsPwa) {
+        writePref(userId, false);
+        refresh();
+        return;
+      }
       const next = await requestWebNotificationPermission();
       setPerm(next);
-      if (next === "granted" && pushReady && !needsPwa) {
-        await subscribeWebPush(userId);
+      if (next === "granted") {
+        if (pushEnvReady()) await subscribeWebPush(userId);
+        writePref(userId, true);
+      } else {
+        writePref(userId, false);
       }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onDisable = async () => {
-    setBusy(true);
-    try {
-      await unsubscribeWebPush();
-      refreshPerm();
+      refresh();
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Card className="space-y-3 !p-4">
-      <div>
-        <p className="text-[13px] font-bold text-gray-900">알림</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-gray-500">
-          앱 안 배지·탭 제목·배ner는 로그인만으로 표시됩니다. 확인(×) 전까지
-          알람은 꺼지지 않습니다.
-        </p>
-      </div>
-
-      {needsPwa ? (
-        <InstallAppGuide />
-      ) : null}
-
-      <div className="rounded-xl bg-gray-50 px-3 py-2.5 text-[12px] text-gray-600">
-        <p>
-          브라우저 알림:{" "}
-          <strong className="text-gray-900">
-            {perm === "granted"
-              ? "허용됨"
-              : perm === "denied"
-                ? "거부됨"
-                : perm === "unsupported"
-                  ? "미지원"
-                  : "미설정"}
-          </strong>
-        </p>
-        {pushReady ? (
-          <p className="mt-1">
-            밖에서 푸시:{" "}
-            <strong className="text-gray-900">
-              {perm === "granted" && !needsPwa ? "설정 가능" : "추가 설정 필요"}
-            </strong>
-          </p>
-        ) : (
-          <p className="mt-1 text-gray-400">
-            서버 VAPID 설정 후 앱 꺼진 상태 푸시가 활성화됩니다.
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {perm !== "granted" && perm !== "unsupported" ? (
-          <Button disabled={busy || needsPwa} onClick={() => void onAllow()}>
-            알림 허용
-          </Button>
-        ) : null}
-        {perm === "granted" ? (
-          <Button
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void onDisable()}
-          >
-            푸시 구독 해제
-          </Button>
-        ) : null}
-        {perm === "denied" ? (
-          <p className="text-[11px] leading-relaxed text-gray-400">
-            거부된 경우 기기 설정 → 알림에서 「현장동선」을 켜 주세요.
-          </p>
-        ) : null}
+    <Card className="!p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[14px] font-bold text-gray-900">알림</p>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="알림"
+          disabled={busy}
+          onClick={() => void toggle()}
+          className={[
+            "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-150 disabled:opacity-50",
+            on ? "bg-[#03B26C]" : "bg-red-500",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-150",
+              on ? "left-0.5 translate-x-5" : "left-0.5 translate-x-0",
+            ].join(" ")}
+          />
+        </button>
       </div>
     </Card>
   );
