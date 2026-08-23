@@ -22,31 +22,16 @@ function seedSkipKey(userId: string) {
 }
 
 function demoAlertsFlagKey(userId: string) {
-  // 시드 버전과 무관 — 버전 bump 때마다 알람이 다시 켜지지 않게
-  return `realty_demo_alerts_once:${userId}`;
+  // v2: 고객 매칭 + 매물 팀공유 뱃지
+  return `realty_demo_alerts_v2:${userId}`;
 }
 
 function hasInjectedDemoAlerts(userId: string): boolean {
   try {
-    if (localStorage.getItem(demoAlertsFlagKey(userId)) === "1") return true;
-    // 예전 버전별 키 → 한 번이라도 주입했으면 재주입 금지로 이관
-    const suffix = `:${userId}`;
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (
-        key &&
-        key.startsWith("realty_demo_alerts_") &&
-        key.endsWith(suffix) &&
-        localStorage.getItem(key) === "1"
-      ) {
-        localStorage.setItem(demoAlertsFlagKey(userId), "1");
-        return true;
-      }
-    }
+    return localStorage.getItem(demoAlertsFlagKey(userId)) === "1";
   } catch {
-    /* ignore */
+    return false;
   }
-  return false;
 }
 
 function markDemoAlertsInjected(userId: string) {
@@ -78,6 +63,7 @@ function injectDemoAlertsOnce(userId: string) {
   const [custId, propId, schId] = DEMO_CORE_IDS;
   injectDemoTestAlerts({
     matchPairs: [matchPairKey(custId, propId)],
+    sharePropertyIds: [propId],
   });
 
   markDemoAlertsInjected(userId);
@@ -88,7 +74,7 @@ function injectDemoAlertsOnce(userId: string) {
  * - 서버(service_role) API로 심어 RLS/컬럼 이슈를 피함
  * - 탭 세션(로그인)당 한 번만 시도
  * - 이미 시드된 버전이면 삭제한 데모를 되살리지 않음
- * - 시드 후 체험용 매칭 알람을 한 번 띄움 (팀공유 뱃지 없음)
+ * - 시드 후 체험 알람: 고객은 매칭, 매물은 팀공유 (한 번씩)
  * - 가입일로부터 7일이 지나면 시드하지 않고 데모 카드를 만료 처리
  */
 export async function seedDemoDataIfNeeded(): Promise<void> {

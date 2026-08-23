@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 
+const PUBLIC_APP_URL = "https://dongseon.com";
+
 function resolveAppUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
-  if (fromEnv) return fromEnv;
-  if (typeof window !== "undefined") return window.location.origin;
-  return "";
+  if (fromEnv && !/localhost|127\.0\.0\.1/i.test(fromEnv)) return fromEnv;
+  return PUBLIC_APP_URL;
 }
 
 /** 앱스토어 없이 홈 화면에 추가하는 안내 */
 export function InstallAppGuide({ className = "" }: { className?: string }) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(PUBLIC_APP_URL);
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
 

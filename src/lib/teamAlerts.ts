@@ -152,19 +152,22 @@ function loadFromStorage(uid: string): AlertState {
 }
 
 function stripDemoShareAlerts(s: AlertState): AlertState {
-  const stripIds = (ids: string[]) => ids.filter((id) => !id.startsWith("demo_"));
+  const stripExceptDemoProps = (ids: string[], tab: AlertTab) =>
+    tab === "properties"
+      ? ids.filter((id) => !id.startsWith("demo_cust_") && !id.startsWith("demo_sch_"))
+      : ids.filter((id) => !id.startsWith("demo_"));
   const nextKnownShare = {
-    customers: stripIds(s.knownShare.customers),
-    properties: stripIds(s.knownShare.properties),
-    navi: stripIds(s.knownShare.navi),
+    customers: stripExceptDemoProps(s.knownShare.customers, "customers"),
+    properties: stripExceptDemoProps(s.knownShare.properties, "properties"),
+    navi: stripExceptDemoProps(s.knownShare.navi, "navi"),
   };
   const nextUnseenShare = {
-    customers: stripIds(s.unseenShare.customers),
-    properties: stripIds(s.unseenShare.properties),
-    navi: stripIds(s.unseenShare.navi),
+    customers: stripExceptDemoProps(s.unseenShare.customers, "customers"),
+    properties: stripExceptDemoProps(s.unseenShare.properties, "properties"),
+    navi: stripExceptDemoProps(s.unseenShare.navi, "navi"),
   };
   const nextAlertSince = { ...s.alertSince };
-  for (const tab of ["customers", "properties", "navi"] as AlertTab[]) {
+  for (const tab of ["customers", "navi"] as AlertTab[]) {
     for (const id of [...s.knownShare[tab], ...s.unseenShare[tab]]) {
       if (id.startsWith("demo_")) {
         delete nextAlertSince[shareAlertKey(tab, id)];
@@ -341,6 +344,14 @@ export function parseMatchPairKey(
 export function syncShareIds(tab: AlertTab, foreignIds: string[]) {
   if (!userId) return;
   const incoming = new Set(foreignIds.filter(Boolean));
+  if (tab === "properties" && state.preserveDemoMatchAlerts) {
+    for (const id of [
+      ...state.knownShare.properties,
+      ...state.unseenShare.properties,
+    ]) {
+      if (id.startsWith("demo_prop_")) incoming.add(id);
+    }
+  }
 
   if (!state.shareSeeded[tab]) {
     state = {
@@ -1036,10 +1047,13 @@ export function alertHighlightClass(
 }
 
 /**
- * 데모 시드 직후 — 체험 매칭 알람만 주입 (팀공유 아님).
+ * 데모 시드 직후 — 고객은 신규 매칭, 매물은 팀공유처럼 보이게.
  * 이미 known에 있는 id는 unseen에 다시 넣지 않음(껐다가 시드 버전 올려도 부활 방지).
  */
-export function injectDemoTestAlerts(input: { matchPairs: string[] }) {
+export function injectDemoTestAlerts(input: {
+  matchPairs: string[];
+  sharePropertyIds?: string[];
+}) {
   if (!userId) return;
 
   const merge = (prev: string[], add: string[]) =>
@@ -1053,25 +1067,48 @@ export function injectDemoTestAlerts(input: { matchPairs: string[] }) {
     return merge(prevUnseen, fresh);
   };
 
+  const sharePropertyIds = (input.sharePropertyIds ?? []).filter(Boolean);
   const nextKnownMatch = merge(state.knownMatch, input.matchPairs);
+  const nextKnownShareProps = merge(
+    state.knownShare.properties,
+    sharePropertyIds
+  );
+
+  for (const key of input.matchPairs) {
+    notePairAlertSince("match", key);
+  }
+  for (const id of sharePropertyIds) {
+    noteAlertSince(shareAlertKey("properties", id));
+  }
 
   state = {
     ...state,
     preserveDemoMatchAlerts: true,
     matchSeeded: true,
     newMatchSeeded: true,
+    shareSeeded: { ...state.shareSeeded, properties: true },
     knownMatch: nextKnownMatch,
     knownNewMatch: state.knownNewMatch,
+    knownShare: {
+      ...state.knownShare,
+      properties: nextKnownShareProps,
+    },
     unseenMatchCustomer: mergeUnseenNewOnly(
       state.unseenMatchCustomer,
       state.knownMatch,
       input.matchPairs
     ),
-    unseenMatchProperty: mergeUnseenNewOnly(
-      state.unseenMatchProperty,
-      state.knownMatch,
-      input.matchPairs
+    unseenMatchProperty: state.unseenMatchProperty.filter(
+      (key) => !key.includes("demo_")
     ),
+    unseenShare: {
+      ...state.unseenShare,
+      properties: mergeUnseenNewOnly(
+        state.unseenShare.properties,
+        state.knownShare.properties,
+        sharePropertyIds
+      ),
+    },
   };
   persist();
   notify();

@@ -926,42 +926,58 @@ export default function AdminPage() {
 
   if (!session) {
     return (
-      <main>
+      <main className="py-6">
         <PageHeader title="관리자" titleAlign="left" />
-        <Card className="relative overflow-hidden space-y-3 !p-5">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#3182F6]/10" />
-          <p className="text-[18px] font-extrabold tracking-tight text-gray-900">
-            현장동선 운영
-          </p>
-          <p className="text-[13px] leading-snug text-gray-500">
+        <div className="mb-4 px-1">
+          <p className="text-[13px] font-bold text-[#3182F6]">현장동선</p>
+          <h1 className="mt-2 text-[28px] font-bold tracking-tight text-gray-900">
+            로그인
+          </h1>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500">
             슈퍼관리자·직원 계정으로 로그인합니다. 직원은 정지·팀 강퇴 가능,
             복원·PII 열람은 슈퍼만.
           </p>
-          <Input
-            label="관리자 아이디"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
-          <Input
-            label="비밀번호"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-          {error ? (
-            <p className="text-[13px] font-semibold text-red-500">{error}</p>
-          ) : null}
+        </div>
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void login();
+          }}
+        >
+          <Card className="space-y-2.5">
+            <Input
+              label="아이디"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="아이디를 입력하세요"
+              autoComplete="username"
+              filledVariant="plain"
+            />
+            <Input
+              label="비밀번호"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호를 입력하세요"
+              autoComplete="current-password"
+              filledVariant="plain"
+            />
+            {error ? (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+                {error}
+              </p>
+            ) : null}
+          </Card>
           <Button
+            type="submit"
             fullWidth
             size="lg"
             disabled={busy || !username.trim() || !password.trim()}
-            onClick={() => void login()}
           >
-            {busy ? "확인 중…" : "로그인"}
+            {busy ? "로그인 중..." : "로그인"}
           </Button>
-        </Card>
+        </form>
       </main>
     );
   }

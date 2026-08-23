@@ -1,0 +1,14 @@
+---
+description: e2e로 만든 테스트 데이터는 작업 끝나면 반드시 삭제
+alwaysApply: true
+---
+
+# e2e 테스트 데이터
+
+e2e를 작성·실행·디버깅한 뒤에는 **그 작업으로 생긴 계정·고객·매물·일정·팀 데이터를 모두 지운다.** 남기지 않는다.
+
+- 가입마다 Auth 유저 + 체험 `demo_*` 행이 쌓인다. 연결된 DB(특히 프로덕션과 같은 프로젝트)에 두면 용량·MAU·쿼터가 는다.
+- 작업 완료 후 실행: `npm run cleanup:e2e-users` 그리고 필요하면 `npm run cleanup:test-data` (`.env.local`의 그 DB 대상).
+- 관리자 정리 API/`cleanupE2eTestData`가 있으면 그것도 사용 가능. 스크립트 prefix에 없는 `uniqueUser("…")` 접두어는 정리에서 빠지니, 새 prefix면 `scripts/cleanup-e2e-users.mjs`의 `PREFIX`에 넣거나 수동 삭제.
+- e2e를 프로덕션 URL에 돌리지 않는 것이 우선. 돌렸다면 끝난 즉시 위 정리.
+- 「다음에 또 쓴다」며 테스트 계정을 DB에 남겨 두지 않는다.

@@ -5,8 +5,11 @@ import {
   formatOwnMatchBadgeLabel,
   formatSiteMatchBadgeLabel,
   getListCardAlertBadges,
+  getTeamAlertsSnapshot,
+  injectDemoTestAlerts,
   matchPairKey,
   syncMatchPairs,
+  syncShareIds,
 } from "./teamAlerts.ts";
 import type { MatchEntityKind } from "./matchPools.ts";
 
@@ -88,5 +91,32 @@ describe("teamAlerts match badges", () => {
       id: "p1",
     });
     assert.equal(propertyBadges.find((b) => b.kind === "match"), undefined);
+  });
+
+  it("데모 알람은 고객 매칭 + 매물 팀공유로 나뉜다", () => {
+    ensureTeamAlertsUser("user-demo-alerts");
+    const pair = matchPairKey("demo_cust_1", "demo_prop_1");
+    injectDemoTestAlerts({
+      matchPairs: [pair],
+      sharePropertyIds: ["demo_prop_1"],
+    });
+    syncShareIds("properties", []);
+
+    const customerBadges = getListCardAlertBadges({
+      tab: "customers",
+      id: "demo_cust_1",
+    });
+    const propertyBadges = getListCardAlertBadges({
+      tab: "properties",
+      id: "demo_prop_1",
+    });
+    assert.equal(customerBadges.find((b) => b.kind === "match")?.label, "매칭");
+    assert.equal(customerBadges.find((b) => b.kind === "share"), undefined);
+    assert.equal(propertyBadges.find((b) => b.kind === "share")?.label, "팀공유");
+    assert.equal(propertyBadges.find((b) => b.kind === "match"), undefined);
+
+    const snap = getTeamAlertsSnapshot();
+    assert.deepEqual(snap.unseenMatchCustomer, [pair]);
+    assert.equal(snap.unseenMatchProperty.includes(pair), false);
   });
 });
