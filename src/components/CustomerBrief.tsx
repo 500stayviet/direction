@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { Customer } from "@/lib/types";
 import {
   displayRoomType,
@@ -47,6 +48,59 @@ function StatusChip({
     <span className={active ? chipOn : chipOff}>
       {label} {value}
     </span>
+  );
+}
+
+/** 고객 상세·매칭·네비 상세 공통 원터치 전화 블록 */
+export function CustomerTouchPhoneBlock({
+  customer,
+  nameAddon,
+}: {
+  customer: Customer;
+  nameAddon?: ReactNode;
+}) {
+  const name = customer.name.trim() || "이름 미입력";
+
+  return (
+    <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
+      <div className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
+          원터치 전화
+        </p>
+        <span className={touchActionHintClass}>
+          번호를 누르면 전화로 이동
+        </span>
+      </div>
+      <div className="mt-2 w-full">
+        {customer.phone?.trim() ? (
+          <PhoneLink
+            phone={customer.phone}
+            showIcon={false}
+            className="!flex w-full flex-wrap items-baseline gap-2 !text-[#03B26C]"
+          >
+            <span className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+              {name}
+              {nameAddon}
+            </span>
+            <span className={phoneRoleBadgeClass}>고객</span>
+            <span className="shrink-0 text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+              {formatPhone(customer.phone)}
+            </span>
+          </PhoneLink>
+        ) : (
+          <div className="flex flex-wrap items-baseline gap-2">
+            <p className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+              {name}
+              {nameAddon}
+            </p>
+            <span className={phoneRoleBadgeClass}>고객</span>
+            <span className="shrink-0 text-[13px] font-semibold text-gray-400">
+              전화번호 미입력
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -105,43 +159,7 @@ export function CustomerBrief({
             </span>
           </div>
           {showPhoneHint ? (
-            <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
-              <div className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
-                  원터치 전화
-                </p>
-                <span className={touchActionHintClass}>
-                  번호를 누르면 전화로 이동
-                </span>
-              </div>
-              <div className="mt-2 w-full">
-                {customer.phone?.trim() ? (
-                  <PhoneLink
-                    phone={customer.phone}
-                    showIcon={false}
-                    className="!flex w-full flex-wrap items-baseline gap-2 !text-[#03B26C]"
-                  >
-                    <span className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-                      {customer.name.trim() || "이름 미입력"}
-                    </span>
-                    <span className={phoneRoleBadgeClass}>고객</span>
-                    <span className="shrink-0 text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
-                      {formatPhone(customer.phone)}
-                    </span>
-                  </PhoneLink>
-                ) : (
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-                      {customer.name.trim() || "이름 미입력"}
-                    </p>
-                    <span className={phoneRoleBadgeClass}>고객</span>
-                    <span className="shrink-0 text-[13px] font-semibold text-gray-400">
-                      전화번호 미입력
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <CustomerTouchPhoneBlock customer={customer} />
           ) : (
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">

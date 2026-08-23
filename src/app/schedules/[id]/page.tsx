@@ -11,12 +11,11 @@ import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
 import { CustomerSearchInput } from "@/components/CustomerSearchInput";
 import { CustomerListCard } from "@/components/CustomerListCard";
-import { CustomerBrief } from "@/components/CustomerBrief";
+import { CustomerBrief, CustomerTouchPhoneBlock } from "@/components/CustomerBrief";
 import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
 import { PropertyEditor } from "@/components/PropertyEditor";
 import { PropertyBrief } from "@/components/PropertyBrief";
 import { RouteSummaryCard } from "@/components/RouteSummaryCard";
-import { PhoneChip } from "@/components/PhoneLink";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import {
   dealTypeBarClass,
@@ -921,24 +920,17 @@ function ScheduleDetailInner() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <p className="min-w-0 truncate text-[14px] font-bold leading-snug text-gray-700">
-                      {customer.name}
-                      {customer.nonOccupancy ? (
-                        <span className="ml-1.5 text-[11px] font-semibold text-gray-400">
-                          비입주
-                        </span>
-                      ) : null}
-                    </p>
-                    <div className="ml-auto flex shrink-0 items-center gap-1">
-                      <span className="shrink-0 text-[12px] font-semibold text-gray-500">
-                        고객
-                      </span>
-                      <PhoneChip
-                        phone={customer.phone}
-                        className="!ml-0 !px-1.5 !py-1 !text-[20px] sm:!text-[18px]"
-                      />
-                    </div>
+                  <div className="mt-1.5">
+                    <CustomerTouchPhoneBlock
+                      customer={customer}
+                      nameAddon={
+                        customer.nonOccupancy ? (
+                          <span className="ml-1.5 text-[11px] font-semibold text-gray-400">
+                            비입주
+                          </span>
+                        ) : null
+                      }
+                    />
                   </div>
                   <div className="mt-1.5 rounded-xl bg-[#F9FAFB]">
                     <button
@@ -1174,7 +1166,7 @@ function ScheduleDetailInner() {
         showClose
         className="max-h-[min(85vh,640px)] overflow-y-auto"
       >
-        {customer ? <CustomerBrief customer={customer} /> : null}
+        {customer ? <CustomerBrief customer={customer} showPhoneHint /> : null}
         <Button
           fullWidth
           variant="secondary"
