@@ -1,0 +1,16 @@
+{
+  "name": "direction (현장동선)",
+  "install": "npm ci && if [ ! -f .env.local ]; then printf 'NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co\\nNEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dev-placeholder\\n' > .env.local; fi",
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "npm run dev"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
