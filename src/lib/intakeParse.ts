@@ -604,7 +604,7 @@ function parseFieldEokSlashMoney(text: string): {
   end: number;
 } | null {
   const m = text.match(
-    /(\d+(?:\.\d+)?)\s*억\s*[\/／.,．，]\s*(\d+(?:\.\d+)?)(?:\s*[\/／.,．，]\s*관?\s*(\d+))?/
+    /(\d+(?:\.\d+)?)\s*억\s*[\/／.,．，]\s*(\d+(?:\.\d+)?)\s*만?(?:원)?(?:\s*[\/／.,．，]\s*관?\s*(\d+))?/
   );
   if (!m || m.index == null) return null;
   const deposit = Math.round(Number(m[1]) * 10000);
@@ -1868,7 +1868,24 @@ const NAME_STOP = new Set([
   "고층",
   "중층",
   "희망층",
+  "만원",
+  "천원",
+  "억원",
+  "주차필",
+  "보증필",
+  "대출필",
+  "엘베필",
 ]);
+
+function isMoneyWordToken(word: string): boolean {
+  if (/^(?:만|천|억)?원$/.test(word)) return true;
+  if (/^\d*만원$/.test(word)) return true;
+  return /^(?:만|천|억)원$/.test(word);
+}
+
+function isYesNoShorthandName(word: string): boolean {
+  return /^(?:주차|보증|대출|엘베|엘리베이터|엘레베이터)필$/.test(word);
+}
 
 function isSeoulGuDongPhrase(word: string): boolean {
   const compact = word.replace(/\s+/g, "");
@@ -1889,6 +1906,8 @@ function isSeoulGuDongPhrase(word: string): boolean {
 
 function isNameCandidate(word: string): boolean {
   if (!/^[가-힣]{2,6}$/.test(word)) return false;
+  if (isMoneyWordToken(word)) return false;
+  if (isYesNoShorthandName(word)) return false;
   if (/는$/.test(word)) return false;
   if (/없|는데|으면|좋아요/.test(word)) return false;
   if (NAME_STOP.has(word)) return false;
@@ -2462,6 +2481,21 @@ function parseCompoundEokMoney(text: string): {
   return best;
 }
 
+function findFirstLocationIndex(text: string): number {
+  let earliest = -1;
+  for (const gu of SEOUL_GU_LIST) {
+    const idx = text.indexOf(gu);
+    if (idx >= 0 && (earliest < 0 || idx < earliest)) earliest = idx;
+  }
+  for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {
+    const dong = m[0] ?? "";
+    if (!isKnownSeoulDong(dong)) continue;
+    const idx = m.index ?? -1;
+    if (idx >= 0 && (earliest < 0 || idx < earliest)) earliest = idx;
+  }
+  return earliest;
+}
+
 function findCustomerName(text: string): string | undefined {
   const trimmed = text.trim();
   if (/^[가-힣]{2,6}$/.test(trimmed) && isNameCandidate(trimmed)) {
@@ -2473,8 +2507,17 @@ function findCustomerName(text: string): string | undefined {
     return lead[1];
   }
 
-  for (const hit of trimmed.matchAll(/(?:^|\s)([가-힣]{2,6})(?=\s|$)/g)) {
+  const locationIdx = findFirstLocationIndex(trimmed);
+  const scanText =
+    locationIdx >= 0 ? trimmed.slice(0, locationIdx).trimEnd() : trimmed;
+  if (!scanText) return undefined;
+
+  for (const hit of scanText.matchAll(/(?:^|\s)([가-힣]{2,6})(?=\s|$)/g)) {
     const word = hit[1] ?? "";
+    if (hit.index != null) {
+      const before = trimmed.slice(Math.max(0, hit.index - 6), hit.index);
+      if (/\d\s*$/.test(before) || /[\/／]\s*$/.test(before)) continue;
+    }
     if (isNameCandidate(word)) return word;
   }
   return undefined;
@@ -2914,13 +2957,15 @@ export function parseIntakeText(
   }
   if (
     money.monthlyRent &&
-    (result.dealType === "월세" || result.dealType === undefined)
+    (result.dealType === "월세" ||
+      result.dealType === undefined ||
+      money.twoPartSlash)
   ) {
     result.monthlyRent = money.monthlyRent;
     if (money.monthlyRentTo && money.monthlyRentTo !== money.monthlyRent) {
       result.monthlyRentTo = money.monthlyRentTo;
     }
-    if (!result.dealType) result.dealType = "월세";
+    if (!result.dealType || money.twoPartSlash) result.dealType = "월세";
   }
   if (kind === "property") {
     if (money.maintenanceFee) {
@@ -2960,6 +3005,10 @@ export function parseIntakeText(
     )
     .map((p) => ({ gu: p.gu, dong: p.dong }));
   result.roomNo = parseRoomNo(fieldText);
+  if (kind === "customer") {
+    result.jibun = undefined;
+    result.roomNo = undefined;
+  }
 
   const moveIn = parseMoveInDates(leftoverText, today);
   if (moveIn.from) {

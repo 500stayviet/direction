@@ -60,14 +60,24 @@ const STRUCTURAL_FIELD_RES = [
   /방\s*[1-9]/g,
   /[1-9]\s*룸/g,
   /화(?:장실)?\s*[1-4]\s*개?/g,
+  /\d{1,5}\s*-\s*\d{1,5}/g,
   /\d{1,5}\s*동\s*\d{1,5}\s*호/g,
   /\d{1,3}\s*층\s*\d{1,5}\s*호/g,
   /\d{2,4}\s*호/g,
   /관(?:리비)?\s*\d+(?:\.\d+)?/g,
+  /(?:^|[\s/／])관\s*\d+(?:\s*만(?:원)?)?/g,
   /주(?:차)?\s*\d+\s*대/g,
   /(?:실입주|바로입주|즉시입주)(?:\s*가능)?|공실\s*중|비어\s*있음|비어있음|빈방|공가|공실/g,
   /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g,
 ];
+
+const MONEY_LABEL_RES = [
+  /(?:보증금|전세가|전세금|매매가|거래가액|매가)(?:\s*[:：])?\s*/g,
+  /(?:^|[\s\u0001])(?:만|원)(?=$|[\s\u0001])/g,
+];
+
+const YESNO_COMPACT_RES =
+  /(?:주차(?:장)?|(?:전세)?보증(?:보험)?|대출|(?:엘리베이터|엘레베이터|엘베|승강기))\s*(?:필|불|유|무|가|불)(?![가-힣])/gi;
 
 const MONEY_FIELD_RES = [
   /\d+(?:\.\d+)?\s*억/g,
@@ -82,13 +92,48 @@ const YESNO_TAIL =
   "가|불|안(?:됨|돼(?:요)?|됩니다|되)?|없(?:음|어요|어|습니다)?|" +
   "불가(?:능)?(?:해요|합니다|함)?|무)";
 
-function moneyFieldsFilled(parsed: IntakeParseResult): boolean {
-  const hasDeposit = Boolean(parsed.deposit && parsed.deposit > 0);
-  if (!hasDeposit) return false;
-  if (parsed.dealType === "월세") {
-    return Boolean(parsed.monthlyRent && parsed.monthlyRent > 0);
+function hasAnyMoneyField(parsed: IntakeParseResult): boolean {
+  return Boolean(
+    (parsed.deposit && parsed.deposit > 0) ||
+      (parsed.monthlyRent && parsed.monthlyRent > 0)
+  );
+}
+
+/** 파싱된 금액 값에서 원문에 남을 수 있는 표현을 RegExp로 만든다 */
+function buildParsedMoneyStripRes(parsed: IntakeParseResult): RegExp[] {
+  const out: RegExp[] = [];
+  const dep = parsed.deposit;
+  const rent = parsed.monthlyRent;
+  if (dep && dep > 0) {
+    const eok = dep / 10000;
+    if (Number.isFinite(eok) && eok >= 1 && eok <= 999) {
+      const eokPat =
+        eok % 1 === 0
+          ? String(Math.round(eok))
+          : String(eok).replace(".", "\\.");
+      if (rent && rent > 0) {
+        out.push(
+          new RegExp(
+            `${eokPat}(?:\\.\\d+)?\\s*억\\s*[\\/／.,．，]\\s*${rent}\\s*만?(?:원)?`,
+            "gi"
+          )
+        );
+      }
+      out.push(new RegExp(`${eokPat}(?:\\.\\d+)?\\s*억\\s*만?(?:원)?`, "gi"));
+      out.push(new RegExp(`${eokPat}(?:\\.\\d+)?\\s*억`, "gi"));
+    }
   }
-  return true;
+  if (rent && rent > 0) {
+    out.push(new RegExp(`[\\/／]\\s*${rent}\\s*만?(?:원)?`, "gi"));
+    out.push(new RegExp(`(?<![\\d])${rent}\\s*만(?:원)?`, "gi"));
+  }
+  return out;
+}
+
+function hasAnyYesNoField(parsed: IntakeParseResult): boolean {
+  return Boolean(
+    parsed.loan || parsed.insurance || parsed.parking || parsed.elevator
+  );
 }
 
 function usedPlaceTokens(parsed: IntakeParseResult): string[] {
@@ -107,20 +152,29 @@ function usedPlaceTokens(parsed: IntakeParseResult): string[] {
 
 function dealTokensToStrip(parsed: IntakeParseResult): string[] {
   if (!parsed.dealType) return [];
-  if (parsed.dealType === "월세" && !parsed.monthlyRent) {
-    return DEAL_TOKENS.filter((token) => token !== "월세");
+  const tokens = [...DEAL_TOKENS];
+  if (parsed.deposit && parsed.deposit > 0) {
+    tokens.push("전세가", "매매가", "보증금", "전세금");
   }
-  return DEAL_TOKENS;
+  if (parsed.dealType === "월세" && !parsed.monthlyRent) {
+    return tokens.filter((token) => token !== "월세");
+  }
+  return tokens;
 }
 
 function usedFlagRes(parsed: IntakeParseResult): RegExp[] {
   const out: RegExp[] = [];
-  if (parsed.loan) out.push(new RegExp(`대출\\s*${YESNO_TAIL}`, "gi"));
+  if (parsed.loan) {
+    out.push(new RegExp(`대출\\s*${YESNO_TAIL}`, "gi"));
+    out.push(/대출\s*필/gi);
+  }
   if (parsed.insurance) {
     out.push(new RegExp(`(?:전세)?보증보험\\s*${YESNO_TAIL}`, "gi"));
+    out.push(/(?:전세)?보증\s*필/gi);
   }
   if (parsed.parking) {
     out.push(new RegExp(`주차(?:장)?\\s*${YESNO_TAIL}`, "gi"));
+    out.push(/주차\s*필/gi);
   }
   if (parsed.elevator) {
     out.push(
@@ -129,6 +183,7 @@ function usedFlagRes(parsed: IntakeParseResult): RegExp[] {
         "gi"
       )
     );
+    out.push(/(?:엘리베이터|엘레베이터|엘베)\s*필/gi);
   }
   return out;
 }
@@ -189,8 +244,15 @@ function stripUsedFieldPhrases(
     ...dealTokensToStrip(parsed),
   ]);
   next = applyResBreaks(next, STRUCTURAL_FIELD_RES);
-  if (moneyFieldsFilled(parsed)) {
+  if (parsed.dealType) {
+    next = applyResBreaks(next, MONEY_LABEL_RES);
+  }
+  if (hasAnyMoneyField(parsed)) {
     next = applyResBreaks(next, MONEY_FIELD_RES);
+    next = applyResBreaks(next, buildParsedMoneyStripRes(parsed));
+  }
+  if (hasAnyYesNoField(parsed)) {
+    next = applyResBreaks(next, [YESNO_COMPACT_RES]);
   }
   next = applyResBreaks(next, usedFlagRes(parsed));
   if (parsed.moveInFrom || parsed.moveInImmediate) {
@@ -281,9 +343,9 @@ const DATE_HINT =
 const JIBUN_HINT = /\d{1,5}\s*-\s*\d{1,5}/;
 const ROOM_HINT = /\d+\s*(?:동|층|호)/;
 const FIELD_RESIDUE_HINT =
-  /보증금|월세|매매가|거래가액|전세금|입주희망|희망일|\d{1,2}\s*월|\d{1,2}\s*일|\d+\s*(?:억|만)|메모/;
+  /보증금|월세|매매가|전세가|거래가액|전세금|입주희망|희망일|\d{1,2}\s*월|\d{1,2}\s*일|\d+\s*(?:억|만)|(?:^|[\s])만(?:$|[\s])|메모/;
 const FLAG_RESIDUE_HINT =
-  /(?:대출|보증보험|주차|엘베|엘리베이터)\s*[유무있없가능불가]/;
+  /(?:대출|보증(?:보험)?|주차|엘베|엘리베이터)(?:\s*[유무있없가능불가]|필|불)(?![가-힣])/;
 
 const MEMO_ONLY_HINT =
   /일요일|불가|예약|저녁|남향|북향|동향|서향|저층|고층|중층|희망층|애완|반려|허그|있으면\s*좋|없어도\s*되/;
@@ -299,6 +361,47 @@ function leftoverLooksLikeMemoOnly(text: string): boolean {
   }
   if (JIBUN_HINT.test(text) || ROOM_HINT.test(text)) return false;
   return true;
+}
+
+/**
+ * 메모에 붙여도 되는 잔여만 골라 반환한다.
+ * 칸 조각·금액 찌꺼기·유무 줄임말이 섞이면 버리거나 메모 문장만 남긴다.
+ */
+export function leftoverForMemoAppend(
+  leftover: string,
+  parsed: IntakeParseResult,
+  source: IntakeAiSource = "message"
+): string {
+  const text = scrubCorruptIntakeText(leftover).replace(/\s+/g, " ").trim();
+  if (text.length < 2) return "";
+
+  if (MEMO_ONLY_HINT.test(text) && leftoverLooksLikeMemoOnly(text)) {
+    return text.slice(0, leftoverMaxForSource(source));
+  }
+
+  let scrubbed = text;
+  scrubbed = applyResBreaks(scrubbed, [
+    FLAG_RESIDUE_HINT,
+    /(?:전세가|매매가|보증금|전세금|거래가액)/g,
+    /\d+(?:\.\d+)?\s*억/g,
+    /\d+\s*만(?:원)?/g,
+    /\d+\s*\/\s*\d+/g,
+    YESNO_COMPACT_RES,
+  ]);
+  scrubbed = applyResBreaks(scrubbed, buildParsedMoneyStripRes(parsed));
+
+  const segments = scrubbed
+    .split(/[\n\u0001]+/)
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter((part) => part.length >= 2 && /[가-힣]{2,}/.test(part));
+
+  const memoParts = segments.filter(
+    (part) => MEMO_ONLY_HINT.test(part) && leftoverLooksLikeMemoOnly(part)
+  );
+  if (memoParts.length === 0) return "";
+
+  const joined = memoParts.join(" ");
+  return joined.slice(0, leftoverMaxForSource(source));
 }
 
 /** 빈 칸을 채울 잔여·애매한 잔여는 DeepSeek. 분명한 메모만 내용에 붙인다. */

@@ -1,6 +1,7 @@
 import {
   INTAKE_AI_MIN_WAIT_MS,
   intakeAiLeftover,
+  leftoverForMemoAppend,
   leftoverNeedsAi,
   listEmptyIntakeAiFields,
   mergeIntakeAi,
@@ -94,10 +95,11 @@ export async function resolveIntakeWithAi(opts: {
   );
   if (!leftover) return parsed;
   if (!leftoverNeedsAi(leftover, parsed)) {
+    const memo = leftoverForMemoAppend(leftover, parsed, opts.source);
     return {
       ...parsed,
       options: [...parsed.options],
-      notes: appendIntakeMemo(parsed.notes, leftover),
+      notes: memo ? appendIntakeMemo(parsed.notes, memo) : parsed.notes,
     };
   }
   if (opts.signal?.aborted) return parsed;

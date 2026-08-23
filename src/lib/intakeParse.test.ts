@@ -1642,4 +1642,20 @@ describe("parseIntakeText", () => {
     assert.equal(office.tenantPhone, "010-1111-2222");
     assert.match(office.notes, /키\+관리실\+비밀번호\+별/);
   });
+
+  it("고객 메시지: 전세가 2억/50만원에서 만원·필 줄임말을 이름으로 잡지 않는다", () => {
+    const raw =
+      "강동구 천호동 111-1 101호 전세가 2억/50만원\n관5만 주차필 보증필 대출필 엘베필 낮시간 방문불가";
+    const parsed = parseIntakeText(raw, "customer");
+    assert.equal(parsed.name, undefined);
+    assert.equal(parsed.dealType, "월세");
+    assert.equal(parsed.deposit, 20000);
+    assert.equal(parsed.monthlyRent, 50);
+    assert.equal(parsed.jibun, undefined);
+    assert.equal(parsed.roomNo, undefined);
+    assert.equal(parsed.gu, "강동구");
+    assert.equal(parsed.dong, "천호동");
+    assert.equal(parsed.parking, "유");
+    assert.equal(parsed.loan, "유");
+  });
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   intakeAiLeftover,
+  leftoverForMemoAppend,
   leftoverNeedsAi,
   mergeIntakeAi,
   sanitizeIntakeAiPatch,
@@ -123,6 +124,24 @@ describe("intakeAiLeftover", () => {
     assert.equal(
       leftoverNeedsAi("집보는건 일요일불가 저녁타임 예약", parsed),
       false
+    );
+  });
+
+  it("고객 메시지 잔여: 금액·유무 필 줄임말은 빼고 희망 문장만 남긴다", () => {
+    const raw =
+      "강동구 천호동 111-1 101호 전세가 2억/50만원\n관5만 주차필 보증필 대출필 엘베필 낮시간 방문불가";
+    const parsed = parseIntakeText(raw, "customer");
+    const leftover = intakeAiLeftover(raw, parsed, "message");
+    assert.equal(leftover, "낮시간 방문불가");
+    assert.equal(leftoverForMemoAppend(leftover, parsed, "message"), "낮시간 방문불가");
+    assert.equal(leftoverNeedsAi(leftover, parsed), false);
+  });
+
+  it("칸 조각만 남은 잔여는 메모에 붙이지 않는다", () => {
+    const parsed = parseIntakeText("원룸 전세 2억 암사동", "customer");
+    assert.equal(
+      leftoverForMemoAppend("전세가 만 주차필 보증필", parsed, "message"),
+      ""
     );
   });
 
