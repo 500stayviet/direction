@@ -76,7 +76,7 @@ const chipOption = `${chipBase} bg-[#3182F6]/12 text-gray-900`;
 
 /** 원터치 네비·전화 안내 — 짧은 한 줄 */
 const touchActionHintClass =
-  "ml-auto inline-block shrink-0 rounded px-0.5 py-px text-[12px] font-semibold leading-snug text-amber-600";
+  "ml-auto min-w-0 max-w-full rounded px-0.5 py-px text-right text-[12px] font-semibold leading-snug text-amber-600";
 
 function StatusChip({
   label,
@@ -216,12 +216,12 @@ export function PropertyBrief({
           showIcon={false}
           className="rounded-2xl bg-[#E8F3FF] px-3 py-3 ring-1 ring-inset ring-[#3182F6]/20"
         >
-          <span className="flex w-full items-baseline gap-x-2 gap-y-0.5">
+          <span className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="shrink-0 text-[14px] font-extrabold leading-none text-[#3182F6]">
               원터치 네비게이션
             </span>
             <span className={touchActionHintClass}>
-              주소를 누르면 네비게이션으로 이동
+              주소를 누르면 네비로 이동
             </span>
           </span>
           <span
@@ -274,12 +274,12 @@ export function PropertyBrief({
           property.landlordPhone ||
           showPartnerContact) && showPhoneSection ? (
           <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
-            <div className="flex items-baseline gap-x-2 gap-y-0.5">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
                 원터치 전화
               </p>
               <span className={touchActionHintClass}>
-                전화번호를 누르면 전화로 이동
+                번호를 누르면 전화로 이동
               </span>
             </div>
             <div
