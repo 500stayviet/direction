@@ -28,6 +28,8 @@ import { AddressLink } from "@/components/AddressLink";
 import { toNaviAddress } from "@/lib/navi";
 import { PasswordReveal } from "@/components/PasswordReveal";
 import { SchedulePropertySwapModal } from "@/components/SchedulePropertySwapModal";
+import { MatchAgencyContactBlock } from "@/components/MatchAgencyContactBlock";
+import { resolveMatchAgencyContact } from "@/lib/matchAgencyContact";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
 import { notesWithDoorPasswords } from "@/lib/propertyPasswords";
 import { useState } from "react";
@@ -65,6 +67,8 @@ interface PropertyBriefProps {
   omitEmpty?: boolean;
   /** 조건 매칭 모달 — 네비·전화 아이콘 없이 주소·번호 전체 표시 */
   matchPreview?: boolean;
+  /** 사이트내 공유 매칭 — 임차인·임대인 대신 등록 부동산 연락처 */
+  matchPartnerPreview?: boolean;
 }
 
 const chipBase =
@@ -104,6 +108,7 @@ export function PropertyBrief({
   embedded = false,
   omitEmpty = false,
   matchPreview = false,
+  matchPartnerPreview = false,
 }: PropertyBriefProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const canReorder = Boolean(onSwapWith);
@@ -125,10 +130,14 @@ export function PropertyBrief({
   const showArriveChip = showArriveTime && Boolean(property.arriveTime);
   const visitTouchUi = showArriveTime && !matchPreview;
   const showPartnerContact =
-    property.hasPartnerAgency && !matchPreview;
-  const showPhoneSection =
-    Boolean(property.tenantPhone || property.landlordPhone) ||
-    showPartnerContact;
+    property.hasPartnerAgency && !matchPreview && !matchPartnerPreview;
+  const agencyContact = resolveMatchAgencyContact(property);
+  const showAgencyContact = matchPartnerPreview;
+  const showPrivatePhoneSection =
+    !matchPartnerPreview &&
+    (Boolean(property.tenantPhone || property.landlordPhone) ||
+      showPartnerContact);
+  const showPhoneSection = showAgencyContact || showPrivatePhoneSection;
   const memoText = showArriveTime
     ? property.notes?.trim() || ""
     : notesWithDoorPasswords(property);
@@ -270,9 +279,9 @@ export function PropertyBrief({
         </AddressLink>
 
         {/* 원터치 전화 — 제목 좌상단 · 안내 옆 · 상호/지역/번호 */}
-        {(property.tenantPhone ||
-          property.landlordPhone ||
-          showPartnerContact) && showPhoneSection ? (
+        {showAgencyContact ? (
+          <MatchAgencyContactBlock contact={agencyContact} />
+        ) : showPhoneSection ? (
           <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">

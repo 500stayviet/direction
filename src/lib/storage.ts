@@ -53,6 +53,8 @@ import {
   pruneHiddenToLiveIds,
   unhideSharedEntity,
 } from "./teamShareHides";
+import { findDongInText, parseSeoulAddress } from "./seoulRegions";
+import { parsePreferredDong } from "./preferredLocation";
 
 type EntityTable = "customers" | "listed_properties" | "schedules";
 
@@ -87,14 +89,21 @@ function throwIfError(error: { message: string } | null, label: string): void {
   throw new Error(`${label}: ${msg}`);
 }
 
-async function resolveActor(): Promise<{ userId: string; name: string }> {
+async function resolveActor(): Promise<{
+  userId: string;
+  name: string;
+  shopName: string;
+  phone: string;
+}> {
   const userId = await requireUserId();
   const user =
     getCachedUser() ||
     (await getCurrentUser()) ||
-    ({ name: "", username: "" } as User);
+    ({ name: "", username: "", shopName: "", phone: "" } as User);
   const name = (user.name || user.username || "회원").trim() || "회원";
-  return { userId, name };
+  const shopName = (user.shopName || "").trim();
+  const phone = (user.phone || "").trim();
+  return { userId, name, shopName, phone };
 }
 
 /** 업장 조회는 화면 이동·저장마다 치지 않도록 짧게 캐시 */
@@ -151,14 +160,34 @@ async function getWorkspaceId(userId: string): Promise<string | null> {
   }
 }
 
+function agencyDongForSnapshot(
+  item: { preferredDongs?: string[]; address?: string },
+  shopName: string
+): string {
+  if (Array.isArray(item.preferredDongs)) {
+    for (const raw of item.preferredDongs) {
+      const parsed = parsePreferredDong(String(raw ?? ""));
+      if (parsed?.dong?.trim()) return parsed.dong.trim();
+    }
+  }
+  if (item.address?.trim()) {
+    const dong = parseSeoulAddress(item.address).dong?.trim();
+    if (dong) return dong;
+  }
+  return findDongInText(shopName)?.dong?.trim() || "";
+}
+
 function withCreatorMeta<T extends { id: string; createdAt?: string }>(
   item: T,
-  actor: { userId: string; name: string },
+  actor: { userId: string; name: string; shopName: string; phone: string },
   workspaceId: string | null,
   existing?: { created_by?: string | null; created_by_name?: string }
 ): T & {
   createdBy: string;
   createdByName: string;
+  createdByShopName?: string;
+  createdByPhone?: string;
+  createdByDong?: string;
   workspaceId?: string;
 } {
   const createdBy = existing?.created_by || actor.userId;
@@ -167,10 +196,46 @@ function withCreatorMeta<T extends { id: string; createdAt?: string }>(
     : existing?.created_by_name?.trim() ||
       (item as { createdByName?: string }).createdByName ||
       actor.name;
+  const preserveAgencySnapshots = Boolean(
+    existing?.created_by && existing.created_by !== actor.userId
+  );
+  const itemAgency = item as {
+    createdByShopName?: string;
+    createdByPhone?: string;
+    createdByDong?: string;
+    preferredDongs?: string[];
+    address?: string;
+  };
+  const agencySnapshots =
+    preserveAgencySnapshots || isDemoEntityId(item.id)
+      ? {
+          createdByShopName: itemAgency.createdByShopName,
+          createdByPhone: itemAgency.createdByPhone,
+          createdByDong: itemAgency.createdByDong,
+        }
+      : {
+          createdByShopName:
+            actor.shopName && actor.shopName !== "현장동선"
+              ? actor.shopName
+              : itemAgency.createdByShopName,
+          createdByPhone: actor.phone || itemAgency.createdByPhone,
+          createdByDong:
+            agencyDongForSnapshot(itemAgency, actor.shopName) ||
+            itemAgency.createdByDong,
+        };
   return {
     ...item,
     createdBy,
     createdByName,
+    ...(agencySnapshots.createdByShopName
+      ? { createdByShopName: agencySnapshots.createdByShopName }
+      : {}),
+    ...(agencySnapshots.createdByPhone
+      ? { createdByPhone: agencySnapshots.createdByPhone }
+      : {}),
+    ...(agencySnapshots.createdByDong
+      ? { createdByDong: agencySnapshots.createdByDong }
+      : {}),
     ...(workspaceId ? { workspaceId } : {}),
   };
 }
