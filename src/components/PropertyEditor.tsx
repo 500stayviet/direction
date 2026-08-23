@@ -1222,6 +1222,7 @@ export function PropertyEditor({
             <div>
               <TextArea
                 label="메모"
+                filledVariant="plain"
                 value={property.notes ?? ""}
                 onChange={(e) => update({ notes: e.target.value })}
                 placeholder={propertyNotesPlaceholder(property.roomType)}
@@ -1237,6 +1238,7 @@ export function PropertyEditor({
           <div>
             <TextArea
               label="메모"
+              filledVariant="plain"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
               placeholder={propertyNotesPlaceholder(property.roomType)}
@@ -1401,6 +1403,7 @@ export function PropertyEditor({
           <div>
             <TextArea
               label="메모"
+              filledVariant="plain"
               value={property.notes ?? ""}
               onChange={(e) => update({ notes: e.target.value })}
               placeholder={propertyNotesPlaceholder(property.roomType)}

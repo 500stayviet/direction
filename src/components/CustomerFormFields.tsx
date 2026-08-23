@@ -646,6 +646,7 @@ export const CustomerFormExtraFields = memo(function CustomerFormExtraFields({
       <div>
         <TextArea
           label="메모"
+          filledVariant="plain"
           value={notes}
           onChange={(e) => onPatch({ notes: e.target.value })}
           placeholder={customerMemoPlaceholder(roomType)}

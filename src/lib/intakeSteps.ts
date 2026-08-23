@@ -124,7 +124,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       key: "flags",
       name: "대출 · 보증보험 · 주차",
       nameHint: "(필요/불필요)",
-      example: "대출필요 보증 필요 주차불필요",
+      example: "대출필요 - 보증보험필요 - 주차필요",
     },
     {
       key: "elevator",
@@ -153,7 +153,7 @@ export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
       key: "flags",
       name: "대출 · 보증보험 · 주차",
       nameHint: "(가능/불가)",
-      example: "대출가능 보증보험 가능 주차불가",
+      example: "대출가능 - 보증보험가능 - 주차불가",
     },
     {
       key: "elevator",
@@ -369,14 +369,14 @@ export function flagsGuideCopy(
       name: "대출 · 보증보험 · 주차",
       nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
       example: customer
-        ? "대출필요 보증 필요 주차불필요"
-        : "대출가능 보증보험 가능 주차불가",
+        ? "대출필요 - 보증보험필요 - 주차필요"
+        : "대출가능 - 보증보험가능 - 주차불가",
     };
   }
   return {
     name: "대출 · 주차",
     nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
-    example: customer ? "대출필요 주차불필요" : "대출가능 주차불가",
+    example: customer ? "대출필요 - 주차필요" : "대출가능 - 주차불가",
   };
 }
 
@@ -527,12 +527,12 @@ export function formatFlagsValueLine(
     parts.push(`대출${formatTalkFlagLabel(partial.loan, kind)}`);
   }
   if (keep.has("insurance") && partial.insurance) {
-    parts.push(`보증${formatTalkFlagLabel(partial.insurance, kind)}`);
+    parts.push(`보증보험${formatTalkFlagLabel(partial.insurance, kind)}`);
   }
   if (keep.has("parking") && partial.parking) {
     parts.push(`주차${formatTalkFlagLabel(partial.parking, kind)}`);
   }
-  return parts.join(" · ");
+  return parts.join(" - ");
 }
 
 function formatElevatorValueLine(

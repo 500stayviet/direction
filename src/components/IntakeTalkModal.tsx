@@ -1170,10 +1170,9 @@ export function IntakeTalkModal({
           }
 
           const isNotes = line.key === "notes";
+          const flagsInline = isFlags;
           const notesGrowing =
             isNotes && Boolean(valueText) && valueText !== `예) ${stepExample}`;
-          const exampleOnNextLine =
-            isFlags && Boolean(valueText?.startsWith("예)"));
           return (
             <li
               key={line.key}
@@ -1185,16 +1184,14 @@ export function IntakeTalkModal({
                 onClick={() => selectGuideRow(index)}
                 className={[
                   "flex w-full min-w-0 gap-1 text-left",
-                  notesGrowing || exampleOnNextLine
-                    ? "items-start"
-                    : "items-center overflow-hidden",
+                  notesGrowing ? "items-start" : "items-baseline",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
               <span
                 className={[
                   "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
-                  notesGrowing || exampleOnNextLine ? "mt-0.5" : "",
+                  notesGrowing ? "mt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -1204,11 +1201,7 @@ export function IntakeTalkModal({
               <div
                 className={[
                   "flex min-w-0 flex-1 gap-1",
-                  exampleOnNextLine
-                    ? "flex-col items-stretch"
-                    : notesGrowing
-                      ? "items-start"
-                      : "items-baseline",
+                  notesGrowing ? "flex-col items-stretch" : "items-baseline",
                 ].join(" ")}
               >
                 <span
@@ -1238,9 +1231,11 @@ export function IntakeTalkModal({
                   <span
                     className={[
                       "min-w-0 text-[13px] leading-snug",
-                      notesGrowing || exampleOnNextLine
+                      notesGrowing
                         ? "whitespace-pre-wrap break-words"
-                        : "truncate",
+                        : flagsInline
+                          ? "break-words"
+                          : "truncate",
                       filled || (hasEnteredValue && !active)
                         ? "font-semibold text-green-700"
                         : active

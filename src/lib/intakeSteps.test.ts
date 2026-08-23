@@ -410,12 +410,12 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       flagsGuideCopy("property", "전세").example,
-      "대출가능 보증보험 가능 주차불가"
+      "대출가능 - 보증보험가능 - 주차불가"
     );
     assert.equal(flagsGuideCopy("property", "월세").name, "대출 · 주차");
     assert.equal(
       flagsGuideCopy("property", "매매").example,
-      "대출가능 주차불가"
+      "대출가능 - 주차불가"
     );
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "월세"), true);
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "전세"), false);
@@ -426,7 +426,7 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       flagsGuideCopy("customer", "전세").example,
-      "대출필요 보증 필요 주차불필요"
+      "대출필요 - 보증보험필요 - 주차필요"
     );
     assert.equal(flagsStepComplete({ parking: "유" }, "전세", "상가"), true);
     assert.equal(

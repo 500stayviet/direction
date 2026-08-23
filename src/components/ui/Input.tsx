@@ -266,11 +266,22 @@ export const TextArea = forwardRef<
   HTMLTextAreaElement,
   FieldProps & TextareaHTMLAttributes<HTMLTextAreaElement>
 >(function TextArea(
-  { label, hint, required, invalid, className = "", value, onChange, ...props },
+  {
+    label,
+    hint,
+    required,
+    invalid,
+    filledVariant = "field",
+    className = "",
+    value,
+    onChange,
+    ...props
+  },
   ref
 ) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
   const hasValue = String(value ?? "").trim().length > 0;
+  const useFilledStyle = filledVariant !== "plain";
 
   const resize = () => {
     const el = innerRef.current;
@@ -303,8 +314,14 @@ export const TextArea = forwardRef<
         className={[
           controlSurfaceClass,
           "min-h-[96px] resize-none overflow-y-auto py-1.5 leading-snug",
-          invalid ? invalidInputClass : hasValue ? filledInputClass : "",
-          hasValue && !invalid ? "input-field-filled text-left" : "",
+          invalid
+            ? invalidInputClass
+            : hasValue && useFilledStyle
+              ? filledInputClass
+              : "",
+          hasValue && !invalid && useFilledStyle
+            ? "input-field-filled text-left"
+            : "",
           invalid ? "" : inputFocusClass,
           className,
         ].join(" ")}
