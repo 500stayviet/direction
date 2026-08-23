@@ -111,6 +111,7 @@ export default function PropertyListPage() {
 
   const toggleTeamShare = async (p: ListedProperty) => {
     if (busy) return;
+    if (isDemoEntityId(p.id)) return;
     if (isForeignTeamItem(p.createdBy, myId)) return;
     const prevShared = Boolean(p.workspaceShared);
     const optimistic: ListedProperty = {
@@ -210,7 +211,7 @@ export default function PropertyListPage() {
             {filtered.map((p, index) => {
               const done = Boolean(p.contractCompleted);
               const showTeamChip =
-                Boolean(p.workspaceId) || isDemoEntityId(p.id);
+                Boolean(p.workspaceId) && !isDemoEntityId(p.id);
               const teamOn = Boolean(p.workspaceShared);
               const foreign = isForeignTeamItem(p.createdBy, myId);
 

@@ -51,6 +51,7 @@ import {
   isForeignTeamItem,
 } from "@/lib/teamActionGuard";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import {
   formatVisitDateTime,
   customerNeedLabel,
@@ -526,23 +527,20 @@ function ScheduleDetailInner() {
         right={
           <>
             {!editing &&
-            (schedule.id.startsWith("demo_sch_") ||
-              hasTeammates ||
-              schedule.workspaceShared) ? (
+            !isDemoEntityId(schedule.id) &&
+            (hasTeammates || schedule.workspaceShared) ? (
               <TeamShareButton
                 active={Boolean(schedule.workspaceShared)}
                 disabled={
                   workspaceShareBusy ||
-                  (!schedule.id.startsWith("demo_sch_") &&
-                    !hasTeammates &&
-                    !schedule.workspaceShared)
+                  (!hasTeammates && !schedule.workspaceShared)
                 }
                 locked={isForeign}
                 onToggle={() => {
                   void (async () => {
                     if (!schedule || workspaceShareBusy || isForeign) return;
-                    const isDemo = schedule.id.startsWith("demo_sch_");
-                    if (!isDemo && !hasTeammates && !schedule.workspaceShared) {
+                    if (isDemoEntityId(schedule.id)) return;
+                    if (!hasTeammates && !schedule.workspaceShared) {
                       return;
                     }
                     const prevShared = Boolean(schedule.workspaceShared);

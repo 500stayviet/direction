@@ -41,6 +41,7 @@ import {
   pickEarlierUnseenMatchCustomerId,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import { useCustomersList, usePropertiesList } from "@/hooks/useEntityList";
 import { useMatchPoolEntities } from "@/hooks/useMatchPool";
 import type { ListedProperty, User } from "@/lib/types";
@@ -258,7 +259,8 @@ export default function PropertyDetailPage() {
   };
 
   const teamOn = property.workspaceShared === true;
-  const showTeamShare = !editing && hasTeammates;
+  const showTeamShare =
+    !editing && hasTeammates && !isDemoEntityId(property.id);
 
   return (
     <main>

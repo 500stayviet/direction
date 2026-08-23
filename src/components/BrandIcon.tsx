@@ -1,9 +1,9 @@
-/** 현장동선 브랜드 — 집 + 도로 (네비 앱 스타일) */
+/** 현장동선 브랜드 — 2×2 한글 마크 */
 
 interface BrandIconProps {
   size?: number;
   className?: string;
-  /** filled: 파란 배경 위 흰 / mark: 단색 아이콘 */
+  /** filled: 앱 아이콘 이미지 / mark: 단색 아이콘 */
   variant?: "filled" | "mark";
 }
 
@@ -42,20 +42,14 @@ export function BrandIcon({
   }
 
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/icon-192.png"
       width={size}
       height={size}
-      viewBox="0 0 512 512"
-      className={className}
-      aria-hidden
-    >
-      <rect width="512" height="512" rx="112" fill="#3182F6" />
-      <path d="M256 96L150 210h212L256 96z" fill="#fff" />
-      <rect x="176" y="200" width="160" height="120" rx="8" fill="#fff" />
-      <rect x="228" y="248" width="56" height="72" rx="6" fill="#3182F6" />
-      <rect x="286" y="230" width="28" height="28" rx="4" fill="#3182F6" />
-      <path d="M214 318 L298 318 L360 452 L152 452 Z" fill="#fff" />
-      <path d="M250 340h12v18h-12zM248 372h16v20h-16zM246 406h20v22h-20z" fill="#3182F6" />
-    </svg>
+      alt=""
+      className={["rounded-[22%] object-cover", className].join(" ")}
+      draggable={false}
+    />
   );
 }

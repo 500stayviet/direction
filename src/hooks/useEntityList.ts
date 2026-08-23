@@ -39,12 +39,6 @@ function hasListCache<T>(peek: () => T[] | null): boolean {
   return peek() !== null;
 }
 
-function initialListStatus<T>(peek: () => T[] | null): EntityListStatus {
-  if (typeof window === "undefined") return "pending";
-  hydrateEntityCacheIfNeeded(peekCurrentUser()?.id ?? null);
-  return hasListCache(peek) ? "ready" : "pending";
-}
-
 /** 카드 없을 때 「불러오는 중」 */
 export function showEntityListLoading(
   status: EntityListStatus,
@@ -96,12 +90,8 @@ function useEntityListState<T>(
   );
 
   const [override, setOverride] = useState<T[] | null>(null);
-  const [status, setStatus] = useState<EntityListStatus>(() =>
-    initialListStatus(peek)
-  );
-  const [authEpoch, setAuthEpoch] = useState(() =>
-    typeof window === "undefined" ? 0 : getAuthEpoch()
-  );
+  const [status, setStatus] = useState<EntityListStatus>("pending");
+  const [authEpoch, setAuthEpoch] = useState(0);
 
   const items = override ?? cached ?? [];
   const loading = showEntityListLoading(status, items.length);

@@ -35,6 +35,7 @@ import {
   pickEarlierUnseenMatchPropertyId,
 } from "@/lib/teamAlerts";
 import { fetchWorkspaceStatus } from "@/lib/workspace";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import type { Customer } from "@/lib/types";
 
 export default function CustomerDetailPage() {
@@ -186,7 +187,8 @@ export default function CustomerDetailPage() {
   };
 
   // 팀원 2명 이상일 때만 표시 (데모·이미 공유중이어도 팀 없으면 숨김)
-  const showTeamShare = !editing && hasTeammates;
+  const showTeamShare =
+    !editing && hasTeammates && !isDemoEntityId(customer.id);
 
   return (
     <main>

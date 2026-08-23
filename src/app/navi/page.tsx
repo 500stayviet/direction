@@ -34,6 +34,7 @@ import {
   useSchedulesList,
 } from "@/hooks/useEntityList";
 import { TeamShareChip } from "@/components/SiteShareUi";
+import { isDemoEntityId } from "@/lib/demoSeedPayload";
 import type { Customer, Schedule } from "@/lib/types";
 
 type SortMode = "created" | "visit";
@@ -128,6 +129,7 @@ export default function NaviEntryPage() {
 
   const toggleTeamShare = async (s: Schedule) => {
     if (busy) return;
+    if (isDemoEntityId(s.id)) return;
     if (isForeignTeamItem(s.createdBy, myId)) return;
     const prevShared = Boolean(s.workspaceShared);
     const nextShared = !prevShared;
@@ -249,6 +251,8 @@ export default function NaviEntryPage() {
           sorted.map((s, index) => {
             const done = isScheduleEnded(s);
             const href = `/schedules/${s.id}?from=navi`;
+            const showTeamChip =
+              Boolean(s.workspaceId) && !isDemoEntityId(s.id);
             return (
               <div key={s.id} id={`list-navi-${s.id}`}>
                 <PrefetchHref href={href} />
@@ -257,14 +261,16 @@ export default function NaviEntryPage() {
                   customers={customers}
                   viewerId={myId}
                   right={
-                    <TeamShareChip
-                      shared={Boolean(s.workspaceShared)}
-                      done={done}
-                      disabled={busy}
-                      locked={isForeignTeamItem(s.createdBy, myId)}
-                      tone="quiet"
-                      onToggle={() => void toggleTeamShare(s)}
-                    />
+                    showTeamChip ? (
+                      <TeamShareChip
+                        shared={Boolean(s.workspaceShared)}
+                        done={done}
+                        disabled={busy}
+                        locked={isForeignTeamItem(s.createdBy, myId)}
+                        tone="quiet"
+                        onToggle={() => void toggleTeamShare(s)}
+                      />
+                    ) : null
                   }
                   renderCard={(card) => (
                     <SwipeRevealRow

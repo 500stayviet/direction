@@ -2,8 +2,7 @@
 -- 미입력(빈 값)·기본값「현장동선」은 그대로 둠
 update public.profiles
 set
-  shop_name = trim(shop_name) || ' 공인중개사사무소',
-  updated_at = now()
+  shop_name = trim(shop_name) || ' 공인중개사사무소'
 where
   nullif(trim(shop_name), '') is not null
   and trim(shop_name) <> '현장동선'

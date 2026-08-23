@@ -12,7 +12,7 @@ import {
   subscribeAuthChange,
 } from "@/lib/auth";
 
-const DEFAULT_ICON = "/icon.svg";
+const DEFAULT_ICON = "/icon-192.png";
 
 function useAlertSnap() {
   return useSyncExternalStore(

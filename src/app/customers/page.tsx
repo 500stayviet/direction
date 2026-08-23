@@ -115,6 +115,7 @@ export default function CustomerListPage() {
 
   const toggleWorkspaceShare = async (c: Customer) => {
     if (busy) return;
+    if (isDemoEntityId(c.id)) return;
     if (isForeignTeamItem(c.createdBy, myId)) return;
     const prevShared = Boolean(c.workspaceShared);
     const optimistic: Customer = {
@@ -218,7 +219,7 @@ export default function CustomerListPage() {
             {filtered.map((c, index) => {
               const done = Boolean(c.contractCompleted);
               const showTeamChip =
-                Boolean(c.workspaceId) || isDemoEntityId(c.id);
+                Boolean(c.workspaceId) && !isDemoEntityId(c.id);
               const shared = Boolean(c.workspaceShared);
               const foreign = isForeignTeamItem(c.createdBy, myId);
 
