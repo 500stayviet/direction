@@ -38,6 +38,15 @@ const customerRoleLabelClass =
 const phoneNumberClass =
   "shrink-0 font-extrabold tabular-nums text-[#03B26C] underline decoration-[#03B26C]/45 underline-offset-[3px]";
 
+/** 원터치 전화 행 — 이름 4자 초과 시 말줄임 (뱃지·번호와 겹침 방지) */
+function formatCustomerTouchName(name: string, maxLen = 4): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "이름 미입력";
+  const chars = [...trimmed];
+  if (chars.length <= maxLen) return trimmed;
+  return `${chars.slice(0, maxLen).join("")}...`;
+}
+
 /** 고객 상세·매칭·네비 상세 공통 원터치 전화 블록 */
 export function CustomerTouchPhoneBlock({
   customer,
@@ -47,11 +56,15 @@ export function CustomerTouchPhoneBlock({
   nameAddon?: ReactNode;
 }) {
   const name = customer.name.trim() || "이름 미입력";
+  const displayName = formatCustomerTouchName(name);
   const phoneTextClass = `${phoneNumberClass} text-[17px] leading-none tracking-[-0.06em]`;
 
   const nameEl = (
-    <span className="min-w-0 flex-1 truncate text-[18px] font-extrabold leading-none tracking-tight text-gray-900">
-      {name}
+    <span
+      title={name !== displayName ? name : undefined}
+      className="min-w-0 shrink text-[18px] font-extrabold leading-none tracking-tight text-gray-900"
+    >
+      {displayName}
       {nameAddon}
     </span>
   );
