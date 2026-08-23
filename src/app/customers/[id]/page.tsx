@@ -254,7 +254,7 @@ export default function CustomerDetailPage() {
       ) : (
         <>
           <div className="space-y-3 pb-4">
-            <CustomerBrief customer={customer} />
+            <CustomerBrief customer={customer} showPhoneHint />
 
             <div className="space-y-3">
               <p className="px-1 text-sm font-bold text-gray-800">

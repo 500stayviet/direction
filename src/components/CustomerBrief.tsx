@@ -13,7 +13,6 @@ import {
   getCustomerParkingLabel,
   customerNeedLabel,
   needsJeonseInsurance,
-  formatPhone,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
@@ -49,11 +48,11 @@ function StatusChip({
 /** 매물 PropertyBrief와 같은 톤의 고객 상세 카드 */
 export function CustomerBrief({
   customer,
-  /** 조건 매칭 모달 — 원터치 전화 안내·번호 전체 표시 */
-  matchPreview = false,
+  /** 전세·원룸 우측에 원터치 전화 안내 표시 */
+  showPhoneHint = false,
 }: {
   customer: Customer;
-  matchPreview?: boolean;
+  showPhoneHint?: boolean;
 }) {
   const roomNorm = normalizeRoomType(customer.roomType) ?? customer.roomType;
   const showRoomBath = needsRoomBathCounts(roomNorm);
@@ -99,62 +98,27 @@ export function CustomerBrief({
             <span className="inline-flex max-w-[8.5rem] shrink-0 truncate rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[16px] font-bold leading-none text-gray-600">
               {typeText}
             </span>
-            {matchPreview ? (
+            {showPhoneHint ? (
               <span className={touchActionHintClass}>
                 번호를 누르면 전화로 이동
               </span>
             ) : null}
           </div>
-          {matchPreview ? (
-            <>
-              <p className="min-w-0 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {customer.name.trim() || "이름 미입력"}
-              </p>
-              <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
-                    원터치 전화
-                  </p>
-                  <span className={touchActionHintClass}>
-                    번호를 누르면 전화로 이동
-                  </span>
-                </div>
-                <div className="mt-2 w-full">
-                  {customer.phone?.trim() ? (
-                    <PhoneLink
-                      phone={customer.phone}
-                      showIcon={false}
-                      className="!flex w-full flex-wrap items-baseline gap-2 !text-[#03B26C]"
-                    >
-                      <span className="text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
-                        {formatPhone(customer.phone)}
-                      </span>
-                    </PhoneLink>
-                  ) : (
-                    <span className="text-[13px] font-medium text-gray-400">
-                      전화번호 미입력
-                    </span>
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-between gap-3">
-              <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-                {customer.name.trim() || "이름 미입력"}
-              </p>
-              {customer.phone?.trim() ? (
-                <PhoneLink
-                  phone={customer.phone}
-                  className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
-                />
-              ) : (
-                <span className="shrink-0 text-[13px] font-semibold text-gray-400">
-                  전화번호 미입력
-                </span>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-3">
+            <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+              {customer.name.trim() || "이름 미입력"}
+            </p>
+            {customer.phone?.trim() ? (
+              <PhoneLink
+                phone={customer.phone}
+                className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
+              />
+            ) : (
+              <span className="shrink-0 text-[13px] font-semibold text-gray-400">
+                전화번호 미입력
+              </span>
+            )}
+          </div>
 
           {/* 금액 → 선호지역 → 지목 → 방 → 입주희망 */}
           <div
