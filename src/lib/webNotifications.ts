@@ -68,7 +68,7 @@ export function showMatchWebNotification(input: {
   try {
     const n = new Notification(formatMatchAlertTitle(input.kind), {
       body: formatMatchAlertBody(input.customer, input.property),
-      icon: "/icon-192.png",
+      icon: "/icon-192.png?v=20260823d",
       tag: ck,
       data: { url: input.url },
     });

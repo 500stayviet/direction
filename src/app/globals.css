@@ -744,7 +744,7 @@ main {
   inset: 0;
   z-index: 9999;
   background-color: #f9fafb;
-  background-image: url("/splash/android-1080x1920.png");
+  background-image: url("/splash/android-1080x1920.png?v=20260823d");
   background-position: center center;
   /* contain: 하단 '제공 - 미스터K'가 cover 잘림으로 안 사라지게 */
   background-size: contain;

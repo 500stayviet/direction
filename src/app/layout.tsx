@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { AdSenseScript } from "@/components/ads/AdSenseScript";
 import { BootSplashScript } from "@/components/BootSplashScript";
 import { ChunkLoadRecovery } from "@/components/ChunkLoadRecovery";
+import { brandAsset } from "@/lib/brandAssets";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,12 +26,11 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: brandAsset("/favicon.png"), sizes: "32x32", type: "image/png" },
+      { url: brandAsset("/icon-192.png"), sizes: "192x192", type: "image/png" },
+      { url: brandAsset("/icon-512.png"), sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: brandAsset("/icon-192.png"), sizes: "192x192", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
@@ -72,7 +72,7 @@ export default function RootLayout({
         {/* 스플래시 이미지 미리 받아 로고만 뜨는 빈 구간을 줄임 */}
         <link
           rel="preload"
-          href="/splash/android-1080x1920.png"
+          href={brandAsset("/splash/android-1080x1920.png")}
           as="image"
         />
         {/*
@@ -81,46 +81,46 @@ export default function RootLayout({
         */}
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1170x2532.png"
+          href={brandAsset("/splash/apple-1170x2532.png")}
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1290x2796.png"
+          href={brandAsset("/splash/apple-1290x2796.png")}
           media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1179x2556.png"
+          href={brandAsset("/splash/apple-1179x2556.png")}
           media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1284x2778.png"
+          href={brandAsset("/splash/apple-1284x2778.png")}
           media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1170x2532.png"
+          href={brandAsset("/splash/apple-1170x2532.png")}
           media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1125x2436.png"
+          href={brandAsset("/splash/apple-1125x2436.png")}
           media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-1242x2208.png"
+          href={brandAsset("/splash/apple-1242x2208.png")}
           media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-828x1792.png"
+          href={brandAsset("/splash/apple-828x1792.png")}
           media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
         />
         <link
           rel="apple-touch-startup-image"
-          href="/splash/apple-750x1334.png"
+          href={brandAsset("/splash/apple-750x1334.png")}
           media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
         />
       </head>
