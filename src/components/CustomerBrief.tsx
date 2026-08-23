@@ -104,14 +104,26 @@ export function CustomerBrief({
               </span>
             ) : null}
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div
+            className={[
+              "flex items-center justify-between gap-3",
+              showPhoneHint
+                ? "border-b-2 border-[#03B26C]/30 pb-3"
+                : "",
+            ].join(" ")}
+          >
             <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
               {customer.name.trim() || "이름 미입력"}
             </p>
             {customer.phone?.trim() ? (
               <PhoneLink
                 phone={customer.phone}
-                className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
+                className={[
+                  "!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]",
+                  showPhoneHint
+                    ? "underline decoration-[#03B26C]/45 underline-offset-[3px]"
+                    : "",
+                ].join(" ")}
               />
             ) : (
               <span className="shrink-0 text-[13px] font-semibold text-gray-400">
