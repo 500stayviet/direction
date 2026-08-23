@@ -62,7 +62,7 @@ export function CustomerTouchPhoneBlock({
   const nameEl = (
     <span
       title={name !== displayName ? name : undefined}
-      className="min-w-0 shrink text-[18px] font-extrabold leading-none tracking-tight text-gray-900"
+      className="min-w-0 flex-1 shrink text-[18px] font-extrabold leading-none tracking-tight text-gray-900"
     >
       {displayName}
       {nameAddon}
@@ -80,7 +80,14 @@ export function CustomerTouchPhoneBlock({
   );
 
   const contactRowClass =
-    "flex w-full min-w-0 items-center gap-1";
+    "flex w-full min-w-0 items-center justify-between gap-2";
+
+  const rightGroup = (
+    <span className="flex shrink-0 items-center gap-1">
+      {roleEl}
+      {phoneEl}
+    </span>
+  );
 
   return (
     <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
@@ -100,14 +107,12 @@ export function CustomerTouchPhoneBlock({
             className={`${contactRowClass} !text-[#03B26C]`}
           >
             {nameEl}
-            {roleEl}
-            {phoneEl}
+            {rightGroup}
           </PhoneLink>
         ) : (
           <div className={contactRowClass}>
             {nameEl}
-            {roleEl}
-            {phoneEl}
+            {rightGroup}
           </div>
         )}
       </div>
