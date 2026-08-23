@@ -886,11 +886,57 @@ export async function getListedProperties(): Promise<ListedProperty[]> {
   return result.items;
 }
 
+let matchPoolFetchInflight: Promise<{
+  customers: Customer[];
+  properties: ListedProperty[];
+} | null> | null = null;
+
+async function fetchMatchPoolFromApi(): Promise<{
+  customers: Customer[];
+  properties: ListedProperty[];
+} | null> {
+  if (matchPoolFetchInflight) return matchPoolFetchInflight;
+  matchPoolFetchInflight = (async () => {
+    const { getAccessToken } = await import("./auth");
+    const token = await getAccessToken();
+    if (!token) return null;
+    try {
+      const res = await fetch("/api/match-pool", {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "same-origin",
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as {
+        ok?: boolean;
+        customers?: Customer[];
+        properties?: ListedProperty[];
+      };
+      if (
+        !body.ok ||
+        !Array.isArray(body.customers) ||
+        !Array.isArray(body.properties)
+      ) {
+        return null;
+      }
+      return { customers: body.customers, properties: body.properties };
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    matchPoolFetchInflight = null;
+  });
+  return matchPoolFetchInflight;
+}
+
 let matchPoolCustomersInflight: Promise<Customer[]> | null = null;
 
 export async function getMatchPoolCustomers(): Promise<Customer[]> {
   if (matchPoolCustomersInflight) return matchPoolCustomersInflight;
   matchPoolCustomersInflight = (async () => {
+    const fromApi = await fetchMatchPoolFromApi();
+    if (fromApi) {
+      return fromApi.customers.map(applyCustomerDueComplete);
+    }
     const result = await listWorkspaceMatchPoolPayloads(
       "customers",
       enrichCustomer
@@ -908,6 +954,10 @@ let matchPoolPropertiesInflight: Promise<ListedProperty[]> | null = null;
 export async function getMatchPoolProperties(): Promise<ListedProperty[]> {
   if (matchPoolPropertiesInflight) return matchPoolPropertiesInflight;
   matchPoolPropertiesInflight = (async () => {
+    const fromApi = await fetchMatchPoolFromApi();
+    if (fromApi) {
+      return fromApi.properties.map(applyPropertyDueComplete);
+    }
     const result = await listWorkspaceMatchPoolPayloads(
       "listed_properties",
       enrichProperty

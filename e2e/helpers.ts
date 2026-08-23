@@ -764,6 +764,18 @@ export async function insertSiteMatchPair(opts: {
   memberUserId: string;
   ownerUserId: string;
   workspaceId: string;
+  /** 공유 매칭 개인정보 노출 검사용 */
+  privacy?: {
+    customerName: string;
+    customerPhone: string;
+    tenantPhone: string;
+    landlordPhone: string;
+    partnerAgency: { name: string; dong: string; phone: string };
+    ownerShopName: string;
+    ownerPhone: string;
+    memberShopName: string;
+    memberPhone: string;
+  };
 }) {
   const admin = serviceSupabase();
   const customerId = randomUUID();
@@ -771,17 +783,18 @@ export async function insertSiteMatchPair(opts: {
   const now = new Date().toISOString();
   const jibun = String(Math.floor(1000 + Math.random() * 8999));
   const address = `서울 강동구 천호동 ${jibun}`;
+  const pii = opts.privacy;
 
   const customerPayload = {
     id: customerId,
-    name: "사이트고객",
-    phone: "010-3333-4444",
+    name: pii?.customerName ?? "사이트고객",
+    phone: pii?.customerPhone ?? "010-3333-4444",
     dealType: "월세" as const,
     roomType: "원룸" as const,
-    depositFrom: 1000,
+    deposit: 1000,
     depositTo: 1000,
     depositSingle: true,
-    monthlyRentFrom: 50,
+    monthlyRent: 50,
     monthlyRentTo: 50,
     monthlyRentSingle: true,
     preferredGus: ["강동구"],
@@ -798,7 +811,14 @@ export async function insertSiteMatchPair(opts: {
     createdAt: now,
     updatedAt: now,
     createdBy: opts.memberUserId,
-    createdByName: "e2e",
+    createdByName: pii ? "멤버개인이름" : "e2e",
+    ...(pii
+      ? {
+          createdByShopName: pii.memberShopName,
+          createdByPhone: pii.memberPhone,
+          createdByDong: "천호동",
+        }
+      : {}),
   };
 
   const propertyPayload = {
@@ -819,10 +839,21 @@ export async function insertSiteMatchPair(opts: {
     moveInTo: "2026-12-01",
     moveInSingle: true,
     workspaceShared: false,
+    tenantPhone: pii?.tenantPhone ?? "",
+    landlordPhone: pii?.landlordPhone ?? "",
+    hasPartnerAgency: Boolean(pii?.partnerAgency.name),
+    partnerAgency: pii?.partnerAgency ?? { name: "", dong: "", phone: "" },
     createdAt: now,
     updatedAt: now,
     createdBy: opts.ownerUserId,
-    createdByName: "e2e",
+    createdByName: pii ? "오너개인이름" : "e2e",
+    ...(pii
+      ? {
+          createdByShopName: pii.ownerShopName,
+          createdByPhone: pii.ownerPhone,
+          createdByDong: "천호동",
+        }
+      : {}),
   };
 
   const cRes = await admin.from("customers").insert({

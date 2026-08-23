@@ -126,7 +126,14 @@ export function MatchingPropertiesSection({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      data-testid={
+        matchKind === "partner"
+          ? "match-section-partner-properties"
+          : "match-section-own-properties"
+      }
+    >
       <div className="flex items-center justify-between gap-2 px-1">
         <p className="min-w-0 text-sm font-bold text-gray-700">
           {title}
@@ -295,7 +302,14 @@ export function MatchingCustomersSection({
   };
 
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      data-testid={
+        matchKind === "partner"
+          ? "match-section-partner-customers"
+          : "match-section-own-customers"
+      }
+    >
       <div className="flex items-center justify-between gap-2 px-1">
         <p className="min-w-0 text-sm font-bold text-gray-700">
           {title}
