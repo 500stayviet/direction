@@ -2103,7 +2103,19 @@ function expandSpokenJibunDigits(text: string): string {
         const n = toDigits(num);
         return n ? `${lead}${n}` : chunk;
       }
-    );
+    )
+    // 101호·백일호 — 천호동 같은 지명의 「천」은 건드리지 않는다.
+    .replace(
+      new RegExp(
+        `(^|\\s)((?:[공영일이삼사오육륙칠팔구]+[십백천][공영일이삼사오육륙칠팔구]*|[십백천][공영일이삼사오육륙칠팔구]+|(?:${digit}){2,5}))(?=호(?:\\s|$))`,
+        "g"
+      ),
+      (chunk, lead: string, num: string) => {
+        const n = toDigits(num);
+        return n ? `${lead}${n}` : chunk;
+      }
+    )
+    .replace(/(\d)\s+호/g, "$1호");
 }
 
 /** 동·구 뒤에 붙은 지번 숫자는 띄어 읽기 (알려진 행정동만) */

@@ -487,6 +487,14 @@ describe("parseIntakeText", () => {
       ).jibun,
       undefined
     );
+    assert.equal(
+      normalizeIntakeInput("백일호", "talk-location"),
+      "101호"
+    );
+    assert.equal(
+      normalizeIntakeInput("일 공 일 호", "talk-location"),
+      "101호"
+    );
     const spacedSingles = parseIntakeText(
       "강동구 성내동 1 1 1 원룸 전세",
       "property",

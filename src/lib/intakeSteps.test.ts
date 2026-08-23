@@ -837,7 +837,7 @@ describe("intakeSteps", () => {
 
     const flagsLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "flags");
     assert.equal(flagsLine?.nameHint, "(가능/불가)");
-    assert.equal(flagsLine?.example, "대출가능 보증보험 가능 주차불가");
+    assert.equal(flagsLine?.example, "대출가능 - 보증보험가능 - 주차불가");
 
     const elevLine = INTAKE_GUIDE_STEPS.property.find((l) => l.key === "elevator");
     assert.equal(elevLine?.nameHint, "(유/무)");
@@ -1132,6 +1132,10 @@ describe("intakeSteps", () => {
     const hoOnly = parseIntakeStep("302호", "restAddress", "property");
     assert.equal(hoOnly.ok, true);
     assert.equal(hoOnly.partial.roomNo, "302호");
+
+    const spokenHo = parseIntakeStep("백일호", "restAddress", "property");
+    assert.equal(spokenHo.ok, true);
+    assert.equal(spokenHo.partial.roomNo, "101호");
 
     const nameOnly = parseIntakeStep("힐스테이트", "restAddress", "property");
     assert.equal(nameOnly.ok, true);
