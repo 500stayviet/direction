@@ -30,6 +30,10 @@ const chipOff = `${chipBase} bg-[#F2F4F6] text-gray-500`;
 const touchActionHintClass =
   "ml-auto min-w-0 max-w-full rounded px-0.5 py-px text-right text-[12px] font-semibold leading-snug text-amber-600";
 
+/** 원터치 전화 — 고객 역할 뱃지 */
+const phoneRoleBadgeClass =
+  "shrink-0 rounded-md border border-[#03B26C]/25 bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#03B26C]";
+
 function StatusChip({
   label,
   value,
@@ -49,7 +53,7 @@ function StatusChip({
 /** 매물 PropertyBrief와 같은 톤의 고객 상세 카드 */
 export function CustomerBrief({
   customer,
-  /** 전세·원룸 우측에 원터치 전화 안내 표시 */
+  /** 원터치 전화 박스·안내 (고객 상세·조건 매칭) */
   showPhoneHint = false,
 }: {
   customer: Customer;
@@ -99,35 +103,42 @@ export function CustomerBrief({
             <span className="inline-flex max-w-[8.5rem] shrink-0 truncate rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[16px] font-bold leading-none text-gray-600">
               {typeText}
             </span>
-            {showPhoneHint ? (
-              <span className={touchActionHintClass}>
-                번호를 누르면 전화로 이동
-              </span>
-            ) : null}
           </div>
           {showPhoneHint ? (
             <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
-              <p className="text-[14px] font-extrabold leading-none text-[#03B26C]">
-                원터치 전화
-              </p>
-              <div className="mt-2 flex w-full items-center justify-between gap-3">
-                <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-                  {customer.name.trim() || "이름 미입력"}
+              <div className="flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <p className="shrink-0 text-[14px] font-extrabold leading-none text-[#03B26C]">
+                  원터치 전화
                 </p>
+                <span className={touchActionHintClass}>
+                  번호를 누르면 전화로 이동
+                </span>
+              </div>
+              <div className="mt-2 w-full">
                 {customer.phone?.trim() ? (
                   <PhoneLink
                     phone={customer.phone}
                     showIcon={false}
-                    className="!shrink-0 !text-[#03B26C]"
+                    className="!flex w-full flex-wrap items-baseline gap-2 !text-[#03B26C]"
                   >
-                    <span className="text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+                    <span className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+                      {customer.name.trim() || "이름 미입력"}
+                    </span>
+                    <span className={phoneRoleBadgeClass}>고객</span>
+                    <span className="shrink-0 text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
                       {formatPhone(customer.phone)}
                     </span>
                   </PhoneLink>
                 ) : (
-                  <span className="shrink-0 text-[13px] font-semibold text-gray-400">
-                    전화번호 미입력
-                  </span>
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <p className="min-w-0 flex-1 break-words text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+                      {customer.name.trim() || "이름 미입력"}
+                    </p>
+                    <span className={phoneRoleBadgeClass}>고객</span>
+                    <span className="shrink-0 text-[13px] font-semibold text-gray-400">
+                      전화번호 미입력
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
