@@ -1,4 +1,4 @@
-import type { Customer, ListedProperty } from "@/lib/types";
+import type { Customer, Property } from "@/lib/types";
 import { parsePreferredDong } from "@/lib/preferredLocation";
 import { findDongInText, parseSeoulAddress } from "@/lib/seoulRegions";
 
@@ -26,14 +26,11 @@ function firstPreferredDong(customer: Customer): string {
   return "";
 }
 
-function dongFromProperty(property: ListedProperty): string {
+function dongFromProperty(property: Property): string {
   return parseSeoulAddress(property.address ?? "").dong?.trim() || "";
 }
 
-function resolveDong(
-  entity: Customer | ListedProperty,
-  shopName: string
-): string {
+function resolveDong(entity: Customer | Property, shopName: string): string {
   const snap = entity.createdByDong?.trim();
   if (snap) return snap;
   if ("preferredDongs" in entity) {
@@ -49,7 +46,7 @@ function resolveDong(
 
 /** 사이트내 공유 매칭 — 등록 부동산 연락처 (상호·동·전화) */
 export function resolveMatchAgencyContact(
-  entity: Customer | ListedProperty
+  entity: Customer | Property
 ): MatchAgencyContact {
   const shopName = normalizeShopName(
     entity.createdByShopName?.trim() || entity.createdByName
