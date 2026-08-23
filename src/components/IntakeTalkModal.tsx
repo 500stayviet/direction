@@ -1170,9 +1170,10 @@ export function IntakeTalkModal({
           }
 
           const isNotes = line.key === "notes";
-          const flagsInline = isFlags;
+          const flagsValueBelow = isFlags && Boolean(valueText);
           const notesGrowing =
             isNotes && Boolean(valueText) && valueText !== `예) ${stepExample}`;
+          const valueBelow = flagsValueBelow || notesGrowing;
           return (
             <li
               key={line.key}
@@ -1184,14 +1185,14 @@ export function IntakeTalkModal({
                 onClick={() => selectGuideRow(index)}
                 className={[
                   "flex w-full min-w-0 gap-1 text-left",
-                  notesGrowing ? "items-start" : "items-baseline",
+                  valueBelow ? "items-start" : "items-baseline",
                   activeRowClass(active, filled),
                 ].join(" ")}
               >
               <span
                 className={[
                   "w-3 shrink-0 text-center text-[13px] font-bold leading-none",
-                  notesGrowing ? "mt-0.5" : "",
+                  valueBelow ? "mt-0.5" : "",
                   active ? "text-blue-600" : "text-transparent",
                 ].join(" ")}
                 aria-hidden={!active}
@@ -1201,7 +1202,7 @@ export function IntakeTalkModal({
               <div
                 className={[
                   "flex min-w-0 flex-1 gap-1",
-                  notesGrowing ? "flex-col items-stretch" : "items-baseline",
+                  valueBelow ? "flex-col items-stretch" : "items-baseline",
                 ].join(" ")}
               >
                 <span
@@ -1231,11 +1232,9 @@ export function IntakeTalkModal({
                   <span
                     className={[
                       "min-w-0 text-[13px] leading-snug",
-                      notesGrowing
+                      valueBelow
                         ? "whitespace-pre-wrap break-words"
-                        : flagsInline
-                          ? "break-words"
-                          : "truncate",
+                        : "truncate",
                       filled || (hasEnteredValue && !active)
                         ? "font-semibold text-green-700"
                         : active
