@@ -13,6 +13,7 @@ import {
   getCustomerParkingLabel,
   customerNeedLabel,
   needsJeonseInsurance,
+  formatPhone,
 } from "@/lib/format";
 import { Card } from "@/components/ui/Card";
 import { PhoneLink } from "@/components/PhoneLink";
@@ -104,33 +105,49 @@ export function CustomerBrief({
               </span>
             ) : null}
           </div>
-          <div
-            className={[
-              "flex items-center justify-between gap-3",
-              showPhoneHint
-                ? "border-b-2 border-[#03B26C]/30 pb-3"
-                : "",
-            ].join(" ")}
-          >
-            <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
-              {customer.name.trim() || "이름 미입력"}
-            </p>
-            {customer.phone?.trim() ? (
-              <PhoneLink
-                phone={customer.phone}
-                className={[
-                  "!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]",
-                  showPhoneHint
-                    ? "underline decoration-[#03B26C]/45 underline-offset-[3px]"
-                    : "",
-                ].join(" ")}
-              />
-            ) : (
-              <span className="shrink-0 text-[13px] font-semibold text-gray-400">
-                전화번호 미입력
-              </span>
-            )}
-          </div>
+          {showPhoneHint ? (
+            <div className="rounded-2xl bg-[#E8F8F1] px-3 py-3 ring-1 ring-inset ring-[#03B26C]/20">
+              <p className="text-[14px] font-extrabold leading-none text-[#03B26C]">
+                원터치 전화
+              </p>
+              <div className="mt-2 flex w-full items-center justify-between gap-3">
+                <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+                  {customer.name.trim() || "이름 미입력"}
+                </p>
+                {customer.phone?.trim() ? (
+                  <PhoneLink
+                    phone={customer.phone}
+                    showIcon={false}
+                    className="!shrink-0 !text-[#03B26C]"
+                  >
+                    <span className="text-[20px] font-extrabold tabular-nums tracking-tight underline decoration-[#03B26C]/45 underline-offset-[3px]">
+                      {formatPhone(customer.phone)}
+                    </span>
+                  </PhoneLink>
+                ) : (
+                  <span className="shrink-0 text-[13px] font-semibold text-gray-400">
+                    전화번호 미입력
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">
+                {customer.name.trim() || "이름 미입력"}
+              </p>
+              {customer.phone?.trim() ? (
+                <PhoneLink
+                  phone={customer.phone}
+                  className="!shrink-0 !text-[16px] !font-extrabold !text-[#03B26C]"
+                />
+              ) : (
+                <span className="shrink-0 text-[13px] font-semibold text-gray-400">
+                  전화번호 미입력
+                </span>
+              )}
+            </div>
+          )}
 
           {/* 금액 → 선호지역 → 지목 → 방 → 입주희망 */}
           <div
