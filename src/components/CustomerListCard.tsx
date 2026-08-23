@@ -26,6 +26,10 @@ import {
 import { ListCardAlertBadges } from "@/components/ListCardAlertBadges";
 import { useListCardAlertBadges } from "@/hooks/useListCardAlertBadges";
 import type { Customer } from "@/lib/types";
+import {
+  resolveMatchAgencyContact,
+  type MatchAgencyContact,
+} from "@/lib/matchAgencyContact";
 
 interface CustomerListCardProps {
   customer: Customer;
@@ -44,8 +48,55 @@ interface CustomerListCardProps {
   showListAlerts?: boolean;
   /** showListAlerts=false일 때만 사용 */
   inlineBadges?: ListCardBadge[];
+  /** 사이트내 공유 매칭 — 등록 부동산 상호·동·전화 */
+  matchPartnerContact?: boolean;
   /** 현재 로그인 사용자 id. 넘기면 카드마다 세션을 다시 읽지 않음 */
   viewerId?: string;
+}
+
+function AgencyPhoneRow({
+  moneyText,
+  contact,
+  done,
+}: {
+  moneyText: string;
+  contact: MatchAgencyContact;
+  done: boolean;
+}) {
+  return (
+    <div className="mt-1.5 flex w-full items-center gap-2">
+      {moneyText ? (
+        <p
+          title={moneyText}
+          className={[
+            "min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[22px] font-extrabold leading-none tracking-tight",
+            done ? "text-gray-500" : "text-gray-900",
+          ].join(" ")}
+        >
+          {moneyText}
+        </p>
+      ) : (
+        <span className="min-w-0 flex-1" />
+      )}
+      <div className="flex min-w-0 shrink items-center gap-1">
+        <span
+          title={contact.shopName}
+          className={[
+            "max-w-[4.5rem] truncate text-[12px] font-semibold",
+            done ? "text-gray-400" : "text-gray-500",
+          ].join(" ")}
+        >
+          {contact.shopName}
+        </span>
+        {contact.dong ? (
+          <span className="shrink-0 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-bold text-gray-500">
+            {contact.dong}
+          </span>
+        ) : null}
+        <PhoneChip phone={contact.phone} done={done} className="!ml-0" />
+      </div>
+    </div>
+  );
 }
 
 function MoneyPhoneRow({
@@ -97,6 +148,7 @@ export function CustomerListCard({
   alertTab = "customers",
   showListAlerts = true,
   inlineBadges = [],
+  matchPartnerContact = false,
   viewerId,
 }: CustomerListCardProps) {
   const saved = showSavedDate ? formatSavedDate(c.createdAt) : "";
@@ -127,6 +179,9 @@ export function CustomerListCard({
   const moneyLabel = getCustomerBudgetLabel(c).trim();
   const typeText = typeLabel && typeLabel !== "-" ? typeLabel : "유형";
   const moneyText = moneyLabel && moneyLabel !== "-" ? moneyLabel : "";
+  const agencyContact = matchPartnerContact
+    ? resolveMatchAgencyContact(c)
+    : null;
 
   const card = (
     <article
@@ -182,7 +237,15 @@ export function CustomerListCard({
           ) : null}
         </div>
 
-        <MoneyPhoneRow moneyText={moneyText} phone={c.phone} done={done} />
+        {matchPartnerContact && agencyContact ? (
+          <AgencyPhoneRow
+            moneyText={moneyText}
+            contact={agencyContact}
+            done={done}
+          />
+        ) : (
+          <MoneyPhoneRow moneyText={moneyText} phone={c.phone} done={done} />
+        )}
 
         {preferredLabel ? (
           <p

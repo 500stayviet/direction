@@ -156,7 +156,8 @@ export function MatchingPropertiesSection({
                 viewerId={viewerId}
                 className="!mb-1.5"
                 showSavedDate={false}
-                showAgencyBadge
+                showAgencyBadge={matchKind !== "partner"}
+                matchPartnerContact={matchKind === "partner"}
                 showListAlerts={false}
                 inlineBadges={matchInlineBadge(matchKind, matchNew)}
                 right={<CloseXButton onClick={() => setPendingDelete(p)} />}
@@ -200,6 +201,7 @@ export function MatchingPropertiesSection({
               showTitle={false}
               showArriveTime={false}
               matchPreview
+              matchPartnerPreview={matchKind === "partner"}
             />
           </div>
         ) : null}
@@ -324,6 +326,7 @@ export function MatchingCustomersSection({
                 className="!mb-1.5"
                 showDeadline={false}
                 showSavedDate={false}
+                matchPartnerContact={matchKind === "partner"}
                 showListAlerts={false}
                 inlineBadges={matchInlineBadge(matchKind, matchNew)}
                 right={<CloseXButton onClick={() => setPendingDelete(c)} />}
@@ -361,7 +364,11 @@ export function MatchingCustomersSection({
       >
         {preview ? (
           <div className="max-h-[55vh] overflow-y-auto">
-            <CustomerBrief customer={preview} showPhoneHint />
+            <CustomerBrief
+              customer={preview}
+              showPhoneHint
+              matchPartnerPreview={matchKind === "partner"}
+            />
           </div>
         ) : null}
       </Modal>

@@ -88,6 +88,12 @@ export interface SharedMeta {
   createdBy?: string;
   /** 등록 당시 표시 이름 스냅샷 */
   createdByName?: string;
+  /** 사이트내 공유 매칭 — 등록 업장 상호 스냅샷 */
+  createdByShopName?: string;
+  /** 사이트내 공유 매칭 — 등록 중개사 연락처 스냅샷 */
+  createdByPhone?: string;
+  /** 사이트내 공유 매칭 — 업장 대표 지역(동) 스냅샷 */
+  createdByDong?: string;
 }
 
 export interface Customer extends SharedMeta {

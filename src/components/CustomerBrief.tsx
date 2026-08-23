@@ -21,6 +21,8 @@ import { PhoneLink } from "@/components/PhoneLink";
 import { dealTypeBarClass, dealTypeTextClass } from "@/components/ListEdgeChips";
 import { CustomerPreferredLocationBlock } from "@/components/CustomerPreferredLocationBlock";
 import { preferredLocationRows } from "@/lib/preferredLocation";
+import { MatchAgencyContactBlock } from "@/components/MatchAgencyContactBlock";
+import { resolveMatchAgencyContact } from "@/lib/matchAgencyContact";
 
 const chipBase =
   "inline-flex items-center rounded-full px-3.5 py-2 text-[14px] font-bold leading-none tracking-tight";
@@ -136,9 +138,12 @@ export function CustomerBrief({
   customer,
   /** 원터치 전화 박스·안내 (고객 상세·조건 매칭) */
   showPhoneHint = false,
+  /** 사이트내 공유 매칭 — 고객명·번호 대신 등록 부동산 연락처 */
+  matchPartnerPreview = false,
 }: {
   customer: Customer;
   showPhoneHint?: boolean;
+  matchPartnerPreview?: boolean;
 }) {
   const roomNorm = normalizeRoomType(customer.roomType) ?? customer.roomType;
   const showRoomBath = needsRoomBathCounts(roomNorm);
@@ -186,7 +191,13 @@ export function CustomerBrief({
             </span>
           </div>
           {showPhoneHint ? (
-            <CustomerTouchPhoneBlock customer={customer} />
+            matchPartnerPreview ? (
+              <MatchAgencyContactBlock
+                contact={resolveMatchAgencyContact(customer)}
+              />
+            ) : (
+              <CustomerTouchPhoneBlock customer={customer} />
+            )
           ) : (
             <div className="flex items-center justify-between gap-3">
               <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold leading-snug tracking-tight text-gray-900">

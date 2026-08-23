@@ -24,6 +24,10 @@ import {
 import { ListCardAlertBadges } from "@/components/ListCardAlertBadges";
 import { useListCardAlertBadges } from "@/hooks/useListCardAlertBadges";
 import type { ListedProperty } from "@/lib/types";
+import {
+  resolveMatchAgencyContact,
+  type MatchAgencyContact,
+} from "@/lib/matchAgencyContact";
 
 export function getPropertyListContact(p: ListedProperty): {
   label: string;
@@ -43,6 +47,12 @@ export function getPropertyListContact(p: ListedProperty): {
   return null;
 }
 
+export function getPropertyListAgencyContact(
+  p: ListedProperty
+): MatchAgencyContact {
+  return resolveMatchAgencyContact(p);
+}
+
 interface PropertyListCardProps {
   property: ListedProperty;
   /** 칩 오른쪽 (팀 공유 버튼 등) */
@@ -55,6 +65,8 @@ interface PropertyListCardProps {
   showSavedDate?: boolean;
   /** true면 협력 사무소명 (조건 매칭용) */
   showAgencyBadge?: boolean;
+  /** 사이트내 공유 매칭 — 등록 부동산 상호·동·전화 */
+  matchPartnerContact?: boolean;
   alertTab?: AlertTab;
   showListAlerts?: boolean;
   inlineBadges?: ListCardBadge[];
@@ -70,6 +82,7 @@ export function PropertyListCard({
   cardClassName = "",
   showSavedDate = true,
   showAgencyBadge = false,
+  matchPartnerContact = false,
   alertTab = "properties",
   showListAlerts = true,
   inlineBadges = [],
@@ -83,7 +96,10 @@ export function PropertyListCard({
   ).trim();
   const address = formatCardAddress((p.address ?? "").trim()) || "주소 미입력";
   const room = formatPropertyPlaceLine(p) || "";
-  const contact = getPropertyListContact(p);
+  const contact = matchPartnerContact ? null : getPropertyListContact(p);
+  const agencyContact = matchPartnerContact
+    ? getPropertyListAgencyContact(p)
+    : null;
   const done = Boolean(p.contractCompleted);
   const sharer = teamSharerLabel(
     p.createdByName,
@@ -176,19 +192,43 @@ export function PropertyListCard({
           ) : (
             <span className="min-w-0 flex-1" />
           )}
-          <div className="flex shrink-0 items-center gap-1">
-            {contact?.label ? (
+          {matchPartnerContact && agencyContact ? (
+            <div className="flex min-w-0 shrink items-center gap-1">
               <span
+                title={agencyContact.shopName}
                 className={[
                   "max-w-[4.5rem] truncate text-[12px] font-semibold",
                   done ? "text-gray-400" : "text-gray-500",
                 ].join(" ")}
               >
-                {contact.label}
+                {agencyContact.shopName}
               </span>
-            ) : null}
-            <PhoneChip phone={contact?.phone} done={done} className="!ml-0" />
-          </div>
+              {agencyContact.dong ? (
+                <span className="shrink-0 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-[10px] font-bold text-gray-500">
+                  {agencyContact.dong}
+                </span>
+              ) : null}
+              <PhoneChip
+                phone={agencyContact.phone}
+                done={done}
+                className="!ml-0"
+              />
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1">
+              {contact?.label ? (
+                <span
+                  className={[
+                    "max-w-[4.5rem] truncate text-[12px] font-semibold",
+                    done ? "text-gray-400" : "text-gray-500",
+                  ].join(" ")}
+                >
+                  {contact.label}
+                </span>
+              ) : null}
+              <PhoneChip phone={contact?.phone} done={done} className="!ml-0" />
+            </div>
+          )}
         </div>
 
         <p
