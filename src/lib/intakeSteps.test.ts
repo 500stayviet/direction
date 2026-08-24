@@ -1465,7 +1465,7 @@ describe("intakeSteps", () => {
     assert.equal(loneWord.partial.bathroomCount, 1);
     assert.equal(
       talkGuideSteps("property").find((l) => l.key === "roomType")?.example,
-      "아파트 · 오피스텔 · 원룸 · 토지 · 건물 등"
+      "아파트 오피스텔 원룸 사무실 건물 등"
     );
     assert.equal(
       talkGuideSteps("property", "아파트", "매매").some((l) => l.key === "elevator"),
