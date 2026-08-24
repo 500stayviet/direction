@@ -24,12 +24,14 @@ const DEEPSEEK_TIMEOUT_MS = 8000;
 const SYSTEM_PROMPT = [
   "한국 부동산 중개 입력 보조다.",
   "잔여 글만 보고, 비어 있는 칸이 분명할 때만 JSON으로 채운다.",
-  "이미 채워진 칸을 덮어쓰지 않는다. 둘째 월세·매매 뒤 월세도 넣지 않는다.",
+  "이미 채운 칸(사용자 프롬프트의 filledFields)은 memo·JSON에 넣지 않는다. 덮어쓰지 않는다.",
+  "둘째 월세·매매 뒤 월세도 넣지 않는다.",
   "거래종류·보증금·월세는 비어 있는 칸 목록에 있을 때만 출력한다.",
   "보증금·매매가는 만원 단위 정수다. 전세 2억 → deposit 20000. 월세 50 → monthlyRent 50.",
   "전화·방수·화장실·유무는 절대 출력하지 않는다.",
   "8.25처럼 점이 애매한 숫자는 날짜/금액이 아니라 memo다.",
   "이사 협의 N개월은 날짜가 아니라 memo다.",
+  "memo에는 칸에 이미 들어간 금액·유무·주소·이름 조각을 넣지 말고, 방문 불가·희망사항·협의 등 의미 있는 문장만 남긴다.",
   "가능한 키: name, buildingName, gu, dong, jibun, roomNo, dealType(매매|전세|월세), deposit, monthlyRent, moveInFrom(YYYY-MM-DD), moveInTo, moveInImmediate, memo.",
   "모르면 그 키를 생략한다. JSON 객체만 출력한다.",
 ].join(" ");
@@ -173,6 +175,7 @@ async function __POST_handler(request: Request) {
       kind?: unknown;
       source?: unknown;
       emptyFields?: unknown;
+      filledFields?: unknown;
     };
 
     const kind: IntakeKind =
@@ -190,6 +193,12 @@ async function __POST_handler(request: Request) {
     const emptyFields = Array.isArray(body.emptyFields)
       ? body.emptyFields.filter((v) => typeof v === "string").slice(0, 20)
       : [];
+    const filledFields =
+      body.filledFields &&
+      typeof body.filledFields === "object" &&
+      !Array.isArray(body.filledFields)
+        ? (body.filledFields as Record<string, string | number | boolean>)
+        : undefined;
 
     if (!isIntakeAiKeyConfigured()) {
       if (shouldLogIntakeAiError("key")) {
@@ -220,7 +229,7 @@ async function __POST_handler(request: Request) {
     }
 
     const result = await callDeepSeek(
-      buildIntakeAiUserPrompt({ leftover, kind, emptyFields })
+      buildIntakeAiUserPrompt({ leftover, kind, emptyFields, filledFields })
     );
     if (!result.ok) {
       if (result.status === 504) {

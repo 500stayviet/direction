@@ -106,7 +106,7 @@
 | **업장명** | 「부동산」「공인중개사사무소」 없으면 저장 시 **「공인중개사사무소」** 자동 부여. 홈에서 이름 위 **작게** 표시(기본값「현장동선」은 숨김) |
 | **계약 마감 안내** | 희망입주·임대희망 **시작일 기준 45일 전~30일 전** 매일 표시 (`CONTRACT_DEADLINE_DAYS=45`, `UNTIL=30`) |
 | **원터치 네비 주소** | `toNaviAddress` → 시 이름 **서울특별시**. 목록 카드는 `formatCardAddress`로 「서울」 제거 |
-| **빠른 입력** | 메시지·마이크·사진 → 「반영하기」는 폼만 채움. **고객등록하기/매물등록하기**가 저장. 마이크는 AI 없음. 메시지·사진 leftover만 DeepSeek |
+| **빠른 입력** | 메시지·마이크·사진 → 「반영하기」는 폼만 채움. **고객등록하기/매물등록하기**가 저장. 마이크는 AI 없음. 메시지·사진: 규칙 파서 → strip → (애매·빈 칸 있을 때만) DeepSeek leftover |
 | **매물 등록 기본값** | 대출·전세보증보험·주차 = **무** (`createEmptyProperty`) |
 | **데모 시드** | 가입 직후 체험 고객·매물·일정. id `demo_*`. **팀 `workspace_id` 미연결**, 타 계정 접근 불가. **팀공유 아님** — 매칭 알람 체험만. TTL 약 7일 |
 | **알람 뱃지** | 팀 공유·① 매칭(한쪽)·② 사이트내(소유 쪽)·기한. 브라우저 알림·Web Push 연동 |
@@ -252,7 +252,7 @@
 | DB·Auth | Supabase (PostgreSQL, Auth, Realtime) |
 | 배포 | Vercel |
 | 지도 | 카카오 REST geocode, 외부 네비 딥링크(서울특별시 정규화) |
-| 입력 보조 | 규칙 파서 + 사진 OCR(Tesseract, 기기) + DeepSeek leftover(메시지·사진만) |
+| 입력 보조 | 규칙 파서 → strip(채운 칸 제거) → 메모 게이트 → 조건부 DeepSeek(빈 칸·애매 잔여). 사진 OCR(Tesseract). 마이크는 AI 없음 |
 | 광고 | Google AdSense |
 | 테스트 | Playwright e2e, Vitest 단위(선호위치 등) |
 
@@ -297,6 +297,14 @@ e2e/                     — Playwright
 | 개인정보 | 마이크·사진·DeepSeek leftover·샘플 수집(마이크 제외) 고지 |
 | 선호위치 | 구·동 분리 UX, 강동구 기본 표시, 리스트/상세/시드/e2e |
 | 매물 기본값 | 대출·보증보험·주차 = 무 |
+
+### 12.1 메시지·사진 intake (2026.8.24)
+
+1. **규칙 파서** (`parseIntakeText`) — 칸 채우기. 고객 등록 시 지번·호실은 칸에 넣지 않음.
+2. **strip** (`intakeAiLeftover`) — 채운 칸·금액·유무 줄임말을 잔여에서 제거.
+3. **메모 게이트** (`leftoverForMemoAppend`) — 칸 조각·필드 잔여는 메모에 붙이지 않음. 분명한 희망·방문 불가만 `notes`.
+4. **조건부 AI** (`shouldCallIntakeAi`) — 빈 칸 채울 단서·애매 잔여만 `/api/intake-ai`. `filledFields`로 이미 채운 칸 중복 방지. AI 실패 시에도 게이트 통과 메모만 fallback.
+5. **merge** — AI patch는 빈 칸만. `memo`도 게이트 통과 시에만 append.
 
 ---
 

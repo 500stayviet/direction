@@ -136,6 +136,64 @@ function hasAnyYesNoField(parsed: IntakeParseResult): boolean {
   );
 }
 
+function buildParsedFieldStripTokens(parsed: IntakeParseResult): string[] {
+  const tokens: string[] = [];
+  if (parsed.dealType) tokens.push(parsed.dealType);
+  if (parsed.loan === "유") {
+    tokens.push("대출필", "대출 유", "대출유", "대출 가능");
+  } else if (parsed.loan === "무") {
+    tokens.push("대출불", "대출 불", "대출불가");
+  }
+  if (parsed.insurance === "유") {
+    tokens.push("보증필", "보증 유", "보증보험 유", "전세보증보험 유");
+  } else if (parsed.insurance === "무") {
+    tokens.push("보증불", "보증 불", "보증보험 무");
+  }
+  if (parsed.parking === "유") {
+    tokens.push("주차필", "주차 유", "주차유", "주차 가능");
+  } else if (parsed.parking === "무") {
+    tokens.push("주차불", "주차 불", "주차불가");
+  }
+  if (parsed.elevator === "유") {
+    tokens.push("엘베필", "엘베 유", "엘베유", "엘리베이터 유");
+  } else if (parsed.elevator === "무") {
+    tokens.push("엘베불", "엘베 불", "엘리베이터 무");
+  }
+  return tokens;
+}
+
+/** AI·strip에 넘길 “이미 채운 칸” 요약 (덮어쓰기·memo 중복 방지) */
+export function buildFilledFieldsSummary(
+  parsed: IntakeParseResult
+): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  if (parsed.name?.trim()) out.name = parsed.name.trim();
+  if (parsed.phone?.trim()) out.phone = parsed.phone.trim();
+  if (parsed.gu?.trim()) out.gu = parsed.gu.trim();
+  if (parsed.dong?.trim()) out.dong = parsed.dong.trim();
+  if (parsed.jibun?.trim()) out.jibun = parsed.jibun.trim();
+  if (parsed.roomNo?.trim()) out.roomNo = parsed.roomNo.trim();
+  if (parsed.buildingName?.trim()) out.buildingName = parsed.buildingName.trim();
+  if (parsed.roomType) out.roomType = parsed.roomType;
+  if (parsed.dealType) out.dealType = parsed.dealType;
+  if (parsed.deposit && parsed.deposit > 0) out.deposit = parsed.deposit;
+  if (parsed.monthlyRent && parsed.monthlyRent > 0) {
+    out.monthlyRent = parsed.monthlyRent;
+  }
+  if (parsed.loan) out.loan = parsed.loan;
+  if (parsed.insurance) out.insurance = parsed.insurance;
+  if (parsed.parking) out.parking = parsed.parking;
+  if (parsed.elevator) out.elevator = parsed.elevator;
+  if (parsed.moveInFrom) out.moveInFrom = parsed.moveInFrom;
+  if (parsed.moveInImmediate) out.moveInImmediate = true;
+  return out;
+}
+
+function hasFillableEmptyFields(parsed: IntakeParseResult): boolean {
+  const empty = listEmptyIntakeAiFields(parsed);
+  return empty.some((f) => f !== "memo");
+}
+
 function usedPlaceTokens(parsed: IntakeParseResult): string[] {
   const pairs = [
     ...(parsed.places ?? []),
@@ -242,6 +300,7 @@ function stripUsedFieldPhrases(
     ...filled,
     ...ROOM_TYPE_TOKENS,
     ...dealTokensToStrip(parsed),
+    ...buildParsedFieldStripTokens(parsed),
   ]);
   next = applyResBreaks(next, STRUCTURAL_FIELD_RES);
   if (parsed.dealType) {
@@ -363,6 +422,38 @@ function leftoverLooksLikeMemoOnly(text: string): boolean {
   return true;
 }
 
+/** AI patch.memo — 칸 조각만 거르고, 「이사 협의 2~3개월」처럼 숫자 있는 메모는 허용 */
+function aiPatchMemoSafe(
+  memo: string,
+  parsed: IntakeParseResult
+): string {
+  const text = scrubCorruptIntakeText(memo).replace(/\s+/g, " ").trim();
+  if (!text || !/[가-힣]{2,}/.test(text)) return "";
+
+  const gated = leftoverForMemoAppend(text, parsed, "message");
+  if (gated) return gated;
+  if (leftoverLooksLikeMemoOnly(text)) return text;
+
+  if (FLAG_RESIDUE_HINT.test(text)) return "";
+  if (/(?:^|[\s])(?:전세|월세|매매)(?:가|금)?(?:[\s]|$)/.test(text)) return "";
+  if (/(?:^|[\s])\d+\s*(?:억|만)(?:원)?(?:[\s]|$)/.test(text)) return "";
+  if (/(?:주차|대출|보증|엘베).{0,3}(?:필|유|무)/.test(text)) return "";
+  if (SEOUL_GU_LIST.some((gu) => text.includes(gu))) return "";
+  for (const m of text.matchAll(/[가-힣]{1,6}동/g)) {
+    if (isKnownSeoulDong(m[0] ?? "")) return "";
+  }
+  if (JIBUN_HINT.test(text) || ROOM_HINT.test(text)) return "";
+
+  if (
+    /이사|협의|개월|실입주|입주|방문|불가|예약|희망|남향|북향|동향|서향|저층|고층|애완|반려|허그|있으면|없어도/.test(
+      text
+    )
+  ) {
+    return text;
+  }
+  return "";
+}
+
 /**
  * 메모에 붙여도 되는 잔여만 골라 반환한다.
  * 칸 조각·금액 찌꺼기·유무 줄임말이 섞이면 버리거나 메모 문장만 남긴다.
@@ -402,6 +493,31 @@ export function leftoverForMemoAppend(
 
   const joined = memoParts.join(" ");
   return joined.slice(0, leftoverMaxForSource(source));
+}
+
+/**
+ * strip 후 AI 2차 검수가 필요한지.
+ * - 빈 칸 채울 단서가 있거나
+ * - 메모 게이트만으로 정리 안 되는 애매·칸 조각 잔여
+ */
+export function shouldCallIntakeAi(
+  leftover: string,
+  parsed: IntakeParseResult,
+  source: IntakeAiSource = "message"
+): boolean {
+  const text = scrubCorruptIntakeText(leftover).replace(/\s+/g, " ").trim();
+  if (text.length < 2) return false;
+
+  if (leftoverNeedsAi(text, parsed)) return true;
+
+  const memoSafe = leftoverForMemoAppend(text, parsed, source);
+  if (memoSafe && leftoverLooksLikeMemoOnly(text)) return false;
+
+  if (!leftoverLooksLikeMemoOnly(text)) return true;
+  if (MEMO_ONLY_HINT.test(text) && !memoSafe) return true;
+  if (!memoSafe && hasFillableEmptyFields(parsed)) return true;
+
+  return false;
 }
 
 /** 빈 칸을 채울 잔여·애매한 잔여는 DeepSeek. 분명한 메모만 내용에 붙인다. */
@@ -645,7 +761,10 @@ export function mergeIntakeAi(
     next.notes = appendIntakeMemo(next.notes, scrubCorruptIntakeText(patch.buildingName));
   }
   if (patch.memo) {
-    next.notes = appendIntakeMemo(next.notes, scrubCorruptIntakeText(patch.memo));
+    const memo = aiPatchMemoSafe(patch.memo, next);
+    if (memo) {
+      next.notes = appendIntakeMemo(next.notes, memo);
+    }
   }
   next.notes = scrubCorruptIntakeText(next.notes);
   return next;
@@ -655,9 +774,16 @@ export function buildIntakeAiUserPrompt(opts: {
   leftover: string;
   kind: IntakeKind;
   emptyFields: string[];
+  filledFields?: Record<string, string | number | boolean>;
 }): string {
+  const filled = opts.filledFields ?? {};
+  const filledLine =
+    Object.keys(filled).length > 0
+      ? JSON.stringify(filled, null, 0)
+      : "(없음)";
   return [
     `구분: ${opts.kind === "property" ? "매물" : "고객"}`,
+    `이미 채운 칸(메모·JSON에 넣지 말 것): ${filledLine}`,
     `비어 있는 칸: ${opts.emptyFields.join(", ") || "(없음)"}`,
     "잔여 글:",
     opts.leftover,

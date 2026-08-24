@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildFilledFieldsSummary,
   intakeAiLeftover,
   leftoverForMemoAppend,
   leftoverNeedsAi,
   mergeIntakeAi,
   sanitizeIntakeAiPatch,
+  shouldCallIntakeAi,
 } from "./intakeAi.ts";
 import { parseIntakeText } from "./intakeParse.ts";
 
@@ -211,7 +213,53 @@ describe("intakeAiLeftover", () => {
   });
 });
 
+describe("shouldCallIntakeAi", () => {
+  it("분명한 메모만 남으면 AI를 부르지 않는다", () => {
+    const parsed = parseIntakeText(
+      "강동구 천호동 111-1 101호 전세가 2억/50만원\n관5만 주차필 보증필 대출필 엘베필 낮시간 방문불가",
+      "customer"
+    );
+    const leftover = intakeAiLeftover(
+      "강동구 천호동 111-1 101호 전세가 2억/50만원\n관5만 주차필 보증필 대출필 엘베필 낮시간 방문불가",
+      parsed,
+      "message"
+    );
+    assert.equal(leftover, "낮시간 방문불가");
+    assert.equal(shouldCallIntakeAi(leftover, parsed, "message"), false);
+  });
+
+  it("빈 칸 채울 단서가 있으면 AI를 부른다", () => {
+    const parsed = parseIntakeText("원룸 전세 2억", "property");
+    assert.equal(shouldCallIntakeAi("성내동 파크힐", parsed, "message"), true);
+  });
+});
+
+describe("buildFilledFieldsSummary", () => {
+  it("채워진 칸만 요약한다", () => {
+    const parsed = parseIntakeText(
+      "강동구 천호동 111-1 101호 전세가 2억/50만원\n관5만 주차필 보증필 대출필 엘베필 낮시간 방문불가",
+      "customer"
+    );
+    const summary = buildFilledFieldsSummary(parsed);
+    assert.equal(summary.dealType, "월세");
+    assert.equal(summary.deposit, 20000);
+    assert.equal(summary.monthlyRent, 50);
+    assert.equal(summary.loan, "유");
+    assert.equal(summary.parking, "유");
+    assert.equal("name" in summary, false);
+    assert.equal("jibun" in summary, false);
+  });
+});
+
 describe("mergeIntakeAi", () => {
+  it("AI memo에 칸 조각이 있으면 내용에 붙이지 않는다", () => {
+    const parsed = parseIntakeText("원룸 전세 2억 암사동", "customer");
+    const merged = mergeIntakeAi(parsed, {
+      memo: "전세가 만 주차필 보증필",
+    });
+    assert.equal(merged.notes, parsed.notes);
+  });
+
   it("빈 칸만 채우고 금액은 덮지 않는다", () => {
     const parsed = parseIntakeText("원룸 전세 2억 암사동", "customer");
     const merged = mergeIntakeAi(parsed, {

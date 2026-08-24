@@ -1,10 +1,11 @@
 import {
   INTAKE_AI_MIN_WAIT_MS,
+  buildFilledFieldsSummary,
   intakeAiLeftover,
   leftoverForMemoAppend,
-  leftoverNeedsAi,
   listEmptyIntakeAiFields,
   mergeIntakeAi,
+  shouldCallIntakeAi,
   type IntakeAiPatch,
   type IntakeAiSource,
 } from "@/lib/intakeAi";
@@ -60,6 +61,7 @@ export async function requestIntakeAi(opts: {
         kind: opts.kind,
         source: opts.source,
         emptyFields: listEmptyIntakeAiFields(opts.parsed),
+        filledFields: buildFilledFieldsSummary(opts.parsed),
       }),
     });
     if (!res.ok) return null;
@@ -94,7 +96,7 @@ export async function resolveIntakeWithAi(opts: {
     intakeAiLeftover(rawForParse, parsed, opts.source)
   );
   if (!leftover) return parsed;
-  if (!leftoverNeedsAi(leftover, parsed)) {
+  if (!shouldCallIntakeAi(leftover, parsed, opts.source)) {
     const memo = leftoverForMemoAppend(leftover, parsed, opts.source);
     return {
       ...parsed,
@@ -111,6 +113,15 @@ export async function resolveIntakeWithAi(opts: {
     accessToken: opts.accessToken,
     signal: opts.signal,
   });
-  if (!patch) return parsed;
+  if (!patch) {
+    const memo = leftoverForMemoAppend(leftover, parsed, opts.source);
+    return memo
+      ? {
+          ...parsed,
+          options: [...parsed.options],
+          notes: appendIntakeMemo(parsed.notes, memo),
+        }
+      : parsed;
+  }
   return mergeIntakeAi(parsed, patch, leftover);
 }
