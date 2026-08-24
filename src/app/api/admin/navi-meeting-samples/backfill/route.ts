@@ -30,7 +30,7 @@ async function __POST_handler(request: Request) {
     const body = (await request.json()) as { force?: boolean };
     const force = body.force === true;
 
-    // 이미 들어간 schedule_id 목록 (force=false면 스킵용)
+    // egress: schedules payload 대량 SELECT — prod에서 자주 돌리지 말 것
     const { data: existing, error: existingErr } = await auth.admin
       .from("navi_meeting_parse_samples")
       .select("schedule_id");

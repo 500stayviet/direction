@@ -804,6 +804,41 @@ function locationConsumedRange(
   return { start, end };
 }
 
+/** STT가 단지명 뒤에 붙이는 「이라고/이러고」 */
+function stripRestAddressTalkFiller(raw: string): string {
+  return raw
+    .replace(
+      /([가-힣A-Za-z0-9])\s*(?:이라고|이라구|이러고|이렇고)\s*(?=\d)/g,
+      "$1 "
+    )
+    .replace(/([가-힣A-Za-z0-9])(?:이라고|이라구|이러고|이렇고)(?=\s|$)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function restAddressHasUnit(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  const room = partial?.roomNo?.replace(/\s+/g, "") ?? "";
+  return /\d+동/.test(room) || /\d+호/.test(room) || /\d+층/.test(room);
+}
+
+function restAddressHasDong(
+  partial: Partial<IntakeParseResult> | undefined
+): boolean {
+  const room = partial?.roomNo?.replace(/\s+/g, "") ?? "";
+  return /\d+동/.test(room);
+}
+
+/** 주소지 지번을 늦게 말할 때(나머지주소 칸인데 지번만) */
+function looksLikeLateJibunText(text: string): boolean {
+  const t = normalizeTalkStep(text, "location").trim();
+  if (/^\d{1,5}(?:\s*(?:[-−~]|다시|하이픈|빼기|내지)\s*\d{1,5})?$/.test(t)) {
+    return true;
+  }
+  return /^(?:[공영영일이삼사오육륙칠팔구십백천]\s*)+$/.test(t);
+}
+
 function restAddressConsumedRange(
   text: string,
   partial: Partial<IntakeParseResult>
@@ -978,6 +1013,7 @@ export function restAddressStepNeedsHold(
   partial: Partial<IntakeParseResult> | undefined
 ): boolean {
   if (!partial) return false;
+  if (restAddressHasUnit(partial)) return false;
   return Boolean(partial.buildingName || partial.roomNo);
 }
 
@@ -1026,15 +1062,19 @@ export function restAddressStepReadyToAdvance(
   partial: Partial<IntakeParseResult>
 ): boolean {
   if (!partial.buildingName && !partial.roomNo) return false;
-  const normalized = normalizeTalkStep(text, "restAddress");
+  const normalized = normalizeTalkStep(
+    stripRestAddressTalkFiller(text),
+    "restAddress"
+  );
   const remainder = extractTalkStepRemainder(
     normalized,
     "restAddress",
     partial,
     "property"
   );
-  if (!remainder) return true;
-  return NEXT_AFTER_LOCATION.test(remainder);
+  if (remainder && NEXT_AFTER_LOCATION.test(remainder)) return true;
+  if (!restAddressHasUnit(partial)) return false;
+  return !remainder || NEXT_AFTER_LOCATION.test(remainder);
 }
 
 /** 금액만 있고 다음 칸 말이 없으면 잠시 머문다. 다음 내용이 보이면 바로 넘긴다.
@@ -1263,39 +1303,50 @@ export function parseIntakeStepChain(
                     ? { ...prior, ...steps.landlordPhone }
                     : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
+    if (
+      key === "restAddress" &&
+      kind === "property" &&
+      steps.location?.dong &&
+      !steps.location.jibun
+    ) {
+      const locParsed = parseIntakeStep(
+        text,
+        "location",
+        kind,
+        steps.location,
+        today
+      );
+      if (
+        locParsed.ok &&
+        locParsed.partial.jibun &&
+        (!parsed.ok ||
+          !restAddressHasDong(parsed.partial) ||
+          (looksLikeLateJibunText(text) && !parsed.partial.buildingName))
+      ) {
+        commits.push({
+          key: "location",
+          partial: locParsed.partial,
+          display: locParsed.display,
+        });
+        steps.location = locParsed.partial;
+        text = extractTalkStepRemainder(
+          text,
+          "location",
+          locParsed.partial,
+          kind
+        );
+        continue;
+      }
+    }
     if (!parsed.ok) {
       if (
         key === "restAddress" &&
-        kind === "property" &&
-        steps.location?.dong &&
-        !steps.location.jibun
-      ) {
-        const locParsed = parseIntakeStep(
-          text,
-          "location",
-          kind,
-          steps.location,
-          today
-        );
-        if (locParsed.ok && locParsed.partial.jibun) {
-          commits.push({
-            key: "location",
-            partial: locParsed.partial,
-            display: locParsed.display,
-          });
-          steps.location = locParsed.partial;
-          text = extractTalkStepRemainder(
-            text,
-            "location",
-            locParsed.partial,
-            kind
-          );
-          continue;
-        }
-      }
-      if (
-        key === "restAddress" &&
-        NEXT_AFTER_LOCATION.test(normalizeTalkStep(text, "restAddress").trim())
+        NEXT_AFTER_LOCATION.test(
+          normalizeTalkStep(
+            stripRestAddressTalkFiller(text),
+            "restAddress"
+          ).trim()
+        )
       ) {
         index += 1;
         continue;
@@ -1367,7 +1418,8 @@ export function parseIntakeStep(
   today: Date = new Date()
 ): IntakeStepParseOutcome {
   const mode = talkNormalizeModeForStep(step);
-  const text = normalizeTalkStep(raw, step);
+  const stepRaw = step === "restAddress" ? stripRestAddressTalkFiller(raw) : raw;
+  const text = normalizeTalkStep(stepRaw, step);
   if (!text) return { ok: false, partial: {}, display: "" };
 
   if (step === "notes") {
@@ -1517,7 +1569,7 @@ export function parseIntakeStep(
   }
 
   // 주소·금액·날짜·전화: 칸 모드로 정규화한 뒤 해당 칸 필드만 커밋
-  const scoped = stepParseInput(raw, step, kind, prior);
+  const scoped = stepParseInput(stepRaw, step, kind, prior);
   const parsed = parseIntakeText(scoped, kind, today, mode);
 
   if (step === "phone") {
@@ -1558,10 +1610,23 @@ export function parseIntakeStep(
   }
 
   if (step === "restAddress") {
+    const restText = stripRestAddressTalkFiller(text);
+    // 주소지에 동만 있을 때 숫자만 말하면 지번 보정으로 넘긴다
+    if (
+      /^\d{1,5}$/.test(restText.trim()) &&
+      prior?.dong &&
+      !prior?.jibun
+    ) {
+      return { ok: false, partial: {}, display: "" };
+    }
+    const rest = splitRestAddress(restText);
     let buildingName = parsed.buildingName;
     let roomNo = parsed.roomNo;
+    if (rest.roomNo) {
+      buildingName = rest.buildingName || buildingName;
+      roomNo = rest.roomNo;
+    }
     if (!buildingName && !roomNo) {
-      const rest = splitRestAddress(text);
       const name = rest.buildingName;
       const looksLikeNextField =
         /^(?:매매|전세|월세|보증금|대출|주차|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지)/.test(

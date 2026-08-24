@@ -34,6 +34,14 @@ describe("propertyRoomNo", () => {
       buildingName: "힐스테이트",
       roomNo: "101동 102호",
     });
+    assert.deepEqual(splitRestAddress("힐스테이트이러고 105동101호"), {
+      buildingName: "힐스테이트이러고",
+      roomNo: "105동 101호",
+    });
+    assert.deepEqual(splitRestAddress("힐스테이트 105동101호"), {
+      buildingName: "힐스테이트",
+      roomNo: "105동 101호",
+    });
     assert.deepEqual(splitRestAddress("힐스테이트 리버파크 101동 102호"), {
       buildingName: "힐스테이트 리버파크",
       roomNo: "101동 102호",

@@ -7,9 +7,22 @@ import {
   peekCurrentUser,
   subscribeAuthChange,
 } from "@/lib/auth";
+import {
+  peekCustomers,
+  peekProperties,
+  peekSchedules,
+} from "@/lib/entityCache";
 import { refreshAllEntityLists } from "@/lib/storage";
 
-/** auth·토큰 준비 후 리스트 워밍 — 빠른 탭 진입 시 fetch 실패 줄임 */
+function entityCacheReady(): boolean {
+  return (
+    peekCustomers() !== null &&
+    peekProperties() !== null &&
+    peekSchedules() !== null
+  );
+}
+
+/** auth·토큰 준비 후 리스트 워밍 — 캐시 없을 때만 fetch */
 export function EntityListWarmup() {
   const lastEpoch = useRef(
     typeof window === "undefined" ? 0 : getAuthEpoch()
@@ -19,6 +32,7 @@ export function EntityListWarmup() {
     const warm = async () => {
       const user = peekCurrentUser();
       if (!user?.id) return;
+      if (entityCacheReady()) return;
       const token = await getAccessToken();
       if (!token) return;
       await refreshAllEntityLists();

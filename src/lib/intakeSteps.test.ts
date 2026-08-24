@@ -19,6 +19,7 @@ import {
   datesStepNeedsHold,
   locationStepNeedsHold,
   locationStepReadyToAdvance,
+  restAddressStepReadyToAdvance,
   talkNormalizeModeForStep,
   talkGuideSteps,
 } from "./intakeSteps.ts";
@@ -1187,6 +1188,51 @@ describe("intakeSteps", () => {
     assert.equal(nameOnly.ok, true);
     assert.equal(nameOnly.partial.buildingName, "힐스테이트");
     assert.equal(nameOnly.partial.roomNo, undefined);
+    assert.equal(
+      restAddressStepReadyToAdvance("힐스테이트", nameOnly.partial),
+      false
+    );
+
+    const spokenFiller = parseIntakeStep(
+      "힐스테이트이러고 105동101호",
+      "restAddress",
+      "property"
+    );
+    assert.equal(spokenFiller.ok, true);
+    assert.equal(spokenFiller.partial.buildingName, "힐스테이트");
+    assert.equal(spokenFiller.partial.roomNo, "105동 101호");
+    assert.equal(
+      restAddressStepReadyToAdvance(
+        "힐스테이트이러고 105동101호",
+        spokenFiller.partial
+      ),
+      true
+    );
+
+    const gluedDongHo = parseIntakeStep(
+      "힐스테이트 105동101호",
+      "restAddress",
+      "property"
+    );
+    assert.equal(gluedDongHo.partial.buildingName, "힐스테이트");
+    assert.equal(gluedDongHo.partial.roomNo, "105동 101호");
+
+    const nameOnlyChain = parseIntakeStepChain(
+      "힐스테이트",
+      restIndex,
+      "property",
+      {
+        location: {
+          gu: "강동구",
+          dong: "성내동",
+          jibun: "111-1",
+          options: [],
+        },
+      }
+    );
+    assert.equal(nameOnlyChain.nextIndex, restIndex);
+    assert.equal(nameOnlyChain.commits[0]?.partial.buildingName, "힐스테이트");
+    assert.equal(nameOnlyChain.commits[0]?.partial.roomNo, undefined);
 
     const twoWord = parseIntakeStep(
       "힐스테이트 리버파크 101동 102호",

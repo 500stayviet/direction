@@ -22,6 +22,7 @@ import {
   datesStepNeedsHold,
   locationStepNeedsHold,
   restAddressStepNeedsHold,
+  restAddressStepReadyToAdvance,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -360,6 +361,13 @@ export function IntakeTalkModal({
         scheduleFieldHoldRef.current();
         return;
       }
+      if (
+        key === "restAddress" &&
+        restAddressStepNeedsHold(held.partial)
+      ) {
+        scheduleFieldHoldRef.current();
+        return;
+      }
       if (activeIndexRef.current >= guide.length - 1) return;
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;
@@ -396,7 +404,9 @@ export function IntakeTalkModal({
         return;
       }
       if (nextIndex === fromIndex) {
-        if (fromKey !== "location") resetStepSpeech();
+        if (fromKey !== "location" && fromKey !== "restAddress") {
+          resetStepSpeech();
+        }
         if (talkStepUsesFieldHold(fromKey)) {
           scheduleFieldHoldAdvance();
         }
@@ -607,6 +617,35 @@ export function IntakeTalkModal({
         stepPartialsFromRecords(stepsRef.current)
       );
       const loc = chain.commits.find((row) => row.key === "location");
+      const rest = chain.commits.find((row) => row.key === "restAddress");
+      if (key === "restAddress") {
+        if (!rest && !loc) return;
+        heardCommittedRef.current = true;
+        const nextSteps = { ...stepsRef.current };
+        if (loc) {
+          nextSteps.location = {
+            partial: loc.partial,
+            display: loc.display,
+            skipped: false,
+          };
+        }
+        if (rest) {
+          nextSteps.restAddress = {
+            partial: rest.partial,
+            display: rest.display,
+            skipped: false,
+          };
+        }
+        const restReady =
+          rest != null &&
+          restAddressStepReadyToAdvance(trimmed, rest.partial);
+        applySteps(
+          nextSteps,
+          restReady ? chain.nextIndex : startIndex,
+          startIndex
+        );
+        return;
+      }
       if (!loc) return;
       const prev = stepsRef.current.location;
       if (

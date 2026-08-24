@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { withApiErrorLog } from "@/lib/appErrorLog";
+import { LAST_SEEN_UPDATE_MIN_MS } from "@/lib/accountStatusPolicy";
 import {
   getAuthUserFromToken,
   getBearerToken,
 } from "@/lib/serverAuth";
 
-/** 로그인 유지 중 정지 여부 최신 확인 + last_seen 갱신 */
+/** 로그인 유지 중 정지 여부 최신 확인 + last_seen 갱신(쓰로틀) */
 async function __GET_handler(request: Request) {
   const token = getBearerToken(request);
   if (!token) {
@@ -19,16 +20,21 @@ async function __GET_handler(request: Request) {
     }
 
     const now = new Date().toISOString();
-    await auth.admin
-      .from("profiles")
-      .update({ last_seen_at: now })
-      .eq("id", auth.user.id);
-
     const { data: profile } = await auth.admin
       .from("profiles")
-      .select("matching_enabled, plan_tier, promo_source")
+      .select("matching_enabled, plan_tier, promo_source, last_seen_at")
       .eq("id", auth.user.id)
       .maybeSingle();
+
+    const lastSeenMs = profile?.last_seen_at
+      ? new Date(String(profile.last_seen_at)).getTime()
+      : 0;
+    if (Date.now() - lastSeenMs >= LAST_SEEN_UPDATE_MIN_MS) {
+      await auth.admin
+        .from("profiles")
+        .update({ last_seen_at: now })
+        .eq("id", auth.user.id);
+    }
 
     const { data, error } = await auth.admin.auth.admin.getUserById(
       auth.user.id

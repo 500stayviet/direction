@@ -5,6 +5,7 @@ import { loadAppAuth } from "./appAuth";
 import { sanitizeSupabaseKey } from "./keys";
 
 let browserClient: SupabaseClient | null = null;
+let devProdWarned = false;
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -17,6 +18,16 @@ export function createClient() {
   }
 
   if (typeof window !== "undefined") {
+    if (
+      process.env.NODE_ENV === "development" &&
+      !devProdWarned &&
+      !process.env.NEXT_PUBLIC_SUPABASE_DEV_PROJECT
+    ) {
+      devProdWarned = true;
+      console.warn(
+        "[direction] dev 빌드가 .env.local Supabase에 연결됩니다. egress·테스트 데이터는 prod quota를 씁니다. 가능하면 staging 프로젝트를 쓰세요."
+      );
+    }
     if (!browserClient) {
       browserClient = createSupabaseClient(url, anonKey, {
         auth: {

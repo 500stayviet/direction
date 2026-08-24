@@ -6,12 +6,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import {
+  ACCOUNT_STATUS_SYNC_MIN_MS,
   getCachedUser,
   peekAccessTokenIfFresh,
   peekCurrentUser,
@@ -70,6 +72,8 @@ export function AccountSuspendedGate({
     () => peekCurrentUser()?.suspendedReason ?? ""
   );
   const [modalOpen, setModalOpen] = useState(false);
+  const lastSyncAtRef = useRef(0);
+  const hadUserRef = useRef(Boolean(peekCurrentUser()));
 
   const applyStatus = useCallback(
     (next: { suspended: boolean; reason: string }) => {
@@ -79,39 +83,46 @@ export function AccountSuspendedGate({
     []
   );
 
-  const sync = useCallback(async () => {
-    // 관리자·로그인 화면: 앱 세션 갱신/정지 API 호출하지 않음
-    if (skipSuspendedGate(pathname)) return;
+  const sync = useCallback(
+    async (force = false) => {
+      if (skipSuspendedGate(pathname)) return;
 
-    const peeked = peekCurrentUser() ?? getCachedUser();
-    if (!peeked) {
-      applyStatus({ suspended: false, reason: "" });
-      return;
-    }
+      const now = Date.now();
+      if (!force && now - lastSyncAtRef.current < ACCOUNT_STATUS_SYNC_MIN_MS) {
+        return;
+      }
 
-    // refresh_token 재발급을 유발하지 않음 — 유효 access만으로 조회
-    const token = peekAccessTokenIfFresh();
-    if (!token) {
-      applyStatus({
-        suspended: Boolean(peeked.suspended),
-        reason: peeked.suspendedReason ?? "",
-      });
-      return;
-    }
+      const peeked = peekCurrentUser() ?? getCachedUser();
+      if (!peeked) {
+        applyStatus({ suspended: false, reason: "" });
+        return;
+      }
 
-    const status = await refreshSuspendedFromServer(token);
-    if (status.deleted) {
-      applyStatus({ suspended: false, reason: "" });
-      return;
-    }
-    applyStatus(status);
-  }, [applyStatus, pathname]);
+      const token = peekAccessTokenIfFresh();
+      if (!token) {
+        applyStatus({
+          suspended: Boolean(peeked.suspended),
+          reason: peeked.suspendedReason ?? "",
+        });
+        return;
+      }
+
+      lastSyncAtRef.current = now;
+      const status = await refreshSuspendedFromServer(token);
+      if (status.deleted) {
+        applyStatus({ suspended: false, reason: "" });
+        return;
+      }
+      applyStatus(status);
+    },
+    [applyStatus, pathname]
+  );
 
   useEffect(() => {
-    void sync();
+    void sync(true);
     if (gateOff) return;
     const onVis = () => {
-      if (document.visibilityState === "visible") void sync();
+      if (document.visibilityState === "visible") void sync(false);
     };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", onVis);
@@ -121,13 +132,18 @@ export function AccountSuspendedGate({
     };
   }, [sync, gateOff]);
 
-  // 세션이 비워지면 정지 배지도 함께 해제 (홈·하단바와 동기)
   useEffect(() => {
     return subscribeAuthChange(() => {
-      if (!peekCurrentUser()) {
+      const user = peekCurrentUser();
+      if (!user) {
+        hadUserRef.current = false;
+        lastSyncAtRef.current = 0;
         applyStatus({ suspended: false, reason: "" });
-      } else {
-        void sync();
+        return;
+      }
+      if (!hadUserRef.current) {
+        hadUserRef.current = true;
+        void sync(true);
       }
     });
   }, [applyStatus, sync]);

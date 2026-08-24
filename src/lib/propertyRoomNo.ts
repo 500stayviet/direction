@@ -35,7 +35,7 @@ function composeDongHo(dong: string, ho: string): string {
 }
 
 const TRAILING_ROOM_RE =
-  /(?:\d+\s*동(?:\s+\d+\s*호)?|\d+\s*층\s+\d+\s*호|\d+\s*호)$/;
+  /(?:\d+\s*동(?:\s*\d+\s*호)?|\d+\s*층\s+\d+\s*호|\d+\s*호)$/;
 
 /** 나머지 주소 한 줄. 건물명이 roomNo 앞에 이미 있으면 중복하지 않는다. */
 export function composeRestAddress(

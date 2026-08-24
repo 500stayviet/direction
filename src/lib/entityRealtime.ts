@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   applyRealtimeEntityChange,
   getMyWorkspaceId,
-  refreshAllEntityLists,
 } from "@/lib/storage";
 import {
   applyRemoteUiPrefs,
@@ -71,7 +70,7 @@ export async function stopEntityRealtime(): Promise<void> {
   await dropChannel(channel);
 }
 
-/** 화면이 앞에 있을 때만 구독. 숨기면 끊고, 다시 보이면 목록·ui_prefs 한 번 맞춘 뒤 재구독 */
+/** 화면이 앞에 있을 때만 구독. 숨기면 끊고, 다시 보이면 ui_prefs 맞춘 뒤 재구독 */
 export async function startEntityRealtime(userId: string): Promise<void> {
   const mine = ++generation;
   const prev = active;
@@ -82,8 +81,6 @@ export async function startEntityRealtime(userId: string): Promise<void> {
   if (mine !== generation) return;
 
   await pullAndMergeUiPrefs();
-  if (mine !== generation) return;
-  await refreshAllEntityLists();
   if (mine !== generation) return;
   if (typeof document !== "undefined" && document.visibilityState !== "visible") {
     return;

@@ -1618,6 +1618,10 @@ function parseLocation(
 function parseRoomNo(text: string): string | undefined {
   const dongHo = text.match(/(?<![가-힣])(\d{1,4})\s*동\s*(\d{1,4})\s*호/);
   if (dongHo) return `${dongHo[1]}동 ${dongHo[2]}호`;
+  const dongHoBare = text.match(
+    /(?<![가-힣])(\d{1,4})\s*동\s*(\d{1,4})(?=\s|$)/
+  );
+  if (dongHoBare) return `${dongHoBare[1]}동 ${dongHoBare[2]}호`;
   const floorHo = text.match(/(\d{1,3})\s*층\s*(\d{1,4})\s*호/);
   if (floorHo) return `${floorHo[1]}층 ${floorHo[2]}호`;
   const ho = text.match(/(\d{1,4})\s*호/);

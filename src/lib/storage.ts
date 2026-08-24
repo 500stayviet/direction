@@ -56,6 +56,7 @@ import {
 import { findDongInText, parseSeoulAddress } from "./seoulRegions";
 import { parsePreferredDong } from "./preferredLocation";
 import { applyMatchPoolRedaction } from "./matchPoolRedaction";
+import { MATCH_POOL_CACHE_TTL_MS } from "./accountStatusPolicy";
 
 type EntityTable = "customers" | "listed_properties" | "schedules";
 
@@ -740,6 +741,7 @@ export async function upsertCustomer(customer: Customer): Promise<Customer[]> {
   };
   // 방금 쓴 값만 캐시에 반영 — 저장 직후 전체 재조회 생략
   upsertCustomerInCache(saved);
+  invalidateMatchPoolCache();
   postImmediateAlertDispatch({
     entityKind: "customer",
     entityId: saved.id,
@@ -892,10 +894,25 @@ let matchPoolFetchInflight: Promise<{
   properties: ListedProperty[];
 } | null> | null = null;
 
+let matchPoolCache: {
+  customers: Customer[];
+  properties: ListedProperty[];
+  at: number;
+} | null = null;
+
 async function fetchMatchPoolFromApi(): Promise<{
   customers: Customer[];
   properties: ListedProperty[];
 } | null> {
+  if (
+    matchPoolCache &&
+    Date.now() - matchPoolCache.at < MATCH_POOL_CACHE_TTL_MS
+  ) {
+    return {
+      customers: matchPoolCache.customers,
+      properties: matchPoolCache.properties,
+    };
+  }
   if (matchPoolFetchInflight) return matchPoolFetchInflight;
   matchPoolFetchInflight = (async () => {
     const { getAccessToken } = await import("./auth");
@@ -919,6 +936,11 @@ async function fetchMatchPoolFromApi(): Promise<{
       ) {
         return null;
       }
+      matchPoolCache = {
+        customers: body.customers,
+        properties: body.properties,
+        at: Date.now(),
+      };
       return { customers: body.customers, properties: body.properties };
     } catch {
       return null;
@@ -989,6 +1011,13 @@ export async function getMatchPoolProperties(): Promise<ListedProperty[]> {
     matchPoolPropertiesInflight = null;
   });
   return matchPoolPropertiesInflight;
+}
+
+export function invalidateMatchPoolCache(): void {
+  matchPoolCache = null;
+  matchPoolFetchInflight = null;
+  matchPoolCustomersInflight = null;
+  matchPoolPropertiesInflight = null;
 }
 
 export async function saveListedProperties(
@@ -1077,6 +1106,7 @@ export async function upsertListedProperty(
     workspaceShared: shared,
   };
   upsertPropertyInCache(saved);
+  invalidateMatchPoolCache();
   postImmediateAlertDispatch({
     entityKind: "property",
     entityId: saved.id,

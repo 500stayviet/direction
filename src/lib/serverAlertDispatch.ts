@@ -95,10 +95,16 @@ async function dispatchMatchCandidates(
   origin: string,
   subs: SubRow[],
   sentKeys: Set<string>,
-  candidates: PushCandidate[]
+  candidates: PushCandidate[],
+  pool?: {
+    customers: Awaited<ReturnType<typeof loadMatchPoolCustomersForUser>>;
+    properties: Awaited<ReturnType<typeof loadMatchPoolPropertiesForUser>>;
+  }
 ): Promise<{ sent: number; skipped: number }> {
-  const customers = await loadMatchPoolCustomersForUser(admin, userId);
-  const properties = await loadMatchPoolPropertiesForUser(admin, userId);
+  const customers =
+    pool?.customers ?? (await loadMatchPoolCustomersForUser(admin, userId));
+  const properties =
+    pool?.properties ?? (await loadMatchPoolPropertiesForUser(admin, userId));
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
@@ -240,7 +246,8 @@ export async function dispatchAllAlertsForUser(
     origin,
     subs,
     sentKeys,
-    matchCandidates
+    matchCandidates,
+    { customers, properties }
   );
   const shareStats = await dispatchShareCandidates(
     admin,
@@ -292,7 +299,8 @@ export async function dispatchMatchAlertsForEntity(
     origin,
     subs,
     sentKeys,
-    matchCandidates
+    matchCandidates,
+    { customers, properties }
   );
 
   return {

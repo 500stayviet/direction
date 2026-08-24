@@ -6,6 +6,15 @@ import { normalizeUsername } from "./supabase/email";
 import { clearAppAuth, loadAppAuth, saveAppAuth } from "./supabase/appAuth";
 import { clearEntityCache, patchCreatedByNameInCache } from "./entityCache";
 import { backfillShopName } from "./format";
+import {
+  ACCOUNT_STATUS_SYNC_MIN_MS,
+  LAST_SEEN_UPDATE_MIN_MS,
+} from "./accountStatusPolicy";
+
+export {
+  ACCOUNT_STATUS_SYNC_MIN_MS,
+  LAST_SEEN_UPDATE_MIN_MS,
+} from "./accountStatusPolicy";
 
 /** 계정 공유 위험이 있던 예전 공용 키 — 로그인/아웃 시 삭제 */
 const LEGACY_SHARED_KEYS = [
@@ -308,7 +317,9 @@ export async function refreshSuspendedFromServer(
           next
         );
       }
-      notifyAuthChange();
+      if (accountStatusFieldsChanged(current, next)) {
+        notifyAuthChange();
+      }
     }
     return { suspended, reason };
   } catch {
@@ -318,6 +329,16 @@ export async function refreshSuspendedFromServer(
       reason: u?.suspendedReason ?? "",
     };
   }
+}
+
+function accountStatusFieldsChanged(prev: User, next: User): boolean {
+  return (
+    Boolean(prev.suspended) !== Boolean(next.suspended) ||
+    (prev.suspendedReason ?? "") !== (next.suspendedReason ?? "") ||
+    (prev.matchingEnabled !== false) !== (next.matchingEnabled !== false) ||
+    (prev.planTier ?? "free") !== (next.planTier ?? "free") ||
+    (prev.promoSource ?? null) !== (next.promoSource ?? null)
+  );
 }
 
 /** access token이 이 시간보다 더 남았으면 refreshSession 생략 */
