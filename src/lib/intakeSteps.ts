@@ -5,6 +5,10 @@ import {
   parseAllYesNoFields,
   parseIntakeText,
   parseTalkDealTypeField,
+  parseTalkLandAreaField,
+  parseTalkLandCategoryField,
+  parseTalkBuildingKindField,
+  parseTalkRoomBathField,
   parseTalkRoomTypeField,
   lastTalkMobilePhone,
   consumeYesNoField,
@@ -25,6 +29,10 @@ import {
   needsJeonseInsurance,
 } from "@/lib/format";
 import { skipsResidentialExtras, needsMaintenanceFee } from "@/lib/constants";
+import {
+  customerMemoPlaceholder,
+  propertyNotesPlaceholder,
+} from "@/lib/memoPlaceholders";
 import { splitRestAddress } from "@/lib/propertyRoomNo";
 import {
   findAllDongsInText,
@@ -107,73 +115,189 @@ export type IntakeStepLine = {
   example?: string;
 };
 
-export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
-  customer: [
-    { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
-    { key: "phone", name: "전화번호", example: "010-1234-5678" },
-    { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
-    { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
-    { key: "location", name: "선호지역", example: "강동구 oo동" },
-    { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
-    {
-      key: "dates",
-      name: "입주희망일",
-      example: "oo월 oo일    에서    oo월 oo일 까지",
-    },
-    {
-      key: "flags",
-      name: "대출 · 보증보험 · 주차",
-      nameHint: "(필요/불필요)",
-      example: "대출필요 - 보증보험필요 - 주차필요",
-    },
-    {
-      key: "elevator",
-      name: "엘리베이터",
-      nameHint: "(필요/불필요)",
-      example: "엘베 필요",
-    },
-    { key: "notes", name: "메모", example: "남향 저층" },
-  ],
-  property: [
-    { key: "location", name: "주소지", example: "강동구 성내동 111-1" },
-    {
-      key: "restAddress",
-      name: "나머지 주소",
-      example: "힐스테이트 ooo동 ooo호",
-    },
-    { key: "roomType", name: "매물유형", example: "원룸 · 오피스텔 등" },
-    { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
-    { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
-    {
-      key: "dates",
-      name: "임대희망일",
-      example: "oo월 oo일    에서    oo월 oo일 까지",
-    },
-    {
-      key: "flags",
-      name: "대출 · 보증보험 · 주차",
-      nameHint: "(가능/불가)",
-      example: "대출가능 - 보증보험가능 - 주차불가",
-    },
-    {
-      key: "elevator",
-      name: "엘리베이터",
-      nameHint: "(유/무)",
-      example: "엘베 유",
-    },
-    {
-      key: "tenantPhone",
-      name: "임차인 전화번호",
-      example: "010-1234-5678",
-    },
-    {
-      key: "landlordPhone",
-      name: "임대인 전화번호",
-      example: "010-9876-5432",
-    },
-    { key: "notes", name: "메모", example: "관리비. 남향. 저층 등" },
-  ],
+const ROOM_TYPE_EXAMPLE = "아파트 · 오피스텔 등";
+
+const ROOM_BATH_LINE: IntakeStepLine = {
+  key: "roomBath",
+  name: "방 수 · 화장실 수",
+  nameHint: "(방3 · 화1)",
+  example: "방3개 · 화장실1 · 화1개",
 };
+
+const CUSTOMER_GUIDE_BASE: IntakeStepLine[] = [
+  { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
+  { key: "phone", name: "전화번호", example: "010-1234-5678" },
+  { key: "roomType", name: "매물유형", example: ROOM_TYPE_EXAMPLE },
+  { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+  { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
+  { key: "location", name: "선호지역", example: "강동구 oo동" },
+  {
+    key: "dates",
+    name: "입주희망일",
+    example: "oo월 oo일    에서    oo월 oo일 까지",
+  },
+  {
+    key: "flags",
+    name: "대출 · 보증보험 · 주차",
+    nameHint: "(필요/불필요)",
+    example: "대출필요 - 보증보험필요 - 주차필요",
+  },
+  {
+    key: "elevator",
+    name: "엘리베이터",
+    nameHint: "(필요/불필요)",
+    example: "엘베 필요",
+  },
+  { key: "notes", name: "메모", example: "남향 저층" },
+];
+
+const PROPERTY_GUIDE_BASE: IntakeStepLine[] = [
+  { key: "roomType", name: "매물유형", example: ROOM_TYPE_EXAMPLE },
+  { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+  { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
+  { key: "location", name: "주소지", example: "강동구 성내동 111-1" },
+  {
+    key: "restAddress",
+    name: "나머지 주소",
+    example: "힐스테이트 ooo동 ooo호",
+  },
+  {
+    key: "dates",
+    name: "임대희망일",
+    example: "oo월 oo일    에서    oo월 oo일 까지",
+  },
+  {
+    key: "flags",
+    name: "대출 · 보증보험 · 주차",
+    nameHint: "(가능/불가)",
+    example: "대출가능 - 보증보험가능 - 주차불가",
+  },
+  {
+    key: "elevator",
+    name: "엘리베이터",
+    nameHint: "(유/무)",
+    example: "엘베 유",
+  },
+  {
+    key: "tenantPhone",
+    name: "임차인 전화번호",
+    example: "010-1234-5678",
+  },
+  {
+    key: "landlordPhone",
+    name: "임대인 전화번호",
+    example: "010-9876-5432",
+  },
+  { key: "notes", name: "메모", example: "관리비. 남향. 저층 등" },
+];
+
+const BUILDING_KIND_LINE: IntakeStepLine = {
+  key: "buildingKind",
+  name: "건물 종류",
+  example: "단독 · 상가주택 · 다세대 · 근생",
+};
+
+const LAND_CATEGORY_LINE: IntakeStepLine = {
+  key: "landCategory",
+  name: "지목",
+  example: "대 · 전 · 답 · 임야",
+};
+
+const LAND_AREA_LINE: IntakeStepLine = {
+  key: "landArea",
+  name: "대지면적",
+  example: "100평",
+};
+
+function talkNotesExample(kind: IntakeKind, roomType?: string | null): string {
+  const raw =
+    kind === "customer"
+      ? customerMemoPlaceholder(roomType ?? undefined)
+      : propertyNotesPlaceholder(roomType ?? undefined);
+  return raw.replace(/^예\)\s*/, "");
+}
+
+function isLandOrBuilding(roomType?: string | null): boolean {
+  return roomType === "토지" || roomType === "건물";
+}
+
+/** 아파트·오피스텔만 유형 다음 칸에 방·화 */
+export function talkNeedsRoomBathStep(roomType?: string | null): boolean {
+  return roomType === "아파트" || roomType === "오피스텔";
+}
+
+function skipTalkGuideLine(
+  kind: IntakeKind,
+  key: IntakeStepKey,
+  roomType?: string | null,
+  dealType?: IntakeParseResult["dealType"]
+): boolean {
+  const land = roomType === "토지";
+  const building = roomType === "건물";
+  if (isLandOrBuilding(roomType) && key === "dealType") return true;
+  if (kind === "property" && (land || building) && key === "restAddress") {
+    return true;
+  }
+  if (kind === "property" && (land || building) && key === "dates") return true;
+  if (kind === "customer" && land && key === "dates") return true;
+  if ((land || building) && key === "flags") return true;
+  if (land && key === "elevator") return true;
+  if (kind === "property" && key === "tenantPhone" && dealType === "매매") {
+    return true;
+  }
+  return false;
+}
+
+export function talkGuideSteps(
+  kind: IntakeKind,
+  roomType?: string | null,
+  dealType?: IntakeParseResult["dealType"]
+): IntakeStepLine[] {
+  const forcedDeal = isLandOrBuilding(roomType) ? "매매" : dealType;
+  const base = kind === "customer" ? CUSTOMER_GUIDE_BASE : PROPERTY_GUIDE_BASE;
+  const lines: IntakeStepLine[] = [];
+  for (const line of base) {
+    if (skipTalkGuideLine(kind, line.key, roomType, forcedDeal)) continue;
+    if (line.key === "landlordPhone") {
+      lines.push({
+        ...line,
+        name: forcedDeal === "매매" ? "매도인 전화번호" : line.name,
+      });
+    } else if (line.key === "notes") {
+      lines.push({ ...line, example: talkNotesExample(kind, roomType) });
+    } else if (line.key === "dealType" && isLandOrBuilding(roomType)) {
+      lines.push({ ...line, example: "매매" });
+    } else {
+      lines.push(line);
+    }
+    if (line.key === "roomType") {
+      if (talkNeedsRoomBathStep(roomType)) lines.push(ROOM_BATH_LINE);
+      if (roomType === "건물") lines.push(BUILDING_KIND_LINE);
+      if (roomType === "토지") {
+        lines.push(LAND_CATEGORY_LINE);
+        if (kind === "property") lines.push(LAND_AREA_LINE);
+      }
+    }
+  }
+  return lines;
+}
+
+/** 기본 목록(유형·거래 모름). 동적 가이드는 talkGuideSteps */
+export const INTAKE_GUIDE_STEPS: Record<IntakeKind, IntakeStepLine[]> = {
+  customer: talkGuideSteps("customer"),
+  property: talkGuideSteps("property"),
+};
+
+function guideForTalkState(
+  kind: IntakeKind,
+  steps?: Partial<Record<IntakeStepKey, Partial<IntakeParseResult> | undefined>>
+): IntakeStepLine[] {
+  const room = steps?.roomType?.roomType;
+  const deal = isLandOrBuilding(room)
+    ? "매매"
+    : resolveTalkDealType(steps?.dealType, steps?.money);
+  return talkGuideSteps(kind, room, deal);
+}
 
 export type IntakeStepParseOutcome = {
   ok: boolean;
@@ -478,6 +602,12 @@ export function guideStepComplete(
     const room = allSteps?.roomType?.partial?.roomType;
     return flagsStepComplete(row?.partial, deal, room);
   }
+  if (key === "roomBath") {
+    return Boolean(row?.partial?.roomCount && row?.partial?.bathroomCount);
+  }
+  if (key === "buildingKind") return Boolean(row?.display || row?.partial?.buildingKind);
+  if (key === "landCategory") return Boolean(row?.display || row?.partial?.landCategory);
+  if (key === "landArea") return Boolean(row?.partial?.landArea);
   if (key === "elevator") return elevatorStepComplete(row?.partial);
   /** 선택 칸: 비어도 다음으로 넘어가지만, 대화 UI 초록은 display가 있을 때만 */
   if (key === "restAddress") return !row || Boolean(row?.display);
@@ -497,7 +627,12 @@ export function allGuideStepsComplete(
   kind: IntakeKind,
   steps: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): boolean {
-  return INTAKE_GUIDE_STEPS[kind].every((line) =>
+  const room = steps.roomType?.partial?.roomType;
+  const deal = resolveTalkDealType(
+    steps.dealType?.partial,
+    steps.money?.partial
+  );
+  return talkGuideSteps(kind, room, deal).every((line) =>
     guideStepComplete(line.key, steps[line.key], steps)
   );
 }
@@ -506,7 +641,12 @@ export function firstIncompleteGuideIndex(
   kind: IntakeKind,
   steps: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
 ): number {
-  const guide = INTAKE_GUIDE_STEPS[kind];
+  const room = steps.roomType?.partial?.roomType;
+  const deal = resolveTalkDealType(
+    steps.dealType?.partial,
+    steps.money?.partial
+  );
+  const guide = talkGuideSteps(kind, room, deal);
   const idx = guide.findIndex(
     (line) => !guideStepComplete(line.key, steps[line.key], steps)
   );
@@ -714,13 +854,13 @@ function datesConsumedEnd(text: string): number {
 }
 
 const NEXT_AFTER_LOCATION =
-  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|공실|빈방|공가|비어|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+)|원룸|투룸|쓰리룸|오피스텔|아파트|상가|건물|토지|\d\s*룸)/;
+  /^(?:매매(?:가)?|전세(?:가)?|보증금|월세|거래\s*가액|금\s*액|대출|주차|엘베|엘리베이터|바로\s*입주|즉시|공실|빈방|공가|비어|(?:\d+(?:\.\d+)?\s*(?:억|만))|(?:\d+\s*\/\s*\d+)|\d+\s*월)/;
 
 const NEXT_AFTER_MONEY =
-  /^(?:바로\s*입주|즉시\s*입주|공실|빈방|공가|비어|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+  /^(?:바로\s*입주|즉시\s*입주|공실|빈방|공가|비어|\d+\s*월|\d{1,2}\s*[./／.,．-]|\d{2}\s*[./／.,．]|대출|보증보험|보증\s*보험|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|매도인|주인|세입자|전화|(?:서울)?\s*(?:특별시|시)?\s*\S{1,4}구|\S{1,6}동)/;
 
 const NEXT_AFTER_DATES =
-  /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|주인|세입자|전화)/;
+  /^(?:대출|보증|주차|엘베|엘리베이터|팀공유|메모|임차인|임대인|매도인|주인|세입자|전화)/;
 
 const NEXT_AFTER_CONTACTS = /^(?:메모|내용)/;
 
@@ -975,6 +1115,35 @@ export function extractTalkStepRemainder(
   if (step === "roomType" && partial.roomType) {
     return consumeAfterToken(text, partial.roomType);
   }
+  if (step === "buildingKind" && partial.buildingKind) {
+    return consumeAfterToken(text, partial.buildingKind);
+  }
+  if (step === "landCategory" && partial.landCategory) {
+    return consumeAfterToken(text, partial.landCategory);
+  }
+  if (step === "landArea" && partial.landArea != null) {
+    const m = text.match(/(\d+(?:\.\d+)?)\s*평/);
+    if (m?.index != null) {
+      return text.slice(m.index + m[0].length).replace(/^\s+/, "");
+    }
+    return "";
+  }
+  if (step === "roomBath" && (partial.roomCount || partial.bathroomCount)) {
+    const bathHit =
+      text.match(/화장실\s*[1-8]\s*개?/) ??
+      text.match(/화\s*[1-8]\s*개?/);
+    const roomHit =
+      text.match(/방\s*[1-8]\s*개?/) ??
+      text.match(/(?<!\d)[1-8]\s*룸/);
+    let end = 0;
+    if (roomHit?.index != null) end = Math.max(end, roomHit.index + roomHit[0].length);
+    if (bathHit?.index != null) end = Math.max(end, bathHit.index + bathHit[0].length);
+    if (partial.roomType) {
+      const t = consumeAfterToken(text, partial.roomType);
+      if (t !== text) return t;
+    }
+    return end > 0 ? text.slice(end).replace(/^\s+/, "") : "";
+  }
   if (step === "dealType" && partial.dealType) {
     return consumeAfterToken(text, partial.dealType);
   }
@@ -1047,14 +1216,16 @@ export function parseIntakeStepChain(
   existingSteps: Partial<Record<IntakeStepKey, Partial<IntakeParseResult>>>,
   today: Date = new Date()
 ): IntakeStepChainResult {
-  const guide = INTAKE_GUIDE_STEPS[kind];
   const steps = { ...existingSteps };
   const commits: IntakeStepChainResult["commits"] = [];
-  // 칸별 parseIntakeStep이 talk-* 모드로 정규화한다. 여기서는 원문만 넘긴다.
   let text = raw.replace(/\s+/g, " ").trim();
+  const currentGuide = () => guideForTalkState(kind, steps);
+  let guide = currentGuide();
   let index = startIndex;
 
   while (index < guide.length && text) {
+    guide = currentGuide();
+    if (index >= guide.length) break;
     const key = guide[index]?.key;
     if (!key || key === "notes") break;
 
@@ -1078,6 +1249,14 @@ export function parseIntakeStepChain(
               ? { ...prior, ...steps.dates }
               : key === "money" && steps.money
                 ? { ...prior, ...steps.money }
+                : key === "roomBath" && steps.roomBath
+                  ? { ...prior, ...steps.roomBath }
+                : key === "buildingKind" && steps.buildingKind
+                  ? { ...prior, ...steps.buildingKind }
+                : key === "landCategory" && steps.landCategory
+                  ? { ...prior, ...steps.landCategory }
+                : key === "landArea" && steps.landArea
+                  ? { ...prior, ...steps.landArea }
                 : key === "tenantPhone" && steps.tenantPhone
                   ? { ...prior, ...steps.tenantPhone }
                   : key === "landlordPhone" && steps.landlordPhone
@@ -1085,13 +1264,6 @@ export function parseIntakeStepChain(
                     : prior;
     const parsed = parseIntakeStep(text, key, kind, mergedPrior, today);
     if (!parsed.ok) {
-      if (
-        key === "restAddress" &&
-        NEXT_AFTER_LOCATION.test(normalizeTalkStep(text, "restAddress").trim())
-      ) {
-        index += 1;
-        continue;
-      }
       if (
         key === "restAddress" &&
         kind === "property" &&
@@ -1121,6 +1293,13 @@ export function parseIntakeStepChain(
           continue;
         }
       }
+      if (
+        key === "restAddress" &&
+        NEXT_AFTER_LOCATION.test(normalizeTalkStep(text, "restAddress").trim())
+      ) {
+        index += 1;
+        continue;
+      }
       break;
     }
 
@@ -1130,6 +1309,7 @@ export function parseIntakeStepChain(
       display: parsed.display,
     });
     steps[key] = parsed.partial;
+    guide = currentGuide();
     if (key === "dates" && !datesStepReadyToAdvance(text, parsed.partial)) {
       break;
     }
@@ -1155,6 +1335,12 @@ export function parseIntakeStepChain(
     ) {
       break;
     }
+    if (
+      key === "roomBath" &&
+      !(parsed.partial.roomCount && parsed.partial.bathroomCount)
+    ) {
+      break;
+    }
     text = extractTalkStepRemainder(text, key, parsed.partial, kind);
     if (
       key === "flags" &&
@@ -1166,7 +1352,8 @@ export function parseIntakeStepChain(
     ) {
       continue;
     }
-    index += 1;
+    const sameKeyIndex = guide.findIndex((line) => line.key === key);
+    index = sameKeyIndex >= 0 ? sameKeyIndex + 1 : index + 1;
   }
 
   return { commits, nextIndex: index, leftover: text.trim() };
@@ -1260,10 +1447,12 @@ export function parseIntakeStep(
   if (step === "roomType") {
     const room = parseTalkRoomTypeField(text);
     if (!room.roomType) return { ok: false, partial: {}, display: "" };
+    const skipCounts = talkNeedsRoomBathStep(room.roomType);
     const partial: Partial<IntakeParseResult> = {
       roomType: room.roomType,
-      roomCount: room.roomCount,
-      bathroomCount: room.bathroomCount,
+      roomCount: skipCounts ? undefined : room.roomCount,
+      bathroomCount: skipCounts ? undefined : room.bathroomCount,
+      ...(isLandOrBuilding(room.roomType) ? { dealType: "매매" as const } : {}),
       options: [],
     };
     return {
@@ -1271,6 +1460,46 @@ export function parseIntakeStep(
       partial,
       display: stepDisplay(partial, kind, step),
     };
+  }
+
+  if (step === "roomBath") {
+    const bath = parseTalkRoomBathField(text);
+    if (!bath.roomCount) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = {
+      roomCount: bath.roomCount,
+      bathroomCount: bath.bathroomCount,
+      options: [],
+    };
+    return {
+      ok: true,
+      partial,
+      display: stepDisplay(
+        { options: [], notes: "", roomType: prior?.roomType, ...partial },
+        kind,
+        step
+      ),
+    };
+  }
+
+  if (step === "buildingKind") {
+    const buildingKind = parseTalkBuildingKindField(text);
+    if (!buildingKind) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { buildingKind, options: [] };
+    return { ok: true, partial, display: buildingKind };
+  }
+
+  if (step === "landCategory") {
+    const landCategory = parseTalkLandCategoryField(text);
+    if (!landCategory) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { landCategory, options: [] };
+    return { ok: true, partial, display: landCategory };
+  }
+
+  if (step === "landArea") {
+    const landArea = parseTalkLandAreaField(text);
+    if (landArea == null) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { landArea, options: [] };
+    return { ok: true, partial, display: `${landArea}평` };
   }
 
   if (step === "dealType") {
@@ -1452,7 +1681,7 @@ export function parseIntakeStep(
       const hasTenantLabel =
         /세입자|(?<![현전])임차인|(?<![가-힣])세(?![가-힣])/.test(text);
       const hasLandlordLabel =
-        /임대인|(?<![가-힣])임(?![가-힣])|주인/.test(text);
+        /매도인|임대인|(?<![가-힣])임(?![가-힣])|주인/.test(text);
       if (hasTenantLabel && !hasLandlordLabel) {
         return { ok: false, partial: {}, display: "" };
       }
@@ -1495,10 +1724,19 @@ function mergePartial(
   if (partial.landlordPhone) target.landlordPhone = partial.landlordPhone;
   if (partial.roomType) {
     target.roomType = partial.roomType;
-    target.roomCount = partial.roomCount;
-    target.bathroomCount = partial.bathroomCount;
+    if (partial.roomCount != null) target.roomCount = partial.roomCount;
+    if (partial.bathroomCount != null) target.bathroomCount = partial.bathroomCount;
+  }
+  if (!partial.roomType) {
+    if (partial.roomCount != null) target.roomCount = partial.roomCount;
+    if (partial.bathroomCount != null) {
+      target.bathroomCount = partial.bathroomCount;
+    }
   }
   if (partial.dealType) target.dealType = partial.dealType;
+  if (partial.buildingKind) target.buildingKind = partial.buildingKind;
+  if (partial.landCategory) target.landCategory = partial.landCategory;
+  if (partial.landArea != null) target.landArea = partial.landArea;
   if (partial.deposit) target.deposit = partial.deposit;
   if (partial.depositTo) target.depositTo = partial.depositTo;
   if (partial.monthlyRent) target.monthlyRent = partial.monthlyRent;
@@ -1547,7 +1785,7 @@ export function buildIntakeFromSteps(
   kind: IntakeKind
 ): IntakeParseResult {
   const result: IntakeParseResult = { options: [], notes: "" };
-  for (const line of INTAKE_GUIDE_STEPS[kind]) {
+  for (const line of guideForTalkState(kind, steps)) {
     const partial = steps[line.key];
     if (!partial) continue;
     mergePartial(result, partial);
@@ -1560,7 +1798,7 @@ export function priorStepsMerged(
   kind: IntakeKind,
   beforeIndex: number
 ): Partial<IntakeParseResult> {
-  const lines = INTAKE_GUIDE_STEPS[kind];
+  const lines = guideForTalkState(kind, steps);
   const merged: Partial<IntakeParseResult> = { options: [] };
   for (let i = 0; i < beforeIndex; i += 1) {
     const key = lines[i]?.key;

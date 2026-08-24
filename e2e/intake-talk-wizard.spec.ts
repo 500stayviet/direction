@@ -8,7 +8,6 @@ import {
   purgeE2eUser,
   requireE2eBackendEnv,
   signupViaUi,
-  skipTalkSteps,
   uniqueUser,
 } from "./helpers";
 
@@ -39,7 +38,6 @@ test("매물 대화 입력: 아니/삭제로 현재 항목을 지운다", async 
     await expect(page.getByRole("button", { name: "대화 시작" })).toHaveCount(0);
     await page.getByTestId("intake-talk-primary").click();
 
-    await skipTalkSteps(page, 1);
     await emitTalkStep(page, "원룸");
     await expect(page.getByTestId("intake-guide-row-roomType")).toContainText(
       "원룸"
@@ -80,7 +78,6 @@ test("매물 대화 입력: 정지하면 안내가 뜨고 이전 후 녹화하�
     await allowDeviceConsentIfShown(page);
     await page.getByRole("button", { name: "대화 시작" }).click();
 
-    await skipTalkSteps(page, 1);
     await emitTalkStep(page, "원룸");
     await expect(
       page.getByTestId("intake-guide-row-roomType").locator(".border-green-400")

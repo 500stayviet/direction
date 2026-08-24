@@ -1,4 +1,4 @@
-import { DEAL_TYPES, PROPERTY_OPTIONS, defaultRoomBathCounts, needsRoomBathCounts, needsMaintenanceFee } from "@/lib/constants";
+import { DEAL_TYPES, PROPERTY_OPTIONS, defaultRoomBathCounts, needsRoomBathCounts, needsMaintenanceFee, normalizeBuildingKind, BUILDING_KINDS } from "@/lib/constants";
 import {
   isoFollowingMonthDay,
   isoFromMonthDay,
@@ -16,6 +16,7 @@ import {
   toKrPhoneDigits,
 } from "@/lib/format";
 import { encodePreferredDong } from "@/lib/preferredLocation";
+import { LAND_CATEGORIES } from "@/lib/landCategories";
 import {
   composeSeoulAddress,
   findDongInText,
@@ -68,6 +69,9 @@ export type IntakeParseResult = {
   insurance?: YesNo;
   parking?: YesNo;
   elevator?: YesNo;
+  buildingKind?: string;
+  landCategory?: string;
+  landArea?: number;
   workspaceShared?: YesNo;
   options: string[];
   notes: string;
@@ -238,6 +242,82 @@ export function parseTalkRoomTypeField(text: string): {
   bathroomCount?: number;
 } {
   return parseRoomSpec(text);
+}
+
+/** 아파트·오피스텔 다음 칸: 방·화만 */
+export function parseTalkRoomBathField(text: string): {
+  roomCount?: number;
+  bathroomCount?: number;
+} {
+  const roomHit =
+    text.match(/방\s*([1-8])\s*개?/) ??
+    text.match(/([1-8])\s*개?\s*방/) ??
+    text.match(/(?<!\d)([1-8])\s*룸/);
+  const bathHit =
+    text.match(/화장실\s*([1-8])\s*개?/) ??
+    text.match(/화\s*([1-8])\s*개?/) ??
+    text.match(/([1-8])\s*개?\s*화장실/);
+  if (roomHit || bathHit) {
+    return {
+      roomCount: roomHit ? Number(roomHit[1]) : undefined,
+      bathroomCount: bathHit ? Number(bathHit[1]) : undefined,
+    };
+  }
+  const spec = parseRoomSpec(text);
+  const roomFromType =
+    spec.roomType === "원룸"
+      ? 1
+      : spec.roomType === "투룸"
+        ? 2
+        : spec.roomType === "3룸+"
+          ? spec.roomCount ?? 3
+          : spec.roomCount;
+  return {
+    roomCount: roomFromType ?? spec.roomCount,
+    bathroomCount: spec.bathroomCount,
+  };
+}
+
+const BUILDING_KIND_ALIASES: { keys: string[]; value: (typeof BUILDING_KINDS)[number] }[] = [
+  { keys: ["단독주택", "다중주택", "단독", "다중"], value: "단독주택(다중주택)" },
+  { keys: ["상가주택", "다가구"], value: "상가주택(다가구)" },
+  { keys: ["다세대주택", "다세대"], value: "다세대주택" },
+  { keys: ["근생건물", "근린생활", "근생", "근린"], value: "근생건물" },
+];
+
+export function parseTalkBuildingKindField(text: string): string | undefined {
+  const normalized = normalizeBuildingKind(text.trim());
+  if (normalized) return normalized;
+  let best: { value: string; index: number; len: number } | undefined;
+  for (const row of BUILDING_KIND_ALIASES) {
+    for (const key of row.keys) {
+      const index = text.indexOf(key);
+      if (index < 0) continue;
+      if (!best || index < best.index || (index === best.index && key.length > best.len)) {
+        best = { value: row.value, index, len: key.length };
+      }
+    }
+  }
+  return best?.value;
+}
+
+export function parseTalkLandCategoryField(text: string): string | undefined {
+  const sorted = [...LAND_CATEGORIES].sort((a, b) => b.length - a.length);
+  for (const cat of sorted) {
+    if (cat.length === 1) {
+      if (new RegExp(`(?:^|\\s|지목\\s*)${cat}(?:\\s|$)`).test(text)) return cat;
+      continue;
+    }
+    if (text.includes(cat)) return cat;
+  }
+  return undefined;
+}
+
+export function parseTalkLandAreaField(text: string): number | undefined {
+  const m = text.match(/(\d+(?:\.\d+)?)\s*평/);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 const PET_WORDS =
@@ -2590,7 +2670,7 @@ function parseContacts(
     labeledPhoneAfter(
       text,
       phones,
-      /임대인|(?<![가-힣])임(?![가-힣])|주인|(?<![가-힣])주(?![가-힣소거상담민상])/g
+      /매도인|임대인|(?<![가-힣])임(?![가-힣])|주인|(?<![가-힣])주(?![가-힣소거상담민상])/g
     ) ?? undefined;
   const phoneLabelIdx = text.search(/전화번호|연락처/);
 
@@ -3131,12 +3211,18 @@ export function applyIntakeToProperty(
   const next: Property = { ...current };
   if (parsed.roomType) {
     next.roomType = parsed.roomType;
+    if (parsed.roomType === "토지" || parsed.roomType === "건물") {
+      next.dealType = "매매";
+    }
     if (needsRoomBathCounts(parsed.roomType)) {
       const defaults = defaultRoomBathCounts(parsed.roomType);
       next.roomCount = parsed.roomCount ?? defaults.roomCount;
       next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
     }
   }
+  if (parsed.buildingKind) next.buildingKind = parsed.buildingKind as Property["buildingKind"];
+  if (parsed.landCategory) next.landCategory = parsed.landCategory;
+  if (parsed.landArea != null && parsed.landArea > 0) next.landArea = parsed.landArea;
   if (parsed.dealType) next.dealType = parsed.dealType;
   if (parsed.deposit && parsed.deposit > 0) next.deposit = parsed.deposit;
   if (parsed.monthlyRent && parsed.monthlyRent > 0) {
@@ -3256,6 +3342,8 @@ export function applyIntakeToCustomer(
       next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
     }
   }
+  if (parsed.buildingKind) next.buildingKind = parsed.buildingKind;
+  if (parsed.landCategory) next.landCategory = parsed.landCategory;
   if (parsed.dealType) next = applyCustomerDealType(next, parsed.dealType);
   if (parsed.deposit && parsed.deposit > 0) {
     next.deposit = parsed.deposit;

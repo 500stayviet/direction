@@ -8,7 +8,7 @@ import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
 import { applyDealTypeToMoney, isDealMoneyCleared } from "@/lib/dealTypeMoney";
 import { intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
-  INTAKE_GUIDE_STEPS,
+  talkGuideSteps,
   allGuideStepsComplete,
   buildIntakeFromSteps,
   flagsStepComplete,
@@ -164,7 +164,6 @@ export function IntakeTalkModal({
   onClose: () => void;
   onApply: (parsed: IntakeParseResult) => void;
 }) {
-  const guide = INTAKE_GUIDE_STEPS[kind];
   const [activeIndex, setActiveIndex] = useState(0);
   const [steps, setSteps] = useState<Partial<Record<IntakeStepKey, StepRecord>>>(
     {}
@@ -222,6 +221,49 @@ export function IntakeTalkModal({
   useEffect(() => {
     stepsRef.current = steps;
   }, [steps]);
+
+  const resolvedDealForGuide =
+    steps.roomType?.partial?.roomType === "토지" ||
+    steps.roomType?.partial?.roomType === "건물"
+      ? "매매"
+      : resolveTalkDealType(
+          steps.dealType?.partial,
+          steps.money?.partial
+        );
+  const guide = talkGuideSteps(
+    kind,
+    steps.roomType?.partial?.roomType,
+    resolvedDealForGuide
+  );
+  const guideKeys = guide.map((line) => line.key).join(",");
+
+  useEffect(() => {
+    const room = stepsRef.current.roomType?.partial?.roomType;
+    const g = talkGuideSteps(
+      kind,
+      room,
+      room === "토지" || room === "건물"
+        ? "매매"
+        : resolveTalkDealType(
+            stepsRef.current.dealType?.partial,
+            stepsRef.current.money?.partial
+          )
+    );
+    const currentKey = g[activeIndexRef.current]?.key;
+    const idx = currentKey
+      ? g.findIndex((line) => line.key === currentKey)
+      : -1;
+    if (idx >= 0 && idx !== activeIndexRef.current) {
+      activeIndexRef.current = idx;
+      setActiveIndex(idx);
+      return;
+    }
+    if (idx < 0 && g.length > 0) {
+      const fallback = Math.min(activeIndexRef.current, g.length - 1);
+      activeIndexRef.current = fallback;
+      setActiveIndex(fallback);
+    }
+  }, [guideKeys, kind]);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -338,11 +380,14 @@ export function IntakeTalkModal({
       stepsRef.current = nextSteps;
       setSteps(nextSteps);
       const fromKey = guide[fromIndex]?.key;
-      const resolvedDeal = resolveTalkDealType(
-        nextSteps.dealType?.partial,
-        nextSteps.money?.partial
-      );
       const resolvedRoom = nextSteps.roomType?.partial?.roomType;
+      const resolvedDeal =
+        resolvedRoom === "토지" || resolvedRoom === "건물"
+          ? "매매"
+          : resolveTalkDealType(
+              nextSteps.dealType?.partial,
+              nextSteps.money?.partial
+            );
       const flagsDone =
         fromKey === "flags" &&
         flagsStepComplete(nextSteps.flags?.partial, resolvedDeal, resolvedRoom);
@@ -358,13 +403,14 @@ export function IntakeTalkModal({
         return;
       }
       clearFieldHoldTimer();
+      const nextGuide = talkGuideSteps(kind, resolvedRoom, resolvedDeal);
       const clamped =
-        nextIndex >= guide.length ? guide.length - 1 : nextIndex;
+        nextIndex >= nextGuide.length ? nextGuide.length - 1 : nextIndex;
       activeIndexRef.current = clamped;
       setActiveIndex(clamped);
       clearStepSpeechBuffer();
       resetStepSpeech();
-      const landed = guide[clamped]?.key;
+      const landed = nextGuide[clamped]?.key;
       if (talkStepUsesFieldHold(landed)) {
         scheduleFieldHoldAdvance();
       }
@@ -373,6 +419,7 @@ export function IntakeTalkModal({
       clearFieldHoldTimer,
       clearStepSpeechBuffer,
       guide,
+      kind,
       resetStepSpeech,
       scheduleFieldHoldAdvance,
     ]
@@ -1145,8 +1192,10 @@ export function IntakeTalkModal({
           const hasEnteredValue = Boolean(rowDisplay);
           const filled = isFlags
             ? flagsStepComplete(row?.partial, resolvedDeal, resolvedRoom)
-            : hasEnteredValue ||
-              (line.key === "notes" && Boolean(row?.complete));
+            : line.key === "roomBath"
+              ? guideStepComplete("roomBath", row, steps)
+              : hasEnteredValue ||
+                (line.key === "notes" && Boolean(row?.complete));
           const active = index === activeIndex;
           const showColon =
             filled || active || hasEnteredValue || Boolean(stepExample);

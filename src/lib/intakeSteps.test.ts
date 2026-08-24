@@ -20,10 +20,57 @@ import {
   locationStepNeedsHold,
   locationStepReadyToAdvance,
   talkNormalizeModeForStep,
+  talkGuideSteps,
 } from "./intakeSteps.ts";
 import { parseIntakeText } from "./intakeParse.ts";
 
 describe("intakeSteps", () => {
+  it("매물·고객 가이드 순서와 아파트 방·화·매도인 줄을 맞춘다", () => {
+    assert.deepEqual(
+      talkGuideSteps("property").map((l) => l.key).slice(0, 6),
+      ["roomType", "dealType", "money", "location", "restAddress", "dates"]
+    );
+    const propKeys = talkGuideSteps("property").map((l) => l.key);
+    assert.equal(propKeys.at(-3), "tenantPhone");
+    assert.equal(propKeys.at(-2), "landlordPhone");
+    assert.equal(propKeys.at(-1), "notes");
+    assert.equal(
+      talkGuideSteps("property", "원룸", "매매").some((l) => l.key === "tenantPhone"),
+      false
+    );
+    assert.equal(
+      talkGuideSteps("property", "원룸", "매매").find((l) => l.key === "landlordPhone")
+        ?.name,
+      "매도인 전화번호"
+    );
+    assert.equal(talkGuideSteps("property", "아파트")[1]?.key, "roomBath");
+    assert.equal(talkGuideSteps("property", "원룸")[1]?.key, "dealType");
+    const landKeys = talkGuideSteps("property", "토지").map((l) => l.key);
+    assert.deepEqual(landKeys.slice(0, 5), [
+      "roomType",
+      "landCategory",
+      "landArea",
+      "money",
+      "location",
+    ]);
+    assert.equal(landKeys.includes("dates"), false);
+    assert.equal(landKeys.includes("elevator"), false);
+    assert.equal(landKeys.includes("restAddress"), false);
+    const bldg = talkGuideSteps("property", "건물").map((l) => l.key);
+    assert.equal(bldg[1], "buildingKind");
+    assert.equal(bldg.includes("elevator"), true);
+    assert.equal(bldg.includes("dates"), false);
+    const customerKeys = talkGuideSteps("customer").map((l) => l.key);
+    assert.deepEqual(customerKeys.slice(0, 6), [
+      "name",
+      "phone",
+      "roomType",
+      "dealType",
+      "money",
+      "location",
+    ]);
+  });
+
   it("마이크 칸별 정규화 모드를 고른다", () => {
     assert.equal(talkNormalizeModeForStep("location"), "talk-location");
     assert.equal(talkNormalizeModeForStep("restAddress"), "talk-location");
@@ -406,7 +453,7 @@ describe("intakeSteps", () => {
     );
     assert.equal(
       INTAKE_GUIDE_STEPS.property.find((l) => l.key === "notes")?.example,
-      "관리비. 남향. 저층 등"
+      "현관·호실 비밀번호, 남향 저층"
     );
     assert.equal(
       flagsGuideCopy("property", "전세").example,
@@ -484,7 +531,7 @@ describe("intakeSteps", () => {
     assert.equal(only.nextIndex, moneyIndex);
 
     const withDates = parseIntakeStepChain(
-      "보증금 2억 3월 1일",
+      "보증금 2억 강동구 성내동",
       moneyIndex,
       "property",
       {
@@ -493,7 +540,7 @@ describe("intakeSteps", () => {
       }
     );
     assert.ok(withDates.commits.some((row) => row.key === "money"));
-    assert.ok(withDates.commits.some((row) => row.key === "dates"));
+    assert.ok(withDates.commits.some((row) => row.key === "location"));
     assert.ok(withDates.nextIndex > moneyIndex);
   });
 
@@ -535,13 +582,13 @@ describe("intakeSteps", () => {
     assert.equal(both.nextIndex, moneyIndex);
 
     const bothWithDates = parseIntakeStepChain(
-      "보증금 1억 월세 50 3월 1일",
+      "보증금 1억 월세 50 강동구 성내동",
       moneyIndex,
       "property",
       prior
     );
     assert.ok(bothWithDates.commits.some((row) => row.key === "money"));
-    assert.ok(bothWithDates.commits.some((row) => row.key === "dates"));
+    assert.ok(bothWithDates.commits.some((row) => row.key === "location"));
     assert.ok(bothWithDates.nextIndex > moneyIndex);
   });
 
@@ -559,17 +606,14 @@ describe("intakeSteps", () => {
     assert.equal(money.partial.deposit, 10000);
   });
 
-  it("주소 뒤 매매가는 거래가액 줄까지 연속 반영한다", () => {
-    const full = "원룸 전세 강동구 천호동 매매가 2억";
+  it("유형·거래·금액 다음 주소까지 연속 반영한다", () => {
+    const full = "원룸 전세 보증금 2억 강동구 천호동";
     const chain = parseIntakeStepChain(full, 0, "property", {});
-    assert.equal(chain.commits.length, 4);
-    assert.equal(chain.commits[0]?.key, "location");
-    assert.equal(chain.commits[1]?.key, "roomType");
-    assert.equal(chain.commits[2]?.key, "dealType");
-    assert.equal(chain.commits[3]?.key, "money");
-    assert.equal(chain.commits[3]?.partial.deposit, 20000);
-    assert.equal(chain.nextIndex, 4);
-    assert.match(chain.leftover, /매매가\s*2억/);
+    assert.equal(chain.commits[0]?.key, "roomType");
+    assert.equal(chain.commits[1]?.key, "dealType");
+    assert.equal(chain.commits[2]?.key, "money");
+    assert.equal(chain.commits[3]?.key, "location");
+    assert.equal(chain.commits[2]?.partial.deposit, 20000);
     const built = buildIntakeFromSteps(
       Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
       "property"
@@ -581,12 +625,10 @@ describe("intakeSteps", () => {
     assert.equal(built.notes, "");
   });
 
-  it("월세 뒤 매매가도 거래가액까지 연속 반영한다", () => {
-    const full = "원룸 월세 강동구 천호동 매매가 5억";
+  it("월세 금액 다음 주소까지 연속 반영한다", () => {
+    const full = "원룸 월세 보증금 5억 월세 50 강동구 천호동";
     const chain = parseIntakeStepChain(full, 0, "property", {});
-    assert.equal(chain.commits.length, 4);
-    assert.equal(chain.commits[3]?.key, "money");
-    assert.equal(chain.commits[3]?.partial.deposit, 50000);
+    assert.ok(chain.commits.some((row) => row.key === "money"));
     const built = buildIntakeFromSteps(
       Object.fromEntries(chain.commits.map((row) => [row.key, row.partial])),
       "property"
@@ -620,7 +662,10 @@ describe("intakeSteps", () => {
         partial: { loan: "유", options: [] },
       },
     });
-    assert.equal(INTAKE_GUIDE_STEPS.property[idx]?.key, "flags");
+    assert.equal(
+      talkGuideSteps("property", "원룸", "매매")[idx]?.key,
+      "flags"
+    );
   });
 
   it("메모는 말이 있어도 입력완료 전에는 미완료다", () => {
@@ -637,8 +682,8 @@ describe("intakeSteps", () => {
 
   it("allGuideStepsComplete는 빈 메모 complete도 인정한다", () => {
     const filled = {
-      roomType: { display: "원룸" },
-      dealType: { display: "매매" },
+      roomType: { display: "원룸", partial: { roomType: "원룸" as const, options: [] } },
+      dealType: { display: "매매", partial: { dealType: "매매" as const, options: [] } },
       location: { display: "성내동" },
       money: { display: "1억" },
       dates: { display: "8/25" },
@@ -654,7 +699,6 @@ describe("intakeSteps", () => {
         display: "엘베무",
         partial: { elevator: "무" as const },
       },
-      tenantPhone: { display: "010-1234-5678" },
       landlordPhone: { display: "010-9876-5432" },
       notes: { display: "", complete: true },
     };
@@ -795,13 +839,13 @@ describe("intakeSteps", () => {
     );
     assert.equal(trailing.nextIndex, locationIndex);
 
-    const withMoney = parseIntakeStepChain(
-      "성내동 1억",
+    const withNext = parseIntakeStepChain(
+      "성내동 대출 유",
       locationIndex,
       "customer",
       {}
     );
-    assert.ok(withMoney.commits.some((row) => row.key === "money"));
+    assert.ok(withNext.commits.some((row) => row.key === "location"));
 
     const secondDong = parseIntakeStepChain(
       "송파구 풍납동",
@@ -1097,14 +1141,16 @@ describe("intakeSteps", () => {
     assert.equal(lateJibun.nextIndex, restIndexForJibun);
 
     const withMoney = parseIntakeStepChain(
-      "강동구 성내동 111-1 원룸 매매 1억",
+      "강동구 성내동 111-1",
       locationIndex,
       "property",
       {}
     );
     assert.ok(withMoney.commits.some((row) => row.key === "location"));
-    assert.ok(withMoney.commits.some((row) => row.key === "roomType"));
-    assert.ok(withMoney.commits.some((row) => row.key === "money"));
+    assert.equal(
+      withMoney.commits.some((row) => row.key === "roomType"),
+      false
+    );
   });
 
   it("매물 주소지와 나머지주소는 칸을 나눠 받는다", () => {
@@ -1178,6 +1224,47 @@ describe("intakeSteps", () => {
     );
     assert.equal(hoAfterDong.nextIndex, restIndex + 1);
     assert.equal(hoAfterDong.commits[0]?.partial.roomNo, "302호");
+  });
+
+  it("아파트는 유형 다음 칸에서 방·화를 받는다", () => {
+    const room = parseIntakeStep("아파트", "roomType", "property");
+    assert.equal(room.partial.roomType, "아파트");
+    assert.equal(room.partial.roomCount, undefined);
+    const chain = parseIntakeStepChain("아파트 방 3 화 2", 0, "property", {});
+    assert.equal(chain.commits[0]?.key, "roomType");
+    assert.equal(chain.commits[1]?.key, "roomBath");
+    const compact = parseIntakeStep("방3개 화1개", "roomBath", "property");
+    assert.equal(compact.partial.roomCount, 3);
+    assert.equal(compact.partial.bathroomCount, 1);
+    const toilet = parseIntakeStep("방3 화장실1", "roomBath", "property");
+    assert.equal(toilet.partial.roomCount, 3);
+    assert.equal(toilet.partial.bathroomCount, 1);
+    assert.equal(
+      talkGuideSteps("property").find((l) => l.key === "roomType")?.example,
+      "아파트 · 오피스텔 등"
+    );
+  });
+
+  it("토지·건물은 지목·건물종류를 받고 매매로 둔다", () => {
+    const land = parseIntakeStepChain("토지 대 80평", 0, "property", {});
+    assert.equal(land.commits[0]?.partial.roomType, "토지");
+    assert.equal(land.commits[0]?.partial.dealType, "매매");
+    assert.equal(land.commits[1]?.key, "landCategory");
+    assert.equal(land.commits[1]?.partial.landCategory, "대");
+    assert.equal(land.commits[2]?.key, "landArea");
+    assert.equal(land.commits[2]?.partial.landArea, 80);
+    const bldg = parseIntakeStep("근생", "buildingKind", "property");
+    assert.equal(bldg.partial.buildingKind, "근생건물");
+  });
+
+  it("매도인 번호는 임대인 칸에 넣는다", () => {
+    const step = parseIntakeStep(
+      "매도인 010-9876-5432",
+      "landlordPhone",
+      "property"
+    );
+    assert.equal(step.ok, true);
+    assert.equal(step.partial.landlordPhone, "010-9876-5432");
   });
 
   it("임차인·임대인 번호는 칸을 나눠 받는다", () => {

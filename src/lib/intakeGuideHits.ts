@@ -1,4 +1,3 @@
-import { needsRoomBathCounts } from "@/lib/constants";
 import {
   formatCustomerTalkFlagValue,
   formatDepositRent,
@@ -21,6 +20,10 @@ export type IntakeGuideKey =
   | "name"
   | "phone"
   | "roomType"
+  | "roomBath"
+  | "buildingKind"
+  | "landCategory"
+  | "landArea"
   | "dealType"
   | "location"
   | "restAddress"
@@ -33,13 +36,15 @@ export type IntakeGuideKey =
   | "landlordPhone"
   | "notes";
 
+/** 마이크 매물유형 줄: 유형명만. 방·화는 roomBath 칸 */
 function formatRoomGuide(parsed: IntakeParseResult): string {
-  if (!parsed.roomType) return "";
-  if (parsed.roomCount && needsRoomBathCounts(parsed.roomType)) {
-    const bath = parsed.bathroomCount ? ` 화${parsed.bathroomCount}` : "";
-    return `${parsed.roomCount}룸${bath}`;
-  }
-  return parsed.roomType;
+  return parsed.roomType ?? "";
+}
+
+export function formatRoomBathGuide(parsed: IntakeParseResult): string {
+  if (!parsed.roomCount) return "";
+  const bath = parsed.bathroomCount ? ` 화${parsed.bathroomCount}` : "";
+  return `방${parsed.roomCount}${bath}`;
 }
 
 function formatMoneyGuide(parsed: IntakeParseResult, kind: IntakeKind): string {
@@ -110,6 +115,11 @@ export function intakeGuideHits(
 
   const room = formatRoomGuide(parsed);
   if (room) hits.roomType = room;
+  const bath = formatRoomBathGuide(parsed);
+  if (bath) hits.roomBath = bath;
+  if (parsed.buildingKind) hits.buildingKind = parsed.buildingKind;
+  if (parsed.landCategory) hits.landCategory = parsed.landCategory;
+  if (parsed.landArea != null) hits.landArea = `${parsed.landArea}평`;
   if (parsed.dealType) hits.dealType = parsed.dealType;
 
   const location = formatLocationGuide(parsed, kind);
