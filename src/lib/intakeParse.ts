@@ -328,10 +328,7 @@ function isTalkRoomCountBeforeToilet(
   return new RegExp(`(?:^| )방\\s*${TALK_RB_COUNT}\\s*개?\\s*$`).test(before);
 }
 
-function parseTalkBathroomCount(
-  text: string,
-  _roomCount?: number
-): number | undefined {
+function parseTalkBathroomCount(text: string): number | undefined {
   const gluedToilet = text.match(
     new RegExp(`화장실\\s*(${TALK_RB_COUNT_CORE})\\s*개`)
   );
@@ -343,13 +340,6 @@ function parseTalkBathroomCount(
   );
   if (gluedToiletBare) {
     return parseTalkCount1to8(gluedToiletBare[1] ?? "");
-  }
-  const gluedToiletCount = text.match(
-    new RegExp(`화장실(${TALK_RB_COUNT_CORE})(?=\\s*개|\\s|$)`)
-  );
-  if (gluedToiletCount) {
-    const n = parseTalkCount1to8(gluedToiletCount[1] ?? "");
-    if (n != null) return n;
   }
 
   const afterToilet = text.match(
@@ -442,7 +432,7 @@ export function parseTalkRoomBathField(
   }
 
   let roomCount = parseTalkRoomCount(normalized);
-  let bathroomCount = parseTalkBathroomCount(normalized, roomCount);
+  let bathroomCount = parseTalkBathroomCount(normalized);
 
   if (roomCount && !bathroomCount) {
     const bareAfterRoom = normalized.match(

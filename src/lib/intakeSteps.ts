@@ -1,5 +1,5 @@
 import type { IntakeGuideKey } from "@/lib/intakeGuideHits";
-import { intakeGuideHits } from "@/lib/intakeGuideHits";
+import { formatRoomBathGuide, intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
   normalizeIntakeInput,
   parseAllYesNoFields,
@@ -1069,11 +1069,12 @@ export function formatTalkRoomBathLivePreview(
   if (!talkRoomBathExplicitInput(text)) return "";
   const bath = parseTalkRoomBathField(text, prior);
   if (!bath.roomCount) return "";
-  const parts = [`방 ${bath.roomCount}개`];
-  if (bath.bathroomCount) {
-    parts.push(`화장실 ${bath.bathroomCount}개`);
-  }
-  return parts.join(" · ");
+  return formatRoomBathGuide({
+    options: [],
+    notes: "",
+    roomCount: bath.roomCount,
+    bathroomCount: bath.bathroomCount,
+  } as IntakeParseResult);
 }
 
 /** 방 뒤 화장실·숫자가 이어지는 중이면 홀드를 미룬다 */
@@ -1127,28 +1128,12 @@ export function roomBathStepReadyToAdvance(
     roomCount: partial.roomCount,
     bathroomCount: partial.bathroomCount,
   });
-  if (
+  const countsMatch =
     parsed.roomCount === partial.roomCount &&
     parsed.bathroomCount === partial.bathroomCount &&
-    parsed.bathroomCount != null
-  ) {
-    const remainder = extractTalkStepRemainder(
-      normalized,
-      "roomBath",
-      partial,
-      "property"
-    );
-    if (remainder && NEXT_AFTER_LOCATION.test(remainder)) return true;
-    return true;
-  }
+    parsed.bathroomCount != null;
+  if (countsMatch) return true;
   if (looksLikeTalkBathroomContinuation(normalized)) return false;
-  const remainder = extractTalkStepRemainder(
-    normalized,
-    "roomBath",
-    partial,
-    "property"
-  );
-  if (remainder && NEXT_AFTER_LOCATION.test(remainder)) return true;
   return true;
 }
 

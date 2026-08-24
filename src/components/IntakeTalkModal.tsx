@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { DealType } from "@/lib/types";
 import type { IntakeKind, IntakeParseResult } from "@/lib/intakeParse";
+import { talkRoomBathExplicitInput } from "@/lib/intakeParse";
 import { applyDealTypeToMoney, isDealMoneyCleared } from "@/lib/dealTypeMoney";
 import { intakeGuideHits } from "@/lib/intakeGuideHits";
 import {
@@ -27,7 +28,6 @@ import {
   roomBathStepReadyToAdvance,
   looksLikeTalkBathroomContinuation,
   formatTalkRoomBathLivePreview,
-  talkRoomBathExplicitInput,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -203,7 +203,7 @@ export function IntakeTalkModal({
   const activeIndexRef = useRef(0);
   const stepsRef = useRef(steps);
   const processUtteranceRef = useRef<(raw: string) => boolean>(() => false);
-  const processLiveAddressRef = useRef<(composed: string) => void>(() => {});
+  const processLivePartialStepRef = useRef<(composed: string) => void>(() => {});
   const scheduleFieldHoldRef = useRef<() => void>(() => {});
   const finishTalkingRef = useRef<() => void>(() => {});
   const heardCommittedRef = useRef(false);
@@ -642,7 +642,7 @@ export function IntakeTalkModal({
     []
   );
 
-  const processLiveAddress = useCallback(
+  const processLivePartialStep = useCallback(
     (composed: string) => {
       const startIndex = activeIndexRef.current;
       const key = guide[startIndex]?.key;
@@ -651,6 +651,9 @@ export function IntakeTalkModal({
       }
       const trimmed = composed.trim();
       if (!trimmed) return;
+      if (key === "roomBath" && !talkRoomBathExplicitInput(trimmed)) {
+        return;
+      }
       const chain = parseIntakeStepChain(
         trimmed,
         startIndex,
@@ -733,8 +736,8 @@ export function IntakeTalkModal({
   }, [processUtterance]);
 
   useEffect(() => {
-    processLiveAddressRef.current = processLiveAddress;
-  }, [processLiveAddress]);
+    processLivePartialStepRef.current = processLivePartialStep;
+  }, [processLivePartialStep]);
 
   const setListeningBoth = (next: boolean) => {
     listeningRef.current = next;
@@ -824,7 +827,7 @@ export function IntakeTalkModal({
           spoken.live
         );
         if (composed.trim()) {
-          processLiveAddressRef.current(composed);
+          processLivePartialStepRef.current(composed);
         }
       }
       stepLiveRef.current = spoken.live;
@@ -1318,16 +1321,7 @@ export function IntakeTalkModal({
               valueText = notesPreview;
             } else if (line.key === "roomBath" && roomBathLivePreview) {
               valueText = roomBathLivePreview;
-            } else if (
-              line.key === "roomBath" &&
-              composedLive.trim() &&
-              !talkRoomBathExplicitInput(
-                composeTalkText(stepSpeechRef.current, "", composedLive)
-              ) &&
-              stepExample
-            ) {
-              valueText = `예) ${stepExample}`;
-            } else if (composedLive.trim()) {
+            } else if (line.key !== "roomBath" && composedLive.trim()) {
               valueText = composedLive;
             } else if (stepExample) {
               valueText = `예) ${stepExample}`;
