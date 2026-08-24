@@ -9,6 +9,7 @@ import {
   parseTalkLandCategoryField,
   parseTalkBuildingKindField,
   parseTalkRoomBathField,
+  talkShortHwaBathEqualsRoom,
   parseTalkRoomTypeField,
   lastTalkMobilePhone,
   consumeYesNoField,
@@ -1059,6 +1060,59 @@ export function locationStepReadyToAdvance(
   return NEXT_AFTER_LOCATION.test(remainder);
 }
 
+/** 방 뒤 화장실·숫자가 이어지는 중이면 홀드를 미룬다 */
+export function looksLikeTalkBathroomContinuation(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (/화장실/.test(t)) return true;
+  if (/장실/.test(t)) return true;
+  if (/방\s*[1-8]\s*개?\s+화/.test(t)) return true;
+  if (/방\s*[1-8]\s*개?\s+(?:[1-8]|하나|한|둘|두|셋|세|넷|네)/.test(t)) {
+    return true;
+  }
+  return /화\s*(?:[1-8]|하나|한|둘|두|셋|세|넷|네)\s*개?/.test(t);
+}
+
+export function roomBathStepNeedsHold(
+  partial: Partial<IntakeParseResult> | undefined,
+  text?: string
+): boolean {
+  if (!partial?.roomCount) return false;
+  if (!partial.bathroomCount) return true;
+  const normalized = text ? normalizeTalkStep(text, "roomBath") : "";
+  return talkShortHwaBathEqualsRoom(
+    normalized,
+    partial.roomCount,
+    partial.bathroomCount
+  );
+}
+
+export function roomBathStepReadyToAdvance(
+  text: string,
+  partial: Partial<IntakeParseResult>
+): boolean {
+  if (!partial.roomCount || !partial.bathroomCount) return false;
+  const normalized = normalizeTalkStep(text, "roomBath");
+  if (
+    talkShortHwaBathEqualsRoom(
+      normalized,
+      partial.roomCount,
+      partial.bathroomCount
+    )
+  ) {
+    return false;
+  }
+  if (looksLikeTalkBathroomContinuation(normalized)) return false;
+  const remainder = extractTalkStepRemainder(
+    normalized,
+    "roomBath",
+    partial,
+    "property"
+  );
+  if (remainder && NEXT_AFTER_LOCATION.test(remainder)) return true;
+  return true;
+}
+
 export function restAddressStepReadyToAdvance(
   text: string,
   partial: Partial<IntakeParseResult>
@@ -1378,7 +1432,7 @@ export function parseIntakeStepChain(
     }
     if (
       key === "roomBath" &&
-      !(parsed.partial.roomCount && parsed.partial.bathroomCount)
+      !roomBathStepReadyToAdvance(text, parsed.partial)
     ) {
       break;
     }

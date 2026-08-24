@@ -84,6 +84,7 @@ export function talkStepUsesFieldHold(key: IntakeStepKey | undefined): boolean {
   return (
     key === "location" ||
     key === "restAddress" ||
+    key === "roomBath" ||
     key === "money" ||
     key === "dates" ||
     key === "tenantPhone" ||

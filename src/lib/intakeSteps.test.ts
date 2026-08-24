@@ -21,6 +21,8 @@ import {
   locationStepReadyToAdvance,
   restAddressStepNeedsHold,
   restAddressStepReadyToAdvance,
+  roomBathStepNeedsHold,
+  roomBathStepReadyToAdvance,
   talkNormalizeModeForStep,
   talkGuideSteps,
 } from "./intakeSteps.ts";
@@ -1324,7 +1326,33 @@ describe("intakeSteps", () => {
     assert.equal(short.display, "방 3개 · 화장실 1개");
     const sttDup = parseIntakeStep("방3개 화3개", "roomBath", "property");
     assert.equal(sttDup.partial.roomCount, 3);
-    assert.equal(sttDup.partial.bathroomCount, 3);
+    assert.equal(sttDup.partial.bathroomCount, undefined);
+    assert.equal(sttDup.display, "방 3개");
+    const explicitBath3 = parseIntakeStep(
+      "방3개 화장실3개",
+      "roomBath",
+      "property"
+    );
+    assert.equal(explicitBath3.partial.roomCount, 3);
+    assert.equal(explicitBath3.partial.bathroomCount, 3);
+    assert.equal(
+      roomBathStepNeedsHold({ roomCount: 3, bathroomCount: undefined }),
+      true
+    );
+    assert.equal(
+      roomBathStepReadyToAdvance("방3개 화3개", {
+        roomCount: 3,
+        bathroomCount: undefined,
+      }),
+      false
+    );
+    assert.equal(
+      roomBathStepReadyToAdvance("방3개 화장실1개", {
+        roomCount: 3,
+        bathroomCount: 1,
+      }),
+      true
+    );
     const toiletGlued = parseIntakeStep(
       "방3개 화장실한개",
       "roomBath",

@@ -23,6 +23,9 @@ import {
   locationStepNeedsHold,
   restAddressStepNeedsHold,
   restAddressStepReadyToAdvance,
+  roomBathStepNeedsHold,
+  roomBathStepReadyToAdvance,
+  looksLikeTalkBathroomContinuation,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -327,6 +330,9 @@ export function IntakeTalkModal({
       if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
       if (key === "location" && !locationStepNeedsHold(rec.partial, kind)) return;
       if (key === "restAddress" && !restAddressStepNeedsHold(rec.partial)) return;
+      if (key === "roomBath" && !roomBathStepNeedsHold(rec.partial, stepLiveRef.current)) {
+        return;
+      }
     }
     const holdMs =
       key === "location"
@@ -356,6 +362,12 @@ export function IntakeTalkModal({
       if (key === "location" && !locationStepNeedsHold(held.partial, kind)) return;
       if (key === "restAddress" && !restAddressStepNeedsHold(held.partial)) return;
       if (
+        key === "roomBath" &&
+        !roomBathStepNeedsHold(held.partial, stepLiveRef.current)
+      ) {
+        return;
+      }
+      if (
         key === "location" &&
         kind === "property" &&
         held.partial.dong &&
@@ -373,6 +385,15 @@ export function IntakeTalkModal({
         scheduleFieldHoldRef.current();
         return;
       }
+      if (
+        key === "roomBath" &&
+        roomBathStepNeedsHold(held.partial, stepLiveRef.current) &&
+        looksLikeTalkBathroomContinuation(stepLiveRef.current)
+      ) {
+        scheduleFieldHoldRef.current();
+        return;
+      }
+      if (key === "roomBath" && roomBathStepNeedsHold(held.partial)) return;
       if (activeIndexRef.current >= guide.length - 1) return;
       const next = activeIndexRef.current + 1;
       activeIndexRef.current = next;
@@ -409,7 +430,9 @@ export function IntakeTalkModal({
         return;
       }
       if (nextIndex === fromIndex) {
-        if (fromKey !== "location" && fromKey !== "restAddress") resetStepSpeech();
+        if (fromKey !== "location" && fromKey !== "restAddress" && fromKey !== "roomBath") {
+        resetStepSpeech();
+      }
         if (talkStepUsesFieldHold(fromKey)) {
           scheduleFieldHoldAdvance();
         }
@@ -610,7 +633,9 @@ export function IntakeTalkModal({
     (composed: string) => {
       const startIndex = activeIndexRef.current;
       const key = guide[startIndex]?.key;
-      if (key !== "location" && key !== "restAddress") return;
+      if (key !== "location" && key !== "restAddress" && key !== "roomBath") {
+        return;
+      }
       const trimmed = composed.trim();
       if (!trimmed) return;
       const chain = parseIntakeStepChain(
@@ -645,25 +670,47 @@ export function IntakeTalkModal({
         );
         return;
       }
-      const rest = chain.commits.find((row) => row.key === "restAddress");
-      if (!rest) return;
-      const prev = stepsRef.current.restAddress;
+      if (key === "restAddress") {
+        const rest = chain.commits.find((row) => row.key === "restAddress");
+        if (!rest) return;
+        const prev = stepsRef.current.restAddress;
+        if (
+          rest.display === prev?.display &&
+          rest.partial.buildingName === prev?.partial.buildingName &&
+          rest.partial.roomNo === prev?.partial.roomNo
+        ) {
+          return;
+        }
+        heardCommittedRef.current = true;
+        const nextSteps = { ...stepsRef.current };
+        nextSteps.restAddress = {
+          partial: rest.partial,
+          display: rest.display,
+          skipped: false,
+        };
+        const ready = restAddressStepReadyToAdvance(trimmed, rest.partial);
+        applySteps(nextSteps, ready ? chain.nextIndex : startIndex, startIndex);
+        return;
+      }
+      const roomBath = chain.commits.find((row) => row.key === "roomBath");
+      if (!roomBath) return;
+      const prevRb = stepsRef.current.roomBath;
       if (
-        rest.display === prev?.display &&
-        rest.partial.buildingName === prev?.partial.buildingName &&
-        rest.partial.roomNo === prev?.partial.roomNo
+        roomBath.display === prevRb?.display &&
+        roomBath.partial.roomCount === prevRb?.partial.roomCount &&
+        roomBath.partial.bathroomCount === prevRb?.partial.bathroomCount
       ) {
         return;
       }
       heardCommittedRef.current = true;
-      const nextSteps = { ...stepsRef.current };
-      nextSteps.restAddress = {
-        partial: rest.partial,
-        display: rest.display,
+      const rbSteps = { ...stepsRef.current };
+      rbSteps.roomBath = {
+        partial: roomBath.partial,
+        display: roomBath.display,
         skipped: false,
       };
-      const ready = restAddressStepReadyToAdvance(trimmed, rest.partial);
-      applySteps(nextSteps, ready ? chain.nextIndex : startIndex, startIndex);
+      const rbReady = roomBathStepReadyToAdvance(trimmed, roomBath.partial);
+      applySteps(rbSteps, rbReady ? chain.nextIndex : startIndex, startIndex);
     },
     [applySteps, guide, kind]
   );
@@ -757,7 +804,7 @@ export function IntakeTalkModal({
       }
       processNewFinalResults(ev.results);
       const key = guide[activeIndexRef.current]?.key;
-      if (key === "location" || key === "restAddress") {
+      if (key === "location" || key === "restAddress" || key === "roomBath") {
         const composed = composeTalkText(
           stepSpeechRef.current,
           spoken.sessionFinal,

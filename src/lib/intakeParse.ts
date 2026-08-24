@@ -286,6 +286,29 @@ function countFromTalkMatch(m: RegExpMatchArray): number | undefined {
   return undefined;
 }
 
+/** STT가 「화장실1」 대신 「화3」처럼 방 개수를 복사한 짧은 화인지 (화장실 전체는 제외) */
+export function talkShortHwaBathEqualsRoom(
+  text: string,
+  roomCount?: number,
+  bathroomCount?: number
+): boolean {
+  if (
+    roomCount == null ||
+    bathroomCount == null ||
+    roomCount !== bathroomCount
+  ) {
+    return false;
+  }
+  if (/화장실/.test(text)) return false;
+  return (
+    new RegExp(
+      `방\\s*${TALK_RB_COUNT}\\s*개?\\s*화(?!장실)\\s*${TALK_RB_COUNT}`
+    ).test(text) ||
+    new RegExp(`화(?!장실)\\s*${TALK_RB_COUNT}\\s*개?`).test(text) ||
+    new RegExp(`${TALK_RB_COUNT}\\s*개?\\s*화(?!장실)`).test(text)
+  );
+}
+
 function parseTalkBathroomCount(
   text: string,
   _roomCount?: number
@@ -381,10 +404,12 @@ export function parseTalkRoomBathField(
     )
   );
   if (compact) {
-    return {
-      roomCount: parseTalkCount1to8(compact[1] ?? ""),
-      bathroomCount: parseTalkCount1to8(compact[2] ?? ""),
-    };
+    const roomCount = parseTalkCount1to8(compact[1] ?? "");
+    const bathroomCount = parseTalkCount1to8(compact[2] ?? "");
+    if (talkShortHwaBathEqualsRoom(normalized, roomCount, bathroomCount)) {
+      return { roomCount, bathroomCount: undefined };
+    }
+    return { roomCount, bathroomCount };
   }
 
   let roomCount = parseTalkRoomCount(normalized);
@@ -413,6 +438,10 @@ export function parseTalkRoomBathField(
 
   roomCount = roomCount ?? prior?.roomCount;
   bathroomCount = bathroomCount ?? prior?.bathroomCount;
+
+  if (talkShortHwaBathEqualsRoom(normalized, roomCount, bathroomCount)) {
+    bathroomCount = undefined;
+  }
 
   if (roomCount || bathroomCount) {
     return { roomCount, bathroomCount };
