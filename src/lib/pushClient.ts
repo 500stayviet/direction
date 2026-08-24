@@ -29,13 +29,17 @@ export async function subscribeWebPush(userId: string): Promise<boolean> {
   if (!reg) return false;
 
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!.trim();
-  let sub = await reg.pushManager.getSubscription();
-  if (!sub) {
-    sub = await reg.pushManager.subscribe({
-      userVisibility: true,
-      userGesture: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    } as PushSubscriptionOptionsInit);
+  let sub: PushSubscription | null;
+  try {
+    sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+      });
+    }
+  } catch {
+    return false;
   }
 
   const token = await getAccessToken();
@@ -81,5 +85,5 @@ export async function syncWebPushSubscription(userId: string | null): Promise<vo
   if (!userId || !pushEnvReady()) return;
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
-  await subscribeWebPush(userId);
+  await subscribeWebPush(userId).catch(() => false);
 }

@@ -56,7 +56,8 @@ export function InstallAppGuide({ className = "" }: { className?: string }) {
           </span>
           {!open ? (
             <span className="mt-0.5 block text-[11px] leading-snug text-gray-400">
-              탭하면 홈 화면 추가 안내
+              탭하면 홈 화면 추가 안내. 아이폰은 Chrome으로 설치하면 알림이 안
+              됩니다.
             </span>
           ) : (
             <span className="mt-0.5 block text-[11px] leading-snug text-gray-500">
@@ -113,6 +114,9 @@ export function InstallAppGuide({ className = "" }: { className?: string }) {
                   <strong className="font-bold text-gray-800">
                     홈 화면에 추가
                   </strong>
+                </p>
+                <p className="mt-1.5 text-[11px] text-gray-500">
+                  Chrome으로 설치하면 알림이 되지 않습니다. Safari로 추가하세요.
                 </p>
               </li>
               <li className="rounded-xl bg-white/80 px-3 py-2.5 ring-1 ring-gray-100">

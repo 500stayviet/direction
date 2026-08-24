@@ -15,6 +15,17 @@ import type { Customer, ListedProperty } from "@/lib/types";
 
 const PROMPT_KEY = "realty_web_notif_prompt_v1";
 
+function localDateKey(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function promptStorageKey(userId: string): string {
+  return `${PROMPT_KEY}:${userId}`;
+}
+
 export function getWebNotificationPermission(): NotificationPermission | "unsupported" {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return "unsupported";
@@ -22,20 +33,25 @@ export function getWebNotificationPermission(): NotificationPermission | "unsupp
   return Notification.permission;
 }
 
+/** 권한이 기본이고, 「나중에」를 누른 당일이 아니면 다시 띄움 */
 export function shouldShowWebNotificationPrompt(userId: string | null): boolean {
   if (!userId || typeof window === "undefined") return false;
   if (!("Notification" in window)) return false;
   if (Notification.permission !== "default") return false;
   try {
-    return localStorage.getItem(`${PROMPT_KEY}:${userId}`) !== "1";
+    const raw = localStorage.getItem(promptStorageKey(userId));
+    if (!raw) return true;
+    if (raw === "1") return true;
+    return raw !== localDateKey();
   } catch {
     return true;
   }
 }
 
+/** 「나중에」— 오늘 하루 숨기고 다음날 다시 묻기 */
 export function markWebNotificationPromptSeen(userId: string): void {
   try {
-    localStorage.setItem(`${PROMPT_KEY}:${userId}`, "1");
+    localStorage.setItem(promptStorageKey(userId), localDateKey());
   } catch {
     /* ignore */
   }

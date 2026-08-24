@@ -66,12 +66,13 @@ export function PushPermissionPrompt() {
     setBusy(true);
     try {
       const perm = await requestWebNotificationPermission();
-      markWebNotificationPromptSeen(userId);
       if (perm === "granted") {
         clearNotifiedPairs(userId);
         if (pushEnvReady() && (isStandalonePwa() || !isIosSafari())) {
           await subscribeWebPush(userId);
         }
+      } else {
+        markWebNotificationPromptSeen(userId);
       }
       setOpen(false);
     } finally {
@@ -92,13 +93,18 @@ export function PushPermissionPrompt() {
         {needsPwaFirst ? (
           <>
             <p>
-              아이폰에서는 <strong className="text-gray-900">홈 화면에 추가</strong>
-              한 뒤 앱처럼 실행해야 알림을 받을 수 있습니다.
+              아이폰은 <strong className="text-gray-900">홈 화면에 추가</strong>한 뒤
+              알림에서 <strong className="text-gray-900">허용</strong>을 눌러 주세요.
+              차단하면 매칭 알림이 오지 않습니다.
             </p>
             <InstallAppGuide />
           </>
         ) : (
-          <p>조건이 맞는 매물·고객이 생기면 알려 드립니다.</p>
+          <p>
+            고객·매물이 맞으면 앱을 안 봐도 알려 드립니다. 다음 창에서는{" "}
+            <strong className="text-gray-900">허용만</strong> 누르세요.{" "}
+            <strong className="text-gray-900">차단하면 매칭 알림이 오지 않습니다.</strong>
+          </p>
         )}
         {!pushEnvReady() ? (
           <p className="text-[12px] text-gray-400">
