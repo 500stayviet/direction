@@ -439,7 +439,7 @@ describe("intakeSteps", () => {
     assert.equal(moneyStepExample("월세"), "보증금 1억 · 월세 50");
     assert.equal(moneyStepExample("전세"), "보증금 1억");
     assert.equal(moneyStepExample("매매"), "매매 3억 5천");
-    assert.equal(dealTypeStepExample(undefined), "매매 전세 월세");
+    assert.equal(dealTypeStepExample(undefined), "매매, 전세, 월세");
     assert.equal(dealTypeStepExample("전세"), "전세");
     assert.equal(inferDealTypeFromMoney({ monthlyRent: 50, options: [] }), "월세");
     assert.equal(inferDealTypeFromMoney({ deposit: 10000, options: [] }), "전세");
@@ -1465,7 +1465,7 @@ describe("intakeSteps", () => {
     assert.equal(loneWord.partial.bathroomCount, 1);
     assert.equal(
       talkGuideSteps("property").find((l) => l.key === "roomType")?.example,
-      "아파트 오피스텔 원룸 사무실 건물 등"
+      "아파트, 오피스텔, 원룸, 사무실, 건물 등"
     );
     assert.equal(
       talkGuideSteps("property", "아파트", "매매").some((l) => l.key === "elevator"),

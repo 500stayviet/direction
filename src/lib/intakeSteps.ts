@@ -32,6 +32,7 @@ import {
 } from "@/lib/format";
 import {
   PROPERTY_ROOM_TYPE_EXAMPLE,
+  PROPERTY_DEAL_TYPE_EXAMPLE,
   propertySkipsElevatorSelection,
   propertySkipsParkingSelection,
   skipsResidentialExtras,
@@ -128,6 +129,7 @@ export type IntakeStepLine = {
 };
 
 const ROOM_TYPE_EXAMPLE = PROPERTY_ROOM_TYPE_EXAMPLE;
+const DEAL_TYPE_EXAMPLE = PROPERTY_DEAL_TYPE_EXAMPLE;
 
 const ROOM_BATH_LINE: IntakeStepLine = {
   key: "roomBath",
@@ -139,7 +141,7 @@ const CUSTOMER_GUIDE_BASE: IntakeStepLine[] = [
   { key: "name", name: "고객명 또는 명칭", example: "홍길동" },
   { key: "phone", name: "전화번호", example: "010-1234-5678" },
   { key: "roomType", name: "매물유형", example: ROOM_TYPE_EXAMPLE },
-  { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+  { key: "dealType", name: "거래종류", example: DEAL_TYPE_EXAMPLE },
   { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
   { key: "location", name: "선호지역", example: "강동구 oo동" },
   {
@@ -164,7 +166,7 @@ const CUSTOMER_GUIDE_BASE: IntakeStepLine[] = [
 
 const PROPERTY_GUIDE_BASE: IntakeStepLine[] = [
   { key: "roomType", name: "매물유형", example: ROOM_TYPE_EXAMPLE },
-  { key: "dealType", name: "거래종류", example: "매매 전세 월세" },
+  { key: "dealType", name: "거래종류", example: DEAL_TYPE_EXAMPLE },
   { key: "money", name: "거래가액", example: "보증금 1억 · 월세 50 · 매매 3억 5천" },
   { key: "location", name: "주소지", example: "강동구 성내동 111-1" },
   {
@@ -636,7 +638,7 @@ export function dealTypeStepExample(
   if (dealType === "월세") return "월세";
   if (dealType === "매매") return "매매";
   if (dealType === "전세") return "전세";
-  return "매매 전세 월세";
+  return DEAL_TYPE_EXAMPLE;
 }
 
 export function guideStepComplete(

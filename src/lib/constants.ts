@@ -302,7 +302,10 @@ export function applyPropertyListingDefaults<
 
 /** 마이크·등록 폼 매물유형 예시 */
 export const PROPERTY_ROOM_TYPE_EXAMPLE =
-  "아파트 오피스텔 원룸 사무실 건물 등";
+  "아파트, 오피스텔, 원룸, 사무실, 건물 등";
+
+/** 마이크 거래종류 예시 */
+export const PROPERTY_DEAL_TYPE_EXAMPLE = "매매, 전세, 월세";
 
 /** 관리비는 전세·월세 매물만. 매매·토지·건물은 없음 */
 export function needsMaintenanceFee(
