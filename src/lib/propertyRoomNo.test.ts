@@ -4,6 +4,8 @@ import {
   composePropertyRoomNo,
   formatPropertyPlaceLine,
   formatRoomNoHo,
+  restAddressRoomNoHasDongOnly,
+  restAddressRoomNoHasHo,
   splitPropertyRoomNo,
   splitRestAddress,
 } from "./propertyRoomNo";
@@ -27,6 +29,11 @@ describe("propertyRoomNo", () => {
     assert.equal(formatRoomNoHo("101동 101"), "101동 101호");
     assert.equal(formatRoomNoHo("101동101호"), "101동 101호");
     assert.equal(formatRoomNoHo("101호"), "101호");
+    assert.equal(restAddressRoomNoHasHo("101동 102호"), true);
+    assert.equal(restAddressRoomNoHasHo("302호"), true);
+    assert.equal(restAddressRoomNoHasHo("101동"), false);
+    assert.equal(restAddressRoomNoHasDongOnly("101동"), true);
+    assert.equal(restAddressRoomNoHasDongOnly("101동 102호"), false);
     assert.equal(formatRoomNoHo("힐스테이트 101-101"), "힐스테이트 101동 101호");
     assert.equal(formatRoomNoHo("힐스테이트 101"), "힐스테이트 101호");
     assert.equal(formatRoomNoHo("힐스테이트"), "힐스테이트");

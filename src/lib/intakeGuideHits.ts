@@ -43,8 +43,11 @@ function formatRoomGuide(parsed: IntakeParseResult): string {
 
 export function formatRoomBathGuide(parsed: IntakeParseResult): string {
   if (!parsed.roomCount) return "";
-  const bath = parsed.bathroomCount ? ` 화${parsed.bathroomCount}` : "";
-  return `방${parsed.roomCount}${bath}`;
+  const parts = [`방 ${parsed.roomCount}개`];
+  if (parsed.bathroomCount) {
+    parts.push(`화장실 ${parsed.bathroomCount}개`);
+  }
+  return parts.join(" · ");
 }
 
 function formatMoneyGuide(parsed: IntakeParseResult, kind: IntakeKind): string {

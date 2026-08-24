@@ -42,6 +42,7 @@ import {
   TALK_FIELD_HOLD_MS,
   TALK_LISTEN_RESTART_MS,
   talkLocationHoldMs,
+  talkRestAddressHoldMs,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_SILENCE_STOP_MESSAGE,
@@ -54,6 +55,7 @@ import {
   talkPrimaryLabel,
   talkStepUsesFieldHold,
   looksLikeTalkJibunUtterance,
+  looksLikeTalkRestAddressContinuation,
   TALK_LOCATION_JIBUN_LISTENING,
 } from "@/lib/talkSession";
 
@@ -329,7 +331,9 @@ export function IntakeTalkModal({
     const holdMs =
       key === "location"
         ? talkLocationHoldMs(kind, stepsRef.current.location?.partial)
-        : TALK_FIELD_HOLD_MS;
+        : key === "restAddress"
+          ? talkRestAddressHoldMs(stepsRef.current.restAddress?.partial)
+          : TALK_FIELD_HOLD_MS;
     fieldHoldTimerRef.current = setTimeout(() => {
       fieldHoldTimerRef.current = null;
       if (!listeningRef.current) return;
@@ -363,7 +367,8 @@ export function IntakeTalkModal({
       }
       if (
         key === "restAddress" &&
-        restAddressStepNeedsHold(held.partial)
+        restAddressStepNeedsHold(held.partial) &&
+        looksLikeTalkRestAddressContinuation(stepLiveRef.current)
       ) {
         scheduleFieldHoldRef.current();
         return;
@@ -404,9 +409,7 @@ export function IntakeTalkModal({
         return;
       }
       if (nextIndex === fromIndex) {
-        if (fromKey !== "location" && fromKey !== "restAddress") {
-          resetStepSpeech();
-        }
+        if (fromKey !== "location" && fromKey !== "restAddress") resetStepSpeech();
         if (talkStepUsesFieldHold(fromKey)) {
           scheduleFieldHoldAdvance();
         }
@@ -616,58 +619,51 @@ export function IntakeTalkModal({
         kind,
         stepPartialsFromRecords(stepsRef.current)
       );
-      const loc = chain.commits.find((row) => row.key === "location");
-      const rest = chain.commits.find((row) => row.key === "restAddress");
-      if (key === "restAddress") {
-        if (!rest && !loc) return;
+      if (key === "location") {
+        const loc = chain.commits.find((row) => row.key === "location");
+        if (!loc) return;
+        const prev = stepsRef.current.location;
+        if (
+          loc.display === prev?.display &&
+          loc.partial.jibun === prev?.partial.jibun &&
+          loc.partial.dong === prev?.partial.dong
+        ) {
+          return;
+        }
         heardCommittedRef.current = true;
         const nextSteps = { ...stepsRef.current };
-        if (loc) {
-          nextSteps.location = {
-            partial: loc.partial,
-            display: loc.display,
-            skipped: false,
-          };
-        }
-        if (rest) {
-          nextSteps.restAddress = {
-            partial: rest.partial,
-            display: rest.display,
-            skipped: false,
-          };
-        }
-        const restReady =
-          rest != null &&
-          restAddressStepReadyToAdvance(trimmed, rest.partial);
+        nextSteps.location = {
+          partial: loc.partial,
+          display: loc.display,
+          skipped: false,
+        };
+        const hasSub = Boolean(loc.partial.jibun?.split("-")[1]?.trim());
         applySteps(
           nextSteps,
-          restReady ? chain.nextIndex : startIndex,
+          hasSub ? chain.nextIndex : startIndex,
           startIndex
         );
         return;
       }
-      if (!loc) return;
-      const prev = stepsRef.current.location;
+      const rest = chain.commits.find((row) => row.key === "restAddress");
+      if (!rest) return;
+      const prev = stepsRef.current.restAddress;
       if (
-        loc.display === prev?.display &&
-        loc.partial.jibun === prev?.partial.jibun &&
-        loc.partial.dong === prev?.partial.dong
+        rest.display === prev?.display &&
+        rest.partial.buildingName === prev?.partial.buildingName &&
+        rest.partial.roomNo === prev?.partial.roomNo
       ) {
         return;
       }
       heardCommittedRef.current = true;
       const nextSteps = { ...stepsRef.current };
-      nextSteps.location = {
-        partial: loc.partial,
-        display: loc.display,
+      nextSteps.restAddress = {
+        partial: rest.partial,
+        display: rest.display,
         skipped: false,
       };
-      const hasSub = Boolean(loc.partial.jibun?.split("-")[1]?.trim());
-      applySteps(
-        nextSteps,
-        hasSub ? chain.nextIndex : startIndex,
-        startIndex
-      );
+      const ready = restAddressStepReadyToAdvance(trimmed, rest.partial);
+      applySteps(nextSteps, ready ? chain.nextIndex : startIndex, startIndex);
     },
     [applySteps, guide, kind]
   );

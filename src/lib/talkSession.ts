@@ -5,12 +5,15 @@ import {
   stripTalkNotesPrefix,
   type IntakeStepKey,
 } from "@/lib/intakeSteps";
+import { restAddressRoomNoHasDongOnly } from "@/lib/propertyRoomNo";
 
 export const TALK_IDLE_MS = 10_000;
 /** 칸에 값이 있고 말이 끊긴 뒤 다음 칸으로 가는 여유 */
 export const TALK_FIELD_HOLD_MS = 2_000;
 /** 매물 주소지: 구·동만 있고 지번이 없을 때. 동 뒤 STT 끊김을 지번으로 받을 여유 */
 export const TALK_LOCATION_DONG_HOLD_MS = 4_000;
+/** 나머지주소: 건물명·동만 있고 호가 없을 때. 호 STT를 기다릴 여유 */
+export const TALK_REST_ADDRESS_HO_HOLD_MS = 4_000;
 /** stop 직후 start가 거절되면 한 번 더 켜기까지 대기 */
 export const TALK_LISTEN_RESTART_MS = 120;
 
@@ -22,6 +25,46 @@ export function talkLocationHoldMs(
     return TALK_LOCATION_DONG_HOLD_MS;
   }
   return TALK_FIELD_HOLD_MS;
+}
+
+export function talkRestAddressHoldMs(
+  partial: { buildingName?: string; roomNo?: string } | undefined
+): number {
+  if (
+    restAddressRoomNoHasDongOnly(partial?.roomNo) ||
+    (partial?.buildingName && !partial?.roomNo)
+  ) {
+    return TALK_REST_ADDRESS_HO_HOLD_MS;
+  }
+  return TALK_FIELD_HOLD_MS;
+}
+
+/** 건물동 뒤 이어서 말하는 호(숫자·한글 수)처럼 보이면 홀드를 미룬다 */
+export function looksLikeTalkHoUtterance(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  const afterDong = t.match(/동\s+(.+)$/);
+  const tail = (afterDong?.[1] ?? t).replace(/\s+/g, "");
+  if (!tail) return false;
+  if (/\d/.test(tail)) return true;
+  return /^(?:[일이삼사오육륙칠팔구공영십백천하나둘셋넷다섯여섯일곱여덟아홉열백])+$/.test(
+    tail
+  );
+}
+
+/** 건물명 뒤 동·호 숫자가 이어지는 중이면 홀드를 미룬다 */
+export function looksLikeTalkRestAddressContinuation(text: string): boolean {
+  if (looksLikeTalkHoUtterance(text)) return true;
+  const t = text.replace(/\s+/g, " ").trim();
+  if (/\d+\s*동/.test(t)) return true;
+  if (/\d+\s*호/.test(t)) return true;
+  const afterName = t.match(/[가-힣A-Za-z]+\s+(.+)$/);
+  const tail = (afterName?.[1] ?? "").replace(/\s+/g, "");
+  if (!tail) return false;
+  if (/\d/.test(tail)) return true;
+  return /^(?:[일이삼사오육륙칠팔구공영십백천하나둘셋넷다섯여섯일곱여덟아홉열])+$/.test(
+    tail
+  );
 }
 
 /** 구·동 뒤 이어서 말하는 지번(숫자·한글 수)처럼 보이면 홀드를 미룬다 */

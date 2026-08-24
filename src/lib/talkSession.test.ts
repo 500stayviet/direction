@@ -7,6 +7,8 @@ import {
   TALK_LOCATION_DONG_HOLD_MS,
   TALK_LISTEN_RESTART_MS,
   talkLocationHoldMs,
+  talkRestAddressHoldMs,
+  TALK_REST_ADDRESS_HO_HOLD_MS,
   TALK_ENDED_TITLE,
   TALK_ENDED_MESSAGE,
   TALK_STOP_HINT,
@@ -19,6 +21,8 @@ import {
   talkPrimaryLabel,
   talkStepUsesFieldHold,
   looksLikeTalkJibunUtterance,
+  looksLikeTalkHoUtterance,
+  looksLikeTalkRestAddressContinuation,
 } from "./talkSession.ts";
 
 describe("talkSession", () => {
@@ -83,9 +87,22 @@ describe("talkSession", () => {
     assert.equal(TALK_IDLE_MS, 10_000);
     assert.equal(TALK_FIELD_HOLD_MS, 2_000);
     assert.equal(TALK_LOCATION_DONG_HOLD_MS, 4_000);
+    assert.equal(TALK_REST_ADDRESS_HO_HOLD_MS, 4_000);
     assert.equal(
       talkLocationHoldMs("property", { dong: "성내동" }),
       TALK_LOCATION_DONG_HOLD_MS
+    );
+    assert.equal(
+      talkRestAddressHoldMs({ buildingName: "힐스테이트" }),
+      TALK_REST_ADDRESS_HO_HOLD_MS
+    );
+    assert.equal(
+      talkRestAddressHoldMs({ buildingName: "힐스테이트", roomNo: "101동" }),
+      TALK_REST_ADDRESS_HO_HOLD_MS
+    );
+    assert.equal(
+      talkRestAddressHoldMs({ buildingName: "힐스테이트", roomNo: "101동 102호" }),
+      TALK_FIELD_HOLD_MS
     );
     assert.equal(
       talkLocationHoldMs("property", { dong: "성내동", jibun: "151" }),
@@ -107,6 +124,14 @@ describe("talkSession", () => {
     assert.equal(looksLikeTalkJibunUtterance("강동구 천호동 151"), true);
     assert.equal(looksLikeTalkJibunUtterance("강동구 천호동"), false);
     assert.equal(looksLikeTalkJibunUtterance("원룸"), false);
+    assert.equal(looksLikeTalkHoUtterance("101동 103"), true);
+    assert.equal(looksLikeTalkHoUtterance("101동 백삼"), true);
+    assert.equal(looksLikeTalkHoUtterance("힐스테이트"), false);
+    assert.equal(looksLikeTalkRestAddressContinuation("힐스테이트 101"), true);
+    assert.equal(
+      looksLikeTalkRestAddressContinuation("힐스테이트 101동 103"),
+      true
+    );
     assert.equal(TALK_ENDED_TITLE, "입력완료!");
     assert.equal(
       TALK_ENDED_MESSAGE,

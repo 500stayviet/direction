@@ -19,6 +19,7 @@ import {
   datesStepNeedsHold,
   locationStepNeedsHold,
   locationStepReadyToAdvance,
+  restAddressStepNeedsHold,
   restAddressStepReadyToAdvance,
   talkNormalizeModeForStep,
   talkGuideSteps,
@@ -1188,51 +1189,6 @@ describe("intakeSteps", () => {
     assert.equal(nameOnly.ok, true);
     assert.equal(nameOnly.partial.buildingName, "힐스테이트");
     assert.equal(nameOnly.partial.roomNo, undefined);
-    assert.equal(
-      restAddressStepReadyToAdvance("힐스테이트", nameOnly.partial),
-      false
-    );
-
-    const spokenFiller = parseIntakeStep(
-      "힐스테이트이러고 105동101호",
-      "restAddress",
-      "property"
-    );
-    assert.equal(spokenFiller.ok, true);
-    assert.equal(spokenFiller.partial.buildingName, "힐스테이트");
-    assert.equal(spokenFiller.partial.roomNo, "105동 101호");
-    assert.equal(
-      restAddressStepReadyToAdvance(
-        "힐스테이트이러고 105동101호",
-        spokenFiller.partial
-      ),
-      true
-    );
-
-    const gluedDongHo = parseIntakeStep(
-      "힐스테이트 105동101호",
-      "restAddress",
-      "property"
-    );
-    assert.equal(gluedDongHo.partial.buildingName, "힐스테이트");
-    assert.equal(gluedDongHo.partial.roomNo, "105동 101호");
-
-    const nameOnlyChain = parseIntakeStepChain(
-      "힐스테이트",
-      restIndex,
-      "property",
-      {
-        location: {
-          gu: "강동구",
-          dong: "성내동",
-          jibun: "111-1",
-          options: [],
-        },
-      }
-    );
-    assert.equal(nameOnlyChain.nextIndex, restIndex);
-    assert.equal(nameOnlyChain.commits[0]?.partial.buildingName, "힐스테이트");
-    assert.equal(nameOnlyChain.commits[0]?.partial.roomNo, undefined);
 
     const twoWord = parseIntakeStep(
       "힐스테이트 리버파크 101동 102호",
@@ -1260,6 +1216,78 @@ describe("intakeSteps", () => {
     assert.equal(afterJibun.commits[0]?.partial.buildingName, "힐스테이트");
     assert.equal(afterJibun.commits[0]?.partial.roomNo, "101동 102호");
 
+    const dongOnlyChain = parseIntakeStepChain(
+      "힐스테이트 101동",
+      restIndex,
+      "property",
+      {
+        location: {
+          gu: "강동구",
+          dong: "성내동",
+          jibun: "111-1",
+          options: [],
+        },
+      }
+    );
+    assert.equal(dongOnlyChain.nextIndex, restIndex);
+    assert.equal(dongOnlyChain.commits[0]?.partial.roomNo, "101동");
+
+    const nameOnlyChain = parseIntakeStepChain(
+      "힐스테이트",
+      restIndex,
+      "property",
+      {
+        location: {
+          gu: "강동구",
+          dong: "성내동",
+          jibun: "111-1",
+          options: [],
+        },
+      }
+    );
+    assert.equal(nameOnlyChain.nextIndex, restIndex);
+    assert.equal(nameOnlyChain.commits[0]?.partial.buildingName, "힐스테이트");
+
+    assert.equal(
+      restAddressStepReadyToAdvance("힐스테이트 101동 103호", {
+        buildingName: "힐스테이트",
+        roomNo: "101동 103호",
+        options: [],
+      }),
+      true
+    );
+    assert.equal(
+      restAddressStepReadyToAdvance("힐스테이트 101동", {
+        buildingName: "힐스테이트",
+        roomNo: "101동",
+        options: [],
+      }),
+      false
+    );
+    assert.equal(
+      restAddressStepReadyToAdvance("힐스테이트", {
+        buildingName: "힐스테이트",
+        options: [],
+      }),
+      false
+    );
+    assert.equal(
+      restAddressStepNeedsHold({
+        buildingName: "힐스테이트",
+        roomNo: "101동",
+        options: [],
+      }),
+      true
+    );
+    assert.equal(
+      restAddressStepNeedsHold({
+        buildingName: "힐스테이트",
+        roomNo: "101동 103호",
+        options: [],
+      }),
+      false
+    );
+
     const hoAfterDong = parseIntakeStepChain(
       "302호",
       restIndex,
@@ -1282,9 +1310,54 @@ describe("intakeSteps", () => {
     const compact = parseIntakeStep("방3개 화1개", "roomBath", "property");
     assert.equal(compact.partial.roomCount, 3);
     assert.equal(compact.partial.bathroomCount, 1);
+    assert.equal(compact.display, "방 3개 · 화장실 1개");
     const toilet = parseIntakeStep("방3 화장실1", "roomBath", "property");
     assert.equal(toilet.partial.roomCount, 3);
     assert.equal(toilet.partial.bathroomCount, 1);
+    assert.equal(toilet.display, "방 3개 · 화장실 1개");
+    const glued = parseIntakeStep("방3개화장실1개", "roomBath", "property");
+    assert.equal(glued.partial.roomCount, 3);
+    assert.equal(glued.partial.bathroomCount, 1);
+    assert.equal(glued.display, "방 3개 · 화장실 1개");
+    const short = parseIntakeStep("방3화1", "roomBath", "property");
+    assert.equal(short.partial.roomCount, 3);
+    assert.equal(short.partial.bathroomCount, 1);
+    assert.equal(short.display, "방 3개 · 화장실 1개");
+    const sttDup = parseIntakeStep("방3개 화3개", "roomBath", "property");
+    assert.equal(sttDup.partial.roomCount, 3);
+    assert.equal(sttDup.partial.bathroomCount, 3);
+    const roomWord = parseIntakeStep("방 두개", "roomBath", "property");
+    assert.equal(roomWord.partial.roomCount, 2);
+    const noGe = parseIntakeStep("방 3 화장실 1", "roomBath", "property");
+    assert.equal(noGe.partial.roomCount, 3);
+    assert.equal(noGe.partial.bathroomCount, 1);
+    const hwaOnly = parseIntakeStep("방 3 화 1", "roomBath", "property");
+    assert.equal(hwaOnly.partial.roomCount, 3);
+    assert.equal(hwaOnly.partial.bathroomCount, 1);
+    const toiletWord = parseIntakeStep("방 3개 화장실 하나", "roomBath", "property");
+    assert.equal(toiletWord.partial.roomCount, 3);
+    assert.equal(toiletWord.partial.bathroomCount, 1);
+    const bareAfterRoom = parseIntakeStep("방 3개 1", "roomBath", "property");
+    assert.equal(bareAfterRoom.partial.roomCount, 3);
+    assert.equal(bareAfterRoom.partial.bathroomCount, 1);
+    const bathOnly = parseIntakeStep("화장실 1", "roomBath", "property", {
+      roomCount: 3,
+      options: [],
+    });
+    assert.equal(bathOnly.partial.roomCount, 3);
+    assert.equal(bathOnly.partial.bathroomCount, 1);
+    const loneNumber = parseIntakeStep("1", "roomBath", "property", {
+      roomCount: 3,
+      options: [],
+    });
+    assert.equal(loneNumber.partial.roomCount, 3);
+    assert.equal(loneNumber.partial.bathroomCount, 1);
+    const loneWord = parseIntakeStep("하나", "roomBath", "property", {
+      roomCount: 2,
+      options: [],
+    });
+    assert.equal(loneWord.partial.roomCount, 2);
+    assert.equal(loneWord.partial.bathroomCount, 1);
     assert.equal(
       talkGuideSteps("property").find((l) => l.key === "roomType")?.example,
       "아파트 · 오피스텔 등"

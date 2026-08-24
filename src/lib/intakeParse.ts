@@ -126,7 +126,12 @@ function parseAdjacentBathroom(
     keep(Number(m[1]), m.index);
   }
 
-  const bathRe = /(?<=^|[\s\d]|룸)화(?:장실)?\s*([1-4])(?!\d)\s*개?/g;
+  const toiletRe = /화장실\s*([1-4])(?!\d)\s*개?/g;
+  while ((m = toiletRe.exec(text))) {
+    keep(Number(m[1]), m.index);
+  }
+
+  const bathRe = /(?<=^|[\s\d개]|룸)화(?!장실)\s*([1-4])(?!\d)\s*개?/g;
   while ((m = bathRe.exec(text))) {
     const span = { start: m.index, end: m.index + m[0].length };
     if (!roomSpans.some((room) => isAdjacentSpans(text, room, span))) continue;
@@ -244,25 +249,140 @@ export function parseTalkRoomTypeField(text: string): {
   return parseRoomSpec(text);
 }
 
-/** 아파트·오피스텔 다음 칸: 방·화만 */
-export function parseTalkRoomBathField(text: string): {
+const TALK_RB_COUNT =
+  "([1-8]|하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉)";
+
+function parseTalkCount1to8(token: string): number | undefined {
+  const t = token.trim();
+  if (/^[1-8]$/.test(t)) return Number(t);
+  const native: Record<string, number> = {
+    하나: 1,
+    한: 1,
+    둘: 2,
+    두: 2,
+    셋: 3,
+    세: 3,
+    넷: 4,
+    네: 4,
+    다섯: 5,
+    여섯: 6,
+    일곱: 7,
+    여덟: 8,
+    아홉: 9,
+  };
+  const n = native[t];
+  return n != null && n >= 1 && n <= 8 ? n : undefined;
+}
+
+function countFromTalkMatch(m: RegExpMatchArray): number | undefined {
+  for (let i = m.length - 1; i >= 1; i -= 1) {
+    const n = parseTalkCount1to8(m[i] ?? "");
+    if (n != null) return n;
+  }
+  return undefined;
+}
+
+/** 아파트·오피스텔 다음 칸: 방·화만. 화장실/화, 개 생략, 한글 수, 분리 발화 지원 */
+export function parseTalkRoomBathField(
+  text: string,
+  prior?: { roomCount?: number; bathroomCount?: number }
+): {
   roomCount?: number;
   bathroomCount?: number;
 } {
-  const roomHit =
-    text.match(/방\s*([1-8])\s*개?/) ??
-    text.match(/([1-8])\s*개?\s*방/) ??
-    text.match(/(?<!\d)([1-8])\s*룸/);
-  const bathHit =
-    text.match(/화장실\s*([1-8])\s*개?/) ??
-    text.match(/화\s*([1-8])\s*개?/) ??
-    text.match(/([1-8])\s*개?\s*화장실/);
-  if (roomHit || bathHit) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) {
     return {
-      roomCount: roomHit ? Number(roomHit[1]) : undefined,
-      bathroomCount: bathHit ? Number(bathHit[1]) : undefined,
+      roomCount: prior?.roomCount,
+      bathroomCount: prior?.bathroomCount,
     };
   }
+
+  const compact = normalized.match(
+    new RegExp(
+      `방\\s*${TALK_RB_COUNT}\\s*(?:개\\s*)?(?:화장실|화)\\s*${TALK_RB_COUNT}\\s*개?`
+    )
+  );
+  if (compact) {
+    return {
+      roomCount: parseTalkCount1to8(compact[1] ?? ""),
+      bathroomCount: parseTalkCount1to8(compact[2] ?? ""),
+    };
+  }
+
+  const roomHit =
+    normalized.match(new RegExp(`방\\s*${TALK_RB_COUNT}\\s*개?`)) ??
+    normalized.match(new RegExp(`${TALK_RB_COUNT}\\s*개?\\s*방`)) ??
+    normalized.match(/(?<!\d)([1-8])\s*룸/);
+  const hasToiletWord = /화장실/.test(normalized);
+  const hasShortHwa = /(?:^|[\s\d개]|방)화(?!장실)/.test(normalized.replace(/\s+/g, ""));
+
+  let bathHit =
+    normalized.match(new RegExp(`화장실\\s*${TALK_RB_COUNT}\\s*개?`)) ??
+    normalized.match(new RegExp(`${TALK_RB_COUNT}\\s*개?\\s*화장실`)) ??
+    normalized.match(
+      new RegExp(
+        `방\\s*${TALK_RB_COUNT}\\s*개?\\s*화(?!장실)\\s*${TALK_RB_COUNT}\\s*개?`
+      )
+    );
+  if (!bathHit && !hasToiletWord) {
+    bathHit =
+      normalized.match(new RegExp(`화(?!장실)\\s*${TALK_RB_COUNT}\\s*개?`)) ??
+      normalized.match(new RegExp(`${TALK_RB_COUNT}\\s*개?\\s*화(?!장실)`));
+  }
+
+  let roomCount = roomHit ? countFromTalkMatch(roomHit) : undefined;
+  let bathroomCount = bathHit ? countFromTalkMatch(bathHit) : undefined;
+
+  if (
+    hasToiletWord &&
+    bathroomCount != null &&
+    roomCount != null &&
+    bathroomCount === roomCount
+  ) {
+    const toilet = normalized.match(
+      new RegExp(`화장실\\s*${TALK_RB_COUNT}\\s*개?`)
+    );
+    if (toilet) bathroomCount = countFromTalkMatch(toilet);
+  }
+
+  if (roomCount && !bathroomCount) {
+    const bareAfterRoom = normalized.match(
+      new RegExp(
+        `방\\s*${TALK_RB_COUNT}\\s*개?\\s+(?!화장실|화)${TALK_RB_COUNT}\\s*개?$`
+      )
+    );
+    if (bareAfterRoom) {
+      bathroomCount = parseTalkCount1to8(bareAfterRoom[2] ?? "");
+    }
+  }
+
+  if (!bathroomCount && (hasToiletWord || hasShortHwa)) {
+    const tail = normalized.match(/(?:화장실|화(?!장실))\s+(?:개\s*)?(.+)$/);
+    const token = tail?.[1]?.trim().split(/\s+/)[0] ?? "";
+    const loose = parseTalkCount1to8(token);
+    if (loose) bathroomCount = loose;
+  }
+
+  if (
+    !bathroomCount &&
+    prior?.roomCount &&
+    !prior?.bathroomCount &&
+    roomCount == null &&
+    !hasToiletWord &&
+    !hasShortHwa
+  ) {
+    const loose = parseTalkCount1to8(normalized);
+    if (loose) bathroomCount = loose;
+  }
+
+  roomCount = roomCount ?? prior?.roomCount;
+  bathroomCount = bathroomCount ?? prior?.bathroomCount;
+
+  if (roomCount || bathroomCount) {
+    return { roomCount, bathroomCount };
+  }
+
   const spec = parseRoomSpec(text);
   const roomFromType =
     spec.roomType === "원룸"
@@ -273,8 +393,8 @@ export function parseTalkRoomBathField(text: string): {
           ? spec.roomCount ?? 3
           : spec.roomCount;
   return {
-    roomCount: roomFromType ?? spec.roomCount,
-    bathroomCount: spec.bathroomCount,
+    roomCount: roomFromType ?? spec.roomCount ?? prior?.roomCount,
+    bathroomCount: spec.bathroomCount ?? prior?.bathroomCount,
   };
 }
 
@@ -1618,10 +1738,6 @@ function parseLocation(
 function parseRoomNo(text: string): string | undefined {
   const dongHo = text.match(/(?<![가-힣])(\d{1,4})\s*동\s*(\d{1,4})\s*호/);
   if (dongHo) return `${dongHo[1]}동 ${dongHo[2]}호`;
-  const dongHoBare = text.match(
-    /(?<![가-힣])(\d{1,4})\s*동\s*(\d{1,4})(?=\s|$)/
-  );
-  if (dongHoBare) return `${dongHoBare[1]}동 ${dongHoBare[2]}호`;
   const floorHo = text.match(/(\d{1,3})\s*층\s*(\d{1,4})\s*호/);
   if (floorHo) return `${floorHo[1]}층 ${floorHo[2]}호`;
   const ho = text.match(/(\d{1,4})\s*호/);

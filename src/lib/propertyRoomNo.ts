@@ -16,6 +16,25 @@ export function splitPropertyRoomNo(roomNo: string): { dong: string; ho: string 
   return { dong: "", ho: text.replace(/\s*호$/, "").trim() };
 }
 
+/** 나머지주소 roomNo에 호(또는 층+호)가 포함됐는지 */
+export function restAddressRoomNoHasHo(roomNo?: string): boolean {
+  const text = (roomNo ?? "").trim();
+  if (!text) return false;
+  const compact = text.replace(/\s+/g, "");
+  if (/\d+호/.test(compact)) return true;
+  if (/\d+\s*층\s*\d+/.test(text)) return true;
+  const { ho } = splitPropertyRoomNo(text);
+  return Boolean(ho);
+}
+
+/** 동만 있고 호는 아직 없는 상태 */
+export function restAddressRoomNoHasDongOnly(roomNo?: string): boolean {
+  const text = (roomNo ?? "").trim();
+  if (!text) return false;
+  if (!/\d+\s*동/.test(text.replace(/\s+/g, ""))) return false;
+  return !restAddressRoomNoHasHo(text);
+}
+
 export function composePropertyRoomNo(dong: string, ho: string): string {
   const d = dong.replace(/\D/g, "");
   const hRaw = ho.trim().replace(/\s*호$/, "");
