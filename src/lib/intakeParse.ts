@@ -3220,7 +3220,9 @@ export function applyIntakeToProperty(
       next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
     }
   }
-  if (parsed.buildingKind) next.buildingKind = parsed.buildingKind as Property["buildingKind"];
+  if (parsed.buildingKind) {
+    next.buildingKind = normalizeBuildingKind(parsed.buildingKind);
+  }
   if (parsed.landCategory) next.landCategory = parsed.landCategory;
   if (parsed.landArea != null && parsed.landArea > 0) next.landArea = parsed.landArea;
   if (parsed.dealType) next.dealType = parsed.dealType;
@@ -3342,7 +3344,9 @@ export function applyIntakeToCustomer(
       next.bathroomCount = parsed.bathroomCount ?? defaults.bathroomCount;
     }
   }
-  if (parsed.buildingKind) next.buildingKind = parsed.buildingKind;
+  if (parsed.buildingKind) {
+    next.buildingKind = normalizeBuildingKind(parsed.buildingKind) ?? "";
+  }
   if (parsed.landCategory) next.landCategory = parsed.landCategory;
   if (parsed.dealType) next = applyCustomerDealType(next, parsed.dealType);
   if (parsed.deposit && parsed.deposit > 0) {
