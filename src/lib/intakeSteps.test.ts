@@ -405,9 +405,7 @@ describe("intakeSteps", () => {
     assert.equal(chain.commits[0]?.key, "flags");
     assert.equal(chain.commits[0]?.partial.loan, "유");
     assert.equal(chain.commits[0]?.partial.insurance, undefined);
-    assert.equal(chain.commits[0]?.partial.parking, "유");
-    assert.equal(chain.commits[0]?.partial.elevator, undefined);
-    assert.doesNotMatch(chain.commits[0]?.display ?? "", /엘베/);
+    assert.equal(chain.commits[0]?.partial.parking, undefined);
     assert.equal(chain.commits[1]?.key, "elevator");
     assert.equal(chain.commits[1]?.partial.elevator, "무");
     assert.match(chain.commits[1]?.display ?? "", /엘베무/);
@@ -463,10 +461,11 @@ describe("intakeSteps", () => {
     );
     assert.equal(flagsGuideCopy("property", "월세").name, "대출 · 주차");
     assert.equal(
-      flagsGuideCopy("property", "매매").example,
-      "대출가능 - 주차불가"
+      flagsGuideCopy("property", "매매", "원룸").example,
+      "대출가능"
     );
-    assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "월세"), true);
+    assert.equal(flagsGuideCopy("property", "매매", "원룸").name, "대출");
+    assert.equal(flagsStepComplete({ loan: "유" }, "매매", "아파트"), true);
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "전세"), false);
     assert.equal(flagsGuideCopy("property", "전세", "상가").name, "주차");
     assert.equal(
@@ -666,7 +665,7 @@ describe("intakeSteps", () => {
     });
     assert.equal(
       talkGuideSteps("property", "원룸", "매매")[idx]?.key,
-      "flags"
+      "elevator"
     );
   });
 
@@ -1326,6 +1325,26 @@ describe("intakeSteps", () => {
     const sttDup = parseIntakeStep("방3개 화3개", "roomBath", "property");
     assert.equal(sttDup.partial.roomCount, 3);
     assert.equal(sttDup.partial.bathroomCount, 3);
+    const toiletGlued = parseIntakeStep(
+      "방3개 화장실한개",
+      "roomBath",
+      "property"
+    );
+    assert.equal(toiletGlued.partial.roomCount, 3);
+    assert.equal(toiletGlued.partial.bathroomCount, 1);
+    const roomBathWord = parseIntakeStep(
+      "방하나 화장실하나",
+      "roomBath",
+      "property"
+    );
+    assert.equal(roomBathWord.partial.roomCount, 1);
+    assert.equal(roomBathWord.partial.bathroomCount, 1);
+    const geOnly = parseIntakeStep("한개", "roomBath", "property", {
+      roomCount: 3,
+      options: [],
+    });
+    assert.equal(geOnly.partial.roomCount, 3);
+    assert.equal(geOnly.partial.bathroomCount, 1);
     const roomWord = parseIntakeStep("방 두개", "roomBath", "property");
     assert.equal(roomWord.partial.roomCount, 2);
     const noGe = parseIntakeStep("방 3 화장실 1", "roomBath", "property");
@@ -1360,7 +1379,17 @@ describe("intakeSteps", () => {
     assert.equal(loneWord.partial.bathroomCount, 1);
     assert.equal(
       talkGuideSteps("property").find((l) => l.key === "roomType")?.example,
-      "아파트 · 오피스텔 등"
+      "아파트 · 오피스텔 · 원룸 · 토지 · 건물 등"
+    );
+    assert.equal(
+      talkGuideSteps("property", "아파트", "매매").some((l) => l.key === "elevator"),
+      false
+    );
+    assert.ok(
+      talkGuideSteps("property", "원룸", "매매").some((l) => l.key === "elevator")
+    );
+    assert.ok(
+      talkGuideSteps("property", "건물", "매매").some((l) => l.key === "elevator")
     );
   });
 

@@ -37,3 +37,33 @@ describe("propertyValidation 건물 종류", () => {
     assert.equal(missing.includes("buildingKind"), false);
   });
 });
+
+describe("propertyValidation 주차·엘베 생략", () => {
+  it("아파트 매매는 주차·엘베 미입력도 통과", () => {
+    const missing = getMissingRequiredFields({
+      ...createEmptyProperty(),
+      roomType: "아파트",
+      roomCount: 3,
+      bathroomCount: 1,
+      dealType: "매매",
+      deposit: 50000,
+      loanAvailable: "유",
+    });
+    assert.ok(!missing.includes("parking"));
+    assert.ok(!missing.includes("elevator"));
+  });
+
+  it("원룸 매매는 주차 생략·엘베는 필수", () => {
+    const missing = getMissingRequiredFields({
+      ...createEmptyProperty(),
+      roomType: "원룸",
+      roomCount: 1,
+      bathroomCount: 1,
+      dealType: "매매",
+      deposit: 10000,
+      loanAvailable: "유",
+    });
+    assert.ok(!missing.includes("parking"));
+    assert.ok(missing.includes("elevator"));
+  });
+});

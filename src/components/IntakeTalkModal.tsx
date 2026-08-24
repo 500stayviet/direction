@@ -403,7 +403,7 @@ export function IntakeTalkModal({
             );
       const flagsDone =
         fromKey === "flags" &&
-        flagsStepComplete(nextSteps.flags?.partial, resolvedDeal, resolvedRoom);
+        flagsStepComplete(nextSteps.flags?.partial, resolvedDeal, resolvedRoom, kind);
       if (fromKey === "flags" && !flagsDone) {
         resetStepSpeech();
         return;
@@ -1226,7 +1226,7 @@ export function IntakeTalkModal({
             : row?.display || "";
           const hasEnteredValue = Boolean(rowDisplay);
           const filled = isFlags
-            ? flagsStepComplete(row?.partial, resolvedDeal, resolvedRoom)
+            ? flagsStepComplete(row?.partial, resolvedDeal, resolvedRoom, kind)
             : line.key === "roomBath"
               ? guideStepComplete("roomBath", row, steps)
               : hasEnteredValue ||

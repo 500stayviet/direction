@@ -28,7 +28,13 @@ import {
   isTalkPhoneComplete,
   needsJeonseInsurance,
 } from "@/lib/format";
-import { skipsResidentialExtras, needsMaintenanceFee } from "@/lib/constants";
+import {
+  PROPERTY_ROOM_TYPE_EXAMPLE,
+  propertySkipsElevatorSelection,
+  propertySkipsParkingSelection,
+  skipsResidentialExtras,
+  needsMaintenanceFee,
+} from "@/lib/constants";
 import {
   customerMemoPlaceholder,
   propertyNotesPlaceholder,
@@ -119,7 +125,7 @@ export type IntakeStepLine = {
   example?: string;
 };
 
-const ROOM_TYPE_EXAMPLE = "아파트 · 오피스텔 등";
+const ROOM_TYPE_EXAMPLE = PROPERTY_ROOM_TYPE_EXAMPLE;
 
 const ROOM_BATH_LINE: IntakeStepLine = {
   key: "roomBath",
@@ -245,6 +251,13 @@ function skipTalkGuideLine(
   if (kind === "customer" && land && key === "dates") return true;
   if ((land || building) && key === "flags") return true;
   if (land && key === "elevator") return true;
+  if (
+    kind === "property" &&
+    propertySkipsElevatorSelection(roomType) &&
+    key === "elevator"
+  ) {
+    return true;
+  }
   if (kind === "property" && key === "tenantPhone" && dealType === "매매") {
     return true;
   }
@@ -469,13 +482,24 @@ const ELEVATOR_FIELD: IntakeYesNoField = "elevator";
 
 function flagFieldsForContext(
   dealType?: IntakeParseResult["dealType"],
-  roomType?: IntakeParseResult["roomType"]
+  roomType?: IntakeParseResult["roomType"],
+  kind: IntakeKind = "property"
 ): IntakeYesNoField[] {
-  if (skipsResidentialExtras(roomType)) return ["parking"];
-  if (dealType && !needsJeonseInsurance(dealType, roomType)) {
-    return ["loan", "parking"];
+  let fields: IntakeYesNoField[];
+  if (skipsResidentialExtras(roomType)) {
+    fields = ["parking"];
+  } else if (dealType && !needsJeonseInsurance(dealType, roomType)) {
+    fields = ["loan", "parking"];
+  } else {
+    fields = FLAG_FIELDS;
   }
-  return FLAG_FIELDS;
+  if (
+    kind === "property" &&
+    propertySkipsParkingSelection(roomType, dealType)
+  ) {
+    fields = fields.filter((field) => field !== "parking");
+  }
+  return fields;
 }
 
 export function flagsGuideCopy(
@@ -500,6 +524,13 @@ export function flagsGuideCopy(
         : "대출가능 - 보증보험가능 - 주차불가",
     };
   }
+  if (propertySkipsParkingSelection(roomType, dealType, kind)) {
+    return {
+      name: "대출",
+      nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+      example: customer ? "대출필요" : "대출가능",
+    };
+  }
   return {
     name: "대출 · 주차",
     nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
@@ -519,12 +550,13 @@ function formatTalkFlagLabel(
 export function flagsStepComplete(
   partial: Partial<IntakeParseResult> | undefined,
   dealType?: IntakeParseResult["dealType"],
-  roomType?: IntakeParseResult["roomType"]
+  roomType?: IntakeParseResult["roomType"],
+  kind: IntakeKind = "property"
 ): boolean {
   if (!partial) return false;
   const deal = dealType ?? partial.dealType;
   const room = roomType ?? partial.roomType;
-  return flagFieldsForContext(deal, room).every((field) => partial[field]);
+  return flagFieldsForContext(deal, room, kind).every((field) => partial[field]);
 }
 
 export function elevatorStepComplete(
@@ -595,7 +627,8 @@ export function dealTypeStepExample(
 export function guideStepComplete(
   key: IntakeStepKey,
   row: IntakeGuideStepRow | undefined,
-  allSteps?: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>
+  allSteps?: Partial<Record<IntakeStepKey, IntakeGuideStepRow>>,
+  kind: IntakeKind = "property"
 ): boolean {
   if (key === "flags") {
     const deal = resolveTalkDealType(
@@ -603,7 +636,7 @@ export function guideStepComplete(
       allSteps?.money?.partial
     );
     const room = allSteps?.roomType?.partial?.roomType;
-    return flagsStepComplete(row?.partial, deal, room);
+    return flagsStepComplete(row?.partial, deal, room, kind);
   }
   if (key === "roomBath") {
     return Boolean(row?.partial?.roomCount && row?.partial?.bathroomCount);
@@ -636,7 +669,7 @@ export function allGuideStepsComplete(
     steps.money?.partial
   );
   return talkGuideSteps(kind, room, deal).every((line) =>
-    guideStepComplete(line.key, steps[line.key], steps)
+    guideStepComplete(line.key, steps[line.key], steps, kind)
   );
 }
 
@@ -651,7 +684,7 @@ export function firstIncompleteGuideIndex(
   );
   const guide = talkGuideSteps(kind, room, deal);
   const idx = guide.findIndex(
-    (line) => !guideStepComplete(line.key, steps[line.key], steps)
+    (line) => !guideStepComplete(line.key, steps[line.key], steps, kind)
   );
   return idx < 0 ? Math.max(0, guide.length - 1) : idx;
 }
@@ -664,7 +697,7 @@ export function formatFlagsValueLine(
 ): string {
   const deal = dealType ?? partial.dealType;
   const room = roomType ?? partial.roomType;
-  const keep = new Set(flagFieldsForContext(deal, room));
+  const keep = new Set(flagFieldsForContext(deal, room, kind));
   const parts: string[] = [];
   if (keep.has("loan") && partial.loan) {
     parts.push(`대출${formatTalkFlagLabel(partial.loan, kind)}`);
@@ -694,10 +727,11 @@ function mergeFlagsFromText(
   existing: Partial<IntakeParseResult>,
   text: string,
   dealType?: IntakeParseResult["dealType"],
-  roomType?: IntakeParseResult["roomType"]
+  roomType?: IntakeParseResult["roomType"],
+  kind: IntakeKind = "property"
 ): Partial<IntakeParseResult> | null {
   const parsed = parseAllYesNoFields(text);
-  const keep = flagFieldsForContext(dealType, roomType);
+  const keep = flagFieldsForContext(dealType, roomType, kind);
   const partial: Partial<IntakeParseResult> = { ...existing, options: [] };
   if (!keep.includes("insurance")) delete partial.insurance;
   if (!keep.includes("loan")) delete partial.loan;
@@ -1354,7 +1388,8 @@ export function parseIntakeStepChain(
       !flagsStepComplete(
         parsed.partial,
         resolveTalkDealType(steps.dealType, steps.money),
-        steps.roomType?.roomType
+        steps.roomType?.roomType,
+        kind
       )
     ) {
       continue;
@@ -1408,10 +1443,10 @@ export function parseIntakeStep(
       parking: prior?.parking,
       options: [],
     };
-    if (flagsStepComplete(existing, deal, room)) {
+    if (flagsStepComplete(existing, deal, room, kind)) {
       return { ok: false, partial: {}, display: "" };
     }
-    const merged = mergeFlagsFromText(existing, text, deal, room);
+    const merged = mergeFlagsFromText(existing, text, deal, room, kind);
     if (!merged) return { ok: false, partial: {}, display: "" };
     return {
       ok: true,

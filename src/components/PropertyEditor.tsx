@@ -17,6 +17,9 @@ import {
   pruneUnitCountsForKind,
   roomTypesForDeal,
   skipsResidentialExtras,
+  propertySkipsParkingSelection,
+  propertySkipsElevatorSelection,
+  applyPropertyListingDefaults,
   needsMaintenanceFee,
   isUnitRoomType,
   listingFieldsForRoomTypeChange,
@@ -272,7 +275,7 @@ export function PropertyEditor({
       next.tenantPhone = "";
       next.landlordPhone = "";
     }
-    onChange(next);
+    onChange(applyPropertyListingDefaults(next));
   };
 
   const updateAgency = (patch: Partial<Property["partnerAgency"]>) =>
@@ -364,7 +367,7 @@ export function PropertyEditor({
     if (roomType === "토지") {
       patch.dealType = "매매";
       patch.roomNo = "";
-      patch.parkingType = "무";
+      patch.parkingType = "유";
       patch.parkingFee = undefined;
       patch.moveInFrom = "";
       patch.moveInTo = "";
@@ -1302,6 +1305,10 @@ export function PropertyEditor({
             </div>
           )}
           <div ref={setFieldRef("parking")}>
+            {!propertySkipsParkingSelection(
+              property.roomType,
+              property.dealType
+            ) ? (
             <OptionToggle
               label="주차"
               required
@@ -1331,8 +1338,13 @@ export function PropertyEditor({
                 });
               }}
             />
+            ) : null}
           </div>
-          {property.parkingType === "유" && (
+          {property.parkingType === "유" &&
+            !propertySkipsParkingSelection(
+              property.roomType,
+              property.dealType
+            ) && (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[13px] font-semibold text-gray-600">
@@ -1385,6 +1397,7 @@ export function PropertyEditor({
               )}
             </div>
           )}
+          {!propertySkipsElevatorSelection(property.roomType) ? (
           <div ref={setFieldRef("elevator")}>
           <OptionToggle
             label="엘리베이터"
@@ -1400,6 +1413,7 @@ export function PropertyEditor({
             }}
           />
           </div>
+          ) : null}
           <div>
             <TextArea
               label="메모"

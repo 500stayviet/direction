@@ -1,6 +1,13 @@
 import { needsJeonseInsurance, onlyDigits } from "@/lib/format";
 import { parseJibunDetail, parseSeoulAddress } from "@/lib/seoulRegions";
-import { isBuildingType, isLandType, needsRoomBathCounts, skipsResidentialExtras } from "@/lib/constants";
+import {
+  isBuildingType,
+  isLandType,
+  needsRoomBathCounts,
+  propertySkipsElevatorSelection,
+  propertySkipsParkingSelection,
+  skipsResidentialExtras,
+} from "@/lib/constants";
 import type { Property } from "@/lib/types";
 
 export type PropertyFieldKey =
@@ -160,14 +167,21 @@ export function getMissingRequiredFields(
         missing.push("insurance");
       }
     }
-    if (property.parkingType !== "유" && property.parkingType !== "무") {
+    if (
+      !propertySkipsParkingSelection(property.roomType, property.dealType) &&
+      property.parkingType !== "유" &&
+      property.parkingType !== "무"
+    ) {
       missing.push("parking");
     }
   }
-  if (!isLand) {
-    if (property.elevator !== true && property.elevator !== false) {
-      missing.push("elevator");
-    }
+  if (
+    !isLand &&
+    !propertySkipsElevatorSelection(property.roomType) &&
+    property.elevator !== true &&
+    property.elevator !== false
+  ) {
+    missing.push("elevator");
   }
 
   return PROPERTY_FIELD_ORDER.filter((key) => missing.includes(key));

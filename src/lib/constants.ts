@@ -258,6 +258,52 @@ export function skipsResidentialExtras(roomType?: string | null): boolean {
   );
 }
 
+/** 매매 시 주차 선택 생략 — 단지·다세대·토지 등 기본 주차 있음 (매물만) */
+export function propertySkipsParkingSelection(
+  roomType?: string | null,
+  dealType?: string | null,
+  kind: "property" | "customer" = "property"
+): boolean {
+  if (kind !== "property" || dealType !== "매매") return false;
+  if (isLandType(roomType)) return true;
+  return (
+    roomType === "아파트" ||
+    roomType === "오피스텔" ||
+    roomType === "원룸" ||
+    roomType === "투룸" ||
+    roomType === "3룸+"
+  );
+}
+
+/** 아파트·오피스텔 — 엘리베이터 선택 생략 (있음으로 간주) */
+export function propertySkipsElevatorSelection(
+  roomType?: string | null
+): boolean {
+  return roomType === "아파트" || roomType === "오피스텔";
+}
+
+export function applyPropertyListingDefaults<
+  T extends {
+    roomType?: string | null;
+    dealType?: string | null;
+    parkingType?: string;
+    elevator?: boolean;
+  },
+>(property: T): T {
+  const next = { ...property };
+  if (propertySkipsParkingSelection(next.roomType, next.dealType)) {
+    next.parkingType = "유";
+  }
+  if (propertySkipsElevatorSelection(next.roomType)) {
+    next.elevator = true;
+  }
+  return next;
+}
+
+/** 마이크·등록 폼 매물유형 예시 */
+export const PROPERTY_ROOM_TYPE_EXAMPLE =
+  "아파트 · 오피스텔 · 원룸 · 토지 · 건물 등";
+
 /** 관리비는 전세·월세 매물만. 매매·토지·건물은 없음 */
 export function needsMaintenanceFee(
   dealType?: string | null,
