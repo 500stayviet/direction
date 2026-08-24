@@ -1194,8 +1194,8 @@ export function IntakeTalkModal({
           <>
             순서대로 대화로 입력 또는 항목을 선택하여 입력하세요.
             <span className="mt-0.5 block text-[12px] font-medium leading-snug text-orange-400">
-              수정 팁: 항목을 선택하면 선택된 항목에 입력된 내용은 삭제되며
-              대화로 다시 입력하시면 됩니다.
+              수정 팁: 항목을 선택하면 입력된 내용은 초기화되어 대화를
+              이어서 입력하시면 됩니다.
             </span>
           </>
         }
