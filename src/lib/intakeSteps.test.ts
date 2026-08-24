@@ -63,6 +63,7 @@ describe("intakeSteps", () => {
     assert.equal(landKeys.includes("restAddress"), false);
     const bldg = talkGuideSteps("property", "건물").map((l) => l.key);
     assert.equal(bldg[1], "buildingKind");
+    assert.equal(bldg.includes("flags"), true);
     assert.equal(bldg.includes("elevator"), true);
     assert.equal(bldg.includes("dates"), false);
     const customerKeys = talkGuideSteps("customer").map((l) => l.key);
@@ -468,6 +469,13 @@ describe("intakeSteps", () => {
       "대출가능"
     );
     assert.equal(flagsGuideCopy("property", "매매", "원룸").name, "대출");
+    assert.equal(flagsGuideCopy("property", "매매", "원룸").valueInline, true);
+    assert.equal(flagsGuideCopy("property", "매매", "건물").name, "대출");
+    assert.equal(flagsGuideCopy("property", "매매", "건물").valueInline, true);
+    assert.equal(flagsStepComplete({ loan: "유" }, "매매", "건물"), true);
+    assert.equal(flagsGuideCopy("property", "전세").valueInline, false);
+    assert.equal(flagsGuideCopy("property", "월세").valueInline, true);
+    assert.equal(flagsGuideCopy("property", "전세", "상가").valueInline, true);
     assert.equal(flagsStepComplete({ loan: "유" }, "매매", "아파트"), true);
     assert.equal(flagsStepComplete({ loan: "유", parking: "무" }, "전세"), false);
     assert.equal(flagsGuideCopy("property", "전세", "상가").name, "주차");
@@ -475,6 +483,7 @@ describe("intakeSteps", () => {
       flagsGuideCopy("property", "전세", "사무실").example,
       "주차가능"
     );
+    assert.equal(flagsGuideCopy("property", "전세", "사무실").valueInline, true);
     assert.equal(
       flagsGuideCopy("customer", "전세").example,
       "대출필요 - 보증보험필요 - 주차필요"

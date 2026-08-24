@@ -22,9 +22,23 @@ describe("propertyValidation 건물 종류", () => {
       buildingKind: "근생건물",
       dealType: "매매",
       deposit: 10000,
+      loanAvailable: "유",
       elevator: true,
     });
     assert.equal(missing.includes("buildingKind"), false);
+    assert.equal(missing.includes("loan"), false);
+  });
+
+  it("건물 매물은 대출 유무가 필수", () => {
+    const missing = getMissingRequiredFields({
+      ...createEmptyProperty(),
+      roomType: "건물",
+      buildingKind: "근생건물",
+      dealType: "매매",
+      deposit: 10000,
+      elevator: true,
+    });
+    assert.ok(missing.includes("loan"));
   });
 
   it("원룸은 건물 종류를 묻지 않는다", () => {

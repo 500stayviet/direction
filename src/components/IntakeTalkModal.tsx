@@ -1321,17 +1321,30 @@ export function IntakeTalkModal({
               valueText = notesPreview;
             } else if (line.key === "roomBath" && roomBathLivePreview) {
               valueText = roomBathLivePreview;
-            } else if (line.key !== "roomBath" && composedLive.trim()) {
+            } else if (isFlags) {
+              if (flagsValues) {
+                valueText = flagsValues;
+              } else if (flagsCopy.valueInline && stepExample) {
+                valueText = `예) ${stepExample}`;
+              } else if (composedLive.trim()) {
+                valueText = composedLive;
+              } else if (stepExample) {
+                valueText = `예) ${stepExample}`;
+              }
+            } else if (composedLive.trim()) {
               valueText = composedLive;
             } else if (stepExample) {
               valueText = `예) ${stepExample}`;
             }
+          } else if (isFlags && hasEnteredValue) {
+            valueText = rowDisplay;
           } else if (stepExample) {
             valueText = `예) ${stepExample}`;
           }
 
           const isNotes = line.key === "notes";
-          const flagsValueBelow = isFlags && Boolean(valueText);
+          const flagsValueBelow =
+            isFlags && Boolean(valueText) && !flagsCopy.valueInline;
           const notesGrowing =
             isNotes && Boolean(valueText) && valueText !== `예) ${stepExample}`;
           const valueBelow = flagsValueBelow || notesGrowing;

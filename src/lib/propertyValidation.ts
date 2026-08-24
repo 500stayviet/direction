@@ -154,11 +154,13 @@ export function getMissingRequiredFields(
       }
     }
   }
-  if (!isLand && !isBuilding) {
-    if (!skipsResidentialExtras(property.roomType)) {
+  if (!isLand) {
+    if (isBuilding || !skipsResidentialExtras(property.roomType)) {
       if (property.loanAvailable !== "유" && property.loanAvailable !== "무") {
         missing.push("loan");
       }
+    }
+    if (!isBuilding && !skipsResidentialExtras(property.roomType)) {
       if (
         needsJeonseInsurance(property.dealType, property.roomType) &&
         property.insuranceType !== "유" &&
@@ -168,6 +170,7 @@ export function getMissingRequiredFields(
       }
     }
     if (
+      !isBuilding &&
       !propertySkipsParkingSelection(property.roomType, property.dealType) &&
       property.parkingType !== "유" &&
       property.parkingType !== "무"

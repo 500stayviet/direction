@@ -251,7 +251,7 @@ function skipTalkGuideLine(
   }
   if (kind === "property" && (land || building) && key === "dates") return true;
   if (kind === "customer" && land && key === "dates") return true;
-  if ((land || building) && key === "flags") return true;
+  if (land && key === "flags") return true;
   if (land && key === "elevator") return true;
   if (
     kind === "property" &&
@@ -487,6 +487,9 @@ function flagFieldsForContext(
   roomType?: IntakeParseResult["roomType"],
   kind: IntakeKind = "property"
 ): IntakeYesNoField[] {
+  if (roomType === "건물") {
+    return ["loan"];
+  }
   let fields: IntakeYesNoField[];
   if (skipsResidentialExtras(roomType)) {
     fields = ["parking"];
@@ -508,35 +511,45 @@ export function flagsGuideCopy(
   kind: IntakeKind,
   dealType?: IntakeParseResult["dealType"],
   roomType?: IntakeParseResult["roomType"]
-): { name: string; nameHint: string; example: string } {
+): { name: string; nameHint: string; example: string; valueInline: boolean } {
   const customer = kind === "customer";
-  if (skipsResidentialExtras(roomType)) {
-    return {
+  let copy: { name: string; nameHint: string; example: string };
+  if (roomType === "건물") {
+    copy = {
+      name: "대출",
+      nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+      example: customer ? "대출필요" : "대출가능",
+    };
+  } else if (skipsResidentialExtras(roomType)) {
+    copy = {
       name: "주차",
       nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
       example: customer ? "주차필요" : "주차가능",
     };
-  }
-  if (needsJeonseInsurance(dealType, roomType) || !dealType) {
-    return {
+  } else if (needsJeonseInsurance(dealType, roomType) || !dealType) {
+    copy = {
       name: "대출 · 보증보험 · 주차",
       nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
       example: customer
         ? "대출필요 - 보증보험필요 - 주차필요"
         : "대출가능 - 보증보험가능 - 주차불가",
     };
-  }
-  if (propertySkipsParkingSelection(roomType, dealType, kind)) {
-    return {
+  } else if (propertySkipsParkingSelection(roomType, dealType, kind)) {
+    copy = {
       name: "대출",
       nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
       example: customer ? "대출필요" : "대출가능",
     };
+  } else {
+    copy = {
+      name: "대출 · 주차",
+      nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
+      example: customer ? "대출필요 - 주차필요" : "대출가능 - 주차불가",
+    };
   }
   return {
-    name: "대출 · 주차",
-    nameHint: customer ? "(필요/불필요)" : "(가능/불가)",
-    example: customer ? "대출필요 - 주차필요" : "대출가능 - 주차불가",
+    ...copy,
+    valueInline: flagFieldsForContext(dealType, roomType, kind).length < 3,
   };
 }
 

@@ -460,10 +460,10 @@ export function availLabel(value: string): string {
   return value;
 }
 
-/** 상가·사무실·토지·건물은 대출 칸을 쓰지 않는다 */
+/** 상가·사무실·토지는 대출 칸을 쓰지 않는다. 건물 매매는 대출 유무가 중요하다 */
 export function needsLoanFlag(roomType?: string | null): boolean {
   if (!roomType) return true;
-  return !skipsResidentialExtras(roomType) && roomType !== "토지" && roomType !== "건물";
+  return !skipsResidentialExtras(roomType) && roomType !== "토지";
 }
 
 /** 전세만, 그리고 상가·사무실이 아닐 때만 전세보증보험 칸을 쓴다 */
