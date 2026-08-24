@@ -26,6 +26,7 @@ import {
   roomBathStepNeedsHold,
   roomBathStepReadyToAdvance,
   looksLikeTalkBathroomContinuation,
+  formatTalkRoomBathLivePreview,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -1096,6 +1097,18 @@ export function IntakeTalkModal({
     (row) => row?.display || row?.complete
   );
   const composedLive = stepLive;
+  const activeGuideKey = guide[activeIndex]?.key;
+  const roomBathListeningComposed =
+    activeGuideKey === "roomBath"
+      ? composeTalkText(stepSpeechRef.current, "", stepLive)
+      : "";
+  const roomBathLivePreview =
+    activeGuideKey === "roomBath"
+      ? formatTalkRoomBathLivePreview(
+          roomBathListeningComposed,
+          steps.roomBath?.partial
+        )
+      : "";
   const notesPreview = composeTalkText(notesDraft, "", composedLive);
   const showJibunListening =
     listening &&
@@ -1291,6 +1304,8 @@ export function IntakeTalkModal({
           } else if (active) {
             if (line.key === "notes" && notesPreview.trim()) {
               valueText = notesPreview;
+            } else if (line.key === "roomBath" && roomBathLivePreview) {
+              valueText = roomBathLivePreview;
             } else if (composedLive.trim()) {
               valueText = composedLive;
             } else if (stepExample) {

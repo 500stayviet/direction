@@ -1060,11 +1060,25 @@ export function locationStepReadyToAdvance(
   return NEXT_AFTER_LOCATION.test(remainder);
 }
 
+/** 마이크 roomBath 칸: STT 중간 문자열 대신 파싱된 방·화 미리보기 */
+export function formatTalkRoomBathLivePreview(
+  text: string,
+  prior?: { roomCount?: number; bathroomCount?: number }
+): string {
+  const bath = parseTalkRoomBathField(text, prior);
+  if (!bath.roomCount) return "";
+  const parts = [`방 ${bath.roomCount}개`];
+  if (bath.bathroomCount) {
+    parts.push(`화장실 ${bath.bathroomCount}개`);
+  }
+  return parts.join(" · ");
+}
+
 /** 방 뒤 화장실·숫자가 이어지는 중이면 홀드를 미룬다 */
 export function looksLikeTalkBathroomContinuation(text: string): boolean {
   const t = text.replace(/\s+/g, " ").trim();
   if (!t) return false;
-  if (/화장실/.test(t)) return true;
+  if (/화장실/.test(t)) return false;
   if (/장실/.test(t)) return true;
   if (/방\s*[1-8]\s*개?\s+화/.test(t)) return true;
   if (/방\s*[1-8]\s*개?\s+(?:[1-8]|하나|한|둘|두|셋|세|넷|네)/.test(t)) {
@@ -1101,6 +1115,24 @@ export function roomBathStepReadyToAdvance(
     )
   ) {
     return false;
+  }
+  const parsed = parseTalkRoomBathField(normalized, {
+    roomCount: partial.roomCount,
+    bathroomCount: partial.bathroomCount,
+  });
+  if (
+    parsed.roomCount === partial.roomCount &&
+    parsed.bathroomCount === partial.bathroomCount &&
+    parsed.bathroomCount != null
+  ) {
+    const remainder = extractTalkStepRemainder(
+      normalized,
+      "roomBath",
+      partial,
+      "property"
+    );
+    if (remainder && NEXT_AFTER_LOCATION.test(remainder)) return true;
+    return true;
   }
   if (looksLikeTalkBathroomContinuation(normalized)) return false;
   const remainder = extractTalkStepRemainder(

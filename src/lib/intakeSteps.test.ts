@@ -23,6 +23,7 @@ import {
   restAddressStepReadyToAdvance,
   roomBathStepNeedsHold,
   roomBathStepReadyToAdvance,
+  formatTalkRoomBathLivePreview,
   talkNormalizeModeForStep,
   talkGuideSteps,
 } from "./intakeSteps.ts";
@@ -1308,6 +1309,21 @@ describe("intakeSteps", () => {
     const chain = parseIntakeStepChain("아파트 방 3 화 2", 0, "property", {});
     assert.equal(chain.commits[0]?.key, "roomType");
     assert.equal(chain.commits[1]?.key, "roomBath");
+    const sinoGlued = parseIntakeStep("방삼화일", "roomBath", "property");
+    assert.equal(sinoGlued.partial.roomCount, 3);
+    assert.equal(sinoGlued.partial.bathroomCount, 1);
+    assert.equal(sinoGlued.display, "방 3개 · 화장실 1개");
+    const gluedFull = parseIntakeStep("방3개화장실1개", "roomBath", "property");
+    assert.equal(gluedFull.partial.roomCount, 3);
+    assert.equal(gluedFull.partial.bathroomCount, 1);
+    assert.equal(
+      formatTalkRoomBathLivePreview("방3개 화3개"),
+      "방 3개"
+    );
+    assert.equal(
+      formatTalkRoomBathLivePreview("방3개 화장실1개"),
+      "방 3개 · 화장실 1개"
+    );
     const compact = parseIntakeStep("방3개 화1개", "roomBath", "property");
     assert.equal(compact.partial.roomCount, 3);
     assert.equal(compact.partial.bathroomCount, 1);

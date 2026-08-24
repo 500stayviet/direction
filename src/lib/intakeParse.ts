@@ -250,9 +250,9 @@ export function parseTalkRoomTypeField(text: string): {
 }
 
 const TALK_RB_COUNT =
-  "([1-8]|하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉)";
+  "([1-8]|하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉|일|이|삼|사|오|육|륙|칠|팔)";
 const TALK_RB_COUNT_CORE =
-  "[1-8]|하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉";
+  "[1-8]|하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉|일|이|삼|사|오|육|륙|칠|팔";
 
 function parseTalkCount1to8(token: string): number | undefined {
   const t = token.trim().replace(/\s+/g, "");
@@ -273,6 +273,15 @@ function parseTalkCount1to8(token: string): number | undefined {
     일곱: 7,
     여덟: 8,
     아홉: 9,
+    일: 1,
+    이: 2,
+    삼: 3,
+    사: 4,
+    오: 5,
+    육: 6,
+    륙: 6,
+    칠: 7,
+    팔: 8,
   };
   const n = native[bare];
   return n != null && n >= 1 && n <= 8 ? n : undefined;
