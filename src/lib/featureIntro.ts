@@ -1,5 +1,7 @@
 /** 앱 기능 소개 모달 — 「다시 보지 않기」는 1주일 숨김. 닫기는 홈을 다시 열면 표시 */
 
+export const FEATURE_INTRO_CLOSED_EVENT = "direction:feature-intro-closed";
+
 const HIDE_UNTIL_PREFIX = "realty_feature_intro_hide_until_";
 /** 예전 영구 숨김 키. 읽으면 무시하고 지운다. */
 const LEGACY_FOREVER_PREFIX = "realty_feature_intro_hide_";

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { InstallAppGuide } from "@/components/InstallAppGuide";
+import { FEATURE_INTRO_CLOSED_EVENT, shouldOpenFeatureIntroOnHome } from "@/lib/featureIntro";
 import {
   getAuthEpoch,
   peekCurrentUser,
@@ -48,9 +49,27 @@ export function PushPermissionPrompt() {
       setOpen(false);
       return;
     }
-    if (!shouldShowWebNotificationPrompt(userId)) return;
-    const t = window.setTimeout(() => setOpen(true), 1200);
-    return () => window.clearTimeout(t);
+
+    const tryOpen = () => {
+      if (!shouldShowWebNotificationPrompt(userId)) {
+        setOpen(false);
+        return;
+      }
+      setOpen(true);
+    };
+
+    if (pathname === "/" && shouldOpenFeatureIntroOnHome(pathname, userId)) {
+      setOpen(false);
+      const onFeatureIntroClosed = () => tryOpen();
+      window.addEventListener(FEATURE_INTRO_CLOSED_EVENT, onFeatureIntroClosed);
+      return () =>
+        window.removeEventListener(
+          FEATURE_INTRO_CLOSED_EVENT,
+          onFeatureIntroClosed
+        );
+    }
+
+    tryOpen();
   }, [pathname, userId]);
 
   if (!userId || pathname.startsWith("/admin")) return null;

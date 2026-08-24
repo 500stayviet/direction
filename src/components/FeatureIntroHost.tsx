@@ -11,6 +11,7 @@ import {
 import {
   shouldOpenFeatureIntroOnHome,
   snoozeFeatureIntro,
+  FEATURE_INTRO_CLOSED_EVENT,
 } from "@/lib/featureIntro";
 
 /** 홈: 기능 안내. 「일주일간 보지 않기」는 1주일 숨김. */
@@ -66,11 +67,13 @@ export function FeatureIntroHost() {
       onClose={() => {
         closedThisVisit.current = true;
         setOpen(false);
+        window.dispatchEvent(new Event(FEATURE_INTRO_CLOSED_EVENT));
       }}
       onSnooze={() => {
         snoozeFeatureIntro(userId);
         closedThisVisit.current = true;
         setOpen(false);
+        window.dispatchEvent(new Event(FEATURE_INTRO_CLOSED_EVENT));
       }}
     />
   );
