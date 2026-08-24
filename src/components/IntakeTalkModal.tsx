@@ -27,6 +27,7 @@ import {
   roomBathStepReadyToAdvance,
   looksLikeTalkBathroomContinuation,
   formatTalkRoomBathLivePreview,
+  talkRoomBathExplicitInput,
   parseIntakeStepChain,
   splitIntakeStepCancel,
   stepPartialsFromRecords,
@@ -1317,6 +1318,15 @@ export function IntakeTalkModal({
               valueText = notesPreview;
             } else if (line.key === "roomBath" && roomBathLivePreview) {
               valueText = roomBathLivePreview;
+            } else if (
+              line.key === "roomBath" &&
+              composedLive.trim() &&
+              !talkRoomBathExplicitInput(
+                composeTalkText(stepSpeechRef.current, "", composedLive)
+              ) &&
+              stepExample
+            ) {
+              valueText = `예) ${stepExample}`;
             } else if (composedLive.trim()) {
               valueText = composedLive;
             } else if (stepExample) {

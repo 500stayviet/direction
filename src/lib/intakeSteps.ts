@@ -10,6 +10,7 @@ import {
   parseTalkBuildingKindField,
   parseTalkRoomBathField,
   talkShortHwaBathEqualsRoom,
+  talkRoomBathExplicitInput,
   parseTalkRoomTypeField,
   lastTalkMobilePhone,
   consumeYesNoField,
@@ -1065,6 +1066,7 @@ export function formatTalkRoomBathLivePreview(
   text: string,
   prior?: { roomCount?: number; bathroomCount?: number }
 ): string {
+  if (!talkRoomBathExplicitInput(text)) return "";
   const bath = parseTalkRoomBathField(text, prior);
   if (!bath.roomCount) return "";
   const parts = [`방 ${bath.roomCount}개`];

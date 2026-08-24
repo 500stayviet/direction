@@ -1306,6 +1306,7 @@ describe("intakeSteps", () => {
     const room = parseIntakeStep("아파트", "roomType", "property");
     assert.equal(room.partial.roomType, "아파트");
     assert.equal(room.partial.roomCount, undefined);
+    assert.equal(formatTalkRoomBathLivePreview("아파트"), "");
     const chain = parseIntakeStepChain("아파트 방 3 화 2", 0, "property", {});
     assert.equal(chain.commits[0]?.key, "roomType");
     assert.equal(chain.commits[1]?.key, "roomBath");

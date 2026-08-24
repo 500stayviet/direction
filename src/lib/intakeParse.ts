@@ -480,19 +480,28 @@ export function parseTalkRoomBathField(
     return { roomCount, bathroomCount };
   }
 
-  const spec = parseRoomSpec(text);
-  const roomFromType =
-    spec.roomType === "원룸"
-      ? 1
-      : spec.roomType === "투룸"
-        ? 2
-        : spec.roomType === "3룸+"
-          ? spec.roomCount ?? 3
-          : spec.roomCount;
   return {
-    roomCount: roomFromType ?? spec.roomCount ?? prior?.roomCount,
-    bathroomCount: spec.bathroomCount ?? prior?.bathroomCount,
+    roomCount: prior?.roomCount,
+    bathroomCount: prior?.bathroomCount,
   };
+}
+
+/** roomBath 칸: 방·화·숫자 말이 들어왔을 때만 (유형명·잡음 제외) */
+export function talkRoomBathExplicitInput(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (/화장실|장실/.test(t)) return true;
+  if (
+    new RegExp(`방\\s*${TALK_RB_COUNT}\\s*개?`).test(t) ||
+    new RegExp(`방\\s*(${TALK_RB_COUNT_CORE})개`).test(t) ||
+    new RegExp(`방(${TALK_RB_COUNT_CORE})`).test(t)
+  ) {
+    return true;
+  }
+  if (/화\s*[1-8일이삼사오육칠팔]|화[1-8]/.test(t)) return true;
+  return new RegExp(`^(?:${TALK_RB_COUNT_CORE})\\s*개?$`).test(
+    t.replace(/\s+/g, "")
+  );
 }
 
 const BUILDING_KIND_ALIASES: { keys: string[]; value: (typeof BUILDING_KINDS)[number] }[] = [
