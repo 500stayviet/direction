@@ -45,6 +45,7 @@ import {
   TALK_IDLE_MS,
   TALK_FIELD_HOLD_MS,
   TALK_LISTEN_RESTART_MS,
+  TALK_ROOM_BATH_HOLD_MS,
   talkLocationHoldMs,
   talkRestAddressHoldMs,
   TALK_ENDED_TITLE,
@@ -331,7 +332,11 @@ export function IntakeTalkModal({
       if (key === "dates" && !datesStepNeedsHold(rec.partial)) return;
       if (key === "location" && !locationStepNeedsHold(rec.partial, kind)) return;
       if (key === "restAddress" && !restAddressStepNeedsHold(rec.partial)) return;
-      if (key === "roomBath" && !roomBathStepNeedsHold(rec.partial, stepLiveRef.current)) {
+      if (
+        key === "roomBath" &&
+        !roomBathStepNeedsHold(rec.partial, stepLiveRef.current) &&
+        !guideStepComplete("roomBath", rec, stepsRef.current)
+      ) {
         return;
       }
     }
@@ -340,6 +345,12 @@ export function IntakeTalkModal({
         ? talkLocationHoldMs(kind, stepsRef.current.location?.partial)
         : key === "restAddress"
           ? talkRestAddressHoldMs(stepsRef.current.restAddress?.partial)
+          : key === "roomBath" &&
+              roomBathStepNeedsHold(
+                stepsRef.current.roomBath?.partial,
+                stepLiveRef.current
+              )
+            ? TALK_ROOM_BATH_HOLD_MS
           : TALK_FIELD_HOLD_MS;
     fieldHoldTimerRef.current = setTimeout(() => {
       fieldHoldTimerRef.current = null;
@@ -364,7 +375,7 @@ export function IntakeTalkModal({
       if (key === "restAddress" && !restAddressStepNeedsHold(held.partial)) return;
       if (
         key === "roomBath" &&
-        !roomBathStepNeedsHold(held.partial, stepLiveRef.current)
+        !guideStepComplete("roomBath", held, stepsRef.current)
       ) {
         return;
       }

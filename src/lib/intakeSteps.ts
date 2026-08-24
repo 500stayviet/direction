@@ -1078,7 +1078,8 @@ export function formatTalkRoomBathLivePreview(
 export function looksLikeTalkBathroomContinuation(text: string): boolean {
   const t = text.replace(/\s+/g, " ").trim();
   if (!t) return false;
-  if (/화장실/.test(t)) return false;
+  if (/화장실\s*$/.test(t)) return true;
+  if (/화장실\s+(?:하|하나|한|일|이|삼|사|[1-8])\s*$/.test(t)) return true;
   if (/장실/.test(t)) return true;
   if (/방\s*[1-8]\s*개?\s+화/.test(t)) return true;
   if (/방\s*[1-8]\s*개?\s+(?:[1-8]|하나|한|둘|두|셋|세|넷|네)/.test(t)) {
@@ -1092,8 +1093,12 @@ export function roomBathStepNeedsHold(
   text?: string
 ): boolean {
   if (!partial?.roomCount) return false;
-  if (!partial.bathroomCount) return true;
   const normalized = text ? normalizeTalkStep(text, "roomBath") : "";
+  if (normalized) {
+    const parsed = parseTalkRoomBathField(normalized, partial);
+    if (parsed.roomCount && !parsed.bathroomCount) return true;
+  }
+  if (!partial.bathroomCount) return true;
   return talkShortHwaBathEqualsRoom(
     normalized,
     partial.roomCount,
@@ -1596,7 +1601,12 @@ export function parseIntakeStep(
       bathroomCount: prior?.bathroomCount,
     });
     const roomCount = bath.roomCount ?? prior?.roomCount;
-    const bathroomCount = bath.bathroomCount ?? prior?.bathroomCount;
+    let bathroomCount = bath.bathroomCount;
+    if (bathroomCount == null && /화장실/.test(text)) {
+      bathroomCount = undefined;
+    } else if (bathroomCount == null) {
+      bathroomCount = prior?.bathroomCount;
+    }
     if (!roomCount) return { ok: false, partial: {}, display: "" };
     const partial: Partial<IntakeParseResult> = {
       roomCount,

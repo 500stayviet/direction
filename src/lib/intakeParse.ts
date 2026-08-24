@@ -318,6 +318,16 @@ export function talkShortHwaBathEqualsRoom(
   );
 }
 
+function isTalkRoomCountBeforeToilet(
+  text: string,
+  toiletMatchIndex: number
+): boolean {
+  const before = text.slice(0, toiletMatchIndex).replace(/\s+/g, " ").trim();
+  if (!before) return false;
+  if (/(?:^| )방\s*$/.test(before)) return true;
+  return new RegExp(`(?:^| )방\\s*${TALK_RB_COUNT}\\s*개?\\s*$`).test(before);
+}
+
 function parseTalkBathroomCount(
   text: string,
   _roomCount?: number
@@ -334,6 +344,13 @@ function parseTalkBathroomCount(
   if (gluedToiletBare) {
     return parseTalkCount1to8(gluedToiletBare[1] ?? "");
   }
+  const gluedToiletCount = text.match(
+    new RegExp(`화장실(${TALK_RB_COUNT_CORE})(?=\\s*개|\\s|$)`)
+  );
+  if (gluedToiletCount) {
+    const n = parseTalkCount1to8(gluedToiletCount[1] ?? "");
+    if (n != null) return n;
+  }
 
   const afterToilet = text.match(
     new RegExp(`화장실\\s*${TALK_RB_COUNT}\\s*개?`)
@@ -345,8 +362,11 @@ function parseTalkBathroomCount(
   const beforeToilet = text.match(
     new RegExp(`${TALK_RB_COUNT}\\s*개?\\s*화장실`)
   );
-  if (beforeToilet) {
-    return countFromTalkMatch(beforeToilet);
+  if (beforeToilet && beforeToilet.index != null) {
+    if (!isTalkRoomCountBeforeToilet(text, beforeToilet.index)) {
+      const n = countFromTalkMatch(beforeToilet);
+      if (n != null) return n;
+    }
   }
 
   const roomHwa = text.match(
@@ -446,7 +466,11 @@ export function parseTalkRoomBathField(
   }
 
   roomCount = roomCount ?? prior?.roomCount;
-  bathroomCount = bathroomCount ?? prior?.bathroomCount;
+  if (bathroomCount == null && /화장실/.test(normalized)) {
+    bathroomCount = undefined;
+  } else if (bathroomCount == null) {
+    bathroomCount = prior?.bathroomCount;
+  }
 
   if (talkShortHwaBathEqualsRoom(normalized, roomCount, bathroomCount)) {
     bathroomCount = undefined;

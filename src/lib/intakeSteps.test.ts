@@ -1376,6 +1376,38 @@ describe("intakeSteps", () => {
     );
     assert.equal(toiletGlued.partial.roomCount, 3);
     assert.equal(toiletGlued.partial.bathroomCount, 1);
+    const toiletGluedBare = parseIntakeStep(
+      "방3화장실하나",
+      "roomBath",
+      "property"
+    );
+    assert.equal(toiletGluedBare.partial.roomCount, 3);
+    assert.equal(toiletGluedBare.partial.bathroomCount, 1);
+    for (const [text, bath] of [
+      ["방3화장실일", 1],
+      ["방3화장실이", 2],
+      ["방3화장실삼", 3],
+      ["방3화장실사", 4],
+      ["방3화장실오", 5],
+    ] as const) {
+      const row = parseIntakeStep(text, "roomBath", "property");
+      assert.equal(row.partial.roomCount, 3, text);
+      assert.equal(row.partial.bathroomCount, bath, text);
+    }
+    const stalePrior = parseIntakeStep("방3화장실", "roomBath", "property", {
+      roomCount: 3,
+      bathroomCount: 3,
+      options: [],
+    });
+    assert.equal(stalePrior.partial.roomCount, 3);
+    assert.equal(stalePrior.partial.bathroomCount, undefined);
+    const toiletMid = parseIntakeStep("방3화장실", "roomBath", "property");
+    assert.equal(toiletMid.partial.roomCount, 3);
+    assert.equal(toiletMid.partial.bathroomCount, undefined);
+    assert.equal(
+      roomBathStepNeedsHold(toiletMid.partial, "방3화장실"),
+      true
+    );
     const roomBathWord = parseIntakeStep(
       "방하나 화장실하나",
       "roomBath",

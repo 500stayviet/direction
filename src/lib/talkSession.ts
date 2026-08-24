@@ -14,6 +14,8 @@ export const TALK_FIELD_HOLD_MS = 2_000;
 export const TALK_LOCATION_DONG_HOLD_MS = 4_000;
 /** 나머지주소: 건물명·동만 있고 호가 없을 때. 호 STT를 기다릴 여유 */
 export const TALK_REST_ADDRESS_HO_HOLD_MS = 4_000;
+/** roomBath: 방만 있고 화장실 개수를 이어 말할 때 */
+export const TALK_ROOM_BATH_HOLD_MS = 4_000;
 /** stop 직후 start가 거절되면 한 번 더 켜기까지 대기 */
 export const TALK_LISTEN_RESTART_MS = 120;
 
