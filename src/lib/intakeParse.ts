@@ -18,6 +18,11 @@ import {
 import { encodePreferredDong } from "@/lib/preferredLocation";
 import { LAND_CATEGORIES } from "@/lib/landCategories";
 import {
+  consumeIntakeAreaPrefix,
+  parseIntakeAreaFromText,
+  stripIntakeAreaPhrases,
+} from "@/lib/landArea";
+import {
   composeSeoulAddress,
   findDongInText,
   findLastGuInText,
@@ -531,19 +536,9 @@ export function parseTalkLandCategoryField(text: string): string | undefined {
   return undefined;
 }
 
-/** 「25평」「25평형」「평형 25」 등 면적(평) 숫자 */
+/** 「25평」「약 25평형」「82㎡」 등 면적 — 항상 평 단위로 반환 */
 export function parseIntakeAreaField(text: string): number | undefined {
-  const direct = text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/);
-  if (direct) {
-    const n = Number(direct[1]);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-  const labeled = text.match(/평(?:형)?\s*(\d+(?:\.\d+)?)/);
-  if (labeled) {
-    const n = Number(labeled[1]);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-  return undefined;
+  return parseIntakeAreaFromText(text);
 }
 
 export function parseTalkLandAreaField(text: string): number | undefined {
@@ -566,27 +561,10 @@ export function stripIntakeAreaFromNotes(
   parsed: Pick<IntakeParseResult, "landArea" | "usableArea">
 ): string {
   if (!notes.trim()) return notes;
+  const area = parsed.usableArea ?? parsed.landArea;
   return notes
     .split(/\n+/)
-    .map((line) => {
-      let next = line;
-      const area = parsed.usableArea ?? parsed.landArea;
-      if (area != null && area > 0) {
-        const num = String(area).replace(".", "\\.");
-        next = next.replace(
-          new RegExp(`${num}(?:\\.\\d+)?\\s*평(?:형)?`, "gi"),
-          " "
-        );
-        next = next.replace(
-          new RegExp(`평(?:형)?\\s*${num}(?:\\.\\d+)?`, "gi"),
-          " "
-        );
-      }
-      next = next.replace(/\d+(?:\.\d+)?\s*평(?:형)?/g, " ");
-      next = next.replace(/평(?:형)?\s*\d+(?:\.\d+)?/g, " ");
-      next = next.replace(/\b평형\b/g, " ");
-      return next.replace(/[^\S\n]+/g, " ").trim();
-    })
+    .map((line) => stripIntakeAreaPhrases(line, area))
     .filter(Boolean)
     .join("\n");
 }

@@ -53,6 +53,7 @@ import {
   findLastGuInText,
   resolveGuFromDong,
 } from "@/lib/seoulRegions";
+import { consumeIntakeAreaPrefix } from "@/lib/landArea";
 
 export type IntakeStepKey = IntakeGuideKey;
 
@@ -1266,20 +1267,10 @@ export function extractTalkStepRemainder(
     return consumeAfterToken(text, partial.landCategory);
   }
   if (step === "landArea" && partial.landArea != null) {
-    const m = text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/);
-    if (m?.index != null) {
-      return text.slice(m.index + m[0].length).replace(/^\s+/, "");
-    }
-    return "";
+    return consumeIntakeAreaPrefix(text);
   }
   if (step === "usableArea" && partial.usableArea != null) {
-    const m =
-      text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/) ??
-      text.match(/평(?:형)?\s*(\d+(?:\.\d+)?)/);
-    if (m?.index != null) {
-      return text.slice(m.index + m[0].length).replace(/^\s+/, "");
-    }
-    return "";
+    return consumeIntakeAreaPrefix(text);
   }
   if (step === "roomBath" && (partial.roomCount || partial.bathroomCount)) {
     const bathHit =

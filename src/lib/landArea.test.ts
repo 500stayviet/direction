@@ -6,7 +6,9 @@ import {
   formatLandAreaLine,
   m2ToPyeong,
   parseAreaInput,
+  parseIntakeAreaFromText,
   pyeongToM2,
+  stripIntakeAreaPhrases,
 } from "./landArea.ts";
 
 describe("토지 면적 평·㎡", () => {
@@ -40,5 +42,25 @@ describe("토지 면적 평·㎡", () => {
     assert.equal(parseAreaInput("45"), 45);
     assert.equal(parseAreaInput("45평"), 45);
     assert.equal(parseAreaInput("45.10 평"), 45.1);
+  });
+
+  it("메시지 intake는 평·㎡·약 표현을 평으로 읽는다", () => {
+    assert.equal(parseIntakeAreaFromText("약25평"), 25);
+    assert.equal(parseIntakeAreaFromText("약 25평형"), 25);
+    assert.equal(parseIntakeAreaFromText("사무실 약 30평 전세"), 30);
+    const fromM2 = parseIntakeAreaFromText("82㎡");
+    assert.ok(fromM2 != null && Math.abs(fromM2 - m2ToPyeong(82)) < 0.001);
+    assert.equal(parseIntakeAreaFromText("약148m2"), m2ToPyeong(148));
+  });
+
+  it("면적 문구는 메모에서 제거한다", () => {
+    assert.equal(
+      stripIntakeAreaPhrases("약 25평 남향", 25),
+      "남향"
+    );
+    assert.equal(
+      stripIntakeAreaPhrases("82㎡ 저층", m2ToPyeong(82)),
+      "저층"
+    );
   });
 });

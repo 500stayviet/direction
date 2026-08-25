@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { applyIntakeToProperty, appendIntakeMemo, intakePreferredLocation, normalizeIntakeInput, parseIntakeText, scrubCorruptIntakeText } from "./intakeParse.ts";
 import { createEmptyProperty } from "./constants.ts";
 import { formatPhoneInput } from "./format.ts";
+import { m2ToPyeong } from "./landArea.ts";
 
 describe("parseIntakeText", () => {
   it("고객 한묶음에서 유형·거래·금액·동·유무를 읽는다", () => {
@@ -1679,5 +1680,22 @@ describe("parseIntakeText", () => {
     const parsed = parseIntakeText("토지 80평 매매 3억", "property");
     assert.equal(parsed.landArea, 80);
     assert.equal(parsed.usableArea, undefined);
+  });
+
+  it("약 25평·약25평형·82㎡ 모두 usableArea로 읽는다", () => {
+    assert.equal(
+      parseIntakeText("사무실 약 25평 전세 5000", "customer").usableArea,
+      25
+    );
+    assert.equal(
+      parseIntakeText("사무실 약25평형 월세 500/50", "customer").usableArea,
+      25
+    );
+    const fromM2 = parseIntakeText("원룸 82㎡ 전세 1억", "property");
+    assert.ok(
+      fromM2.usableArea != null &&
+        Math.abs(fromM2.usableArea - m2ToPyeong(82)) < 0.001
+    );
+    assert.doesNotMatch(fromM2.notes, /82\s*(?:㎡|m2)|25\s*평|평형/);
   });
 });
