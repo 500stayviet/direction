@@ -4,6 +4,7 @@ import { memo } from "react";
 import type { DealType, RoomType } from "@/lib/types";
 import {
   BUILDING_KINDS,
+  isUnitRoomType,
   needsRoomBathCounts,
   normalizeBuildingKind,
   roomTypesForDeal,
@@ -34,6 +35,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { PhoneInput } from "@/components/PhoneInput";
 import { LandCategoryPicker } from "@/components/LandCategoryPicker";
+import { LandAreaDualFields } from "@/components/LandAreaDualFields";
 import { PreferredLocationPicker } from "@/components/PreferredLocationPicker";
 import { requiredStarClass, invalidHintClass, invalidLabelClass, controlStatusClass } from "@/lib/uiInvalid";
 
@@ -119,6 +121,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
     | "monthlyRentTo"
     | "monthlyRentSingle"
     | "landCategory"
+    | "usableArea"
   >;
   effectiveDealType: DealType | "";
   isLandOrBuilding: boolean;
@@ -142,6 +145,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
     monthlyRentTo,
     monthlyRentSingle,
     landCategory,
+    usableArea,
   } = draft;
 
   return (
@@ -208,6 +212,16 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           }}
         />
       </div>
+
+      {isUnitRoomType(roomType) ? (
+        <LandAreaDualFields
+          label="평형"
+          labelNote="(약)"
+          pyeong={usableArea}
+          onChange={(next) => onPatch({ usableArea: next })}
+          pyeongPlaceholder="예) 10"
+        />
+      ) : null}
 
       <div ref={setFieldRef("dealType")}>
         <DealTypeToggle

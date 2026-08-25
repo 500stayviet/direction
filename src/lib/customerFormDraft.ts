@@ -1,5 +1,6 @@
 import {
   defaultRoomBathCounts,
+  isUnitRoomType,
   needsRoomBathCounts,
   normalizeBuildingKind,
   normalizeRoomType,
@@ -46,6 +47,7 @@ export type CustomerFormDraft = {
   elevatorNeeded: YesNoBlank;
   notes: string;
   landCategory: string;
+  usableArea?: number;
   preferredGus: string[];
   preferredDongs: string[];
   workspaceShared: boolean;
@@ -157,6 +159,7 @@ export function createCustomerFormDraft(
     elevatorNeeded: initialYesNo(initial?.elevatorNeeded, Boolean(initial)),
     notes: initial?.notes ?? "",
     landCategory: initial?.landCategory ?? "",
+    usableArea: initial?.usableArea,
     preferredGus: loc.preferredGus,
     preferredDongs: loc.preferredDongs,
     workspaceShared: initial ? initial.workspaceShared === true : false,
@@ -241,6 +244,9 @@ export function applyCustomerRoomType(
   } else {
     nextDraft.roomCount = 0;
     nextDraft.bathroomCount = 0;
+  }
+  if (!isUnitRoomType(next)) {
+    nextDraft.usableArea = undefined;
   }
   return nextDraft;
 }

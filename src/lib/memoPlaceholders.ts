@@ -4,9 +4,9 @@ import type { RoomType } from "@/lib/types";
 export function customerMemoPlaceholder(roomType?: RoomType | string): string {
   switch (roomType) {
     case "상가":
-      return "예) 평형, 희망업종, 권리금 한도, 시설 등";
+      return "예) 희망업종, 권리금 한도, 시설 등";
     case "사무실":
-      return "예) 평형, 희망층, 시설, 희망 주차 대수 등";
+      return "예) 희망층, 시설, 희망 주차 대수 등";
     case "토지":
       return "예) 매수목적, 경작, 현황, 희망조건";
     case "건물":
@@ -17,7 +17,7 @@ export function customerMemoPlaceholder(roomType?: RoomType | string): string {
     case "오피스텔":
     case "아파트":
     default:
-      return "예) 평형, 희망층, 남향, 애완동물 등";
+      return "예) 희망층, 남향, 애완동물 등";
   }
 }
 

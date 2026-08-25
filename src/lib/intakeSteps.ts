@@ -33,6 +33,7 @@ import {
 import {
   PROPERTY_ROOM_TYPE_EXAMPLE,
   PROPERTY_DEAL_TYPE_EXAMPLE,
+  isUnitRoomType,
   propertySkipsElevatorSelection,
   propertySkipsParkingSelection,
   skipsResidentialExtras,
@@ -222,6 +223,12 @@ const LAND_AREA_LINE: IntakeStepLine = {
   example: "100평",
 };
 
+const USABLE_AREA_LINE: IntakeStepLine = {
+  key: "usableArea",
+  name: "평형",
+  example: "25평",
+};
+
 function talkNotesExample(kind: IntakeKind, roomType?: string | null): string {
   const raw =
     kind === "customer"
@@ -296,6 +303,8 @@ export function talkGuideSteps(
       if (roomType === "토지") {
         lines.push(LAND_CATEGORY_LINE);
         if (kind === "property") lines.push(LAND_AREA_LINE);
+      } else if (isUnitRoomType(roomType)) {
+        lines.push(USABLE_AREA_LINE);
       }
     }
   }
@@ -661,6 +670,7 @@ export function guideStepComplete(
   if (key === "buildingKind") return Boolean(row?.display || row?.partial?.buildingKind);
   if (key === "landCategory") return Boolean(row?.display || row?.partial?.landCategory);
   if (key === "landArea") return Boolean(row?.partial?.landArea);
+  if (key === "usableArea") return Boolean(row?.partial?.usableArea);
   if (key === "elevator") return elevatorStepComplete(row?.partial);
   /** 선택 칸: 비어도 다음으로 넘어가지만, 대화 UI 초록은 display가 있을 때만 */
   if (key === "restAddress") return !row || Boolean(row?.display);
@@ -1256,7 +1266,16 @@ export function extractTalkStepRemainder(
     return consumeAfterToken(text, partial.landCategory);
   }
   if (step === "landArea" && partial.landArea != null) {
-    const m = text.match(/(\d+(?:\.\d+)?)\s*평/);
+    const m = text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/);
+    if (m?.index != null) {
+      return text.slice(m.index + m[0].length).replace(/^\s+/, "");
+    }
+    return "";
+  }
+  if (step === "usableArea" && partial.usableArea != null) {
+    const m =
+      text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/) ??
+      text.match(/평(?:형)?\s*(\d+(?:\.\d+)?)/);
     if (m?.index != null) {
       return text.slice(m.index + m[0].length).replace(/^\s+/, "");
     }
@@ -1391,6 +1410,8 @@ export function parseIntakeStepChain(
                   ? { ...prior, ...steps.landCategory }
                 : key === "landArea" && steps.landArea
                   ? { ...prior, ...steps.landArea }
+                : key === "usableArea" && steps.usableArea
+                  ? { ...prior, ...steps.usableArea }
                 : key === "tenantPhone" && steps.tenantPhone
                   ? { ...prior, ...steps.tenantPhone }
                   : key === "landlordPhone" && steps.landlordPhone
@@ -1647,6 +1668,13 @@ export function parseIntakeStep(
     return { ok: true, partial, display: `${landArea}평` };
   }
 
+  if (step === "usableArea") {
+    const usableArea = parseTalkLandAreaField(text);
+    if (usableArea == null) return { ok: false, partial: {}, display: "" };
+    const partial: Partial<IntakeParseResult> = { usableArea, options: [] };
+    return { ok: true, partial, display: `${usableArea}평` };
+  }
+
   if (step === "dealType") {
     const dealType = parseTalkDealTypeField(text);
     if (!dealType) return { ok: false, partial: {}, display: "" };
@@ -1882,6 +1910,7 @@ function mergePartial(
   if (partial.buildingKind) target.buildingKind = partial.buildingKind;
   if (partial.landCategory) target.landCategory = partial.landCategory;
   if (partial.landArea != null) target.landArea = partial.landArea;
+  if (partial.usableArea != null) target.usableArea = partial.usableArea;
   if (partial.deposit) target.deposit = partial.deposit;
   if (partial.depositTo) target.depositTo = partial.depositTo;
   if (partial.monthlyRent) target.monthlyRent = partial.monthlyRent;

@@ -155,6 +155,8 @@ export interface Customer extends SharedMeta {
   /** 고객 애완동물 유무 */
   petAllowed: PetAllowed;
   notes?: string;
+  /** 희망 실사용면적 평 (원룸·상가·사무실 등) */
+  usableArea?: number;
   /** 토지 희망 지목 */
   landCategory?: string;
   /** 선호 구 (서울) */

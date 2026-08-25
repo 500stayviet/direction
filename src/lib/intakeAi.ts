@@ -2,6 +2,7 @@ import {
   appendIntakeMemo,
   normalizeIntakeInput,
   scrubCorruptIntakeText,
+  stripIntakeAreaFromNotes,
   type IntakeKind,
   type IntakeParseResult,
 } from "@/lib/intakeParse";
@@ -64,6 +65,8 @@ const STRUCTURAL_FIELD_RES = [
   /\d{1,5}\s*동\s*\d{1,5}\s*호/g,
   /\d{1,3}\s*층\s*\d{1,5}\s*호/g,
   /\d{2,4}\s*호/g,
+  /\d+(?:\.\d+)?\s*평(?:형)?/g,
+  /평(?:형)?\s*\d+(?:\.\d+)?/g,
   /관(?:리비)?\s*\d+(?:\.\d+)?/g,
   /(?:^|[\s/／])관\s*\d+(?:\s*만(?:원)?)?/g,
   /주(?:차)?\s*\d+\s*대/g,
@@ -184,6 +187,12 @@ export function buildFilledFieldsSummary(
   if (parsed.insurance) out.insurance = parsed.insurance;
   if (parsed.parking) out.parking = parsed.parking;
   if (parsed.elevator) out.elevator = parsed.elevator;
+  if (parsed.usableArea != null && parsed.usableArea > 0) {
+    out.usableArea = parsed.usableArea;
+  }
+  if (parsed.landArea != null && parsed.landArea > 0) {
+    out.landArea = parsed.landArea;
+  }
   if (parsed.moveInFrom) out.moveInFrom = parsed.moveInFrom;
   if (parsed.moveInImmediate) out.moveInImmediate = true;
   return out;
@@ -767,6 +776,7 @@ export function mergeIntakeAi(
     }
   }
   next.notes = scrubCorruptIntakeText(next.notes);
+  next.notes = stripIntakeAreaFromNotes(next.notes, next);
   return next;
 }
 

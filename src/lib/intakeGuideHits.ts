@@ -24,6 +24,7 @@ export type IntakeGuideKey =
   | "buildingKind"
   | "landCategory"
   | "landArea"
+  | "usableArea"
   | "dealType"
   | "location"
   | "restAddress"
@@ -123,6 +124,7 @@ export function intakeGuideHits(
   if (parsed.buildingKind) hits.buildingKind = parsed.buildingKind;
   if (parsed.landCategory) hits.landCategory = parsed.landCategory;
   if (parsed.landArea != null) hits.landArea = `${parsed.landArea}평`;
+  if (parsed.usableArea != null) hits.usableArea = `${parsed.usableArea}평`;
   if (parsed.dealType) hits.dealType = parsed.dealType;
 
   const location = formatLocationGuide(parsed, kind);

@@ -353,6 +353,7 @@ export function CustomerForm({
       carType: undefined,
       petAllowed: "무",
       notes: snap.notes.trim(),
+      usableArea: snap.usableArea,
       landCategory:
         snap.roomType === "토지"
           ? snap.landCategory.trim() || undefined

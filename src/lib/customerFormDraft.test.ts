@@ -227,6 +227,23 @@ describe("customerFormDraft", () => {
     assert.equal(office.insuranceNeeded, "");
   });
 
+  it("메시지 적용은 평형을 usableArea 칸에 넣는다", () => {
+    const parsed = parseIntakeText("사무실 25평형 전세 5000", "customer");
+    const next = applyIntakeToCustomer(createCustomerFormDraft(), parsed);
+    assert.equal(next.roomType, "사무실");
+    assert.equal(next.usableArea, 25);
+    assert.doesNotMatch(next.notes, /25\s*평|평형/);
+  });
+
+  it("유형을 토지로 바꾸면 평형 칸을 비운다", () => {
+    const withArea = {
+      ...applyCustomerRoomType(createCustomerFormDraft(), "사무실"),
+      usableArea: 25,
+    };
+    const land = applyCustomerRoomType(withArea, "토지");
+    assert.equal(land.usableArea, undefined);
+  });
+
   it("전세·월세 매물유형에는 토지·건물이 없다", () => {
     assert.equal(roomTypesForDeal("전세").includes("토지"), false);
     assert.equal(roomTypesForDeal("전세").includes("건물"), false);

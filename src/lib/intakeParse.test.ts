@@ -1658,4 +1658,26 @@ describe("parseIntakeText", () => {
     assert.equal(parsed.parking, "유");
     assert.equal(parsed.loan, "유");
   });
+
+  it("사무실 25평형은 usableArea로 읽고 메모에는 넣지 않는다", () => {
+    const parsed = parseIntakeText("사무실 25평형 전세 5000", "customer");
+    assert.equal(parsed.roomType, "사무실");
+    assert.equal(parsed.usableArea, 25);
+    assert.equal(parsed.landArea, undefined);
+    assert.equal(parsed.deposit, 5000);
+    assert.doesNotMatch(parsed.notes, /25\s*평|평형/);
+  });
+
+  it("원룸 10평은 매물 usableArea로 반영한다", () => {
+    const parsed = parseIntakeText("원룸 10평 월세 500/50", "property");
+    assert.equal(parsed.usableArea, 10);
+    const next = applyIntakeToProperty(createEmptyProperty(), parsed);
+    assert.equal(next.usableArea, 10);
+  });
+
+  it("토지 80평은 landArea로 읽는다", () => {
+    const parsed = parseIntakeText("토지 80평 매매 3억", "property");
+    assert.equal(parsed.landArea, 80);
+    assert.equal(parsed.usableArea, undefined);
+  });
 });

@@ -72,6 +72,8 @@ export type IntakeParseResult = {
   buildingKind?: string;
   landCategory?: string;
   landArea?: number;
+  /** 실사용면적 평 (원룸·상가·사무실 등) */
+  usableArea?: number;
   workspaceShared?: YesNo;
   options: string[];
   notes: string;
@@ -529,11 +531,64 @@ export function parseTalkLandCategoryField(text: string): string | undefined {
   return undefined;
 }
 
+/** 「25평」「25평형」「평형 25」 등 면적(평) 숫자 */
+export function parseIntakeAreaField(text: string): number | undefined {
+  const direct = text.match(/(\d+(?:\.\d+)?)\s*평(?:형)?/);
+  if (direct) {
+    const n = Number(direct[1]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  const labeled = text.match(/평(?:형)?\s*(\d+(?:\.\d+)?)/);
+  if (labeled) {
+    const n = Number(labeled[1]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return undefined;
+}
+
 export function parseTalkLandAreaField(text: string): number | undefined {
-  const m = text.match(/(\d+(?:\.\d+)?)\s*평/);
-  if (!m) return undefined;
-  const n = Number(m[1]);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+  return parseIntakeAreaField(text);
+}
+
+function assignIntakeArea(
+  result: IntakeParseResult,
+  area: number
+): void {
+  if (result.roomType === "토지" || result.roomType === "건물") {
+    result.landArea = area;
+    return;
+  }
+  result.usableArea = area;
+}
+
+export function stripIntakeAreaFromNotes(
+  notes: string,
+  parsed: Pick<IntakeParseResult, "landArea" | "usableArea">
+): string {
+  if (!notes.trim()) return notes;
+  return notes
+    .split(/\n+/)
+    .map((line) => {
+      let next = line;
+      const area = parsed.usableArea ?? parsed.landArea;
+      if (area != null && area > 0) {
+        const num = String(area).replace(".", "\\.");
+        next = next.replace(
+          new RegExp(`${num}(?:\\.\\d+)?\\s*평(?:형)?`, "gi"),
+          " "
+        );
+        next = next.replace(
+          new RegExp(`평(?:형)?\\s*${num}(?:\\.\\d+)?`, "gi"),
+          " "
+        );
+      }
+      next = next.replace(/\d+(?:\.\d+)?\s*평(?:형)?/g, " ");
+      next = next.replace(/평(?:형)?\s*\d+(?:\.\d+)?/g, " ");
+      next = next.replace(/\b평형\b/g, " ");
+      return next.replace(/[^\S\n]+/g, " ").trim();
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 const PET_WORDS =
@@ -3216,6 +3271,9 @@ export function parseIntakeText(
   if (room.roomCount) result.roomCount = room.roomCount;
   if (room.bathroomCount) result.bathroomCount = room.bathroomCount;
 
+  const area = parseIntakeAreaField(fieldText);
+  if (area != null) assignIntakeArea(result, area);
+
   if (firstDeal) result.dealType = firstDeal;
   if (!result.dealType) {
     if (
@@ -3376,6 +3434,7 @@ export function parseIntakeText(
   }
 
   result.notes = scrubCorruptIntakeText(result.notes);
+  result.notes = stripIntakeAreaFromNotes(result.notes, result);
   return result;
 }
 
@@ -3441,6 +3500,9 @@ export function applyIntakeToProperty(
   }
   if (parsed.landCategory) next.landCategory = parsed.landCategory;
   if (parsed.landArea != null && parsed.landArea > 0) next.landArea = parsed.landArea;
+  if (parsed.usableArea != null && parsed.usableArea > 0) {
+    next.usableArea = parsed.usableArea;
+  }
   if (parsed.dealType) next.dealType = parsed.dealType;
   if (parsed.deposit && parsed.deposit > 0) next.deposit = parsed.deposit;
   if (parsed.monthlyRent && parsed.monthlyRent > 0) {
@@ -3564,6 +3626,9 @@ export function applyIntakeToCustomer(
     next.buildingKind = normalizeBuildingKind(parsed.buildingKind) ?? "";
   }
   if (parsed.landCategory) next.landCategory = parsed.landCategory;
+  if (parsed.usableArea != null && parsed.usableArea > 0) {
+    next.usableArea = parsed.usableArea;
+  }
   if (parsed.dealType) next = applyCustomerDealType(next, parsed.dealType);
   if (parsed.deposit && parsed.deposit > 0) {
     next.deposit = parsed.deposit;
