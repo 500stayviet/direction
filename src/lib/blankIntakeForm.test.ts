@@ -28,7 +28,7 @@ describe("blankIntakeForm", () => {
     assert.doesNotMatch(text, /또는 명칭/);
     assert.match(
       text,
-      /고객 전화번호[\s\S]*거래종류 \(예: 매매, 전세, 월세\)\n:\n[\s\S]*매물 유형 \(예: 아파트, 원룸, 투룸, 3룸\+\)\n:\n[\s\S]*방 수[\s\S]*화장실 수[\s\S]*거래가액/
+      /고객 전화번호[\s\S]*거래종류 \(예: 매매, 전세, 월세\)\n:\n[\s\S]*매물 유형 \(예: 아파트, 원룸, 투룸, 3룸\+\)\n:\n[\s\S]*방 수[\s\S]*화장실 수[\s\S]*평형 \(예: 10평\)\n:\n[\s\S]*거래가액/
     );
     assert.doesNotMatch(text, /건물 종류/);
     assert.doesNotMatch(text, /오피스텔|건물, 토지/);
@@ -55,7 +55,7 @@ describe("blankIntakeForm", () => {
     assert.match(text, /^매물등록 양식/);
     assert.match(
       text,
-      /임대인 전화번호[\s\S]*거래종류 \(예: 매매, 전세, 월세\)\n:\n[\s\S]*거래가액 \(예: 보증금 10000 \/ 월세 50, 또는 매매 1억\)\n:\n[\s\S]*매물 유형 \(예: 원룸, 오피스텔\)\n:\n/
+      /임대인 전화번호[\s\S]*거래종류 \(예: 매매, 전세, 월세\)\n:\n[\s\S]*거래가액 \(예: 보증금 10000 \/ 월세 50, 또는 매매 1억\)\n:\n[\s\S]*매물 유형 \(예: 원룸, 오피스텔\)\n:\n[\s\S]*방 수[\s\S]*화장실 수[\s\S]*평형 \(예: 10평\)\n:\n/
     );
     assert.match(text, /매물 유형 \(예: 원룸, 오피스텔\)\n:\n/);
     assert.match(text, /임대희망일 \(예: 8월 21일 ~ 10월 22일\)\n:\n/);
@@ -108,6 +108,9 @@ describe("blankIntakeForm", () => {
 화장실 수 (예: 1개)
 : 1개
 
+평형 (예: 10평)
+: 10평
+
 거래가액 (예: 보증금 1000 / 월세 50, 또는 매매 5억)
 : 보증금 1000 / 월세 50
 
@@ -145,12 +148,14 @@ describe("blankIntakeForm", () => {
     assert.match(pre!, /김철수/);
     assert.match(pre!, /010-9876-5432/);
     assert.match(pre!, /^월세$/m);
+    assert.match(pre!, /10평/);
     assert.match(pre!, /메모:\s*저층/);
 
     const parsed = parseIntakeText(pre!, "customer");
     assert.equal(parsed.name, "김철수");
     assert.equal(parsed.phone, "010-9876-5432");
     assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.usableArea, 10);
     assert.equal(parsed.deposit, 1000);
     assert.equal(parsed.monthlyRent, 50);
     assert.equal(parsed.dealType, "월세");
@@ -533,6 +538,9 @@ describe("property blank form preprocess", () => {
 화장실 수 (예: 1개)
 : 1개
 
+평형 (예: 10평)
+: 10평
+
 거래종류 (예: 매매, 전세, 월세)
 : 월세
 
@@ -583,12 +591,14 @@ describe("property blank form preprocess", () => {
     assert.match(pre!, /임\s*010-3333-4444/);
     assert.match(pre!, /성내동 111-1 힐스테이트 101동 102호/);
     assert.match(pre!, /에어컨 냉장고/);
+    assert.match(pre!, /10평/);
     assert.match(pre!, /메모:\s*남향 저층/);
 
     const parsed = parseIntakeText(pre!, "property");
     assert.equal(parsed.tenantPhone, "010-1111-2222");
     assert.equal(parsed.landlordPhone, "010-3333-4444");
     assert.equal(parsed.roomType, "원룸");
+    assert.equal(parsed.usableArea, 10);
     assert.equal(parsed.dealType, "월세");
     assert.equal(parsed.deposit, 10000);
     assert.equal(parsed.monthlyRent, 50);

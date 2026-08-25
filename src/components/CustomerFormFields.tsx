@@ -219,7 +219,7 @@ export const CustomerFormTypeMoneyFields = memo(function CustomerFormTypeMoneyFi
           labelNote="(약)"
           pyeong={usableArea}
           onChange={(next) => onPatch({ usableArea: next })}
-          pyeongPlaceholder="예) 10"
+          pyeongPlaceholder="예) 10평"
         />
       ) : null}
 

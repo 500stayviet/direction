@@ -889,7 +889,7 @@ export function PropertyEditor({
           labelNote="(약)"
           pyeong={property.usableArea}
           onChange={(usableArea) => update({ usableArea })}
-          pyeongPlaceholder="예) 10"
+          pyeongPlaceholder="예) 10평"
         />
       ) : null}
       </div>

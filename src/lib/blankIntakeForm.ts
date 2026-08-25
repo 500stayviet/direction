@@ -31,6 +31,7 @@ const CUSTOMER_BLANK_LABELS = [
   "매물 유형 (예: 아파트, 원룸, 투룸, 3룸+)",
   "방 수 (예: 2개)",
   "화장실 수 (예: 1개)",
+  "평형 (예: 10평)",
   "거래가액 (예: 보증금 1000 / 월세 50, 또는 매매 5억)",
   "선호지역 (예: 강동구 성내동, 암사동 등)",
   "입주희망일 (예: 3월 1일 ~ 4월 15일)",
@@ -49,6 +50,7 @@ const PROPERTY_BLANK_LABELS = [
   "매물 유형 (예: 원룸, 오피스텔)",
   "방 수 (예: 2개)",
   "화장실 수 (예: 1개)",
+  "평형 (예: 10평)",
   "임대희망일 (예: 8월 21일 ~ 10월 22일)",
   "매물 주소 (예: 강동구 성내동)",
   "지번 (예: 111-1)",
@@ -117,6 +119,7 @@ type BlankFieldKey =
   | "roomType"
   | "roomCount"
   | "bathroomCount"
+  | "usableArea"
   | "dealType"
   | "money"
   | "location"
@@ -139,6 +142,7 @@ function mapBlankLabel(label: string): BlankFieldKey | null {
   if (/^(매물유형|유형)$/.test(key)) return "roomType";
   if (/^(방수|방)$/.test(key)) return "roomCount";
   if (/^(화장실수|화장실|화)$/.test(key)) return "bathroomCount";
+  if (/^평형$/.test(key)) return "usableArea";
   if (/^(거래종류|거래유형|매매전세월세)$/.test(key)) return "dealType";
   if (/^(거래가액|보증금|월세|매매가|금액)$/.test(key)) return "money";
   if (/^(매물주소|선호지역|선호위치|지역)$/.test(key)) return "location";
@@ -227,6 +231,14 @@ function yesNoToken(value: string): string {
   return value.trim();
 }
 
+function blankAreaPhrase(value: string): string {
+  const v = value.trim();
+  if (!v) return "";
+  if (/평|㎡|m2|m²/i.test(v)) return v;
+  if (/^\d+(?:\.\d+)?$/.test(v)) return `${v}평`;
+  return v;
+}
+
 /** 거래종류를 이미 넣었으면 금액 앞의 같은 단어는 가격 라벨로 바꿈 */
 function normalizeBlankMoney(dealType: string | undefined, money: string): string {
   const m = money.trim();
@@ -262,6 +274,9 @@ function rebuildCustomerIntakeMessage(
     parts.push(
       /화장|화/.test(n) ? fields.bathroomCount : `화장실 ${fields.bathroomCount}`
     );
+  }
+  if (fields.usableArea) {
+    parts.push(blankAreaPhrase(fields.usableArea));
   }
   if (fields.money) {
     parts.push(normalizeBlankMoney(fields.dealType, fields.money));
@@ -304,6 +319,9 @@ function rebuildPropertyIntakeMessage(
     parts.push(
       /화장|화/.test(n) ? fields.bathroomCount : `화장실 ${fields.bathroomCount}`
     );
+  }
+  if (fields.usableArea) {
+    parts.push(blankAreaPhrase(fields.usableArea));
   }
   if (fields.money) {
     parts.push(normalizeBlankMoney(fields.dealType, fields.money));
