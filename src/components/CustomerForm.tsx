@@ -194,6 +194,7 @@ export function CustomerForm({
       monthlyRentTo: draft.monthlyRentTo,
       monthlyRentSingle: draft.monthlyRentSingle,
       landCategory: draft.landCategory,
+      usableArea: draft.usableArea,
     }),
     [
       draft.roomType,
@@ -207,6 +208,7 @@ export function CustomerForm({
       draft.monthlyRentTo,
       draft.monthlyRentSingle,
       draft.landCategory,
+      draft.usableArea,
     ]
   );
 
